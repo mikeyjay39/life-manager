@@ -13,12 +13,12 @@ use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
     document_collection::DocumentCollection,
+    document_entity,
     document_handler::{create_document, get_document, upload},
 };
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
-pub mod document_entity;
 pub mod schema;
 
 #[tokio::main]
@@ -56,7 +56,7 @@ async fn handler() -> String {
     let document = Document::new(123, "Test", "This is a test document.");
     document.print_details();
     println!("{}", document.content);
-    String::from(document.content)
+    document.content
 }
 
 pub fn establish_connection() -> PgConnection {

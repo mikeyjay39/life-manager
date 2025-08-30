@@ -18,3 +18,4 @@ pub struct NewDocumentEntity {
     pub content: String,
     pub created_at: Option<NaiveDateTime>,
 }
+
