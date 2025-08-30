@@ -1,22 +1,32 @@
 mod application;
 mod domain;
 mod infrastructure;
+use self::document_entity::DocumentEntity;
 use crate::domain::document::Document;
 use application::application::DocumentRepository;
 use axum::{
     Router,
     routing::{get, post},
 };
+use diesel::prelude::*;
+use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
     document_collection::DocumentCollection,
     document_handler::{create_document, get_document, upload},
 };
+use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
+pub mod document_entity;
+pub mod schema;
 
 #[tokio::main]
 pub async fn start_server() {
+    // Init db
+    let mut conn = establish_connection();
+    create_entity(&mut conn);
+
     // Build our application with a single route
     let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
         document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
@@ -47,4 +57,28 @@ async fn handler() -> String {
     document.print_details();
     println!("{}", document.content);
     String::from(document.content)
+}
+
+pub fn establish_connection() -> PgConnection {
+    dotenv().ok();
+
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    PgConnection::establish(&database_url)
+        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+}
+
+pub fn create_entity(conn: &mut PgConnection) -> DocumentEntity {
+    use crate::schema::document;
+
+    let new_document = document_entity::NewDocumentEntity {
+        title: String::from("Sample Document"),
+        content: String::from("This is a sample document."),
+        created_at: None,
+    };
+
+    diesel::insert_into(document::table)
+        .values(&new_document)
+        .returning(DocumentEntity::as_returning())
+        .get_result::<document_entity::DocumentEntity>(conn)
+        .expect("Error saving new document")
 }
