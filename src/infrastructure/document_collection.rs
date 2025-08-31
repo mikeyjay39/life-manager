@@ -6,18 +6,23 @@ pub struct DocumentCollection {
 }
 
 impl DocumentRepository for DocumentCollection {
-    fn get_document(&self, id: usize) -> Option<&Document> {
+    async fn get_document(&self, id: i32) -> Option<Document> {
         println!("Retrieving document with ID: {}", id);
         println!("Total documents in collection: {}", self.documents.len());
-        self.documents.iter().find(|doc| doc.id == id as u32)
+        match self.documents.iter().find(|doc| doc.id == id) {
+            Some(doc) => Some(doc.clone()),
+            None => None,
+        }
     }
 
-    fn save_document(&mut self, document: Document) -> bool {
-        self.documents.push(document);
+    async fn save_document(&mut self, document: &Document) -> bool {
+        self.documents.push(document.clone());
         true
     }
+}
 
-    fn new() -> Self {
+impl DocumentCollection {
+    pub fn new() -> Self {
         DocumentCollection {
             documents: Vec::new(),
         }
@@ -35,7 +40,7 @@ mod tests {
         let mut collection: DocumentCollection = DocumentCollection::new();
         assert_eq!(collection.documents.len(), 0);
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(doc);
+        collection.save_document(&doc);
         assert_eq!(collection.documents.len(), 1);
     }
 
@@ -43,7 +48,7 @@ mod tests {
     pub fn test_get_document() {
         let mut collection: DocumentCollection = DocumentCollection::new();
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(doc.clone());
+        collection.save_document(&doc);
 
         let retrieved_doc = collection.get_document(1);
         assert!(retrieved_doc.is_some());

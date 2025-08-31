@@ -9,6 +9,8 @@ axum = { version = "0.6", features = ["multipart"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.68"
 diesel = { version = "2.2.0", features = ["postgres", "chrono"] }
+deadpool-diesel = { version = "0.6", features = ["postgres"] }
 dotenvy = "0.15.0"
 chrono = "0.4"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.45", features = ["full"] }
+

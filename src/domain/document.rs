@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
@@ -11,7 +11,7 @@ pub struct Document {
 
 impl Document {
     // Creates a new document
-    pub fn new(id: u32, title: &str, content: &str) -> Self {
+    pub fn new(id: i32, title: &str, content: &str) -> Self {
         Self {
             id,
             title: title.to_string(),

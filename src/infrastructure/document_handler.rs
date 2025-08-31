@@ -1,23 +1,23 @@
-use crate::{application::application::DocumentRepository, domain::document::Document};
+use crate::DocumentRepository;
+use crate::domain::document::Document;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 
 use super::app_state::AppState;
-use super::document_collection::DocumentCollection;
 use super::document_dto::DocumentDto;
 use std::sync::Arc;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDocumentCommand {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub content: String,
 }
 
 pub async fn create_document(
-    State(state): State<Arc<AppState<DocumentCollection>>>,
+    State(state): State<AppState<impl DocumentRepository>>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     println!("Received multipart form data");
@@ -48,7 +48,7 @@ pub async fn create_document(
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
-        repo.save_document(document.clone());
+        repo.save_document(&document);
         (
             StatusCode::CREATED,
             Json(serde_json::json!(DocumentDto::from_document(&document))),
@@ -63,10 +63,9 @@ pub async fn get_document<T: DocumentRepository>(
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let repo = state.document_repository.lock().await;
-    if let Some(document) = repo.get_document(id as usize) {
-        (StatusCode::OK, Json(serde_json::json!(document.clone())))
-    } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
+    match repo.get_document(id as i32).await {
+        Some(document) => (StatusCode::OK, Json(serde_json::json!(document.clone()))),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({}))),
     }
 }
 

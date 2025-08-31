@@ -2,17 +2,19 @@ mod application;
 mod domain;
 mod infrastructure;
 use self::document_entity::DocumentEntity;
-use crate::domain::document::Document;
+use crate::{
+    domain::document::Document, infrastructure::document_orm_collection::DocumentOrmCollection,
+};
 use application::application::DocumentRepository;
 use axum::{
     Router,
     routing::{get, post},
 };
+use deadpool_diesel::Runtime;
 use diesel::prelude::*;
 use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
-    document_collection::DocumentCollection,
     document_entity,
     document_handler::{create_document, get_document, upload},
 };
@@ -26,10 +28,10 @@ pub async fn start_server() {
     // Init db
     let mut conn = establish_connection();
     create_entity(&mut conn);
-
+    let mut pool = create_connection_pool();
     // Build our application with a single route
-    let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
-        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
+    let state: Arc<AppState<DocumentOrmCollection>> = Arc::new(AppState {
+        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
     });
     let app = Router::new()
         .route("/", get(handler))
@@ -68,12 +70,11 @@ pub fn establish_connection() -> PgConnection {
 }
 
 pub fn create_entity(conn: &mut PgConnection) -> DocumentEntity {
-    use crate::schema::document;
+    use crate::schema::documents;
 
     let new_document = document_entity::NewDocumentEntity {
         title: String::from("Sample Document"),
         content: String::from("This is a sample document."),
-        created_at: None,
     };
 
     diesel::insert_into(document::table)
@@ -81,4 +82,14 @@ pub fn create_entity(conn: &mut PgConnection) -> DocumentEntity {
         .returning(DocumentEntity::as_returning())
         .get_result::<document_entity::DocumentEntity>(conn)
         .expect("Error saving new document")
+}
+
+pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let mgr = deadpool_diesel::postgres::Manager::new(database_url, Runtime::Tokio1);
+    deadpool_diesel::postgres::Pool::builder(mgr)
+        .max_size(16)
+        .build()
+        .expect("Failed to create pool.")
 }
