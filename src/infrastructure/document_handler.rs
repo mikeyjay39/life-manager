@@ -47,12 +47,14 @@ pub async fn create_document(
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
-        repo.save_document(&document);
+        repo.save_document(&document).await;
+        println!("Document saved: {:?}", document);
         (
             StatusCode::CREATED,
             Json(serde_json::json!(DocumentDto::from_document(&document))),
         )
     } else {
+        println!("No valid JSON data found in the multipart form");
         (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
     }
 }

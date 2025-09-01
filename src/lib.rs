@@ -10,11 +10,9 @@ use axum::{
     routing::{get, post},
 };
 use deadpool_diesel::Runtime;
-use diesel::prelude::*;
 use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
-    document_entity,
     document_handler::{create_document, get_document, upload},
 };
 use std::env;
@@ -26,7 +24,6 @@ pub mod schema;
 #[tokio::main]
 pub async fn start_server() {
     // Init db
-    let mut conn = establish_connection();
     let pool = create_connection_pool();
     // Build our application with a single route
     let state: AppState<DocumentOrmCollection> = AppState {
@@ -61,14 +58,9 @@ async fn handler() -> String {
     document.content
 }
 
-pub fn establish_connection() -> PgConnection {
-    dotenv().ok();
-
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
-}
-
+/**
+* TODO: Remove this. It is for testing only
+*/
 pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
     let new_document = Document::new(1, "Sample Document", "This is a sample document.");
 
