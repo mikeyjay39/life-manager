@@ -14,3 +14,7 @@ dotenvy = "0.15.0"
 chrono = "0.4"
 tokio = { version = "1.45", features = ["full"] }
 
+[dev-dependencies]
+testcontainers = { version = "0.25.0" }
+testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
+
