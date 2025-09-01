@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 
 use super::app_state::AppState;
 use super::document_dto::DocumentDto;
-use std::sync::Arc;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDocumentCommand {
@@ -58,8 +57,8 @@ pub async fn create_document(
     }
 }
 
-pub async fn get_document<T: DocumentRepository>(
-    State(state): State<Arc<AppState<T>>>,
+pub async fn get_document(
+    State(state): State<AppState<impl DocumentRepository>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let repo = state.document_repository.lock().await;
@@ -73,7 +72,7 @@ pub async fn get_document<T: DocumentRepository>(
 * TODO: Remove this. It is for testing only
 * */
 pub async fn upload(mut multipart: Multipart) {
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
+    while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
 
@@ -83,6 +82,8 @@ pub async fn upload(mut multipart: Multipart) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::infrastructure::document_collection::DocumentCollection;
 
     use super::*;
@@ -101,9 +102,9 @@ mod tests {
             content: String::from("This is a test content."),
         };
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
-        });
+        };
 
         // Serialize the JSON payload
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -153,11 +154,11 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(document.clone());
+        repo.save_document(&document);
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-        });
+        };
 
         // Act
         let response = get_document(State(state), Path(1)).await;
@@ -182,11 +183,11 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(document.clone());
+        repo.save_document(&document);
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-        });
+        };
 
         // Act
         let response = get_document(State(state), Path(2)).await;

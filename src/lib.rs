@@ -28,11 +28,11 @@ pub async fn start_server() {
     // Init db
     let mut conn = establish_connection();
     create_entity(&mut conn);
-    let mut pool = create_connection_pool();
+    let pool = create_connection_pool();
     // Build our application with a single route
-    let state: Arc<AppState<DocumentOrmCollection>> = Arc::new(AppState {
+    let state: AppState<DocumentOrmCollection> = AppState {
         document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
-    });
+    };
     let app = Router::new()
         .route("/", get(handler))
         .route("/foo", get(|| async { "Hello, Foo!" }))
@@ -77,7 +77,7 @@ pub fn create_entity(conn: &mut PgConnection) -> DocumentEntity {
         content: String::from("This is a sample document."),
     };
 
-    diesel::insert_into(document::table)
+    diesel::insert_into(documents::table)
         .values(&new_document)
         .returning(DocumentEntity::as_returning())
         .get_result::<document_entity::DocumentEntity>(conn)

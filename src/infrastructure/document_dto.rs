@@ -5,7 +5,7 @@ use crate::domain::document::Document;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DocumentDto {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
