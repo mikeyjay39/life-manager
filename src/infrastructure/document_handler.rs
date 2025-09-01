@@ -154,7 +154,7 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(&document);
+        repo.save_document(&document).await;
 
         let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
@@ -183,7 +183,7 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(&document);
+        repo.save_document(&document).await;
 
         let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),

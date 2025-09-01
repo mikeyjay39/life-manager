@@ -1,7 +1,6 @@
 mod application;
 mod domain;
 mod infrastructure;
-use self::document_entity::DocumentEntity;
 use crate::{
     domain::document::Document, infrastructure::document_orm_collection::DocumentOrmCollection,
 };
@@ -21,18 +20,19 @@ use infrastructure::{
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 pub mod schema;
 
 #[tokio::main]
 pub async fn start_server() {
     // Init db
     let mut conn = establish_connection();
-    create_entity(&mut conn);
     let pool = create_connection_pool();
     // Build our application with a single route
     let state: AppState<DocumentOrmCollection> = AppState {
         document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
     };
+    create_entity(&state.document_repository).await;
     let app = Router::new()
         .route("/", get(handler))
         .route("/foo", get(|| async { "Hello, Foo!" }))
@@ -69,19 +69,11 @@ pub fn establish_connection() -> PgConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
-pub fn create_entity(conn: &mut PgConnection) -> DocumentEntity {
-    use crate::schema::documents;
+pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
+    let new_document = Document::new(1, "Sample Document", "This is a sample document.");
 
-    let new_document = document_entity::NewDocumentEntity {
-        title: String::from("Sample Document"),
-        content: String::from("This is a sample document."),
-    };
-
-    diesel::insert_into(documents::table)
-        .values(&new_document)
-        .returning(DocumentEntity::as_returning())
-        .get_result::<document_entity::DocumentEntity>(conn)
-        .expect("Error saving new document")
+    let mut repo = repo.lock().await;
+    repo.save_document(&new_document).await
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
