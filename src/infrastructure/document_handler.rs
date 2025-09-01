@@ -1,23 +1,22 @@
-use crate::{application::application::DocumentRepository, domain::document::Document};
+use crate::DocumentRepository;
+use crate::domain::document::Document;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 
 use super::app_state::AppState;
-use super::document_collection::DocumentCollection;
 use super::document_dto::DocumentDto;
-use std::sync::Arc;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDocumentCommand {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub content: String,
 }
 
 pub async fn create_document(
-    State(state): State<Arc<AppState<DocumentCollection>>>,
+    State(state): State<AppState<impl DocumentRepository>>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     println!("Received multipart form data");
@@ -48,25 +47,26 @@ pub async fn create_document(
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
-        repo.save_document(document.clone());
+        repo.save_document(&document).await;
+        println!("Document saved: {:?}", document);
         (
             StatusCode::CREATED,
             Json(serde_json::json!(DocumentDto::from_document(&document))),
         )
     } else {
+        println!("No valid JSON data found in the multipart form");
         (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
     }
 }
 
-pub async fn get_document<T: DocumentRepository>(
-    State(state): State<Arc<AppState<T>>>,
+pub async fn get_document(
+    State(state): State<AppState<impl DocumentRepository>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     let repo = state.document_repository.lock().await;
-    if let Some(document) = repo.get_document(id as usize) {
-        (StatusCode::OK, Json(serde_json::json!(document.clone())))
-    } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
+    match repo.get_document(id as i32).await {
+        Some(document) => (StatusCode::OK, Json(serde_json::json!(document.clone()))),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({}))),
     }
 }
 
@@ -74,7 +74,7 @@ pub async fn get_document<T: DocumentRepository>(
 * TODO: Remove this. It is for testing only
 * */
 pub async fn upload(mut multipart: Multipart) {
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
+    while let Some(field) = multipart.next_field().await.unwrap() {
         let name = field.name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
 
@@ -84,6 +84,8 @@ pub async fn upload(mut multipart: Multipart) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::infrastructure::document_collection::DocumentCollection;
 
     use super::*;
@@ -102,9 +104,9 @@ mod tests {
             content: String::from("This is a test content."),
         };
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
-        });
+        };
 
         // Serialize the JSON payload
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -154,11 +156,11 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(document.clone());
+        repo.save_document(&document).await;
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-        });
+        };
 
         // Act
         let response = get_document(State(state), Path(1)).await;
@@ -183,11 +185,11 @@ mod tests {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
         let mut repo = DocumentCollection::new();
-        repo.save_document(document.clone());
+        repo.save_document(&document).await;
 
-        let state: Arc<AppState<DocumentCollection>> = Arc::new(AppState {
+        let state: AppState<DocumentCollection> = AppState {
             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-        });
+        };
 
         // Act
         let response = get_document(State(state), Path(2)).await;

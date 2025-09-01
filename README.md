@@ -10,6 +10,26 @@ cargo run
 
 ```bash
 curl --location 'http://127.0.0.1:3000/documents/1'
+curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"id\": 99, \"title\":\"MYTEST\",\"content\":\"this is an example\"}" -F "file=@README.md" localhost:3000/documents
+```
+
+
+## Installation
+
+### Diesel
+
+See this tutorial: https://diesel.rs/guides/getting-started
+
+Install the Diesel command-line interface for PostgreSQL:
+
+```bash
+cargo install diesel_cli --no-default-features --features postgres
+```
+
+Run migrations:
+
+```bash
+diesel migration run
 ```
 
 ## Planned Features
