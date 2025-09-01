@@ -13,6 +13,7 @@ deadpool-diesel = { version = "0.6", features = ["postgres"] }
 dotenvy = "0.15.0"
 chrono = "0.4"
 tokio = { version = "1.45", features = ["full"] }
+diesel_migrations = "2"
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }
