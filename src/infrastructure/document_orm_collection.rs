@@ -4,8 +4,9 @@ use crate::{
     domain::document::Document,
     infrastructure::document_entity::{self, DocumentEntity},
 };
+use deadpool_diesel::InteractError;
 use deadpool_diesel::postgres::Pool;
-use diesel::{ExpressionMethods, SelectableHelper};
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
@@ -26,7 +27,7 @@ impl DocumentRepository for DocumentOrmCollection {
             .get()
             .await
             .expect("Failed to get DB connection from pool");
-        let result = conn
+        let result: Result<Result<DocumentEntity, diesel::result::Error>, InteractError> = conn
             .interact(move |conn| {
                 documents::table
                     .filter(documents::id.eq(id))
@@ -36,8 +37,10 @@ impl DocumentRepository for DocumentOrmCollection {
             .await;
 
         return match result {
-            Ok(Some(entity)) => Some(Document::new(entity.id, entity.title, entity.content)),
-            Ok(None) => None,
+            Ok(r) => match r {
+                Ok(entity) => Some(Document::new(entity.id, &entity.title, &entity.content)),
+                Err(_) => None,
+            },
             Err(e) => {
                 eprintln!("Error retrieving document: {}", e);
                 None
@@ -52,8 +55,8 @@ impl DocumentRepository for DocumentOrmCollection {
             .await
             .expect("Failed to get DB connection from pool");
         let new_document = document_entity::NewDocumentEntity {
-            title: &document.title,
-            content: &document.content,
+            title: document.title.clone(),
+            content: document.content.clone(),
         };
 
         let result = conn
@@ -72,9 +75,5 @@ impl DocumentRepository for DocumentOrmCollection {
                 false
             }
         };
-    }
-
-    fn new(&mut pool: Pool) -> Self {
-        DocumentOrmCollection { pool }
     }
 }
