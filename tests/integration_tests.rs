@@ -8,7 +8,7 @@ use diesel::{PgConnection, RunQueryDsl};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use testcontainers::{ImageExt, core::ContainerPort, runners::AsyncRunner};
 use testcontainers_modules::postgres::Postgres;
-use tokio::task::{self, spawn};
+use tokio::task::spawn;
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -19,7 +19,6 @@ async fn test_server_starts() {
         family_manager::start_server();
     });
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    assert!(true);
     // Shut down the server
     server.abort();
 }
@@ -28,7 +27,8 @@ async fn run_migrations(pool: &Pool) -> bool {
     // Get a database connection from the pool
     let conn = pool.get().await.expect("Failed to get DB connection");
     // Run pending migrations on the connection
-    conn.interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
+    let _ = conn
+        .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await
         .expect("Failed to run migrations");
     true
@@ -36,7 +36,7 @@ async fn run_migrations(pool: &Pool) -> bool {
 
 #[tokio::test]
 async fn test_db_connection() {
-    let (_container, pool, conn) = init_tests().await;
+    let (_container, _pool, conn) = init_tests().await;
 
     // Run a simple query to verify the connection
     conn.interact(|conn| {
@@ -50,7 +50,7 @@ async fn test_db_connection() {
 
 #[tokio::test]
 async fn get_document() {
-    let (_container, pool, conn) = init_tests().await;
+    let (_container, pool, _conn) = init_tests().await;
     // Launch backend server in a separate task
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
@@ -63,7 +63,7 @@ async fn get_document() {
     // Seed 1 document into the database
 
     // Make REST API call to create a document
-    let new_doc = serde_json::json!({
+    let _new_doc = serde_json::json!({
         "title": "Test Document",
         "content": "This is a test document."
     });
@@ -90,6 +90,10 @@ async fn get_document() {
     // .expect("Failed to interact with DB");
 }
 
+/**
+* Initialize test environment: start Postgres container, run migrations, return connection pool and a connection
+* TODO: Change this to a struct that implements Drop to clean up the container after tests
+*/
 async fn init_tests() -> (
     Result<
         testcontainers::ContainerAsync<testcontainers_modules::postgres::Postgres>,
@@ -106,12 +110,14 @@ async fn init_tests() -> (
         .start()
         .await;
     let host_port = 5432;
-    let _url = &format!("postgres://postgres:postgres@localhost:{host_port}/mydb",);
+    let _url = &format!("postgres://postgres:password@127.0.0.1:{host_port}/mydb",);
+    println!("Database URL: {}", _url);
 
     // Use Diesel to connect to Postgres
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     let pool = family_manager::create_connection_pool();
     let conn = pool.get().await.expect("Failed to get DB connection");
     run_migrations(&pool).await;
 
-    return (container, pool, conn);
+    (container, pool, conn)
 }
