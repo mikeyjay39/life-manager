@@ -1,6 +1,6 @@
 mod application;
 mod domain;
-mod infrastructure;
+pub mod infrastructure;
 use crate::{
     domain::document::Document, infrastructure::document_orm_collection::DocumentOrmCollection,
 };
