@@ -36,7 +36,7 @@ impl DocumentRepository for DocumentOrmCollection {
             })
             .await;
 
-        return match result {
+        match result {
             Ok(r) => match r {
                 Ok(entity) => Some(Document::new(entity.id, &entity.title, &entity.content)),
                 Err(_) => None,
@@ -45,7 +45,7 @@ impl DocumentRepository for DocumentOrmCollection {
                 eprintln!("Error retrieving document: {}", e);
                 None
             }
-        };
+        }
     }
 
     async fn save_document(&mut self, document: &Document) -> bool {
@@ -68,12 +68,12 @@ impl DocumentRepository for DocumentOrmCollection {
             })
             .await;
 
-        return match result {
+        match result {
             Ok(_) => true,
             Err(e) => {
                 eprintln!("Error saving document: {}", e);
                 false
             }
-        };
+        }
     }
 }

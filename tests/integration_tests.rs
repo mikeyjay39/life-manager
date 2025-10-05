@@ -1,12 +1,19 @@
 mod common;
 
 use common::setup::init_tests;
+use deadpool_diesel::InteractError;
 use std::net::TcpListener;
 
-use diesel::RunQueryDsl;
+use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use tokio::task::spawn;
 
-use family_manager::infrastructure::document_handler::CreateDocumentCommand;
+use family_manager::{
+    infrastructure::{
+        document_dto::DocumentDto, document_entity::DocumentEntity,
+        document_handler::CreateDocumentCommand,
+    },
+    schema::documents::{self, table},
+};
 
 #[tokio::test]
 async fn test_server_starts() {
@@ -54,24 +61,10 @@ async fn get_document() {
     let url = format!("http://{}/foo", addr);
     let res = reqwest::Client::new()
         .get(url)
-        // .post(url)
-        // .json(&new_doc)
         .send()
         .await
         .expect("Failed to send request");
     assert!(res.status().is_success());
-    // let created_doc: serde_json::Value = res.json().await.expect("Failed to parse response");
-    // assert_eq!(created_doc["title"], "Test Document");
-    // assert_eq!(created_doc["content"], "This is a test document.");
-
-    // conn.interact(|conn| {
-    //     let count: i64 = diesel::sql_query("SELECT COUNT(*) FROM documents")
-    //         .get_result(conn)
-    //         .expect("Failed to count documents");
-    //     assert_eq!(count, 1);
-    // })
-    // .await
-    // .expect("Failed to interact with DB");
 }
 
 #[tokio::test]
@@ -88,8 +81,8 @@ async fn create_document() {
 
     // Seed 1 document into the database
     let payload = CreateDocumentCommand {
-        id: 1,
-        title: String::from("Test Document"),
+        id: 11,
+        title: String::from("Integration Test Document"),
         content: String::from("This is a test content."),
     };
     // Make REST API call to create a document
@@ -108,9 +101,9 @@ async fn create_document() {
         json_string
     );
 
-    let url = format!("http://{}/documents", addr);
+    let url = format!("http://{}/documents", &addr);
     let res = reqwest::Client::new()
-        .post(url)
+        .post(&url)
         .body(multipart_body)
         .header("Content-Type", "multipart/form-data; boundary=boundary")
         .send()
@@ -118,4 +111,17 @@ async fn create_document() {
         .expect("Failed to send request");
     println!("Response: {:?}", res);
     assert!(res.status().is_success());
+
+    // Verify the document was created in the database
+
+    let get_response = reqwest::Client::new()
+        .get(format!("http://{}/documents/{}", &addr, 2))
+        .send()
+        .await
+        .expect("Failed to send request");
+    println!("Get Response: {:?}", get_response);
+    assert!(get_response.status().is_success());
+    let document: DocumentDto = get_response.json().await.unwrap();
+    assert_eq!(document.title, payload.title);
+    assert_eq!(document.content, payload.content);
 }
