@@ -1,19 +1,10 @@
 mod common;
 
 use common::setup::init_tests;
-use deadpool_diesel::InteractError;
-use std::net::TcpListener;
-
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use tokio::task::spawn;
-
-use family_manager::{
-    infrastructure::{
-        document_dto::DocumentDto, document_entity::DocumentEntity,
-        document_handler::CreateDocumentCommand,
-    },
-    schema::documents::{self, table},
+use family_manager::infrastructure::{
+    document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
+use tokio::task::spawn;
 
 #[tokio::test]
 async fn test_server_starts() {
@@ -26,62 +17,12 @@ async fn test_server_starts() {
 }
 
 #[tokio::test]
-async fn test_db_connection() {
-    let (_container, _pool, conn) = init_tests().await;
-
-    // Run a simple query to verify the connection
-    conn.interact(|conn| {
-        diesel::sql_query("SELECT 1 from documents")
-            .execute(conn)
-            .expect("Failed to execute query")
-    })
-    .await
-    .expect("Failed to interact with DB");
-}
-
-#[tokio::test]
-async fn get_document() {
-    let (_container, pool, _conn) = init_tests().await;
-    // Launch backend server in a separate task
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    let app = family_manager::build_app(pool).await;
-    let server = axum::Server::from_tcp(listener)
-        .unwrap()
-        .serve(app.into_make_service());
-    spawn(server);
-
-    // Seed 1 document into the database
-
-    // Make REST API call to create a document
-    let _new_doc = serde_json::json!({
-        "title": "Test Document",
-        "content": "This is a test document."
-    });
-    let url = format!("http://{}/foo", addr);
-    let res = reqwest::Client::new()
-        .get(url)
-        .send()
-        .await
-        .expect("Failed to send request");
-    assert!(res.status().is_success());
-}
-
-#[tokio::test]
-async fn create_document() {
-    let (_container, pool, _conn) = init_tests().await;
-    // Launch backend server in a separate task
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    let app = family_manager::build_app(pool).await;
-    let server = axum::Server::from_tcp(listener)
-        .unwrap()
-        .serve(app.into_make_service());
-    spawn(server);
+async fn create_and_get_document() {
+    let (_container, addr) = init_tests().await;
 
     // Seed 1 document into the database
     let payload = CreateDocumentCommand {
-        id: 11,
+        id: 2,
         title: String::from("Integration Test Document"),
         content: String::from("This is a test content."),
     };
@@ -115,7 +56,7 @@ async fn create_document() {
     // Verify the document was created in the database
 
     let get_response = reqwest::Client::new()
-        .get(format!("http://{}/documents/{}", &addr, 2))
+        .get(format!("http://{}/documents/{}", &addr, &payload.id))
         .send()
         .await
         .expect("Failed to send request");
