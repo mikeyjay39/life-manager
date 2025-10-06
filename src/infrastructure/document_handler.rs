@@ -20,9 +20,9 @@ pub async fn create_document(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     println!("Received multipart form data");
-    // TODO: Continue looking into how to add a multipart file upload here with json payload
     let mut json_data: Option<CreateDocumentCommand> = None;
 
+    // TODO: Persist the file data if present
     while let Some(field) = multipart.next_field().await.unwrap() {
         match field.name() {
             Some("json") => {
