@@ -9,24 +9,46 @@ use tokio::spawn;
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
+pub struct IntegrationTestContainer {
+    pub postgres: testcontainers::ContainerAsync<testcontainers_modules::postgres::Postgres>,
+}
+impl IntegrationTestContainer {
+    pub async fn new() -> Self {
+        IntegrationTestContainer {
+            postgres: Postgres::default()
+                .with_user("postgres")
+                .with_password("password")
+                .with_db_name("mydb")
+                .with_mapped_port(5432, ContainerPort::Tcp(5432))
+                .start()
+                .await
+                .expect("Failed to start Postgres container"),
+        }
+    }
+    pub async fn get_connection_url(&self) -> String {
+        let port = self
+            .postgres
+            .get_host_port_ipv4(5432)
+            .await
+            .expect("Failed to get host port");
+        format!("postgres://postgres:password@127.0.0.1:{}/mydb", port)
+    }
+}
+
+impl Drop for IntegrationTestContainer {
+    fn drop(&mut self) {
+        println!("Shutting down the container...");
+        // The container will automatically stop
+    }
+}
+
 /// Initialize test environment: start Postgres container, run migrations, return connection pool and a connection
-pub async fn init_tests() -> (
-    Result<
-        testcontainers::ContainerAsync<testcontainers_modules::postgres::Postgres>,
-        testcontainers::TestcontainersError,
-    >,
-    std::net::SocketAddr,
-) {
-    let container = Postgres::default()
-        .with_user("postgres")
-        .with_password("password")
-        .with_db_name("mydb")
-        .with_mapped_port(5432, ContainerPort::Tcp(5432))
-        .start()
-        .await;
-    let host_port = 5432;
-    let _url = &format!("postgres://postgres:password@127.0.0.1:{host_port}/mydb",);
-    println!("Database URL: {}", _url);
+/// TODO: Add a mutex to this to prevent race conditions when running multiple tests in parallel
+/// Work around now its to launch tests with 1 thread: `cargo test -- --test-threads=1`
+pub async fn init_tests() -> (IntegrationTestContainer, std::net::SocketAddr) {
+    let container = IntegrationTestContainer::new().await;
+    let url = container.get_connection_url().await;
+    println!("Database URL: {}", url);
 
     // Use Diesel to connect to Postgres
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;

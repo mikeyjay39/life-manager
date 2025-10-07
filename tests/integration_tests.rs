@@ -4,9 +4,11 @@ use common::setup::init_tests;
 use family_manager::infrastructure::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
+use serial_test::serial;
 use tokio::task::spawn;
 
 #[tokio::test]
+#[serial]
 async fn test_server_starts() {
     let server = spawn(async move {
         family_manager::start_server();
@@ -17,8 +19,9 @@ async fn test_server_starts() {
 }
 
 #[tokio::test]
+#[serial]
 async fn create_and_get_document() {
-    let (_container, addr) = init_tests().await;
+    let (container, addr) = init_tests().await;
 
     // Seed 1 document into the database
     let payload = CreateDocumentCommand {
@@ -65,11 +68,17 @@ async fn create_and_get_document() {
     let document: DocumentDto = get_response.json().await.unwrap();
     assert_eq!(document.title, payload.title);
     assert_eq!(document.content, payload.content);
+    container
+        .postgres
+        .stop()
+        .await
+        .expect("Failed to stop container");
 }
 
 #[tokio::test]
+#[serial]
 async fn create_and_get_document_no_file() {
-    let (_container, addr) = init_tests().await;
+    let (container, addr) = init_tests().await;
 
     // Seed 1 document into the database
     let payload = CreateDocumentCommand {
@@ -112,4 +121,9 @@ async fn create_and_get_document_no_file() {
     let document: DocumentDto = get_response.json().await.unwrap();
     assert_eq!(document.title, payload.title);
     assert_eq!(document.content, payload.content);
+    container
+        .postgres
+        .stop()
+        .await
+        .expect("Failed to stop container");
 }
