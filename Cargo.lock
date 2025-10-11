@@ -622,6 +622,7 @@ dependencies = [
  "diesel_migrations",
  "dotenvy",
  "hyper 0.14.32",
+ "lazy_static",
  "reqwest",
  "serde",
  "serde_json",

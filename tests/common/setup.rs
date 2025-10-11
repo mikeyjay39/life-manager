@@ -2,9 +2,15 @@ use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use std::net::TcpListener;
-use testcontainers::{ImageExt, core::ContainerPort, runners::AsyncRunner};
+use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
-use tokio::spawn;
+use tokio::{spawn, sync::Mutex};
+
+use lazy_static::lazy_static;
+
+lazy_static! {
+    pub static ref TEST_MUTEX: Mutex<()> = Mutex::new(());
+}
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -19,7 +25,7 @@ impl IntegrationTestContainer {
                 .with_user("postgres")
                 .with_password("password")
                 .with_db_name("mydb")
-                .with_mapped_port(5432, ContainerPort::Tcp(5432))
+                // .with_mapped_port(5432, ContainerPort::Tcp(5432))
                 .start()
                 .await
                 .expect("Failed to start Postgres container"),
@@ -42,6 +48,42 @@ impl Drop for IntegrationTestContainer {
     }
 }
 
+pub async fn run_test<F, Fut>(test: F)
+where
+    F: FnOnce(&IntegrationTestContainer, std::net::SocketAddr) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    // beforeEach
+    let _lock = TEST_MUTEX.lock().await;
+    let (container, addr) = init_tests().await;
+    let port = addr.port();
+
+    // run test
+    test(&container, addr.clone()).await;
+
+    // afterEach (async cleanup)
+    // container is dropped automatically, but you could do more here
+    println!("Cleaning up container on port {port}");
+    container
+        .postgres
+        .stop()
+        .await
+        .expect("Failed to stop container");
+    let is_runnging = container.postgres.is_running().await;
+    match is_runnging {
+        Ok(running) => {
+            if running {
+                println!("Container is still running!");
+            } else {
+                println!("Container has been stopped.");
+            }
+        }
+        Err(_) => {
+            println!("Container returned error when checking if running.");
+        }
+    }
+}
+
 /// Initialize test environment: start Postgres container, run migrations, return connection pool and a connection
 /// TODO: Add a mutex to this to prevent race conditions when running multiple tests in parallel
 /// Work around now its to launch tests with 1 thread: `cargo test -- --test-threads=1`
@@ -52,7 +94,7 @@ pub async fn init_tests() -> (IntegrationTestContainer, std::net::SocketAddr) {
 
     // Use Diesel to connect to Postgres
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    let pool = family_manager::create_connection_pool();
+    let pool = family_manager::create_connection_pool_from_url(&url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     run_migrations(&pool).await;
 
