@@ -1,10 +1,10 @@
 mod application;
 mod domain;
-mod infrastructure;
+pub mod infrastructure;
 use crate::{
-    domain::document::Document, infrastructure::document_orm_collection::DocumentOrmCollection,
+    application::document_repository::DocumentRepository, domain::document::Document,
+    infrastructure::document_orm_collection::DocumentOrmCollection,
 };
-use application::application::DocumentRepository;
 use axum::{
     Router,
     routing::{get, post},
@@ -25,19 +25,8 @@ pub mod schema;
 pub async fn start_server() {
     // Init db
     let pool = create_connection_pool();
-    // Build our application with a single route
-    let state: AppState<DocumentOrmCollection> = AppState {
-        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
-    };
-    create_entity(&state.document_repository).await;
-    let app = Router::new()
-        .route("/", get(handler))
-        .route("/foo", get(|| async { "Hello, Foo!" }))
-        .route("/bar", get(|| async { String::from("Hello, Bar!") }))
-        .route("/documents", post(create_document))
-        .route("/documents/:id", get(get_document))
-        .route("/upload", post(upload)) // TODO: Remove this after testing
-        .with_state(state);
+
+    let app = build_app(pool).await;
 
     // Define the address to run the server on
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -50,6 +39,22 @@ pub async fn start_server() {
         .unwrap();
 }
 
+pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
+    // Build our application with a single route
+    let state: AppState<DocumentOrmCollection> = AppState {
+        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
+    };
+    create_entity(&state.document_repository).await;
+
+    return Router::new()
+        .route("/", get(handler))
+        .route("/foo", get(|| async { "Hello, Foo!" }))
+        .route("/bar", get(|| async { String::from("Hello, Bar!") }))
+        .route("/documents", post(create_document))
+        .route("/documents/:id", get(get_document))
+        .route("/upload", post(upload)) // TODO: Remove this after testing
+        .with_state(state);
+}
 // Define a handler for the route
 async fn handler() -> String {
     let document = Document::new(123, "Test", "This is a test document.");
@@ -71,7 +76,11 @@ pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let mgr = deadpool_diesel::postgres::Manager::new(database_url, Runtime::Tokio1);
+    create_connection_pool_from_url(&database_url)
+}
+
+pub fn create_connection_pool_from_url(database_url: &str) -> deadpool_diesel::postgres::Pool {
+    let mgr = deadpool_diesel::postgres::Manager::new(database_url.to_string(), Runtime::Tokio1);
     deadpool_diesel::postgres::Pool::builder(mgr)
         .max_size(16)
         .build()
