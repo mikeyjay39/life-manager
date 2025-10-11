@@ -1,1 +1,1 @@
-pub struct CreateDocumentCommand {}
+pub struct _CreateDocumentCommand {}

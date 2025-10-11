@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::application::application::DocumentRepository;
+use crate::application::document_repository::DocumentRepository;
 
 #[derive(Clone, Debug)]
 pub struct AppState<T: DocumentRepository> {

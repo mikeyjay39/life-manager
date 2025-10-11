@@ -1,4 +1,4 @@
-use crate::{application::application::DocumentRepository, domain::document::Document};
+use crate::{application::document_repository::DocumentRepository, domain::document::Document};
 
 #[derive(Clone)]
 pub struct DocumentCollection {

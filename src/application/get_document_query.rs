@@ -1,1 +1,1 @@
-pub struct GetDocumentQuery {}
+pub struct _GetDocumentQuery {}

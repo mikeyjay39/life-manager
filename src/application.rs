@@ -1,8 +1,3 @@
-pub mod application {
-    use crate::domain::document::Document;
-    pub trait DocumentRepository: Sync + Send {
-        async fn get_document(&self, id: i32) -> Option<Document>;
-        async fn save_document(&mut self, document: &Document) -> bool;
-    }
-    pub struct GetDocumentQuery;
-}
+pub mod create_document_command;
+pub mod document_repository;
+pub mod get_document_query;

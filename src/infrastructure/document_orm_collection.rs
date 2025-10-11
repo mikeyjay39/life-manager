@@ -1,6 +1,6 @@
+use crate::application::document_repository::DocumentRepository;
 use crate::schema::documents;
 use crate::{
-    application::application::DocumentRepository,
     domain::document::Document,
     infrastructure::document_entity::{self, DocumentEntity},
 };

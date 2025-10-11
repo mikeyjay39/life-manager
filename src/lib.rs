@@ -2,9 +2,9 @@ mod application;
 mod domain;
 pub mod infrastructure;
 use crate::{
-    domain::document::Document, infrastructure::document_orm_collection::DocumentOrmCollection,
+    application::document_repository::DocumentRepository, domain::document::Document,
+    infrastructure::document_orm_collection::DocumentOrmCollection,
 };
-use application::application::DocumentRepository;
 use axum::{
     Router,
     routing::{get, post},
