@@ -19,6 +19,8 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower_http::trace::TraceLayer;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
 #[tokio::main]
@@ -33,6 +35,8 @@ pub async fn start_server() {
     println!("Listening on http://{}", addr);
 
     // Run the server
+    // let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    // axum::serve(listener, app).await.unwrap();
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -40,21 +44,35 @@ pub async fn start_server() {
 }
 
 pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
+    // logging
+
+    tracing_subscriber::registry()
+        .with(
+            fmt::layer()
+                .event_format(fmt::format().json()) // ✅ replaces `.json()`
+                .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339()), // optional timestamp
+        )
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init()
+        .ok();
+
     // Build our application with a single route
     let state: AppState<DocumentOrmCollection> = AppState {
         document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
     };
     create_entity(&state.document_repository).await;
 
-    return Router::new()
+    Router::new()
         .route("/", get(handler))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
         .route("/documents/:id", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
-        .with_state(state);
+        .layer(TraceLayer::new_for_http())
+        .with_state(state)
 }
+
 // Define a handler for the route
 async fn handler() -> String {
     let document = Document::new(123, "Test", "This is a test document.");

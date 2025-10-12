@@ -106,7 +106,6 @@ pub async fn init_tests() -> (IntegrationTestContainer, std::net::SocketAddr) {
         .unwrap()
         .serve(app.into_make_service());
     spawn(server);
-
     (container, addr)
 }
 
