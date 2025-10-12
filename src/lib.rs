@@ -19,6 +19,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower::ServiceBuilder;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -37,8 +38,8 @@ pub async fn start_server() {
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+        axum::serve(listener, app)
         .await
         .unwrap();
 }
@@ -49,8 +50,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     tracing_subscriber::registry()
         .with(
             fmt::layer()
-                // TODO: re-enable JSON logging when Axum and tower-http has been upgraded
-                // .event_format(fmt::format().json()) // ✅ replaces `.json()`
+                .event_format(fmt::format().json()) // ✅ replaces `.json()`
                 .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
                 .with_ansi(false),
         )
@@ -69,8 +69,10 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
-        .route("/documents/:id", get(get_document))
+        .route("/documents/{id}", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
+        .layer(
+       ServiceBuilder::new() 
         .layer(TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
             .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
@@ -79,6 +81,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                 // You can also attach the trace ID to the span
                 _span.record("trace_id", tracing::field::display(trace_id));
             }),
+        )
         )
         .with_state(state)
 }

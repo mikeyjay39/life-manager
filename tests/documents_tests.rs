@@ -4,6 +4,7 @@ use common::setup::run_test;
 use family_manager::infrastructure::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
+use reqwest::Url;
 use serial_test::serial;
 use tokio::task::spawn;
 use tracing_test::traced_test;
@@ -27,7 +28,7 @@ async fn test_server_starts() {
 #[traced_test]
 async fn create_and_get_document() {
     run_test(
-        |_contaier: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
+        |_contaier: &IntegrationTestContainer, addr: Url| async move {
             // Seed 1 document into the database
             let payload = CreateDocumentCommand {
                 id: 2,
@@ -83,7 +84,7 @@ async fn create_and_get_document() {
 #[traced_test]
 async fn create_and_get_document_no_file() {
     run_test(
-        |_container: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
+        |_container: &IntegrationTestContainer, addr: Url| async move {
             // Seed 1 document into the database
             let payload = CreateDocumentCommand {
                 id: 2,
@@ -102,7 +103,7 @@ async fn create_and_get_document_no_file() {
                 json_string
             );
 
-            let url = format!("http://{}/documents", &addr);
+            let url = format!("{}/documents", &addr);
             let res = reqwest::Client::new()
                 .post(&url)
                 .body(multipart_body)

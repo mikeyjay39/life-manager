@@ -102,10 +102,8 @@ pub async fn init_tests() -> (IntegrationTestContainer, std::net::SocketAddr) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     let app = family_manager::build_app(pool).await;
-    let server = axum::Server::from_tcp(listener)
-        .unwrap()
-        .serve(app.into_make_service());
-    spawn(server);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
     (container, addr)
 }
 
