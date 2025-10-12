@@ -54,7 +54,7 @@ pub async fn create_document(
             Json(serde_json::json!(DocumentDto::from_document(&document))),
         )
     } else {
-        tracing::info!("No valid JSON data found in the multipart form");
+        tracing::warn!("No valid JSON data found in the multipart form");
         (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
     }
 }
@@ -79,128 +79,128 @@ pub async fn upload(mut multipart: Multipart) {
         let name = field.name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
 
-        println!("Length of `{}` is {} bytes", name, data.len());
+        tracing::info!("Length of `{}` is {} bytes", name, data.len());
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::sync::Arc;
-//
-//     use crate::infrastructure::document_collection::DocumentCollection;
-//
-//     use super::*;
-//     use axum::extract::FromRequest;
-//     use axum::http::StatusCode;
-//     use hyper::body::to_bytes;
-//     use hyper::{Body, Request};
-//     use serde_json::from_slice;
-//
-//     #[tokio::test]
-//     async fn test_create_document() {
-//         // Arrange
-//         let payload = CreateDocumentCommand {
-//             id: 1,
-//             title: String::from("Test Document"),
-//             content: String::from("This is a test content."),
-//         };
-//
-//         let state: AppState<DocumentCollection> = AppState {
-//             document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
-//         };
-//
-//         // Serialize the JSON payload
-//         let json_string = serde_json::to_string(&payload).unwrap();
-//
-//         // Create the multipart body
-//         let multipart_body = format!(
-//             "--boundary\r\n\
-//         Content-Disposition: form-data; name=\"json\"\r\n\
-//         Content-Type: application/json\r\n\r\n\
-//         {}\r\n\
-//         --boundary\r\n\
-//         Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n\
-//         Content-Type: text/plain\r\n\r\n\
-//         This is test content.\r\n\
-//         --boundary--",
-//             json_string
-//         );
-//
-//         // Create the request
-//         let request = Request::builder()
-//             .header("content-type", "multipart/form-data; boundary=boundary")
-//             .body(Body::from(multipart_body))
-//             .unwrap();
-//
-//         let multipart = Multipart::from_request(request, &state).await.unwrap();
-//         let response = create_document(State(state), multipart)
-//             .await
-//             .into_response();
-//
-//         let (parts, body) = response.into_parts();
-//         let status_code = parts.status;
-//         // Assert
-//         assert_eq!(status_code, StatusCode::CREATED);
-//
-//         let bytes = to_bytes(body).await.expect("Failed to read body");
-//
-//         // Deserialize the bytes into a DocumentDto object
-//         let response_document: DocumentDto =
-//             from_slice(&bytes).expect("Failed to deserialize body");
-//         assert_eq!(response_document.id, 1);
-//         assert_eq!(response_document.title, "Test Document");
-//         assert_eq!(response_document.content, "This is a test content.");
-//     }
-//
-//     #[tokio::test]
-//     async fn test_get_document() {
-//         // Arrange
-//         let document = Document::new(1, "Test Document", "This is a test content.");
-//         let mut repo = DocumentCollection::new();
-//         repo.save_document(&document).await;
-//
-//         let state: AppState<DocumentCollection> = AppState {
-//             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-//         };
-//
-//         // Act
-//         let response = get_document(State(state), Path(1)).await;
-//
-//         let response = response.into_response();
-//         let status_code = response.status();
-//         let body = response.into_body();
-//         // Assert
-//         assert_eq!(status_code, StatusCode::OK);
-//
-//         let bytes = to_bytes(body).await.expect("Failed to read body");
-//         let response_document =
-//             serde_json::from_slice::<Document>(&bytes).expect("Failed to deserialize JSON");
-//
-//         assert_eq!(response_document.id, 1);
-//         assert_eq!(response_document.title, "Test Document");
-//         assert_eq!(response_document.content, "This is a test content.");
-//     }
-//
-//     #[tokio::test]
-//     async fn test_get_document_not_found() {
-//         // Arrange
-//         let document = Document::new(1, "Test Document", "This is a test content.");
-//         let mut repo = DocumentCollection::new();
-//         repo.save_document(&document).await;
-//
-//         let state: AppState<DocumentCollection> = AppState {
-//             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-//         };
-//
-//         // Act
-//         let response = get_document(State(state), Path(2)).await;
-//         let response = response.into_response();
-//         let status_code = response.status();
-//         let body = response.into_body();
-//         let _bytes = to_bytes(body).await.expect("Failed to read body");
-//
-//         // Assert
-//         assert_eq!(status_code, StatusCode::NOT_FOUND);
-//         // TODO: assert empty response body
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::infrastructure::document_collection::DocumentCollection;
+
+    use super::*;
+    use axum::extract::FromRequest;
+    use axum::http::StatusCode;
+    use hyper::body::to_bytes;
+    use hyper::{Body, Request};
+    use serde_json::from_slice;
+
+    #[tokio::test]
+    async fn test_create_document() {
+        // Arrange
+        let payload = CreateDocumentCommand {
+            id: 1,
+            title: String::from("Test Document"),
+            content: String::from("This is a test content."),
+        };
+
+        let state: AppState<DocumentCollection> = AppState {
+            document_repository: Arc::new(tokio::sync::Mutex::new(DocumentCollection::new())),
+        };
+
+        // Serialize the JSON payload
+        let json_string = serde_json::to_string(&payload).unwrap();
+
+        // Create the multipart body
+        let multipart_body = format!(
+            "--boundary\r\n\
+        Content-Disposition: form-data; name=\"json\"\r\n\
+        Content-Type: application/json\r\n\r\n\
+        {}\r\n\
+        --boundary\r\n\
+        Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n\
+        Content-Type: text/plain\r\n\r\n\
+        This is test content.\r\n\
+        --boundary--",
+            json_string
+        );
+
+        // Create the request
+        let request = Request::builder()
+            .header("content-type", "multipart/form-data; boundary=boundary")
+            .body(Body::from(multipart_body))
+            .unwrap();
+
+        let multipart = Multipart::from_request(request, &state).await.unwrap();
+        let response = create_document(State(state), multipart)
+            .await
+            .into_response();
+
+        let (parts, body) = response.into_parts();
+        let status_code = parts.status;
+        // Assert
+        assert_eq!(status_code, StatusCode::CREATED);
+
+        let bytes = to_bytes(body).await.expect("Failed to read body");
+
+        // Deserialize the bytes into a DocumentDto object
+        let response_document: DocumentDto =
+            from_slice(&bytes).expect("Failed to deserialize body");
+        assert_eq!(response_document.id, 1);
+        assert_eq!(response_document.title, "Test Document");
+        assert_eq!(response_document.content, "This is a test content.");
+    }
+
+    #[tokio::test]
+    async fn test_get_document() {
+        // Arrange
+        let document = Document::new(1, "Test Document", "This is a test content.");
+        let mut repo = DocumentCollection::new();
+        repo.save_document(&document).await;
+
+        let state: AppState<DocumentCollection> = AppState {
+            document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
+        };
+
+        // Act
+        let response = get_document(State(state), Path(1)).await;
+
+        let response = response.into_response();
+        let status_code = response.status();
+        let body = response.into_body();
+        // Assert
+        assert_eq!(status_code, StatusCode::OK);
+
+        let bytes = to_bytes(body).await.expect("Failed to read body");
+        let response_document =
+            serde_json::from_slice::<Document>(&bytes).expect("Failed to deserialize JSON");
+
+        assert_eq!(response_document.id, 1);
+        assert_eq!(response_document.title, "Test Document");
+        assert_eq!(response_document.content, "This is a test content.");
+    }
+
+    #[tokio::test]
+    async fn test_get_document_not_found() {
+        // Arrange
+        let document = Document::new(1, "Test Document", "This is a test content.");
+        let mut repo = DocumentCollection::new();
+        repo.save_document(&document).await;
+
+        let state: AppState<DocumentCollection> = AppState {
+            document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
+        };
+
+        // Act
+        let response = get_document(State(state), Path(2)).await;
+        let response = response.into_response();
+        let status_code = response.status();
+        let body = response.into_body();
+        let _bytes = to_bytes(body).await.expect("Failed to read body");
+
+        // Assert
+        assert_eq!(status_code, StatusCode::NOT_FOUND);
+        // TODO: assert empty response body
+    }
+}

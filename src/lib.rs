@@ -52,7 +52,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                 // TODO: re-enable JSON logging when Axum and tower-http has been upgraded
                 // .event_format(fmt::format().json()) // ✅ replaces `.json()`
                 .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
-                .with_ansi(false), // optional timestamp
+                .with_ansi(false),
         )
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .try_init()
@@ -77,7 +77,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                 let trace_id = Uuid::new_v4();
                 tracing::info!(%trace_id, method = ?request.method(), uri = ?request.uri(), "request started");
                 // You can also attach the trace ID to the span
-                _span.record("trace_id", &tracing::field::display(trace_id));
+                _span.record("trace_id", tracing::field::display(trace_id));
             }),
         )
         .with_state(state)
@@ -87,7 +87,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
 async fn handler() -> String {
     let document = Document::new(123, "Test", "This is a test document.");
     document.print_details();
-    println!("{}", document.content);
+    tracing::info!("{}", document.content);
     document.content
 }
 

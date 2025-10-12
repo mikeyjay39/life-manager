@@ -7,8 +7,8 @@ pub struct DocumentCollection {
 
 impl DocumentRepository for DocumentCollection {
     async fn get_document(&self, id: i32) -> Option<Document> {
-        println!("Retrieving document with ID: {}", id);
-        println!("Total documents in collection: {}", self.documents.len());
+        tracing::info!("Retrieving document with ID: {}", id);
+        tracing::info!("Total documents in collection: {}", self.documents.len());
         match self.documents.iter().find(|doc| doc.id == id) {
             Some(doc) => Some(doc.clone()),
             None => None,
@@ -16,7 +16,7 @@ impl DocumentRepository for DocumentCollection {
     }
 
     async fn save_document(&mut self, document: &Document) -> bool {
-        println!("Saving document with ID: {}", document.id);
+        tracing::info!("Saving document with ID: {}", document.id);
         self.documents.push(document.clone());
         true
     }

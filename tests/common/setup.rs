@@ -43,7 +43,7 @@ impl IntegrationTestContainer {
 
 impl Drop for IntegrationTestContainer {
     fn drop(&mut self) {
-        println!("Shutting down the container...");
+        tracing::info!("Shutting down the container...");
         // The container will automatically stop
     }
 }
@@ -73,13 +73,13 @@ where
     match is_runnging {
         Ok(running) => {
             if running {
-                println!("Container is still running!");
+                tracing::info!("Container is still running!");
             } else {
-                println!("Container has been stopped.");
+                tracing::info!("Container has been stopped.");
             }
         }
         Err(_) => {
-            println!("Container returned error when checking if running.");
+            tracing::info!("Container returned error when checking if running.");
         }
     }
 }
@@ -90,7 +90,7 @@ where
 pub async fn init_tests() -> (IntegrationTestContainer, std::net::SocketAddr) {
     let container = IntegrationTestContainer::new().await;
     let url = container.get_connection_url().await;
-    println!("Database URL: {}", url);
+    tracing::info!("Database URL: {}", url);
 
     // Use Diesel to connect to Postgres
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;

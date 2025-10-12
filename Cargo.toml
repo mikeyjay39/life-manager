@@ -25,4 +25,4 @@ uuid = { version = "1", features = ["v4"] }
 testcontainers = { version = "0.25.0" }
 testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 serial_test = "2.0"
-
+tracing-test = "0.2"

@@ -6,11 +6,13 @@ use family_manager::infrastructure::{
 };
 use serial_test::serial;
 use tokio::task::spawn;
+use tracing_test::traced_test;
 
 use crate::common::setup::IntegrationTestContainer;
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn test_server_starts() {
     let server = spawn(async move {
         family_manager::start_server();
@@ -22,6 +24,7 @@ async fn test_server_starts() {
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn create_and_get_document() {
     run_test(
         |_contaier: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
@@ -77,6 +80,7 @@ async fn create_and_get_document() {
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn create_and_get_document_no_file() {
     run_test(
         |_container: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
