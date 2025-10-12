@@ -6,7 +6,7 @@ use crate::{
     infrastructure::document_orm_collection::DocumentOrmCollection,
 };
 use axum::{
-    Router,
+    Router, http,
     routing::{get, post},
 };
 use deadpool_diesel::Runtime;
@@ -19,8 +19,10 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 pub mod schema;
 
 #[tokio::main]
@@ -32,11 +34,9 @@ pub async fn start_server() {
 
     // Define the address to run the server on
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Listening on http://{}", addr);
+    tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
-    // let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    // axum::serve(listener, app).await.unwrap();
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await
@@ -49,8 +49,10 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     tracing_subscriber::registry()
         .with(
             fmt::layer()
-                .event_format(fmt::format().json()) // ✅ replaces `.json()`
-                .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339()), // optional timestamp
+                // TODO: re-enable JSON logging when Axum and tower-http has been upgraded
+                // .event_format(fmt::format().json()) // ✅ replaces `.json()`
+                .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
+                .with_ansi(false), // optional timestamp
         )
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .try_init()
@@ -69,7 +71,15 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/documents", post(create_document))
         .route("/documents/:id", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
-        .layer(TraceLayer::new_for_http())
+        .layer(TraceLayer::new_for_http()
+                    .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
+            .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
+                let trace_id = Uuid::new_v4();
+                tracing::info!(%trace_id, method = ?request.method(), uri = ?request.uri(), "request started");
+                // You can also attach the trace ID to the span
+                _span.record("trace_id", &tracing::field::display(trace_id));
+            }),
+        )
         .with_state(state)
 }
 

@@ -19,6 +19,7 @@ diesel_migrations = "2"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json", "time"] }
 tower-http = { version = "0.3", features = ["trace"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }

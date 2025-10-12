@@ -59,11 +59,11 @@ where
     let port = addr.port();
 
     // run test
-    test(&container, addr.clone()).await;
+    test(&container, addr).await;
 
     // afterEach (async cleanup)
     // container is dropped automatically, but you could do more here
-    println!("Cleaning up container on port {port}");
+    tracing::info!("Cleaning up container on port {port}");
     container
         .postgres
         .stop()

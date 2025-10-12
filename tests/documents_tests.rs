@@ -55,7 +55,7 @@ async fn create_and_get_document() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Response: {:?}", res);
+            tracing::info!("Response: {:?}", res);
             assert!(res.status().is_success());
 
             // Verify the document was created in the database
@@ -65,7 +65,7 @@ async fn create_and_get_document() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Get Response: {:?}", get_response);
+            tracing::info!("Get Response: {:?}", get_response);
             assert!(get_response.status().is_success());
             let document: DocumentDto = get_response.json().await.unwrap();
             assert_eq!(document.title, payload.title);
@@ -106,7 +106,7 @@ async fn create_and_get_document_no_file() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Response: {:?}", res);
+            tracing::info!("Response: {:?}", res);
             assert!(res.status().is_success());
 
             // Verify the document was created in the database
@@ -116,7 +116,7 @@ async fn create_and_get_document_no_file() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Get Response: {:?}", get_response);
+            tracing::info!("Get Response: {:?}", get_response);
             assert!(get_response.status().is_success());
             let document: DocumentDto = get_response.json().await.unwrap();
             assert_eq!(document.title, payload.title);
