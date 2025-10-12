@@ -6,11 +6,13 @@ use family_manager::infrastructure::{
 };
 use serial_test::serial;
 use tokio::task::spawn;
+use tracing_test::traced_test;
 
 use crate::common::setup::IntegrationTestContainer;
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn test_server_starts() {
     let server = spawn(async move {
         family_manager::start_server();
@@ -22,6 +24,7 @@ async fn test_server_starts() {
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn create_and_get_document() {
     run_test(
         |_contaier: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
@@ -55,7 +58,7 @@ async fn create_and_get_document() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Response: {:?}", res);
+            tracing::info!("Response: {:?}", res);
             assert!(res.status().is_success());
 
             // Verify the document was created in the database
@@ -65,7 +68,7 @@ async fn create_and_get_document() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Get Response: {:?}", get_response);
+            tracing::info!("Get Response: {:?}", get_response);
             assert!(get_response.status().is_success());
             let document: DocumentDto = get_response.json().await.unwrap();
             assert_eq!(document.title, payload.title);
@@ -77,6 +80,7 @@ async fn create_and_get_document() {
 
 #[tokio::test]
 #[serial]
+#[traced_test]
 async fn create_and_get_document_no_file() {
     run_test(
         |_container: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
@@ -106,7 +110,7 @@ async fn create_and_get_document_no_file() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Response: {:?}", res);
+            tracing::info!("Response: {:?}", res);
             assert!(res.status().is_success());
 
             // Verify the document was created in the database
@@ -116,7 +120,7 @@ async fn create_and_get_document_no_file() {
                 .send()
                 .await
                 .expect("Failed to send request");
-            println!("Get Response: {:?}", get_response);
+            tracing::info!("Get Response: {:?}", get_response);
             assert!(get_response.status().is_success());
             let document: DocumentDto = get_response.json().await.unwrap();
             assert_eq!(document.title, payload.title);

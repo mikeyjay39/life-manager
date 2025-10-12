@@ -14,11 +14,15 @@ diesel = { version = "2.2.0", features = ["postgres", "chrono"] }
 deadpool-diesel = { version = "0.6", features = ["postgres"] }
 dotenvy = "0.15.0"
 chrono = "0.4"
-tokio = { version = "1.45", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 diesel_migrations = "2"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json", "time"] }
+tower-http = { version = "0.3", features = ["trace"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }
 testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 serial_test = "2.0"
-
+tracing-test = "0.2"

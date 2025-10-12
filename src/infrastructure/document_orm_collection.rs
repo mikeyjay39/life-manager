@@ -21,7 +21,7 @@ impl DocumentOrmCollection {
 
 impl DocumentRepository for DocumentOrmCollection {
     async fn get_document(&self, id: i32) -> Option<Document> {
-        println!("Retrieving document with ID: {}", id);
+        tracing::info!("Retrieving document with ID: {}", id);
         let conn = self
             .pool
             .get()
@@ -42,7 +42,7 @@ impl DocumentRepository for DocumentOrmCollection {
                 Err(_) => None,
             },
             Err(e) => {
-                eprintln!("Error retrieving document: {}", e);
+                tracing::error!("Error retrieving document: {}", e);
                 None
             }
         }
@@ -71,7 +71,7 @@ impl DocumentRepository for DocumentOrmCollection {
         match result {
             Ok(_) => true,
             Err(e) => {
-                eprintln!("Error saving document: {}", e);
+                tracing::error!("Error saving document: {}", e);
                 false
             }
         }

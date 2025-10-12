@@ -19,7 +19,7 @@ pub async fn create_document(
     State(state): State<AppState<impl DocumentRepository>>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
-    println!("Received multipart form data");
+    tracing::info!("Received multipart form data");
     let mut json_data: Option<CreateDocumentCommand> = None;
 
     // TODO: Persist the file data if present
@@ -48,13 +48,13 @@ pub async fn create_document(
 
         let mut repo = state.document_repository.lock().await;
         repo.save_document(&document).await;
-        println!("Document saved: {:?}", document);
+        tracing::info!("Document saved: {:?}", document.title);
         (
             StatusCode::CREATED,
             Json(serde_json::json!(DocumentDto::from_document(&document))),
         )
     } else {
-        println!("No valid JSON data found in the multipart form");
+        tracing::warn!("No valid JSON data found in the multipart form");
         (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
     }
 }
@@ -63,6 +63,7 @@ pub async fn get_document(
     State(state): State<AppState<impl DocumentRepository>>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
+    tracing::info!("Fetching document with ID: {}", id);
     let repo = state.document_repository.lock().await;
     match repo.get_document(id as i32).await {
         Some(document) => (StatusCode::OK, Json(serde_json::json!(document.clone()))),
@@ -78,7 +79,7 @@ pub async fn upload(mut multipart: Multipart) {
         let name = field.name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
 
-        println!("Length of `{}` is {} bytes", name, data.len());
+        tracing::info!("Length of `{}` is {} bytes", name, data.len());
     }
 }
 

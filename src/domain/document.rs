@@ -22,9 +22,9 @@ impl Document {
 
     // Prints the document details
     pub fn print_details(&self) {
-        println!("Document ID: {}", self.id);
-        println!("Title: {}", self.title);
-        println!("Content: {}", self.content);
+        tracing::info!("Document ID: {}", self.id);
+        tracing::info!("Title: {}", self.title);
+        tracing::info!("Content: {}", self.content);
     }
 
     pub fn content(&self) -> &String {

@@ -6,7 +6,7 @@ use crate::{
     infrastructure::document_orm_collection::DocumentOrmCollection,
 };
 use axum::{
-    Router,
+    Router, http,
     routing::{get, post},
 };
 use deadpool_diesel::Runtime;
@@ -19,6 +19,10 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::Level;
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 pub mod schema;
 
 #[tokio::main]
@@ -30,7 +34,7 @@ pub async fn start_server() {
 
     // Define the address to run the server on
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("Listening on http://{}", addr);
+    tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
     axum::Server::bind(&addr)
@@ -40,26 +44,50 @@ pub async fn start_server() {
 }
 
 pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
+    // logging
+
+    tracing_subscriber::registry()
+        .with(
+            fmt::layer()
+                // TODO: re-enable JSON logging when Axum and tower-http has been upgraded
+                // .event_format(fmt::format().json()) // ✅ replaces `.json()`
+                .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
+                .with_ansi(false),
+        )
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init()
+        .ok();
+
     // Build our application with a single route
     let state: AppState<DocumentOrmCollection> = AppState {
         document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
     };
     create_entity(&state.document_repository).await;
 
-    return Router::new()
+    Router::new()
         .route("/", get(handler))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
         .route("/documents/:id", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
-        .with_state(state);
+        .layer(TraceLayer::new_for_http()
+                    .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
+            .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
+                let trace_id = Uuid::new_v4();
+                tracing::info!(%trace_id, method = ?request.method(), uri = ?request.uri(), "request started");
+                // You can also attach the trace ID to the span
+                _span.record("trace_id", tracing::field::display(trace_id));
+            }),
+        )
+        .with_state(state)
 }
+
 // Define a handler for the route
 async fn handler() -> String {
     let document = Document::new(123, "Test", "This is a test document.");
     document.print_details();
-    println!("{}", document.content);
+    tracing::info!("{}", document.content);
     document.content
 }
 
