@@ -87,12 +87,12 @@ pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
 
     // Use Diesel to connect to Postgres
     tracing::info!("Creating connection pool...");
-    let pool = family_manager::create_connection_pool_from_url(&url);
+    let pool = life_manager::create_connection_pool_from_url(&url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
     tracing::info!("Building backend app...");
-    let app = family_manager::build_app(pool).await;
+    let app = life_manager::build_app(pool).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
         ..TestServerConfig::default()

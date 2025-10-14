@@ -2,7 +2,7 @@ mod common;
 
 use axum_test::TestServer;
 use common::setup::run_test;
-use family_manager::infrastructure::{
+use life_manager::infrastructure::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
 use serial_test::serial;
