@@ -6,7 +6,9 @@ use crate::{
     infrastructure::document_orm_collection::DocumentOrmCollection,
 };
 use axum::{
-    Router, http,
+    Router,
+    body::Body,
+    http::Request,
     routing::{get, post},
 };
 use deadpool_diesel::Runtime;
@@ -19,10 +21,10 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tower::ServiceBuilder;
+use tower_http::trace::TraceLayer;
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use uuid::Uuid;
 pub mod schema;
 
 #[tokio::main]
@@ -37,10 +39,8 @@ pub async fn start_server() {
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
 pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
@@ -49,12 +49,10 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     tracing_subscriber::registry()
         .with(
             fmt::layer()
-                // TODO: re-enable JSON logging when Axum and tower-http has been upgraded
-                // .event_format(fmt::format().json()) // ✅ replaces `.json()`
+                .json()
                 .with_timer(tracing_subscriber::fmt::time::UtcTime::rfc_3339())
                 .with_ansi(false),
         )
-        .with(tracing_subscriber::EnvFilter::from_default_env())
         .try_init()
         .ok();
 
@@ -69,16 +67,22 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
-        .route("/documents/:id", get(get_document))
+        .route("/documents/{id}", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
-        .layer(TraceLayer::new_for_http()
-                    .make_span_with(DefaultMakeSpan::new().level(Level::INFO).include_headers(true))
-            .on_request(|request: &http::Request<_>, _span: &tracing::Span| {
-                let trace_id = Uuid::new_v4();
-                tracing::info!(%trace_id, method = ?request.method(), uri = ?request.uri(), "request started");
-                // You can also attach the trace ID to the span
-                _span.record("trace_id", tracing::field::display(trace_id));
-            }),
+        .layer(
+            ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
+                |request: &Request<Body>| {
+                    let trace_id = uuid::Uuid::new_v4();
+                    tracing::span!(
+                        Level::DEBUG,
+                        "request",
+                        method = tracing::field::display(request.method()),
+                        uri = tracing::field::display(request.uri()),
+                        version = tracing::field::debug(request.version()),
+                        trace_id = tracing::field::display(trace_id)
+                    )
+                },
+            )),
         )
         .with_state(state)
 }

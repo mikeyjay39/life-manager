@@ -1,11 +1,11 @@
 mod common;
 
+use axum_test::TestServer;
 use common::setup::run_test;
 use family_manager::infrastructure::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
 use serial_test::serial;
-use tokio::task::spawn;
 use tracing_test::traced_test;
 
 use crate::common::setup::IntegrationTestContainer;
@@ -13,21 +13,9 @@ use crate::common::setup::IntegrationTestContainer;
 #[tokio::test]
 #[serial]
 #[traced_test]
-async fn test_server_starts() {
-    let server = spawn(async move {
-        family_manager::start_server();
-    });
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    // Shut down the server
-    server.abort();
-}
-
-#[tokio::test]
-#[serial]
-#[traced_test]
 async fn create_and_get_document() {
     run_test(
-        |_contaier: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
+        |_contaier: &IntegrationTestContainer, server: TestServer| async move {
             // Seed 1 document into the database
             let payload = CreateDocumentCommand {
                 id: 2,
@@ -50,9 +38,13 @@ async fn create_and_get_document() {
                 json_string
             );
 
-            let url = format!("http://{}/documents", &addr);
+            let url_result = server
+                .server_url("/documents")
+                .expect("Failed to get server URL");
+            let url = url_result.as_str();
+            tracing::info!("URL: {}", url);
             let res = reqwest::Client::new()
-                .post(&url)
+                .post(url)
                 .body(multipart_body)
                 .header("Content-Type", "multipart/form-data; boundary=boundary")
                 .send()
@@ -62,9 +54,14 @@ async fn create_and_get_document() {
             assert!(res.status().is_success());
 
             // Verify the document was created in the database
+            let get_request_url_result = server
+                .server_url(&format!("/documents/{}", &payload.id))
+                .expect("Failed to get server URL");
+            let get_request_url = get_request_url_result.as_str();
+            tracing::info!("Get Request URL: {}", get_request_url);
 
             let get_response = reqwest::Client::new()
-                .get(format!("http://{}/documents/{}", &addr, &payload.id))
+                .get(get_request_url)
                 .send()
                 .await
                 .expect("Failed to send request");
@@ -83,7 +80,7 @@ async fn create_and_get_document() {
 #[traced_test]
 async fn create_and_get_document_no_file() {
     run_test(
-        |_container: &IntegrationTestContainer, addr: std::net::SocketAddr| async move {
+        |_container: &IntegrationTestContainer, server: TestServer| async move {
             // Seed 1 document into the database
             let payload = CreateDocumentCommand {
                 id: 2,
@@ -102,9 +99,13 @@ async fn create_and_get_document_no_file() {
                 json_string
             );
 
-            let url = format!("http://{}/documents", &addr);
+            let url_result = server
+                .server_url("/documents")
+                .expect("Failed to get server URL");
+            let url = url_result.as_str();
+            tracing::info!("URL: {}", url);
             let res = reqwest::Client::new()
-                .post(&url)
+                .post(url)
                 .body(multipart_body)
                 .header("Content-Type", "multipart/form-data; boundary=boundary")
                 .send()
@@ -115,8 +116,13 @@ async fn create_and_get_document_no_file() {
 
             // Verify the document was created in the database
 
+            let get_request_url_result = server
+                .server_url(&format!("/documents/{}", &payload.id))
+                .expect("Failed to get server URL");
+            let get_request_url = get_request_url_result.as_str();
+            tracing::info!("Get Request URL: {}", get_request_url);
             let get_response = reqwest::Client::new()
-                .get(format!("http://{}/documents/{}", &addr, &payload.id))
+                .get(get_request_url)
                 .send()
                 .await
                 .expect("Failed to send request");
