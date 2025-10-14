@@ -1,3 +1,3 @@
 fn main() {
-    family_manager::start_server();
+    life_manager::start_server();
 }

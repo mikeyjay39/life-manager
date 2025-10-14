@@ -1,4 +1,4 @@
-# family-manager
+# life-manager
 
 ## How to run
 
