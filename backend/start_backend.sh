@@ -1,11 +1,8 @@
-#! /usr/bin/bash
+#! /bin/bash
 
-docker stop $(docker ps -aq) > /dev/null 2>&1
-docker rm $(docker ps -aq) > /dev/null 2>&1
-
-cd "$(dirname "$0")"
-
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+docker-compose up &
+sleep 5
+diesel migration run
 cargo build
-docker-compose up --build &
-
-cd -
