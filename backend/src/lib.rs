@@ -11,7 +11,9 @@ use axum::{
     http::Request,
     routing::{get, post},
 };
-use deadpool_diesel::Runtime;
+use deadpool_diesel::{Manager, Pool, Runtime};
+use diesel::PgConnection;
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
@@ -27,15 +29,19 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+
 #[tokio::main]
 pub async fn start_server() {
     // Init db
     let pool = create_connection_pool();
+    tracing::info!("Running migrations...");
+    run_migrations(&pool).await;
 
     let app = build_app(pool).await;
 
     // Define the address to run the server on
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
@@ -117,4 +123,16 @@ pub fn create_connection_pool_from_url(database_url: &str) -> deadpool_diesel::p
         .max_size(16)
         .build()
         .expect("Failed to create pool.")
+}
+
+/// Run pending migrations
+async fn run_migrations(pool: &Pool<Manager<PgConnection>>) -> bool {
+    // Get a database connection from the pool
+    let conn = pool.get().await.expect("Failed to get DB connection");
+    // Run pending migrations on the connection
+    let _ = conn
+        .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
+        .await
+        .expect("Failed to run migrations");
+    true
 }
