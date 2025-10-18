@@ -41,7 +41,8 @@ pub async fn start_server() {
     let app = build_app(pool).await;
 
     // Define the address to run the server on
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let app_port = env::var("PORT").expect("PORT must be set");
+    let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server
@@ -114,6 +115,7 @@ pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
     dotenv().ok();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    tracing::info!("Creating connection pool to database at {}", database_url);
     create_connection_pool_from_url(&database_url)
 }
 

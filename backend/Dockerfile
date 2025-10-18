@@ -17,8 +17,11 @@ RUN chmod +x /app/life-manager && chown appuser:appuser /app/life-manager
 
 USER appuser
 
-EXPOSE 3000
-ENV RUST_LOG=info
-ENV PORT=3000
+# Use an environment variable for the port instead of hardcoding
+ENV RUST_LOG=debug
+ENV PORT=${PORT}
+
+# Document that the app listens on $PORT (defaults can still be handled by docker-compose)
+EXPOSE ${PORT}
 
 CMD ["/app/life-manager"]
