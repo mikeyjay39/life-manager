@@ -13,13 +13,26 @@ export default function SimpleForm() {
 
     setLoading(true);
     try {
+      const obj = {
+        id: 2,
+        title: value,
+        content: value,
+      };
+      const jsonString = JSON.stringify(obj);
+      const multipartBody = `--boundary\r\n` +
+        `Content-Disposition: form-data; name=\"json\"\r\n` +
+        `Content-Type: application/json\r\n\r\n` +
+        `${jsonString}\r\n` +
+        `--boundary--`;
+
       // TODO: replace with your backend endpoint and parameters
-      const response = await fetch("https://localhost:3030/documents", {
+      const response = await fetch("http://localhost:3000/documents", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "multipart/form-data; boundary=boundary",
         },
-        body: JSON.stringify({ fieldName: value }),
+        body: multipartBody
+        // body: JSON.stringify({ fieldName: value }),
       });
 
       if (!response.ok) {
