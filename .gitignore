@@ -1,2 +1,3 @@
 target/*
 backend/target/*
+node_modules/

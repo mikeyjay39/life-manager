@@ -6,6 +6,7 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import SimpleForm from './simple-form';
 
 export default function HomeScreen() {
   return (
@@ -26,6 +27,7 @@ export default function HomeScreen() {
         <ThemedText>
           Hello Nyuszi!
         </ThemedText>
+        <SimpleForm />
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
           Press{' '}

@@ -8,7 +8,7 @@ use crate::{
 use axum::{
     Router,
     body::Body,
-    http::Request,
+    http::{Method, Request},
     routing::{get, post},
 };
 use deadpool_diesel::{Manager, Pool, Runtime};
@@ -24,7 +24,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower::ServiceBuilder;
-use tower_http::trace::TraceLayer;
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
@@ -76,6 +76,11 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/documents", post(create_document))
         .route("/documents/{id}", get(get_document))
         .route("/upload", post(upload)) // TODO: Remove this after testing
+        .layer(
+            CorsLayer::new()
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_origin(tower_http::cors::Any),
+        )
         .layer(
             ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
                 |request: &Request<Body>| {
