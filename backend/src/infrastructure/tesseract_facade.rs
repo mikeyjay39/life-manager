@@ -2,18 +2,24 @@ use std::error::Error;
 use std::path::PathBuf;
 use tesseract_rs::TesseractAPI;
 
+/**
+* This value was copied from tesseract's source code <a
+* href="https://github.com/cafercangundogdu/tesseract-rs/blob/master/tests/integration_test.rs">integration tests</a>.
+* I played around with a few values and got the best results with 3.
+*/
+const BYTES_PER_PIXEL: u32 = 3;
+
 pub fn get_document_text(image_path: PathBuf) -> Result<String, Box<dyn Error>> {
     let api = TesseractAPI::new();
     let tessdata_dir = get_tessdata_dir();
     api.init(tessdata_dir.to_str().unwrap(), "eng")?;
     let (image_data, width, height) = load_test_image(image_path.to_str().unwrap())?;
-    let bytes_per_pixel = 1;
-    let bytes_per_line = width * bytes_per_pixel;
+    let bytes_per_line = width * BYTES_PER_PIXEL;
     api.set_image(
         &image_data,
         width.try_into().unwrap(),
         height.try_into().unwrap(),
-        bytes_per_pixel.try_into().unwrap(),
+        BYTES_PER_PIXEL.try_into().unwrap(),
         bytes_per_line.try_into().unwrap(),
     )?;
     let text = api.get_utf8_text()?;
@@ -70,19 +76,18 @@ fn get_tessdata_dir() -> PathBuf {
 mod tests {
 
     #[test]
-    pub fn test_placeholder() {
-        assert_eq!(2 + 2, 4);
-    }
-
-    #[test]
     pub fn test_ocr() {
         use std::path::PathBuf;
+        // TODO: Move this image to the test resources directory
         let image_path = PathBuf::from("/home/mikeyjay/Downloads/hello_world.png");
         let result = super::get_document_text(image_path);
         match result {
             Ok(text) => {
                 println!("OCR Result: {}", text);
-                assert!(text.contains("Hello World"));
+                assert!(
+                    text.to_lowercase()
+                        .contains(&String::from("Hello World").to_lowercase())
+                );
             }
             Err(e) => {
                 panic!("OCR failed with error: {}", e);
