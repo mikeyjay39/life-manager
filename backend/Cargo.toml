@@ -20,6 +20,7 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "jso
 tower-http = { version = "0.6.6", features = ["trace", "cors"] }
 tower = "0.5.2"
 uuid = { version = "1", features = ["v4"] }
+tesseract-rs = "0.1.20"
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }
@@ -27,4 +28,6 @@ testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 serial_test = "3.2.0"
 tracing-test = "0.2"
 axum-test = "18.1.0"
+image = "0.25.5"
+imageproc = "0.25.0"
 
