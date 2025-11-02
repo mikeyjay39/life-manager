@@ -3,12 +3,27 @@ use std::path::PathBuf;
 use tesseract_rs::TesseractAPI;
 
 pub fn get_document_text(image_path: PathBuf) -> Result<String, Box<dyn Error>> {
-    let api = TesseractAPI::new()?;
+    let api = TesseractAPI::new();
     let tessdata_dir = get_tessdata_dir();
     api.init(tessdata_dir.to_str().unwrap(), "eng")?;
-    api.set_image(image_path)?;
-    let text = api.get_text()?;
+    let (image_data, width, height) = load_test_image(image_path.to_str().unwrap())?;
+    let bytes_per_pixel = 1;
+    let bytes_per_line = width * bytes_per_pixel;
+    api.set_image(
+        &image_data,
+        width.try_into().unwrap(),
+        height.try_into().unwrap(),
+        bytes_per_pixel.try_into().unwrap(),
+        bytes_per_line.try_into().unwrap(),
+    )?;
+    let text = api.get_utf8_text()?;
     Ok(text)
+}
+
+fn load_test_image(filename: &str) -> Result<(Vec<u8>, u32, u32), Box<dyn Error>> {
+    let img = image::open(filename)?.to_rgb8();
+    let (width, height) = img.dimensions();
+    Ok((img.into_raw(), width, height))
 }
 
 fn get_default_tessdata_dir() -> PathBuf {
@@ -47,6 +62,31 @@ fn get_tessdata_dir() -> PathBuf {
                 default_dir
             );
             default_dir
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    pub fn test_placeholder() {
+        assert_eq!(2 + 2, 4);
+    }
+
+    #[test]
+    pub fn test_ocr() {
+        use std::path::PathBuf;
+        let image_path = PathBuf::from("/home/mikeyjay/Downloads/hello_world.png");
+        let result = super::get_document_text(image_path);
+        match result {
+            Ok(text) => {
+                println!("OCR Result: {}", text);
+                assert!(text.contains("Hello World"));
+            }
+            Err(e) => {
+                panic!("OCR failed with error: {}", e);
+            }
         }
     }
 }
