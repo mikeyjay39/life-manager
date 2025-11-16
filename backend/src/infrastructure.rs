@@ -4,4 +4,4 @@ pub mod document_dto;
 pub mod document_entity;
 pub mod document_handler;
 pub mod document_orm_collection;
-pub mod tesseract_facade;
+pub mod tesseract_adapter;
