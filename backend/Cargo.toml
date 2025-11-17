@@ -22,7 +22,7 @@ tower = "0.5.2"
 uuid = { version = "1", features = ["v4"] }
 tesseract-rs = "0.1.20"
 image = "0.25.5"
-ollama-rs = { version = "0.1.6", features = ["stream"] }
+ollama-rs = { version = "0.3.2", features = ["stream"] }
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }
