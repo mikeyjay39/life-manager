@@ -102,10 +102,10 @@ impl DocumentTextReader for TesseractAdapter {
         let bytes_per_line = width * BYTES_PER_PIXEL;
         self.api.set_image(
             &image_data,
-            width.try_into().unwrap(),
-            height.try_into().unwrap(),
-            BYTES_PER_PIXEL.try_into().unwrap(),
-            bytes_per_line.try_into().unwrap(),
+            width.try_into()?,
+            height.try_into()?,
+            BYTES_PER_PIXEL.try_into()?,
+            bytes_per_line.try_into()?,
         )?;
         let text = self.api.get_utf8_text()?;
         Ok(text)

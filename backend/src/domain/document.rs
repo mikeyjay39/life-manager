@@ -1,6 +1,9 @@
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::domain::document_summarizer::DocumentSummarizer;
+use crate::domain::document_text_reader::DocumentTextReader;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
     pub id: i32,
@@ -18,6 +21,44 @@ impl Document {
             content: String::from(content),
             tags: vec![],
         }
+    }
+
+    /**
+     * Creates a Document from file bytes by reading the text and summarizing it.
+     *
+     * NOTE: This is a simple method used to establish a POC. We may want to eventually replace
+     * this with a more comprehensive flow.
+     */
+    pub async fn from_file(
+        bytes: &[u8],
+        reader: impl DocumentTextReader,
+        summarizer: impl DocumentSummarizer,
+    ) -> Option<Document> {
+        tracing::info!("Document::from_file");
+        let text = match reader.read_image(bytes) {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Error reading document text: {}", e);
+                return None;
+            }
+        };
+
+        let summary_result = match (summarizer.summarize(&text)).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Error summarizing document text: {}", e);
+                return None;
+            }
+        };
+
+        let [summary, title] = summary_result
+        let document = Document {
+            id: 0,
+            title: "Extracted Document".to_string(),
+            content: summary,
+            tags: vec![],
+        };
+        Some(document)
     }
 
     // Prints the document details
