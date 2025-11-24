@@ -9,6 +9,7 @@ const MODEL_NAME: &str = "llama2";
 const SUMMARY_CHAR_MAX_LENGTH: usize = 200;
 const TITLE_WORD_LIMIT: usize = 10;
 
+#[derive(Clone)]
 pub struct OllamaDocumentSummarizerAdapter {
     // Add any necessary fields here, e.g., API client, configuration, etc.
     ollama_client: Ollama,

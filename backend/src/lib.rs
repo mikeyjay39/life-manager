@@ -2,8 +2,13 @@ mod application;
 mod domain;
 pub mod infrastructure;
 use crate::{
-    application::document_repository::DocumentRepository, domain::document::Document,
-    infrastructure::document_orm_collection::DocumentOrmCollection,
+    application::document_repository::DocumentRepository,
+    domain::document::Document,
+    infrastructure::{
+        document_orm_collection::DocumentOrmCollection,
+        ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
+        tesseract_adapter::TesseractAdapter,
+    },
 };
 use axum::{
     Router,
@@ -64,10 +69,15 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .ok();
 
     // Build our application with a single route
-    let state: AppState<DocumentOrmCollection> = AppState {
-        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
-    };
-    create_entity(&state.document_repository).await;
+    let state: AppState<DocumentOrmCollection, TesseractAdapter, OllamaDocumentSummarizerAdapter> =
+        AppState {
+            document_repository: (Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(
+                pool,
+            )))),
+            reader: TesseractAdapter::new().expect("Failed to create TesseractAdapter"),
+            summarizer: OllamaDocumentSummarizerAdapter::new(),
+        };
+    // create_entity(&state.0).await;
 
     Router::new()
         .route("/", get(handler))

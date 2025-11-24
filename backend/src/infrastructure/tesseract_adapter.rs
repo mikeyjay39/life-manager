@@ -11,7 +11,7 @@ use crate::domain::document_text_reader::DocumentTextReader;
 */
 const BYTES_PER_PIXEL: u32 = 3;
 
-#[derive()]
+#[derive(Clone)]
 pub struct TesseractAdapter {
     api: TesseractAPI,
 }

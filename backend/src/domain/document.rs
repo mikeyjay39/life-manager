@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::domain::document_summarizer::DocumentSummarizer;
+use crate::domain::document_summarizer::DocumentSummaryResult;
 use crate::domain::document_text_reader::DocumentTextReader;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -31,8 +32,8 @@ impl Document {
      */
     pub async fn from_file(
         bytes: &[u8],
-        reader: impl DocumentTextReader,
-        summarizer: impl DocumentSummarizer,
+        reader: &impl DocumentTextReader,
+        summarizer: &impl DocumentSummarizer,
     ) -> Option<Document> {
         tracing::info!("Document::from_file");
         let text = match reader.read_image(bytes) {
@@ -51,10 +52,10 @@ impl Document {
             }
         };
 
-        let [summary, title] = summary_result
+        let DocumentSummaryResult { summary, title } = summary_result;
         let document = Document {
             id: 0,
-            title: "Extracted Document".to_string(),
+            title,
             content: summary,
             tags: vec![],
         };

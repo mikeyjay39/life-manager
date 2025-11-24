@@ -1,5 +1,7 @@
 use crate::DocumentRepository;
 use crate::domain::document::Document;
+use crate::domain::document_summarizer::DocumentSummarizer;
+use crate::domain::document_text_reader::DocumentTextReader;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
@@ -16,11 +18,14 @@ pub struct CreateDocumentCommand {
 }
 
 pub async fn create_document(
-    State(state): State<AppState<impl DocumentRepository>>,
+    State(state): State<
+        AppState<impl DocumentRepository, impl DocumentTextReader, impl DocumentSummarizer>,
+    >,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     tracing::info!("Received multipart form data");
     let mut json_data: Option<CreateDocumentCommand> = None;
+    let mut file_data = Vec::new();
 
     // TODO: Persist the file data if present
     while let Some(field) = multipart.next_field().await.unwrap() {
@@ -31,7 +36,6 @@ pub async fn create_document(
             }
             Some("file") => {
                 let _data = field.bytes().await.unwrap();
-                let mut file_data = Vec::new();
                 while let Some(mut field) = multipart.next_field().await.unwrap() {
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file_data.extend_from_slice(&chunk);
@@ -42,8 +46,23 @@ pub async fn create_document(
         }
     }
 
-    if let Some(payload) = json_data {
-        let document = Document::new(payload.id, &payload.title, &payload.content);
+    let reader = &state.reader;
+    let summarizer = &state.summarizer;
+
+    if let Some(_payload) = json_data {
+        // let document = Document::new(payload.id, &payload.title, &payload.content);
+        let document = Document::from_file(&file_data, reader, summarizer);
+
+        let document = match document.await {
+            Some(doc) => doc,
+            None => {
+                tracing::error!("Failed to create document from file data");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({})),
+                );
+            }
+        };
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
@@ -60,7 +79,9 @@ pub async fn create_document(
 }
 
 pub async fn get_document(
-    State(state): State<AppState<impl DocumentRepository>>,
+    State(state): State<
+        AppState<impl DocumentRepository, impl DocumentTextReader, impl DocumentSummarizer>,
+    >,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
     tracing::info!("Fetching document with ID: {}", id);
