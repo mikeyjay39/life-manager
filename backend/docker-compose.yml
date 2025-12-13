@@ -48,7 +48,7 @@ services:
 
   tesseract:
     image: hertzg/tesseract-server:latest
-    container_name: tesseract_container
+    container_name: tesseract
     ports:
       - "8884:8884"
     environment:

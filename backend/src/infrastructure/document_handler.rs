@@ -50,7 +50,6 @@ pub async fn create_document(
     let summarizer = &state.summarizer;
 
     if let Some(_payload) = json_data {
-        // let document = Document::new(payload.id, &payload.title, &payload.content);
         let document = Document::from_file(&file_data, reader, summarizer);
 
         let document = match document.await {

@@ -44,6 +44,8 @@ impl Document {
             }
         };
 
+        tracing::info!("Document text read successfully, text: {}", text);
+
         let summary_result = match (summarizer.summarize(&text)).await {
             Ok(s) => s,
             Err(e) => {

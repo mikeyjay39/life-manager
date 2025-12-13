@@ -20,83 +20,6 @@ impl TesseractAdapter {
     pub fn new() -> Self {
         TesseractAdapter {}
     }
-    // pub fn new() -> Result<Self, Box<dyn Error>> {
-    //     let adapter = TesseractAdapter {
-    //         api: TesseractAPI::new(),
-    //     };
-    //     let tessdata_dir = adapter.get_tessdata_dir();
-    //     adapter.api.init(tessdata_dir.to_str().unwrap(), "eng")?;
-    //     Ok(adapter)
-    // }
-    //
-    // pub fn get_document_text(&self, image_path: PathBuf) -> Result<String, Box<dyn Error>> {
-    //     let api = TesseractAPI::new();
-    //     let tessdata_dir = self.get_tessdata_dir();
-    //     api.init(tessdata_dir.to_str().unwrap(), "eng")?;
-    //     let (image_data, width, height) = self.load_test_image(image_path.to_str().unwrap())?;
-    //     let bytes_per_line = width * BYTES_PER_PIXEL;
-    //     api.set_image(
-    //         &image_data,
-    //         width.try_into().unwrap(),
-    //         height.try_into().unwrap(),
-    //         BYTES_PER_PIXEL.try_into().unwrap(),
-    //         bytes_per_line.try_into().unwrap(),
-    //     )?;
-    //     let text = api.get_utf8_text()?;
-    //     Ok(text)
-    // }
-    //
-    // fn load_test_image(&self, filename: &str) -> Result<(Vec<u8>, u32, u32), Box<dyn Error>> {
-    //     let img = image::open(filename)?.to_rgb8();
-    //     let (width, height) = img.dimensions();
-    //     Ok((img.into_raw(), width, height))
-    // }
-    //
-    // fn bytes_to_image(&self, bytes: &[u8]) -> Result<(Vec<u8>, u32, u32), Box<dyn Error>> {
-    //     let img = image::load_from_memory(bytes)?.to_rgb8();
-    //     let (width, height) = img.dimensions();
-    //     Ok((img.into_raw(), width, height))
-    // }
-    //
-    // fn get_default_tessdata_dir(&self) -> PathBuf {
-    //     if cfg!(target_os = "macos") {
-    //         let home_dir = std::env::var("HOME").expect("HOME environment variable not set");
-    //         PathBuf::from(home_dir)
-    //             .join("Library")
-    //             .join("Application Support")
-    //             .join("tesseract-rs")
-    //             .join("tessdata")
-    //     } else if cfg!(target_os = "linux") {
-    //         let home_dir = std::env::var("HOME").expect("HOME environment variable not set");
-    //         PathBuf::from(home_dir)
-    //             .join(".tesseract-rs")
-    //             .join("tessdata")
-    //     } else if cfg!(target_os = "windows") {
-    //         PathBuf::from(std::env::var("APPDATA").expect("APPDATA environment variable not set"))
-    //             .join("tesseract-rs")
-    //             .join("tessdata")
-    //     } else {
-    //         panic!("Unsupported operating system");
-    //     }
-    // }
-    //
-    // fn get_tessdata_dir(&self) -> PathBuf {
-    //     match std::env::var("TESSDATA_PREFIX") {
-    //         Ok(dir) => {
-    //             let path = PathBuf::from(dir);
-    //             println!("Using TESSDATA_PREFIX directory: {:?}", path);
-    //             path
-    //         }
-    //         Err(_) => {
-    //             let default_dir = self.get_default_tessdata_dir();
-    //             println!(
-    //                 "TESSDATA_PREFIX not set, using default directory: {:?}",
-    //                 default_dir
-    //             );
-    //             default_dir
-    //         }
-    //     }
-    // }
 }
 
 impl DocumentTextReader for TesseractAdapter {
@@ -118,20 +41,36 @@ impl DocumentTextReader for TesseractAdapter {
             );
 
         let client = reqwest::Client::new();
+        tracing::info!("Sending request to Tesseract service...");
 
         let response = client
-            .post("http://127.0.0.1:8884/tesseract")
+            .post("http://tesseract:8884/tesseract") // TODO: Make URL configurable
             .multipart(form)
             .send()
-            .await?;
+            .await;
+        let response = match response {
+            Ok(resp) => resp,
+            Err(e) => {
+                tracing::error!("Error sending request to Tesseract service: {}", e);
+                return Err(Box::new(e));
+            }
+        };
 
         let status = response.status();
-        let body = response.text().await?;
+        tracing::info!("Tesseract response status: {}", status);
+        let body = response.text().await;
 
-        println!("Status: {}", status);
-        println!("Response body:\n{}", body);
+        match body {
+            Ok(b) => {
+                tracing::info!("Tesseract response body received: {}", b);
+                Ok(b)
+            }
+            Err(e) => {
+                tracing::error!("Error reading response body: {}", e);
+                Err(Box::new(e))
+            }
+        }
 
-        Ok(body)
         // let (image_data, width, height) = self.bytes_to_image(bytes)?;
         // let bytes_per_line = width * BYTES_PER_PIXEL;
         // self.api.set_image(
