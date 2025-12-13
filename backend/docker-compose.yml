@@ -46,5 +46,14 @@ services:
       - "${APP_PORT}:${APP_PORT}"
     restart: on-failure
 
+  tesseract:
+    image: hertzg/tesseract-server:latest
+    container_name: tesseract_container
+    ports:
+      - "8884:8884"
+    environment:
+      - TESSERACT_LANGUAGE=eng
+    restart: unless-stopped
+
 volumes:
   ollama:

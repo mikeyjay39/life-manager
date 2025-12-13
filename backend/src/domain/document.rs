@@ -36,7 +36,7 @@ impl Document {
         summarizer: &impl DocumentSummarizer,
     ) -> Option<Document> {
         tracing::info!("Document::from_file");
-        let text = match reader.read_image(bytes) {
+        let text = match reader.read_image(bytes).await {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("Error reading document text: {}", e);

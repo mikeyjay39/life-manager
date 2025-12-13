@@ -74,7 +74,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
             document_repository: (Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(
                 pool,
             )))),
-            reader: TesseractAdapter::new().expect("Failed to create TesseractAdapter"),
+            reader: TesseractAdapter::new(), //.expect("Failed to create TesseractAdapter"),
             summarizer: OllamaDocumentSummarizerAdapter::new(),
         };
     // create_entity(&state.0).await;
