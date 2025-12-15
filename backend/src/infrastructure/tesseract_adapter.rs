@@ -12,13 +12,28 @@ use crate::domain::document_text_reader::DocumentTextReader;
 * I played around with a few values and got the best results with 3.
 */
 const BYTES_PER_PIXEL: u32 = 3;
+use serde::Deserialize;
 
+#[derive(Debug, Deserialize)]
+struct TesseractResponse {
+    data: TesseractData,
+}
+
+#[derive(Debug, Deserialize)]
+struct TesseractData {
+    stdout: String,
+    // stderr: String,        // optional if you want it later
+}
 #[derive(Clone)]
-pub struct TesseractAdapter {}
+pub struct TesseractAdapter {
+    url: String,
+}
 
 impl TesseractAdapter {
-    pub fn new() -> Self {
-        TesseractAdapter {}
+    pub fn new(url: String) -> Self {
+        TesseractAdapter {
+            url: format!("{}/tesseract", url),
+        }
     }
 }
 
@@ -36,15 +51,15 @@ impl DocumentTextReader for TesseractAdapter {
             .part(
                 "file",
                 Part::bytes(bytes.to_vec())
-                    .file_name("image.jpg") // required by many servers
+                    .file_name("file.jpeg") // required by many servers
                     .mime_str("image/jpeg")?,
             );
 
         let client = reqwest::Client::new();
-        tracing::info!("Sending request to Tesseract service...");
+        tracing::info!("Sending request to Tesseract service at: ");
 
         let response = client
-            .post("http://tesseract:8884/tesseract") // TODO: Make URL configurable
+            .post(&self.url) // TODO: Make URL configurable
             .multipart(form)
             .send()
             .await;
@@ -58,18 +73,26 @@ impl DocumentTextReader for TesseractAdapter {
 
         let status = response.status();
         tracing::info!("Tesseract response status: {}", status);
-        let body = response.text().await;
+        // let body = response.text().await;
+        let parsed: TesseractResponse = response.json().await.map_err(|e| {
+            tracing::error!("Failed to deserialize Tesseract response: {}", e);
+            Box::new(e) as Box<dyn std::error::Error>
+        })?;
 
-        match body {
-            Ok(b) => {
-                tracing::info!("Tesseract response body received: {}", b);
-                Ok(b)
-            }
-            Err(e) => {
-                tracing::error!("Error reading response body: {}", e);
-                Err(Box::new(e))
-            }
-        }
+        tracing::info!("Tesseract stdout received: {}", parsed.data.stdout);
+
+        Ok(parsed.data.stdout.trim().to_string())
+
+        // match body {
+        //     Ok(b) => {
+        //         tracing::info!("Tesseract response body received: {}", b);
+        //         Ok(b)
+        //     }
+        //     Err(e) => {
+        //         tracing::error!("Error reading response body: {}", e);
+        //         Err(Box::new(e))
+        //     }
+        // }
 
         // let (image_data, width, height) = self.bytes_to_image(bytes)?;
         // let bytes_per_line = width * BYTES_PER_PIXEL;
@@ -122,19 +145,21 @@ mod tests {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
-        let adapter = super::TesseractAdapter::new();
+        let adapter = super::TesseractAdapter::new("http://localhost:8884".to_string());
         let result = adapter.read_image(&buffer).await;
-        match result {
+        let text = match result {
             Ok(text) => {
                 println!("OCR Result: {}", text);
-                assert!(
-                    text.to_lowercase()
-                        .contains(&String::from("Hello World").to_lowercase())
-                );
+                // assert!(
+                //     text.to_lowercase()
+                //         .contains(&String::from("Hello World").to_lowercase())
+                text
             }
             Err(e) => {
                 panic!("OCR failed with error: {}", e);
             }
-        }
+        };
+        let txt = text.as_str();
+        assert_eq!(txt.to_lowercase(), "Hello World".to_lowercase());
     }
 }

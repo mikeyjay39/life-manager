@@ -46,7 +46,7 @@ pub async fn start_server() {
     let app = build_app(pool).await;
 
     // Define the address to run the server on
-    let app_port = env::var("PORT").expect("PORT must be set");
+    let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
     let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
     tracing::info!("Tracing Listening on http://{}", addr);
 
@@ -74,7 +74,9 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
             document_repository: (Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(
                 pool,
             )))),
-            reader: TesseractAdapter::new(), //.expect("Failed to create TesseractAdapter"),
+            reader: TesseractAdapter::new(
+                env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
+            ),
             summarizer: OllamaDocumentSummarizerAdapter::new(),
         };
     // create_entity(&state.0).await;

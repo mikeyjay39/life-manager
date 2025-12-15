@@ -35,12 +35,14 @@ pub async fn create_document(
                 json_data = serde_json::from_str(&text).ok();
             }
             Some("file") => {
-                let _data = field.bytes().await.unwrap();
-                while let Some(mut field) = multipart.next_field().await.unwrap() {
-                    while let Some(chunk) = field.chunk().await.unwrap() {
-                        file_data.extend_from_slice(&chunk);
-                    }
-                }
+                tracing::info!("Processing file field");
+                file_data = field.bytes().await.unwrap().to_vec();
+                // TODO: Move the file processing logic to here
+                // while let Some(mut field) = multipart.next_field().await.unwrap() {
+                //     while let Some(chunk) = field.chunk().await.unwrap() {
+                //         file_data.extend_from_slice(&chunk);
+                //     }
+                // }
             }
             _ => {}
         }
