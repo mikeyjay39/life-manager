@@ -1689,6 +1689,7 @@ dependencies = [
 name = "life-manager"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "axum",
  "axum-test",
  "chrono",
