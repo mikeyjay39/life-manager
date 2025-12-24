@@ -1,5 +1,11 @@
 use async_trait::async_trait;
-use reqwest::{Response, multipart::Form};
+use reqwest::multipart::Form;
+
+#[derive(Clone)]
+pub struct HttpResponse {
+    pub status: u16,
+    pub body: Vec<u8>,
+}
 
 #[async_trait]
 pub trait HttpClient: Send + Sync {
@@ -7,5 +13,5 @@ pub trait HttpClient: Send + Sync {
         &self,
         url: &str,
         form: Form,
-    ) -> Result<Response, Box<dyn std::error::Error>>;
+    ) -> Result<HttpResponse, Box<dyn std::error::Error + Send + Sync>>;
 }

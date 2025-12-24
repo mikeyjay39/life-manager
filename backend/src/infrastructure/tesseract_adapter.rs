@@ -1,25 +1,25 @@
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
 use reqwest::multipart::{Form, Part};
 use serde_json::json;
 
 use crate::{
-    domain::document_text_reader::DocumentTextReader, infrastructure::http_client::HttpClient,
+    domain::document_text_reader::DocumentTextReader,
+    infrastructure::http_client::{HttpClient, HttpResponse},
 };
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct TesseractResponse {
     data: TesseractData,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct TesseractData {
     stdout: String,
     _stderr: String,
 }
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct TesseractAdapter {
@@ -55,51 +55,77 @@ impl DocumentTextReader for TesseractAdapter {
             );
 
         tracing::info!("Sending request to Tesseract service at: ");
-        let response = self.http_client.post_multipart(&self.url, form).await?;
+        let response = self.http_client.post_multipart(&self.url, form).await;
 
-        let status = response.status();
+        let response: HttpResponse = match response {
+            Ok(resp) => resp,
+            Err(e) => {
+                tracing::error!("HTTP request to Tesseract service failed: {}", e);
+                return Err(e);
+            }
+        };
+
+        let status = response.status;
         tracing::info!("Tesseract response status: {}", status);
-        let parsed: TesseractResponse = response.json().await.map_err(|e| {
-            tracing::error!("Failed to deserialize Tesseract response: {}", e);
-            Box::new(e) as Box<dyn std::error::Error>
-        })?;
+        let body: TesseractResponse = match serde_json::from_slice(&response.body) {
+            Ok(body) => body,
+            Err(e) => {
+                tracing::error!("Failed to parse Tesseract response JSON: {}", e);
+                return Err(Box::new(e));
+            }
+        };
+        tracing::info!("Tesseract stdout received: {}", body.data.stdout);
 
-        tracing::info!("Tesseract stdout received: {}", parsed.data.stdout);
-
-        Ok(parsed.data.stdout.trim().to_string())
+        Ok(body.data.stdout.trim().to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use serde_json::to_vec;
+
     use crate::{
-        domain::document_text_reader::DocumentTextReader, infrastructure::http_client::HttpClient,
+        domain::document_text_reader::DocumentTextReader,
+        infrastructure::{
+            http_client::{HttpClient, HttpResponse},
+            tesseract_adapter::{TesseractData, TesseractResponse},
+        },
     };
 
     struct MockHttpClient;
 
+    impl MockHttpClient {
+        fn new() -> Self {
+            MockHttpClient {}
+        }
+    }
+
+    #[async_trait]
     impl HttpClient for MockHttpClient {
         async fn post_multipart(
-            // FIXME:
             &self,
             _url: &str,
             _form: reqwest::multipart::Form,
-        ) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
+        ) -> Result<HttpResponse, Box<dyn std::error::Error + Send + Sync>> {
             // Mock response
-            let mock_response = r#"
-            {
-                "data": {
-                    "stdout": "Hello World",
-                    "_stderr": ""
+            let mock_tesseract_response = TesseractResponse {
+                data: TesseractData {
+                    stdout: "Hello World".to_string(),
+                    _stderr: "".to_string(),
+                },
+            };
+            let body = match to_vec(&mock_tesseract_response) {
+                Ok(b) => b,
+                Err(e) => {
+                    return Err(Box::new(e));
                 }
-            }
-            "#;
+            };
 
-            let response = reqwest::Response::from(
-                Response::builder().status(200).body(mock_response).unwrap(), // FIXME:
-            );
-
-            Ok(response)
+            Ok(HttpResponse { body, status: 200 })
         }
     }
 
@@ -115,8 +141,10 @@ mod tests {
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
-        let adapter =
-            super::TesseractAdapter::new("http://localhost:8884".to_string(), MockHttpClient);
+        let adapter = super::TesseractAdapter::new(
+            "http://localhost:8884".to_string(),
+            Arc::new(MockHttpClient::new()),
+        );
         let result = adapter.read_image(&buffer).await;
         let text = match result {
             Ok(text) => {

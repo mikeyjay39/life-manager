@@ -7,7 +7,7 @@ use crate::{
     infrastructure::{
         document_orm_collection::DocumentOrmCollection,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
-        tesseract_adapter::TesseractAdapter,
+        reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
     },
 };
 use axum::{
@@ -76,6 +76,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
             )))),
             reader: TesseractAdapter::new(
                 env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
+                Arc::new(ReqwestHttpClient::new()),
             ),
             summarizer: OllamaDocumentSummarizerAdapter::new(),
         };
