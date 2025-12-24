@@ -29,7 +29,6 @@ pub async fn create_document(
     let mut file_data = Vec::new();
     let mut file_name = String::new();
 
-    // TODO: Persist the file data if present
     while let Some(field) = multipart.next_field().await.unwrap() {
         match field.name() {
             Some("json") => {
@@ -68,12 +67,23 @@ pub async fn create_document(
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
-        repo.save_document(&document).await;
-        tracing::info!("Document saved: {:?}", document.title);
-        (
-            StatusCode::CREATED,
-            Json(serde_json::json!(DocumentDto::from_document(&document))),
-        )
+        let saved_doc_res = repo.save_document(document).await;
+        match saved_doc_res {
+            Err(e) => {
+                tracing::error!("Error saving document: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({})),
+                );
+            }
+            Ok(saved_doc) => {
+                tracing::info!("Document saved: {:?}", saved_doc.title);
+                (
+                    StatusCode::CREATED,
+                    Json(serde_json::json!(DocumentDto::from_document(&saved_doc))),
+                )
+            }
+        }
     } else {
         tracing::warn!("No valid JSON data found in the multipart form");
         (StatusCode::NOT_FOUND, Json(serde_json::json!({})))

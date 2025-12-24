@@ -79,15 +79,14 @@ where
     }
 }
 
-pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
-    tracing::info!("Building Postgres container...");
-    let container = IntegrationTestContainer::new().await;
-    let url = container.get_connection_url().await;
-    tracing::info!("Database URL: {}", url);
-
+/**
+* Build the application server with the given database URL
+* and runs migrations.
+*/
+pub async fn build_app_server(url: &str) -> TestServer {
     // Use Diesel to connect to Postgres
     tracing::info!("Creating connection pool...");
-    let pool = life_manager::create_connection_pool_from_url(&url);
+    let pool = life_manager::create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
@@ -99,7 +98,18 @@ pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
     };
 
     let server_result = TestServer::new_with_config(app, config);
-    let server = server_result.expect("Failed to start test server");
+    server_result.expect("Failed to start test server")
+}
+
+/**
+ * Initialize the test environment: start container, run migrations, build server
+ */
+pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
+    tracing::info!("Building Postgres container...");
+    let container = IntegrationTestContainer::new().await;
+    let url = container.get_connection_url().await;
+    tracing::info!("Database URL: {}", url);
+    let server = build_app_server(&url).await;
     (container, server)
 }
 

@@ -15,10 +15,13 @@ impl DocumentRepository for DocumentCollection {
         }
     }
 
-    async fn save_document(&mut self, document: &Document) -> bool {
+    async fn save_document(
+        &mut self,
+        document: Document,
+    ) -> Result<Document, Box<dyn std::error::Error>> {
         tracing::info!("Saving document with ID: {}", document.id);
         self.documents.push(document.clone());
-        true
+        Ok(document)
     }
 }
 
@@ -41,7 +44,7 @@ mod tests {
         let mut collection: DocumentCollection = DocumentCollection::new();
         assert_eq!(collection.documents.len(), 0);
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(&doc).await;
+        collection.save_document(doc).await;
         assert_eq!(collection.documents.len(), 1);
     }
 
@@ -49,7 +52,7 @@ mod tests {
     pub async fn test_get_document() {
         let mut collection: DocumentCollection = DocumentCollection::new();
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(&doc).await;
+        collection.save_document(doc.clone()).await;
 
         let retrieved_doc = collection.get_document(1).await.unwrap();
         assert_eq!(retrieved_doc.id, doc.id);

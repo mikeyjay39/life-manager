@@ -1758,6 +1758,7 @@ dependencies = [
  "imageproc",
  "lazy_static",
  "ollama-rs",
+ "once_cell",
  "pdf-extract",
  "reqwest",
  "serde",

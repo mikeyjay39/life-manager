@@ -123,11 +123,13 @@ async fn handler() -> String {
 /**
 * TODO: Remove this. It is for testing only
 */
-pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
+pub async fn create_entity(
+    repo: &Arc<Mutex<impl DocumentRepository>>,
+) -> Result<Document, Box<dyn std::error::Error>> {
     let new_document = Document::new(1, "Sample Document", "This is a sample document.");
 
     let mut repo = repo.lock().await;
-    repo.save_document(&new_document).await
+    repo.save_document(new_document).await
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
