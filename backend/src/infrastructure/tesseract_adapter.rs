@@ -39,33 +39,6 @@ impl TesseractAdapter {
     }
 
     /**
-     * Determines if the uploaded document likely needs OCR based on its file extension.
-     * NOTE: Some .pdf files do not work with OCR if they contain embedded text. If they are scanned
-     * images then OCR will work. We check if an earlier step if there is embedded text to extract.
-     */
-    fn needs_ocr(&self, uploaded_document_input: &UploadedDocumentInput) -> bool {
-        // Simple check based on file extension
-        let ocr_extensions = vec![".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".pdf"];
-        for ext in ocr_extensions {
-            if uploaded_document_input
-                .file_name
-                .to_lowercase()
-                .ends_with(ext)
-            {
-                return true;
-            }
-        }
-        false
-    }
-
-    fn is_pdf(&self, uploaded_document_input: &UploadedDocumentInput) -> bool {
-        uploaded_document_input
-            .file_name
-            .to_lowercase()
-            .ends_with(".pdf")
-    }
-
-    /**
      * Attempts to extract text from a PDF without OCR. Returns None if no text is found.
      */
     fn get_text_from_pdf(
@@ -95,6 +68,27 @@ impl TesseractAdapter {
             Ok(Some(text))
         }
     }
+
+    /**
+     * Determines if the uploaded document likely needs OCR based on its file extension.
+     *
+     * NOTE: Some .pdf files do not work with OCR if they contain embedded text. If they are scanned
+     * images then OCR will work. We check in an earlier step if there is embedded text to extract.
+     */
+    fn needs_ocr(&self, uploaded_document_input: &UploadedDocumentInput) -> bool {
+        // Simple check based on file extension
+        let ocr_extensions = vec![".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".pdf"];
+        for ext in ocr_extensions {
+            if uploaded_document_input
+                .extension
+                .to_lowercase()
+                .ends_with(ext)
+            {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl DocumentTextReader for TesseractAdapter {
@@ -103,7 +97,7 @@ impl DocumentTextReader for TesseractAdapter {
         uploaded_document_input: &UploadedDocumentInput,
     ) -> Result<String, Box<dyn Error>> {
         // If it's a PDF, try to extract text without OCR first
-        if self.is_pdf(uploaded_document_input) {
+        if uploaded_document_input.is_pdf() {
             tracing::info!("File '{}' is a PDF.", uploaded_document_input.file_name);
             match self.get_text_from_pdf(uploaded_document_input)? {
                 Some(text) => {
@@ -237,10 +231,8 @@ mod tests {
             "http://localhost:8884".to_string(),
             Arc::new(MockHttpClient::new()),
         );
-        let uploaded_document_input = UploadedDocumentInput {
-            file_name: "hello_world.png".to_string(),
-            file_data: buffer,
-        };
+        let uploaded_document_input =
+            UploadedDocumentInput::new("hello_world.png".to_string(), buffer);
         let result = adapter.read_image(&uploaded_document_input).await;
         let text = match result {
             Ok(text) => {

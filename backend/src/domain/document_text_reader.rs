@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use crate::domain::uploaded_document_input::{self, UploadedDocumentInput};
+use crate::domain::uploaded_document_input::UploadedDocumentInput;
 
 pub trait DocumentTextReader {
     fn read_image(

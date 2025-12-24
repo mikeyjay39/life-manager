@@ -4,7 +4,6 @@ use serde::Serialize;
 use crate::domain::document_summarizer::DocumentSummarizer;
 use crate::domain::document_summarizer::DocumentSummaryResult;
 use crate::domain::document_text_reader::DocumentTextReader;
-use crate::domain::uploaded_document_input;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -28,9 +27,6 @@ impl Document {
 
     /**
      * Creates a Document from file bytes by reading the text and summarizing it.
-     *
-     * NOTE: This is a simple method used to establish a POC. We may want to eventually replace
-     * this with a more comprehensive flow.
      */
     pub async fn from_file(
         uploaded_document_input: &UploadedDocumentInput,

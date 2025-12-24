@@ -50,10 +50,7 @@ pub async fn create_document(
 
     let reader = &state.reader;
     let summarizer = &state.summarizer;
-    let uploaded_document_input = UploadedDocumentInput {
-        file_name,
-        file_data,
-    };
+    let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
 
     if let Some(_payload) = json_data {
         let document = Document::from_file(&uploaded_document_input, reader, summarizer);
