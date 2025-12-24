@@ -18,7 +18,7 @@ struct TesseractResponse {
 #[derive(Debug, Deserialize, Serialize)]
 struct TesseractData {
     stdout: String,
-    _stderr: String,
+    stderr: String,
 }
 
 #[derive(Clone)]
@@ -115,7 +115,7 @@ mod tests {
             let mock_tesseract_response = TesseractResponse {
                 data: TesseractData {
                     stdout: "Hello World".to_string(),
-                    _stderr: "".to_string(),
+                    stderr: "".to_string(),
                 },
             };
             let body = match to_vec(&mock_tesseract_response) {
