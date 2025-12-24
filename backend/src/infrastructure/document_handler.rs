@@ -2,6 +2,7 @@ use crate::DocumentRepository;
 use crate::domain::document::Document;
 use crate::domain::document_summarizer::DocumentSummarizer;
 use crate::domain::document_text_reader::DocumentTextReader;
+use crate::domain::uploaded_document_input::UploadedDocumentInput;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
@@ -26,6 +27,7 @@ pub async fn create_document(
     tracing::info!("Received multipart form data");
     let mut json_data: Option<CreateDocumentCommand> = None;
     let mut file_data = Vec::new();
+    let mut file_name = String::new();
 
     // TODO: Persist the file data if present
     while let Some(field) = multipart.next_field().await.unwrap() {
@@ -36,13 +38,11 @@ pub async fn create_document(
             }
             Some("file") => {
                 tracing::info!("Processing file field");
+                if let Some(name) = field.file_name() {
+                    file_name = name.to_string();
+                }
                 file_data = field.bytes().await.unwrap().to_vec();
-                // TODO: Move the file processing logic to here
-                // while let Some(mut field) = multipart.next_field().await.unwrap() {
-                //     while let Some(chunk) = field.chunk().await.unwrap() {
-                //         file_data.extend_from_slice(&chunk);
-                //     }
-                // }
+                tracing::info!("Received file: {}", file_name);
             }
             _ => {}
         }
@@ -50,9 +50,13 @@ pub async fn create_document(
 
     let reader = &state.reader;
     let summarizer = &state.summarizer;
+    let uploaded_document_input = UploadedDocumentInput {
+        file_name,
+        file_data,
+    };
 
     if let Some(_payload) = json_data {
-        let document = Document::from_file(&file_data, reader, summarizer);
+        let document = Document::from_file(&uploaded_document_input, reader, summarizer);
 
         let document = match document.await {
             Some(doc) => doc,

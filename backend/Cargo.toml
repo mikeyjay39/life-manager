@@ -23,6 +23,8 @@ uuid = { version = "1", features = ["v4"] }
 image = "0.25.5"
 ollama-rs = { version = "0.3.2", features = ["stream"] }
 async-trait = "0.1.59"
+pdf-extract = "0.7.0"
+tempfile = "3"
 
 [dev-dependencies]
 testcontainers = { version = "0.25.0" }

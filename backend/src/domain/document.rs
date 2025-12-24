@@ -4,6 +4,8 @@ use serde::Serialize;
 use crate::domain::document_summarizer::DocumentSummarizer;
 use crate::domain::document_summarizer::DocumentSummaryResult;
 use crate::domain::document_text_reader::DocumentTextReader;
+use crate::domain::uploaded_document_input;
+use crate::domain::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
@@ -31,12 +33,12 @@ impl Document {
      * this with a more comprehensive flow.
      */
     pub async fn from_file(
-        bytes: &[u8],
+        uploaded_document_input: &UploadedDocumentInput,
         reader: &impl DocumentTextReader,
         summarizer: &impl DocumentSummarizer,
     ) -> Option<Document> {
         tracing::info!("Document::from_file");
-        let text = match reader.read_image(bytes).await {
+        let text = match reader.read_image(uploaded_document_input).await {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("Error reading document text: {}", e);
