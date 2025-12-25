@@ -1,6 +1,9 @@
 mod common;
 
-use std::{env::set_var, fs};
+use std::{
+    env::{self},
+    fs,
+};
 
 use axum_test::TestServer;
 use common::setup::run_test;
@@ -15,16 +18,15 @@ use crate::common::{
     docker::start_docker_compose,
     setup::{IntegrationTestContainer, build_app_server},
 };
+use dotenv::dotenv;
+use reqwest::ClientBuilder;
+use std::time::Duration;
 
 #[tokio::test]
 async fn create_and_get_document_docker_compose() {
     start_docker_compose();
-    // let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let database_url = "postgres://postgres:password@localhost:5432/mydb".to_string();
-    unsafe {
-        set_var("TESSERACT_URL", "http://localhost:8884"); // TODO: Make this read env file
-    }
-
+    dotenv().ok();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let server = build_app_server(&database_url).await;
     // Seed 1 document into the database
     let payload = CreateDocumentCommand {
@@ -36,8 +38,8 @@ async fn create_and_get_document_docker_compose() {
     // Make REST API call to create a document
     let json_string = serde_json::to_string(&payload).unwrap();
 
-    // Read the file (PDF in your case)
-    let file_name = "/home/mikeyjay/repos/add-ocr/backend/tests/resources/hello_world.pdf";
+    // Read the file
+    let file_name = "tests/resources/hello_world.pdf";
     let file_bytes = fs::read(file_name)
         .unwrap_or_else(|_| panic!("Could not read bytes from file: {}", file_name));
 
@@ -61,12 +63,15 @@ async fn create_and_get_document_docker_compose() {
         .expect("Failed to get server URL");
     let url = url_result.as_str();
     tracing::info!("URL: {}", url);
-    let res = reqwest::Client::new()
-        .post(url)
-        .multipart(form)
-        .send()
-        .await
-        .expect("Failed to send request");
+
+    let client = ClientBuilder::new()
+        .timeout(Duration::from_secs(30)) // Total request timeout
+        .build()
+        .expect("Failed to build HTTP client");
+    let res = match client.post(url).multipart(form).send().await {
+        Ok(response) => response,
+        Err(e) => panic!("Failed to send request: {}", e),
+    };
     tracing::info!("Response: {:?}", res);
     assert!(res.status().is_success());
     let saved_document_resp: DocumentDto = res.json().await.unwrap();
@@ -87,7 +92,14 @@ async fn create_and_get_document_docker_compose() {
     assert!(get_response.status().is_success());
     let document: DocumentDto = get_response.json().await.unwrap();
     assert_ne!(document.title.len(), 0); // TODO: Make this match our input title
-    assert!(document.content.to_lowercase().contains("hello world"));
+    assert!(
+        document.content.to_lowercase().contains("hello world"),
+        "{}",
+        format!(
+            "Document content does not contain expected text. Content: {}",
+            document.content.as_str()
+        )
+    );
 }
 
 #[tokio::test]
