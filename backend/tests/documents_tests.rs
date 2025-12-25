@@ -18,14 +18,12 @@ use crate::common::{
     docker::start_docker_compose,
     setup::{IntegrationTestContainer, build_app_server},
 };
-use dotenv::dotenv;
 use reqwest::ClientBuilder;
 use std::time::Duration;
 
 #[tokio::test]
 async fn create_and_get_document_docker_compose() {
-    start_docker_compose();
-    dotenv().ok();
+    start_docker_compose().await;
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let server = build_app_server(&database_url).await;
     // Seed 1 document into the database

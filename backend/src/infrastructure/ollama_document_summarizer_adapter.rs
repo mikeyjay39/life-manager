@@ -19,7 +19,7 @@ impl OllamaDocumentSummarizerAdapter {
     pub fn new() -> Self {
         OllamaDocumentSummarizerAdapter {
             // Initialize fields here
-            ollama_client: Ollama::default(),
+            ollama_client: Ollama::default(), // TODO: Make this take envar val instead
         }
     }
 }
