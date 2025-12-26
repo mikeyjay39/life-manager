@@ -35,3 +35,27 @@ impl UploadedDocumentInput {
         self.file_name.to_lowercase().ends_with(".pdf")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::io::Read;
+    use std::path::PathBuf;
+
+    use super::UploadedDocumentInput;
+
+    #[test]
+    pub fn test_new() {
+        let file_name = "hello_world.png";
+        let path = PathBuf::from(format!("tests/resources/{}", file_name));
+        let mut file = File::open(path).expect("Failed to open the file");
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)
+            .expect("Failed to read the file");
+        let buffer_length = buffer.len();
+        let uploaded_document_input = UploadedDocumentInput::new(file_name.to_string(), buffer);
+        assert_eq!(uploaded_document_input.extension, "png");
+        assert_eq!(uploaded_document_input.file_name, file_name);
+        assert_eq!(uploaded_document_input.file_data.len(), buffer_length);
+    }
+}

@@ -221,8 +221,8 @@ mod tests {
         use std::io::Read;
         use std::path::PathBuf;
 
-        // TODO: Move this image to the test resources directory
-        let path = PathBuf::from("/home/mikeyjay/Downloads/hello_world.png");
+        let file_name = "hello_world.png";
+        let path = PathBuf::from(format!("tests/resources/{}", file_name));
         let mut file = File::open(path).expect("Failed to open the file");
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
@@ -231,8 +231,7 @@ mod tests {
             "http://localhost:8884".to_string(),
             Arc::new(MockHttpClient::new()),
         );
-        let uploaded_document_input =
-            UploadedDocumentInput::new("hello_world.png".to_string(), buffer);
+        let uploaded_document_input = UploadedDocumentInput::new(file_name.to_string(), buffer);
         let result = adapter.read_image(&uploaded_document_input).await;
         let text = match result {
             Ok(text) => {
