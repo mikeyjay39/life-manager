@@ -11,7 +11,12 @@ use crate::{
     infrastructure::http_client::{HttpClient, HttpResponse},
 };
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+static OCR_EXTENSIONS: Lazy<HashSet<&'static str>> =
+    Lazy::new(|| HashSet::from(["png", "jpg", "jpeg", "tiff", "bmp", "gif"]));
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TesseractResponse {
@@ -76,18 +81,7 @@ impl TesseractAdapter {
      * images then OCR will work. We check in an earlier step if there is embedded text to extract.
      */
     fn needs_ocr(&self, uploaded_document_input: &UploadedDocumentInput) -> bool {
-        // Simple check based on file extension
-        let ocr_extensions = vec![".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif", ".pdf"];
-        for ext in ocr_extensions {
-            if uploaded_document_input
-                .extension
-                .to_lowercase()
-                .ends_with(ext)
-            {
-                return true;
-            }
-        }
-        false
+        OCR_EXTENSIONS.contains(uploaded_document_input.extension.as_str())
     }
 }
 
@@ -133,8 +127,8 @@ impl DocumentTextReader for TesseractAdapter {
             .part(
                 "file",
                 Part::bytes(bytes.to_vec())
-                    .file_name("file.jpeg") // required by many servers
-                    .mime_str("image/jpeg")?,
+                    .file_name(uploaded_document_input.file_name.clone())
+                    .mime_str("image/jpeg")?, // TODO: clean this up
             );
 
         tracing::info!("Sending request to Tesseract service at: ");
@@ -235,7 +229,7 @@ mod tests {
         let result = adapter.read_image(&uploaded_document_input).await;
         let text = match result {
             Ok(text) => {
-                println!("OCR Result: {}", text);
+                tracing::info!("OCR Result: {}", text);
                 text
             }
             Err(e) => {
