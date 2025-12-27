@@ -4,6 +4,7 @@ use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use dotenvy::dotenv;
 use reqwest::Client;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
@@ -52,6 +53,7 @@ where
 {
     tracing::info!("Starting beforeEach setup");
     // beforeEach
+    dotenv().ok();
     let (container, server) = init_tests().await;
     let url = server
         .server_address()

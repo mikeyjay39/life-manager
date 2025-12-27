@@ -56,14 +56,22 @@ pub async fn create_document(
         }
     }
 
-    let reader = &state.reader;
-    let summarizer = &state.summarizer;
-    let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
-
     if let Some(_payload) = json_data {
-        let document = Document::from_file(&uploaded_document_input, reader, summarizer);
+        let document_opt = match !file_data.is_empty() {
+            true => {
+                let reader = &state.reader;
+                let summarizer = &state.summarizer;
+                let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
+                Document::from_file(&uploaded_document_input, reader, summarizer).await
+            }
+            false => Some(Document::new(
+                _payload.id,
+                &_payload.title,
+                &_payload.content,
+            )),
+        };
 
-        let document = match document.await {
+        let document = match document_opt {
             Some(doc) => doc,
             None => {
                 tracing::error!("Failed to create document from file data");
@@ -73,6 +81,7 @@ pub async fn create_document(
                 );
             }
         };
+
         document.print_details();
 
         let mut repo = state.document_repository.lock().await;
@@ -80,10 +89,10 @@ pub async fn create_document(
         match saved_doc_res {
             Err(e) => {
                 tracing::error!("Error saving document: {}", e);
-                return (
+                (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({})),
-                );
+                )
             }
             Ok(saved_doc) => {
                 tracing::info!("Document saved: {:?}", saved_doc.title);
