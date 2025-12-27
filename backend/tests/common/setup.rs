@@ -1,9 +1,13 @@
+use std::env;
+
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
+
+use crate::common::docker::start_docker_compose;
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -77,6 +81,25 @@ where
             tracing::info!("Container returned error when checking if running.");
         }
     }
+}
+
+pub async fn run_test_with_all_containers<F, Fut>(test: F)
+where
+    F: FnOnce(TestServer) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    tracing::info!("Starting beforeEach setup");
+    // beforeEach
+    start_docker_compose().await;
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let server = build_app_server(&database_url).await;
+    let url = server
+        .server_address()
+        .expect("Failed to get server address");
+
+    // run test
+    tracing::info!("Running test on url {url}");
+    test(server).await;
 }
 
 /**
