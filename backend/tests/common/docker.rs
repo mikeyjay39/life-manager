@@ -1,10 +1,26 @@
 use dotenv::dotenv;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use reqwest::Client;
 use std::env;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
+
+static REGISTERED: OnceCell<()> = OnceCell::new();
+
+pub fn register_cleanup() {
+    REGISTERED.get_or_init(|| unsafe {
+        libc::atexit(cleanup);
+    });
+}
+
+extern "C" fn cleanup() {
+    println!("🧹 Running global test cleanup");
+
+    println!("Stopping docker-compose...");
+    let _ = Command::new("docker-compose").args(["down", "-v"]).status();
+    println!("docker-compose stopped.");
+}
 
 /// Guard that tears down docker-compose when tests finish
 pub struct DockerComposeGuard;
@@ -13,13 +29,16 @@ impl Drop for DockerComposeGuard {
     fn drop(&mut self) {
         println!("Stopping docker-compose...");
         let _ = Command::new("docker-compose").args(["down", "-v"]).status();
+        println!("docker-compose stopped.");
     }
 }
 
 static DOCKER: OnceCell<DockerComposeGuard> = OnceCell::new();
+static CLEANUP: Lazy<DockerComposeGuard> = Lazy::new(|| DockerComposeGuard);
 
 pub async fn start_docker_compose() {
     dotenv().ok();
+    register_cleanup();
     DOCKER.get_or_init(|| {
         println!("Starting docker-compose...");
 
@@ -34,6 +53,7 @@ pub async fn start_docker_compose() {
     });
 
     wait_for_services().await;
+    Lazy::force(&CLEANUP);
 }
 
 async fn wait_for_services() {

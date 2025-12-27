@@ -32,6 +32,7 @@ axum-test = "18.1.0"
 dotenv = "0.15.0"
 image = "0.25.5"
 imageproc = "0.25.0"
+libc = "0.2"
 serial_test = "3.2.0"
 testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 testcontainers = { version = "0.25.0" }
