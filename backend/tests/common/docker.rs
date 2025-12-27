@@ -1,10 +1,11 @@
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
-use reqwest::Client;
 use std::env;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
+
+use crate::common::setup::wait_for_service_to_be_ready;
 
 /**
 * Stops the docker-compose services.
@@ -45,44 +46,16 @@ async fn wait_for_services() {
     wait_for_tesseract_ready().await;
 }
 
-// TODO: Reactor this and the tesseract function to remove duplicated code
 async fn wait_for_ollama_ready() {
-    let client = Client::new();
     let base_url = env::var("OLLAMA_URL").expect("OLLAMA_URL must be set");
     let url = format!("{}/", base_url);
-
-    for attempt in 0..30 {
-        if let Ok(resp) = client.get(&url).send().await
-            && resp.status().is_success()
-        {
-            tracing::info!("Ollama is ready!");
-            sleep(Duration::from_secs(5));
-            return;
-        }
-        tracing::info!("Attemp {} Waiting for Ollama to become ready...", attempt);
-        sleep(Duration::from_secs(1));
-    }
-
-    panic!("Ollama did not become ready at {}", url);
+    wait_for_service_to_be_ready(&url, "OLLAMA").await;
 }
 
 async fn wait_for_tesseract_ready() {
-    let client = Client::new();
     let base_url = env::var("TESSERACT_URL").expect("TESSERACT_URL must be set");
     let url = format!("{}/", base_url);
-
-    for attempt in 0..30 {
-        if let Ok(resp) = client.get(&url).send().await
-            && resp.status().is_success()
-        {
-            tracing::info!("Tesseract is ready!");
-            return;
-        }
-        tracing::info!("Attemp {} Waiting for Ollama to become ready...", attempt);
-        sleep(Duration::from_secs(1));
-    }
-
-    panic!("Tesseract did not become ready at {}", url);
+    wait_for_service_to_be_ready(&url, "TESSERACT").await;
 }
 
 fn wait_for_postgres(container: Option<&str>) {
