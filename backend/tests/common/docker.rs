@@ -1,44 +1,27 @@
 use dotenv::dotenv;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use reqwest::Client;
 use std::env;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
 
-static REGISTERED: OnceCell<()> = OnceCell::new();
-
-pub fn register_cleanup() {
-    REGISTERED.get_or_init(|| unsafe {
-        libc::atexit(cleanup);
-    });
-}
-
-extern "C" fn cleanup() {
-    println!("🧹 Running global test cleanup");
-
+/**
+* Stops the docker-compose services.
+* WARNING: Starting the Ollama container is an expensive process that needs to download models
+* which are several GBs in size. Therefore, avoid stopping and starting the services frequently
+* during tests.
+*/
+pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
     let _ = Command::new("docker-compose").args(["down", "-v"]).status();
     println!("docker-compose stopped.");
 }
 
-/// Guard that tears down docker-compose when tests finish
-pub struct DockerComposeGuard;
-
-impl Drop for DockerComposeGuard {
-    fn drop(&mut self) {
-        println!("Stopping docker-compose...");
-        let _ = Command::new("docker-compose").args(["down", "-v"]).status();
-        println!("docker-compose stopped.");
-    }
-}
-
-static DOCKER: OnceCell<DockerComposeGuard> = OnceCell::new();
-static CLEANUP: Lazy<DockerComposeGuard> = Lazy::new(|| DockerComposeGuard);
+static DOCKER: OnceCell<()> = OnceCell::new();
 
 pub async fn start_docker_compose() {
     dotenv().ok();
-    register_cleanup();
     DOCKER.get_or_init(|| {
         println!("Starting docker-compose...");
 
@@ -47,22 +30,22 @@ pub async fn start_docker_compose() {
             .status()
             .expect("failed to start docker-compose");
 
+        // HACK: Ollama needs to download the Llama2 model which can take a while. Health checks
+        // still return 200 even if the model is not yet downloaded.
+        sleep(Duration::from_secs(300));
         assert!(status.success());
-
-        DockerComposeGuard // FIXME: This is not shutting down the containers like it should
     });
 
     wait_for_services().await;
-    Lazy::force(&CLEANUP);
 }
 
 async fn wait_for_services() {
-    // Replace with real health checks if possible
-    wait_for_tesseract_ready().await;
     wait_for_ollama_ready().await;
+    wait_for_postgres(None);
+    wait_for_tesseract_ready().await;
 }
 
-// TODO: Reactor this and the tessearct function to remove duplicated code
+// TODO: Reactor this and the tesseract function to remove duplicated code
 async fn wait_for_ollama_ready() {
     let client = Client::new();
     let base_url = env::var("OLLAMA_URL").expect("OLLAMA_URL must be set");
@@ -72,10 +55,11 @@ async fn wait_for_ollama_ready() {
         if let Ok(resp) = client.get(&url).send().await
             && resp.status().is_success()
         {
-            println!("Ollama is ready!");
+            tracing::info!("Ollama is ready!");
+            sleep(Duration::from_secs(5));
             return;
         }
-        println!("Attemp {} Waiting for Ollama to become ready...", attempt);
+        tracing::info!("Attemp {} Waiting for Ollama to become ready...", attempt);
         sleep(Duration::from_secs(1));
     }
 
@@ -91,12 +75,31 @@ async fn wait_for_tesseract_ready() {
         if let Ok(resp) = client.get(&url).send().await
             && resp.status().is_success()
         {
-            println!("Tesseract is ready!");
+            tracing::info!("Tesseract is ready!");
             return;
         }
-        println!("Attemp {} Waiting for Ollama to become ready...", attempt);
+        tracing::info!("Attemp {} Waiting for Ollama to become ready...", attempt);
         sleep(Duration::from_secs(1));
     }
 
     panic!("Tesseract did not become ready at {}", url);
+}
+
+fn wait_for_postgres(container: Option<&str>) {
+    let container = container.unwrap_or("postgres_container");
+    for _ in 0..30 {
+        let output = Command::new("docker")
+            .args(["inspect", "--format={{.State.Health.Status}}", container])
+            .output()
+            .expect("docker inspect failed");
+
+        if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "healthy" {
+            tracing::info!("Postgres container is healthy");
+            return;
+        }
+
+        sleep(Duration::from_secs(1));
+    }
+
+    panic!("Postgres container never became healthy");
 }

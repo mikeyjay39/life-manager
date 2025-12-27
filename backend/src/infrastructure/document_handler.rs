@@ -18,6 +18,15 @@ pub struct CreateDocumentCommand {
     pub content: String,
 }
 
+/**
+ * Creates a new document by processing multipart form data.
+ * +---------+     +-----------+     +--------+     +----------+
+ * |         |     |           |     |        |     |          |
+ * | Handler |---->| Tesseract |---->| Ollama |---->| Postgres |
+ * |         |     |           |     |        |     |          |
+ * +---------+     +-----------+     +--------+     +----------+
+ *
+ */
 pub async fn create_document(
     State(state): State<
         AppState<impl DocumentRepository, impl DocumentTextReader, impl DocumentSummarizer>,

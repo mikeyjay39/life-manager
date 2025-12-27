@@ -84,6 +84,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
 
     Router::new()
         .route("/", get(handler))
+        .route("/health", get(|| async { "up" }))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))

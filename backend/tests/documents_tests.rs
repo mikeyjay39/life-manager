@@ -62,7 +62,11 @@ async fn create_and_get_document_docker_compose() {
             Err(e) => panic!("Failed to send request: {}", e),
         };
         tracing::info!("Response: {:?}", res);
-        assert!(res.status().is_success());
+        assert!(
+            res.status().is_success(),
+            "Response status was not successful: {}",
+            res.error_for_status().unwrap_err()
+        );
         let saved_document_resp: DocumentDto = res.json().await.unwrap();
 
         // Verify the document was created in the database
