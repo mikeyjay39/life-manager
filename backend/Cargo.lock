@@ -1764,7 +1764,6 @@ dependencies = [
  "image",
  "imageproc",
  "lazy_static",
- "libc",
  "ollama-rs",
  "once_cell",
  "pdf-extract",
