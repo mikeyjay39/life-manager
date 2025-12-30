@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 /**
-* Trait for summarizing documents.
+* Port for summarizing documents.
 */
 #[async_trait]
 pub trait DocumentSummarizer: Sync + Send {

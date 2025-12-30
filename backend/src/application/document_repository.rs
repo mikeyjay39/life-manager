@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::domain::document::Document;
 
 /**
- * Trait for document repository operations.
+ * Port for document repository operations.
  */
 #[async_trait]
 pub trait DocumentRepository: Sync + Send {
