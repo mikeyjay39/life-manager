@@ -2,8 +2,13 @@ mod application;
 mod domain;
 pub mod infrastructure;
 use crate::{
-    application::document_repository::DocumentRepository, domain::document::Document,
-    infrastructure::document_orm_collection::DocumentOrmCollection,
+    application::{document_repository::DocumentRepository, document_use_cases::DocumentUseCases},
+    domain::document::Document,
+    infrastructure::{
+        document_orm_collection::DocumentOrmCollection,
+        ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
+        reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
+    },
 };
 use axum::{
     Router,
@@ -41,7 +46,7 @@ pub async fn start_server() {
     let app = build_app(pool).await;
 
     // Define the address to run the server on
-    let app_port = env::var("PORT").expect("PORT must be set");
+    let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
     let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
     tracing::info!("Tracing Listening on http://{}", addr);
 
@@ -64,13 +69,24 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .ok();
 
     // Build our application with a single route
-    let state: AppState<DocumentOrmCollection> = AppState {
-        document_repository: Arc::new(tokio::sync::Mutex::new(DocumentOrmCollection::new(pool))),
+    let state: AppState = AppState {
+        document_use_cases: DocumentUseCases {
+            document_repository: (Arc::new(Mutex::new(DocumentOrmCollection::new(pool)))),
+            reader: Arc::new(TesseractAdapter::new(
+                env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
+                Arc::new(ReqwestHttpClient::new()),
+            )),
+            summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
+                env::var("OLLAMA_URL")
+                    .ok()
+                    .and_then(|url_str| url_str.parse().ok()),
+            )),
+        },
     };
-    create_entity(&state.document_repository).await;
 
     Router::new()
         .route("/", get(handler))
+        .route("/health", get(|| async { "up" }))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
@@ -110,11 +126,13 @@ async fn handler() -> String {
 /**
 * TODO: Remove this. It is for testing only
 */
-pub async fn create_entity(repo: &Arc<Mutex<impl DocumentRepository>>) -> bool {
+pub async fn create_entity(
+    repo: &Arc<Mutex<impl DocumentRepository>>,
+) -> Result<Document, Box<dyn std::error::Error>> {
     let new_document = Document::new(1, "Sample Document", "This is a sample document.");
 
     let mut repo = repo.lock().await;
-    repo.save_document(&new_document).await
+    repo.save_document(new_document).await
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {

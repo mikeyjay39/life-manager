@@ -1,9 +1,15 @@
+use std::{env, thread::sleep, time::Duration};
+
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use dotenvy::dotenv;
+use reqwest::Client;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
+
+use crate::common::docker::{docker_compose_down, start_docker_compose};
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -47,6 +53,7 @@ where
 {
     tracing::info!("Starting beforeEach setup");
     // beforeEach
+    dotenv().ok();
     let (container, server) = init_tests().await;
     let url = server
         .server_address()
@@ -79,15 +86,44 @@ where
     }
 }
 
-pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
-    tracing::info!("Building Postgres container...");
-    let container = IntegrationTestContainer::new().await;
-    let url = container.get_connection_url().await;
-    tracing::info!("Database URL: {}", url);
+/**
+* Run test with all docker containers started via docker-compose
+* WARNING: This includes starting the Ollama container which is an expensive process. Very few
+* tests should use this setup function. Unless needing to explicitly test Ollama integration,
+* prefer using `run_test` which uses a lightweight Postgres container only and mock other services.
+*/
+pub async fn run_test_with_all_containers<F, Fut>(test: F)
+where
+    F: FnOnce(TestServer) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    tracing::info!("Starting beforeEach setup");
+    // beforeEach
+    start_docker_compose().await;
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let server = build_app_server(&database_url).await;
+    let url = server
+        .server_address()
+        .expect("Failed to get server address");
 
+    // run test
+    tracing::info!("Running test on url {url}");
+    test(server).await;
+
+    // afterEach (async cleanup)
+    tracing::info!("Tests completed with all containers.");
+    docker_compose_down();
+}
+
+/**
+* Build the application server with the given database URL
+* and runs migrations.
+*/
+pub async fn build_app_server(url: &str) -> TestServer {
     // Use Diesel to connect to Postgres
     tracing::info!("Creating connection pool...");
-    let pool = life_manager::create_connection_pool_from_url(&url);
+
+    let pool = life_manager::create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
@@ -98,8 +134,45 @@ pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
         ..TestServerConfig::default()
     };
 
-    let server_result = TestServer::new_with_config(app, config);
-    let server = server_result.expect("Failed to start test server");
+    let server = TestServer::new_with_config(app, config).expect("Failed to start test server");
+    let health_url = server
+        .server_url("/health")
+        .expect("Failed to get server URL");
+
+    wait_for_service_to_be_ready(health_url.as_str(), "Life Manager Backend").await;
+    server
+}
+
+pub async fn wait_for_service_to_be_ready(url: &str, service_name: &str) {
+    let client = Client::new();
+
+    for attempt in 0..30 {
+        if let Ok(resp) = client.get(url).send().await
+            && resp.status().is_success()
+        {
+            tracing::info!("{} is ready!", service_name);
+            return;
+        }
+        tracing::info!(
+            "Attemp {} Waiting for {} to become ready...",
+            attempt,
+            service_name
+        );
+        sleep(Duration::from_secs(1));
+    }
+
+    panic!("{} did not become ready at {}", service_name, url);
+}
+
+/**
+ * Initialize the test environment: start container, run migrations, build server
+ */
+pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
+    tracing::info!("Building Postgres container...");
+    let container = IntegrationTestContainer::new().await;
+    let url = container.get_connection_url().await;
+    tracing::info!("Database URL: {}", url);
+    let server = build_app_server(&url).await;
     (container, server)
 }
 

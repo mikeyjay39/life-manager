@@ -1,9 +1,12 @@
+use std::error::Error;
+
 use crate::application::document_repository::DocumentRepository;
 use crate::schema::documents;
 use crate::{
     domain::document::Document,
     infrastructure::document_entity::{self, DocumentEntity},
 };
+use async_trait::async_trait;
 use deadpool_diesel::InteractError;
 use deadpool_diesel::postgres::Pool;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
@@ -19,6 +22,7 @@ impl DocumentOrmCollection {
     }
 }
 
+#[async_trait]
 impl DocumentRepository for DocumentOrmCollection {
     async fn get_document(&self, id: i32) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
@@ -48,7 +52,7 @@ impl DocumentRepository for DocumentOrmCollection {
         }
     }
 
-    async fn save_document(&mut self, document: &Document) -> bool {
+    async fn save_document(&mut self, document: Document) -> Result<Document, Box<dyn Error>> {
         let conn = self
             .pool
             .get()
@@ -69,10 +73,23 @@ impl DocumentRepository for DocumentOrmCollection {
             .await;
 
         match result {
-            Ok(_) => true,
+            Ok(success) => match success {
+                Ok(saved_doc) => {
+                    tracing::info!("Document saved with ID: {}", saved_doc.id);
+                    Ok(Document::new(
+                        saved_doc.id,
+                        &saved_doc.title,
+                        &saved_doc.content,
+                    ))
+                }
+                Err(e) => {
+                    tracing::error!("Error saving document: {}", e);
+                    Err(Box::new(e))
+                }
+            },
             Err(e) => {
                 tracing::error!("Error saving document: {}", e);
-                false
+                Err(Box::new(e))
             }
         }
     }

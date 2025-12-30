@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:latest
@@ -15,19 +13,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    profiles: ["test", "dev", "prod"]
 
-  life-manager:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: life_manager_app
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      RUST_LOG: debug
-      PORT: ${APP_PORT}
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
     ports:
-      - "${APP_PORT}:${APP_PORT}"
-    restart: on-failure
+      - "${OLLAMA_PORT}:${OLLAMA_PORT}"
+    volumes:
+      - ollama:/root/.ollama
+      - ./ollama-entrypoint.sh:/entrypoint.sh
+    entrypoint: ["/entrypoint.sh"]
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - "OLLAMA_PORT=${OLLAMA_PORT}"
+    restart: unless-stopped
+    profiles: ["dev", "prod"]
+
+  # life-manager:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: life_manager_app
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: ${DATABASE_URL}
+  #     RUST_LOG: debug
+  #     APP_PORT: ${APP_PORT}
+  #   ports:
+  #     - "${APP_PORT}:${APP_PORT}"
+  #   restart: on-failure
+
+  tesseract:
+    image: hertzg/tesseract-server:latest
+    container_name: tesseract
+    ports:
+      - "${TESSERACT_PORT}:${TESSERACT_PORT}"
+    environment:
+      - TESSERACT_LANGUAGE=eng
+    restart: unless-stopped
+    profiles: ["test", "dev", "prod"]
+
+volumes:
+  ollama:

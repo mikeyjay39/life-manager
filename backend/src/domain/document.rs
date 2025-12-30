@@ -1,5 +1,12 @@
+use std::sync::Arc;
+
 use serde::Deserialize;
 use serde::Serialize;
+
+use crate::domain::document_summarizer::DocumentSummarizer;
+use crate::domain::document_summarizer::DocumentSummaryResult;
+use crate::domain::document_text_reader::DocumentTextReader;
+use crate::domain::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
@@ -18,6 +25,43 @@ impl Document {
             content: String::from(content),
             tags: vec![],
         }
+    }
+
+    /**
+     * Creates a Document from file bytes by reading the text and summarizing it.
+     */
+    pub async fn from_file(
+        uploaded_document_input: &UploadedDocumentInput,
+        reader: Arc<dyn DocumentTextReader>,
+        summarizer: Arc<dyn DocumentSummarizer>,
+    ) -> Option<Document> {
+        tracing::info!("Document::from_file");
+        let text = match reader.read_image(uploaded_document_input).await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Error reading document text: {}", e);
+                return None;
+            }
+        };
+
+        tracing::info!("Document text read successfully, text: {}", text);
+
+        let summary_result = match (summarizer.summarize(&text)).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Error summarizing document text: {}", e);
+                return None;
+            }
+        };
+
+        let DocumentSummaryResult { summary, title } = summary_result;
+        let document = Document {
+            id: 0,
+            title,
+            content: summary,
+            tags: vec![],
+        };
+        Some(document)
     }
 
     // Prints the document details
