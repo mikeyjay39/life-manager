@@ -76,10 +76,13 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                 env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
                 Arc::new(ReqwestHttpClient::new()),
             )),
-            summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new()),
+            summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
+                env::var("OLLAMA_URL")
+                    .ok()
+                    .and_then(|url_str| url_str.parse().ok()),
+            )),
         },
     };
-    // create_entity(&state.0).await;
 
     Router::new()
         .route("/", get(handler))

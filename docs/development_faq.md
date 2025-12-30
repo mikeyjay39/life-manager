@@ -7,3 +7,15 @@
 ![pre request script](./img/post_screenshot1.png)
 ![body form data](./img/post_screenshot2.png)
 
+## Running Tests
+### Integration Tests
+```bash
+cargo test --test '*'
+```
+
+### Unit Tests
+```bash
+cargo test --lib
+```
+
+
