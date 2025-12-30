@@ -27,7 +27,7 @@ pub async fn start_docker_compose() {
         println!("Starting docker-compose...");
 
         let status = Command::new("docker-compose")
-            .args(["up", "-d"])
+            .args(["--profile", "dev", "up", "-d"])
             .status()
             .expect("failed to start docker-compose");
 

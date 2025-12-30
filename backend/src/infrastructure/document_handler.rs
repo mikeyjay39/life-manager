@@ -4,6 +4,7 @@ use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use super::app_state::AppState;
 use super::document_dto::DocumentDto;
@@ -33,7 +34,7 @@ pub async fn create_document(
     let mut file_data = Vec::new();
     let mut file_name = String::new();
 
-    while let Some(field) = multipart.next_field().await.unwrap() {
+    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         match field.name() {
             Some("json") => {
                 let text = field.text().await.unwrap();
@@ -70,10 +71,7 @@ pub async fn create_document(
             Some(doc) => doc,
             None => {
                 tracing::error!("Failed to create document from file data");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({})),
-                );
+                return return_500();
             }
         };
 
@@ -84,22 +82,19 @@ pub async fn create_document(
         match saved_doc_res {
             Err(e) => {
                 tracing::error!("Error saving document: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({})),
-                )
+                return_500()
             }
             Ok(saved_doc) => {
                 tracing::info!("Document saved: {:?}", saved_doc.title);
                 (
                     StatusCode::CREATED,
-                    Json(serde_json::json!(DocumentDto::from_document(&saved_doc))),
+                    Json(json!(DocumentDto::from_document(&saved_doc))),
                 )
             }
         }
     } else {
         tracing::warn!("No valid JSON data found in the multipart form");
-        (StatusCode::NOT_FOUND, Json(serde_json::json!({})))
+        (StatusCode::NOT_FOUND, Json(json!({})))
     }
 }
 
@@ -107,9 +102,13 @@ pub async fn get_document(State(state): State<AppState>, Path(id): Path<u32>) ->
     tracing::info!("Fetching document with ID: {}", id);
     let repo = state.document_use_cases.document_repository.lock().await;
     match repo.get_document(id as i32).await {
-        Some(document) => (StatusCode::OK, Json(serde_json::json!(document.clone()))),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({}))),
+        Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
+        None => (StatusCode::NOT_FOUND, Json(json!({}))),
     }
+}
+
+fn return_500() -> (StatusCode, Json<serde_json::Value>) {
+    (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({})))
 }
 
 /*
