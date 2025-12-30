@@ -13,6 +13,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    profiles: ["test", "dev", "prod"]
 
   ollama:
     image: ollama/ollama:latest
@@ -27,6 +28,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - "OLLAMA_PORT=${OLLAMA_PORT}"
     restart: unless-stopped
+    profiles: ["dev", "prod"]
 
   # life-manager:
   #   build:
@@ -52,6 +54,7 @@ services:
     environment:
       - TESSERACT_LANGUAGE=eng
     restart: unless-stopped
+    profiles: ["test", "dev", "prod"]
 
 volumes:
   ollama:

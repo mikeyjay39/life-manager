@@ -10,6 +10,9 @@ const MODEL_NAME: &str = "llama2";
 const SUMMARY_CHAR_MAX_LENGTH: usize = 200;
 const TITLE_WORD_LIMIT: usize = 10;
 
+/**
+* An adapter that uses the Ollama client to summarize documents.
+*/
 #[derive(Clone)]
 pub struct OllamaDocumentSummarizerAdapter {
     ollama_client: Ollama,
@@ -56,15 +59,14 @@ impl DocumentSummarizer for OllamaDocumentSummarizerAdapter {
     }
 }
 
-// NOTE: These tests require an Ollama server running locally with the llama2 model available. They
-// are good for quickly testing prompts but not suitable for unit tests.
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::document_summarizer::DocumentSummarizer;
     use tokio;
 
-    // TODO: Mock the Ollama client for testing and add integration tests for this
+    // NOTE: This test requires an Ollama server running locally with the llama2 model available.
+    // It is good for quickly testing prompts but not suitable for unit tests.
     #[tokio::test]
     #[ignore]
     async fn test_summarize() {

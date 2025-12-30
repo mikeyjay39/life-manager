@@ -2,6 +2,9 @@ use async_trait::async_trait;
 
 use crate::domain::document::Document;
 
+/**
+ * Trait for document repository operations.
+ */
 #[async_trait]
 pub trait DocumentRepository: Sync + Send {
     async fn get_document(&self, id: i32) -> Option<Document>;
