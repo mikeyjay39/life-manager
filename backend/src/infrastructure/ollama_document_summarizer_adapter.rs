@@ -64,11 +64,13 @@ mod tests {
     use super::*;
     use crate::domain::document_summarizer::DocumentSummarizer;
     use tokio;
+    use tracing_test::traced_test;
 
     // NOTE: This test requires an Ollama server running locally with the llama2 model available.
     // It is good for quickly testing prompts but not suitable for unit tests.
     #[tokio::test]
     #[ignore]
+    #[traced_test]
     async fn test_summarize() {
         let summarizer = OllamaDocumentSummarizerAdapter::new(None);
         let text = "Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety. It is designed to be a safe, concurrent, and practical language that supports functional and imperative-procedural paradigms. Rust is syntactically similar to C++, but it provides better memory safety while maintaining performance.";
@@ -76,9 +78,9 @@ mod tests {
         match summary_result {
             Ok(result) => {
                 let summary = &result.summary;
-                println!("Summary of text: {}", summary);
+                tracing::info!("Summary of text: {}", summary);
                 let summary_length = summary.chars().count();
-                println!("Summary length: {}", summary_length);
+                tracing::info!("Summary length: {}", summary_length);
                 assert!(summary_length < SUMMARY_CHAR_MAX_LENGTH);
             }
             Err(e) => {

@@ -30,7 +30,7 @@ impl HttpClient for ReqwestHttpClient {
                     .bytes()
                     .await
                     .map_err(|e| {
-                        tracing::error!("Failed to deserialize Tesseract response: {}", e);
+                        tracing::error!("Failed to deserialize response: {}", e);
                         Box::new(e) as Box<dyn std::error::Error + Send + Sync>
                     })?
                     .to_vec();
