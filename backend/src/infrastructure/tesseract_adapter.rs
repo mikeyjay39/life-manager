@@ -133,7 +133,7 @@ impl DocumentTextReader for TesseractAdapter {
                     .mime_str("image/jpeg")?, // TODO: clean this up
             );
 
-        tracing::info!("Sending request to Tesseract service at: ");
+        tracing::info!("Sending request to Tesseract service at: {}", self.url);
         let response = self.http_client.post_multipart(&self.url, form).await;
 
         let response: HttpResponse = match response {
