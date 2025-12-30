@@ -56,6 +56,8 @@ impl DocumentSummarizer for OllamaDocumentSummarizerAdapter {
     }
 }
 
+// NOTE: These tests require an Ollama server running locally with the llama2 model available. They
+// are good for quickly testing prompts but not suitable for unit tests.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,6 +66,7 @@ mod tests {
 
     // TODO: Mock the Ollama client for testing and add integration tests for this
     #[tokio::test]
+    #[ignore]
     async fn test_summarize() {
         let summarizer = OllamaDocumentSummarizerAdapter::new(None);
         let text = "Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety. It is designed to be a safe, concurrent, and practical language that supports functional and imperative-procedural paradigms. Rust is syntactically similar to C++, but it provides better memory safety while maintaining performance.";
