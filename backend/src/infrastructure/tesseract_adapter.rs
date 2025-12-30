@@ -1,5 +1,6 @@
 use std::{error::Error, io::Write, sync::Arc};
 
+use async_trait::async_trait;
 use reqwest::multipart::{Form, Part};
 use serde_json::json;
 use tempfile::NamedTempFile;
@@ -85,6 +86,7 @@ impl TesseractAdapter {
     }
 }
 
+#[async_trait]
 impl DocumentTextReader for TesseractAdapter {
     async fn read_image(
         &self,

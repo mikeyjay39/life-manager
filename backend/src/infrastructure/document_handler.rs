@@ -1,7 +1,4 @@
-use crate::DocumentRepository;
 use crate::domain::document::Document;
-use crate::domain::document_summarizer::DocumentSummarizer;
-use crate::domain::document_text_reader::DocumentTextReader;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
@@ -28,9 +25,7 @@ pub struct CreateDocumentCommand {
  *
  */
 pub async fn create_document(
-    State(state): State<
-        AppState<impl DocumentRepository, impl DocumentTextReader, impl DocumentSummarizer>,
-    >,
+    State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     tracing::info!("Received multipart form data");
@@ -59,8 +54,8 @@ pub async fn create_document(
     if let Some(_payload) = json_data {
         let document_opt = match !file_data.is_empty() {
             true => {
-                let reader = &state.reader;
-                let summarizer = &state.summarizer;
+                let reader = state.document_use_cases.reader;
+                let summarizer = state.document_use_cases.summarizer;
                 let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
@@ -84,7 +79,7 @@ pub async fn create_document(
 
         document.print_details();
 
-        let mut repo = state.document_repository.lock().await;
+        let mut repo = state.document_use_cases.document_repository.lock().await;
         let saved_doc_res = repo.save_document(document).await;
         match saved_doc_res {
             Err(e) => {
@@ -108,14 +103,9 @@ pub async fn create_document(
     }
 }
 
-pub async fn get_document(
-    State(state): State<
-        AppState<impl DocumentRepository, impl DocumentTextReader, impl DocumentSummarizer>,
-    >,
-    Path(id): Path<u32>,
-) -> impl IntoResponse {
+pub async fn get_document(State(state): State<AppState>, Path(id): Path<u32>) -> impl IntoResponse {
     tracing::info!("Fetching document with ID: {}", id);
-    let repo = state.document_repository.lock().await;
+    let repo = state.document_use_cases.document_repository.lock().await;
     match repo.get_document(id as i32).await {
         Some(document) => (StatusCode::OK, Json(serde_json::json!(document.clone()))),
         None => (StatusCode::NOT_FOUND, Json(serde_json::json!({}))),
@@ -203,55 +193,55 @@ pub async fn upload(mut multipart: Multipart) {
 //         assert_eq!(response_document.content, "This is a test content.");
 //     }
 //
-//     #[tokio::test]
-//     async fn test_get_document() {
-//         // Arrange
-//         let document = Document::new(1, "Test Document", "This is a test content.");
-//         let mut repo = DocumentCollection::new();
-//         repo.save_document(&document).await;
+// #[tokio::test]
+// async fn test_get_document() {
+//     // Arrange
+//     let document = Document::new(1, "Test Document", "This is a test content.");
+//     let mut repo = DocumentCollection::new();
+//     repo.save_document(&document).await;
 //
-//         let state: AppState<DocumentCollection> = AppState {
-//             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-//         };
+//     let state: AppState<DocumentCollection> = AppState {
+//         document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
+//     };
 //
-//         // Act
-//         let response = get_document(State(state), Path(1)).await;
+//     // Act
+//     let response = get_document(State(state), Path(1)).await;
 //
-//         let response = response.into_response();
-//         let status_code = response.status();
-//         let body = response.into_body();
-//         // Assert
-//         assert_eq!(status_code, StatusCode::OK);
+//     let response = response.into_response();
+//     let status_code = response.status();
+//     let body = response.into_body();
+//     // Assert
+//     assert_eq!(status_code, StatusCode::OK);
 //
-//         let bytes = to_bytes(body).await.expect("Failed to read body");
-//         let response_document =
-//             serde_json::from_slice::<Document>(&bytes).expect("Failed to deserialize JSON");
+//     let bytes = to_bytes(body).await.expect("Failed to read body");
+//     let response_document =
+//         serde_json::from_slice::<Document>(&bytes).expect("Failed to deserialize JSON");
 //
-//         assert_eq!(response_document.id, 1);
-//         assert_eq!(response_document.title, "Test Document");
-//         assert_eq!(response_document.content, "This is a test content.");
-//     }
+//     assert_eq!(response_document.id, 1);
+//     assert_eq!(response_document.title, "Test Document");
+//     assert_eq!(response_document.content, "This is a test content.");
+// }
+
+// #[tokio::test]
+// async fn test_get_document_not_found() {
+//     // Arrange
+//     let document = Document::new(1, "Test Document", "This is a test content.");
+//     let mut repo = DocumentCollection::new();
+//     repo.save_document(&document).await;
 //
-//     #[tokio::test]
-//     async fn test_get_document_not_found() {
-//         // Arrange
-//         let document = Document::new(1, "Test Document", "This is a test content.");
-//         let mut repo = DocumentCollection::new();
-//         repo.save_document(&document).await;
+//     let state: AppState<DocumentCollection> = AppState {
+//         document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
+//     };
 //
-//         let state: AppState<DocumentCollection> = AppState {
-//             document_repository: Arc::new(tokio::sync::Mutex::new(repo)),
-//         };
+//     // Act
+//     let response = get_document(State(state), Path(2)).await;
+//     let response = response.into_response();
+//     let status_code = response.status();
+//     let body = response.into_body();
+//     let _bytes = to_bytes(body).await.expect("Failed to read body");
 //
-//         // Act
-//         let response = get_document(State(state), Path(2)).await;
-//         let response = response.into_response();
-//         let status_code = response.status();
-//         let body = response.into_body();
-//         let _bytes = to_bytes(body).await.expect("Failed to read body");
-//
-//         // Assert
-//         assert_eq!(status_code, StatusCode::NOT_FOUND);
-//         // TODO: assert empty response body
-//     }
+//     // Assert
+//     assert_eq!(status_code, StatusCode::NOT_FOUND);
+//     // TODO: assert empty response body
+// }
 // }

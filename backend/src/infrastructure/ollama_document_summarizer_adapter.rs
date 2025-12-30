@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use async_trait::async_trait;
 use ollama_rs::{Ollama, generation::completion::request::GenerationRequest};
 
 use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
@@ -30,6 +31,7 @@ impl Default for OllamaDocumentSummarizerAdapter {
     }
 }
 
+#[async_trait]
 impl DocumentSummarizer for OllamaDocumentSummarizerAdapter {
     async fn summarize(&self, text: &str) -> Result<DocumentSummaryResult, Box<dyn Error>> {
         let prompt = format!(

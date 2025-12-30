@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -30,8 +32,8 @@ impl Document {
      */
     pub async fn from_file(
         uploaded_document_input: &UploadedDocumentInput,
-        reader: &impl DocumentTextReader,
-        summarizer: &impl DocumentSummarizer,
+        reader: Arc<dyn DocumentTextReader>,
+        summarizer: Arc<dyn DocumentSummarizer>,
     ) -> Option<Document> {
         tracing::info!("Document::from_file");
         let text = match reader.read_image(uploaded_document_input).await {

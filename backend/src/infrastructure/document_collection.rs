@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use crate::{application::document_repository::DocumentRepository, domain::document::Document};
 
 #[derive(Clone)]
@@ -5,6 +7,7 @@ pub struct DocumentCollection {
     pub documents: Vec<Document>,
 }
 
+#[async_trait]
 impl DocumentRepository for DocumentCollection {
     async fn get_document(&self, id: i32) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
