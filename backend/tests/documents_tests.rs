@@ -136,10 +136,12 @@ async fn create_and_get_document_no_file() {
             tracing::info!("Response: {:?}", res);
             assert!(res.status().is_success());
 
+            let response_document = res.json::<DocumentDto>().await.unwrap();
+
             // Verify the document was created in the database
 
             let get_request_url_result = server
-                .server_url(&format!("/documents/{}", &payload.id))
+                .server_url(&format!("/documents/{}", &response_document.id))
                 .expect("Failed to get server URL");
             let get_request_url = get_request_url_result.as_str();
             tracing::info!("Get Request URL: {}", get_request_url);
