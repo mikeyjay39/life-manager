@@ -52,12 +52,8 @@ impl DocumentRepository for DocumentOrmCollection {
         }
     }
 
-    async fn save_document(&mut self, document: Document) -> Result<Document, Box<dyn Error>> {
-        let conn = self
-            .pool
-            .get()
-            .await
-            .expect("Failed to get DB connection from pool");
+    async fn save_document(&self, document: Document) -> Result<Document, Box<dyn Error>> {
+        let conn = self.pool.get().await?;
         let new_document = document_entity::NewDocumentEntity {
             title: document.title.clone(),
             content: document.content.clone(),

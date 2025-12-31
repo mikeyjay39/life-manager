@@ -1,37 +1,42 @@
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 use crate::{application::document_repository::DocumentRepository, domain::document::Document};
 
-#[derive(Clone)]
 pub struct DocumentCollection {
-    pub documents: Vec<Document>,
+    pub documents: Mutex<Vec<Document>>,
 }
 
 #[async_trait]
 impl DocumentRepository for DocumentCollection {
     async fn get_document(&self, id: i32) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
-        tracing::info!("Total documents in collection: {}", self.documents.len());
-        match self.documents.iter().find(|doc| doc.id == id) {
-            Some(doc) => Some(doc.clone()),
-            None => None,
-        }
+        let documents = self.documents.lock().await;
+        tracing::info!("Total documents in collection: {}", documents.len());
+        documents.iter().find(|doc| doc.id == id).cloned()
     }
 
     async fn save_document(
-        &mut self,
+        &self,
         document: Document,
     ) -> Result<Document, Box<dyn std::error::Error>> {
         tracing::info!("Saving document with ID: {}", document.id);
-        self.documents.push(document.clone());
+        let mut documents = self.documents.lock().await;
+        documents.push(document.clone());
         Ok(document)
+    }
+}
+
+impl Default for DocumentCollection {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl DocumentCollection {
     pub fn new() -> Self {
         DocumentCollection {
-            documents: Vec::new(),
+            documents: Mutex::new(Vec::new()),
         }
     }
 }
@@ -44,18 +49,30 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_add_document() {
-        let mut collection: DocumentCollection = DocumentCollection::new();
-        assert_eq!(collection.documents.len(), 0);
+        let collection: DocumentCollection = DocumentCollection::new();
+        {
+            let documents = collection.documents.lock().await;
+            assert_eq!(documents.len(), 0);
+        }
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(doc).await;
-        assert_eq!(collection.documents.len(), 1);
+        collection
+            .save_document(doc)
+            .await
+            .expect("Failed to save document");
+        {
+            let documents = collection.documents.lock().await;
+            assert_eq!(documents.len(), 1);
+        }
     }
 
     #[tokio::test]
     pub async fn test_get_document() {
-        let mut collection: DocumentCollection = DocumentCollection::new();
+        let collection: DocumentCollection = DocumentCollection::new();
         let doc = Document::new(1, "Test document", "This is a test content.");
-        collection.save_document(doc.clone()).await;
+        collection
+            .save_document(doc.clone())
+            .await
+            .expect("Failed to save document");
 
         let retrieved_doc = collection.get_document(1).await.unwrap();
         assert_eq!(retrieved_doc.id, doc.id);

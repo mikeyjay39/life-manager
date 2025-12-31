@@ -30,21 +30,22 @@ services:
     restart: unless-stopped
     profiles: ["dev", "prod"]
 
-  # life-manager:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: life_manager_app
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   environment:
-  #     DATABASE_URL: ${DATABASE_URL}
-  #     RUST_LOG: debug
-  #     APP_PORT: ${APP_PORT}
-  #   ports:
-  #     - "${APP_PORT}:${APP_PORT}"
-  #   restart: on-failure
+  life-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: life_manager_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      RUST_LOG: debug
+      APP_PORT: ${APP_PORT}
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    restart: on-failure
+    profiles: ["prod"]
 
   tesseract:
     image: hertzg/tesseract-server:latest

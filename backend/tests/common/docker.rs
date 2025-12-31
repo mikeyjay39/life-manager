@@ -21,7 +21,7 @@ pub fn docker_compose_down() {
 
 static DOCKER: OnceCell<()> = OnceCell::new();
 
-pub async fn start_docker_compose() {
+pub async fn start_docker_compose_dev_profile() {
     dotenv().ok();
     DOCKER.get_or_init(|| {
         println!("Starting docker-compose...");
@@ -37,13 +37,34 @@ pub async fn start_docker_compose() {
         assert!(status.success());
     });
 
+    wait_for_ollama_ready().await;
+    wait_for_services().await;
+}
+
+/**
+* Starts the docker-compose services with the "test" profile defined in docker-compose.yml as well
+* as loading environment variables from the .test.env file.
+*/
+pub async fn start_docker_compose_test_profile() {
+    let env_file = ".test.env";
+    dotenv::from_filename(env_file).ok();
+    DOCKER.get_or_init(|| {
+        tracing::info!("Starting docker-compose with test profile...");
+
+        let status = Command::new("docker-compose")
+            .args(["--profile", "test", "--env-file", env_file, "up", "-d"])
+            .status()
+            .expect("failed to start docker-compose");
+
+        assert!(status.success());
+    });
+
     wait_for_services().await;
 }
 
 async fn wait_for_services() {
-    wait_for_ollama_ready().await;
-    wait_for_postgres(None);
     wait_for_tesseract_ready().await;
+    wait_for_postgres(None);
 }
 
 async fn wait_for_ollama_ready() {
