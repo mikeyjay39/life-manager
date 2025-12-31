@@ -1,4 +1,8 @@
-use std::{env, thread::sleep, time::Duration};
+use std::{
+    env::{self, set_var},
+    thread::sleep,
+    time::Duration,
+};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
@@ -6,10 +10,17 @@ use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 use reqwest::Client;
+use serde_json::json;
 use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
+};
 
-use crate::common::docker::{docker_compose_down, start_docker_compose};
+use crate::common::docker::{
+    docker_compose_down, start_docker_compose_dev_profile, start_docker_compose_test_profile,
+};
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -99,7 +110,7 @@ where
 {
     tracing::info!("Starting beforeEach setup");
     // beforeEach
-    start_docker_compose().await;
+    start_docker_compose_dev_profile().await;
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let server = build_app_server(&database_url).await;
     let url = server
@@ -113,6 +124,55 @@ where
     // afterEach (async cleanup)
     tracing::info!("Tests completed with all containers.");
     docker_compose_down();
+}
+
+pub async fn run_test_with_test_profile<F, Fut>(test: F)
+where
+    F: FnOnce(TestServer) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    tracing::info!("Starting beforeEach setup");
+    // beforeEach
+    start_docker_compose_test_profile().await;
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let ollama: MockServer = mock_ollama_response().await;
+
+    unsafe {
+        set_var("OLLAMA_URL", ollama.uri());
+    }
+
+    let server = build_app_server(&database_url).await;
+    let url = server
+        .server_address()
+        .expect("Failed to get server address");
+
+    // run test
+    tracing::info!("Running test on url {url}");
+    test(server).await;
+
+    // afterEach (async cleanup)
+    tracing::info!("Tests completed with all containers.");
+    docker_compose_down();
+}
+
+async fn mock_ollama_response() -> MockServer {
+    let server = MockServer::start().await;
+
+    let response = json!({
+        "model": "llama2",
+        "created_at": "2024-05-10T18:42:02.012Z",
+        "response": "A friendly hello greeting\nhello world",
+        "done": true
+    });
+
+    Mock::given(method("POST"))
+        .and(path("/api/generate"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(response))
+        .mount(&server)
+        .await;
+
+    tracing::info!("Mocked Ollama server at {}", server.uri());
+    server
 }
 
 /**
