@@ -77,7 +77,7 @@ pub async fn create_document(
 
         document.print_details();
 
-        let mut repo = state.document_use_cases.document_repository.lock().await;
+        let repo = state.document_use_cases.document_repository;
         let saved_doc_res = repo.save_document(document).await;
         match saved_doc_res {
             Err(e) => {
@@ -100,7 +100,7 @@ pub async fn create_document(
 
 pub async fn get_document(State(state): State<AppState>, Path(id): Path<u32>) -> impl IntoResponse {
     tracing::info!("Fetching document with ID: {}", id);
-    let repo = state.document_use_cases.document_repository.lock().await;
+    let repo = state.document_use_cases.document_repository;
     match repo.get_document(id as i32).await {
         Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
         None => (StatusCode::NOT_FOUND, Json(json!({}))),
@@ -140,7 +140,6 @@ mod tests {
     use axum::extract::FromRequest;
     use axum::http::{Request, StatusCode};
     use serde_json::from_slice;
-    use tokio::sync::Mutex;
 
     struct MockDocumentTextReader;
 
@@ -176,7 +175,7 @@ mod tests {
 
         let state: AppState = AppState {
             document_use_cases: DocumentUseCases {
-                document_repository: Arc::new(Mutex::new(DocumentCollection::new())),
+                document_repository: Arc::new(DocumentCollection::new()),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
             },
@@ -230,14 +229,14 @@ mod tests {
     async fn test_get_document() {
         // Arrange
         let document = Document::new(1, "Test Document", "This is test content.");
-        let mut repo = DocumentCollection::new();
+        let repo = DocumentCollection::new();
         repo.save_document(document)
             .await
             .expect("Failed to save document to seed test");
 
         let state: AppState = AppState {
             document_use_cases: DocumentUseCases {
-                document_repository: Arc::new(Mutex::new(repo)),
+                document_repository: Arc::new(repo),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
             },
@@ -266,14 +265,14 @@ mod tests {
     async fn test_get_document_not_found() {
         // Arrange
         let document = Document::new(1, "Test Document", "This is a test content.");
-        let mut repo = DocumentCollection::new();
+        let repo = DocumentCollection::new();
         repo.save_document(document)
             .await
             .expect("Failed to save document to seed test");
 
         let state: AppState = AppState {
             document_use_cases: DocumentUseCases {
-                document_repository: Arc::new(Mutex::new(repo)),
+                document_repository: Arc::new(repo),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
             },

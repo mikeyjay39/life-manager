@@ -2,7 +2,7 @@ mod application;
 mod domain;
 pub mod infrastructure;
 use crate::{
-    application::{document_repository::DocumentRepository, document_use_cases::DocumentUseCases},
+    application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
         document_orm_collection::DocumentOrmCollection,
@@ -27,7 +27,6 @@ use infrastructure::{
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
@@ -71,7 +70,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     // Build our application with a single route
     let state: AppState = AppState {
         document_use_cases: DocumentUseCases {
-            document_repository: (Arc::new(Mutex::new(DocumentOrmCollection::new(pool)))),
+            document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
             reader: Arc::new(TesseractAdapter::new(
                 env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
                 Arc::new(ReqwestHttpClient::new()),
@@ -121,18 +120,6 @@ async fn handler() -> String {
     document.print_details();
     tracing::info!("{}", document.content);
     document.content
-}
-
-/**
-* TODO: Remove this. It is for testing only
-*/
-pub async fn create_entity(
-    repo: &Arc<Mutex<impl DocumentRepository>>,
-) -> Result<Document, Box<dyn std::error::Error>> {
-    let new_document = Document::new(1, "Sample Document", "This is a sample document.");
-
-    let mut repo = repo.lock().await;
-    repo.save_document(new_document).await
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
