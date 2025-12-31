@@ -18,4 +18,17 @@ cargo test --test '*'
 cargo test --lib
 ```
 
+## Secrets and Encryption
+See [git-crypt](https://github.com/AGWA/git-crypt?tab=readme-ov-file#using-git-crypt)
+
+Recommend adding users with their own gpg key:
+```bash
+git-crypt add-gpg-user USER_ID
+```
+
+After cloninng the repo, unlock with:
+```bash
+git-crypt unlock
+```
+
 
