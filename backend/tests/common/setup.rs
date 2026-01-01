@@ -8,11 +8,8 @@ use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use dotenvy::dotenv;
 use reqwest::Client;
 use serde_json::json;
-use testcontainers::runners::AsyncRunner;
-use testcontainers_modules::postgres::Postgres;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path},
@@ -25,83 +22,12 @@ use crate::common::docker::{
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-pub struct IntegrationTestContainer {
-    pub postgres: testcontainers::ContainerAsync<testcontainers_modules::postgres::Postgres>,
-}
-impl IntegrationTestContainer {
-    pub async fn new() -> Self {
-        IntegrationTestContainer {
-            postgres: Postgres::default()
-                .with_user("postgres")
-                .with_password("password")
-                .with_db_name("mydb")
-                .start()
-                .await
-                .expect("Failed to start Postgres container"),
-        }
-    }
-    pub async fn get_connection_url(&self) -> String {
-        let port = self
-            .postgres
-            .get_host_port_ipv4(5432)
-            .await
-            .expect("Failed to get host port");
-        format!("postgres://postgres:password@127.0.0.1:{}/mydb", port)
-    }
-}
-
-impl Drop for IntegrationTestContainer {
-    fn drop(&mut self) {
-        tracing::info!("Shutting down the container...");
-        // The container will automatically stop
-    }
-}
-
-pub async fn run_test<F, Fut>(test: F)
-where
-    F: FnOnce(&IntegrationTestContainer, TestServer) -> Fut,
-    Fut: std::future::Future<Output = ()>,
-{
-    tracing::info!("Starting beforeEach setup");
-    // beforeEach
-    dotenv().ok();
-    let (container, server) = init_tests().await;
-    let url = server
-        .server_address()
-        .expect("Failed to get server address");
-
-    // run test
-    tracing::info!("Running test on url {url}");
-    test(&container, server).await;
-
-    // afterEach (async cleanup)
-    // container is dropped automatically, but you could do more here
-    tracing::info!("Cleaning up container");
-    container
-        .postgres
-        .stop()
-        .await
-        .expect("Failed to stop container");
-    let is_runnging = container.postgres.is_running().await;
-    match is_runnging {
-        Ok(running) => {
-            if running {
-                tracing::info!("Container is still running!");
-            } else {
-                tracing::info!("Container has been stopped.");
-            }
-        }
-        Err(_) => {
-            tracing::info!("Container returned error when checking if running.");
-        }
-    }
-}
-
 /**
 * Run test with all docker containers started via docker-compose
+*
 * WARNING: This includes starting the Ollama container which is an expensive process. Very few
 * tests should use this setup function. Unless needing to explicitly test Ollama integration,
-* prefer using `run_test` which uses a lightweight Postgres container only and mock other services.
+* prefer using `run_test_with_test_profile` which omits the Ollama container.
 */
 pub async fn run_test_with_all_containers<F, Fut>(test: F)
 where
@@ -224,19 +150,6 @@ pub async fn wait_for_service_to_be_ready(url: &str, service_name: &str) {
     panic!("{} did not become ready at {}", service_name, url);
 }
 
-/**
- * Initialize the test environment: start container, run migrations, build server
- */
-pub async fn init_tests() -> (IntegrationTestContainer, TestServer) {
-    tracing::info!("Building Postgres container...");
-    let container = IntegrationTestContainer::new().await;
-    let url = container.get_connection_url().await;
-    tracing::info!("Database URL: {}", url);
-    let server = build_app_server(&url).await;
-    (container, server)
-}
-
-/// Run pending migrations
 async fn run_migrations(pool: &Pool<Manager<PgConnection>>) -> bool {
     // Get a database connection from the pool
     let conn = pool.get().await.expect("Failed to get DB connection");
