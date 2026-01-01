@@ -5,7 +5,7 @@ use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
-        document_orm_collection::DocumentOrmCollection,
+        document_orm_collection::DocumentOrmCollection, login::login,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
     },
@@ -86,6 +86,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     Router::new()
         .route("/", get(handler))
         .route("/health", get(|| async { "up" }))
+        .route("/login", post(login))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))

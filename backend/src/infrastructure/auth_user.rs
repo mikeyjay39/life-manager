@@ -16,32 +16,27 @@ where
 {
     type Rejection = StatusCode;
 
-    fn from_request_parts(
-        parts: &mut Parts,
-        _state: &S,
-    ) -> impl std::future::Future<Output = Result<Self, Self::Rejection>> + Send {
-        async move {
-            let auth_header = parts
-                .headers
-                .get(axum::http::header::AUTHORIZATION)
-                .and_then(|v| v.to_str().ok())
-                .ok_or(StatusCode::UNAUTHORIZED)?;
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let auth_header = parts
+            .headers
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .ok_or(StatusCode::UNAUTHORIZED)?;
 
-            let token = auth_header
-                .strip_prefix("Bearer ")
-                .ok_or(StatusCode::UNAUTHORIZED)?;
+        let token = auth_header
+            .strip_prefix("Bearer ")
+            .ok_or(StatusCode::UNAUTHORIZED)?;
 
-            let claims = decode::<Claims>(
-                token,
-                &DecodingKey::from_secret(JWT_SECRET),
-                &Validation::default(),
-            )
-            .map_err(|_| StatusCode::UNAUTHORIZED)?
-            .claims;
+        let claims = decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(JWT_SECRET),
+            &Validation::default(),
+        )
+        .map_err(|_| StatusCode::UNAUTHORIZED)?
+        .claims;
 
-            Ok(AuthUser {
-                username: claims.sub,
-            })
-        }
+        Ok(AuthUser {
+            username: claims.sub,
+        })
     }
 }

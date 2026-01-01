@@ -6,13 +6,13 @@ pub struct Claims {
     pub exp: usize,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     pub token: String,
 }
