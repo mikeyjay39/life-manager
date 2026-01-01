@@ -24,7 +24,7 @@ static DOCKER: OnceCell<()> = OnceCell::new();
 pub async fn start_docker_compose_dev_profile() {
     dotenv().ok();
     DOCKER.get_or_init(|| {
-        println!("Starting docker-compose...");
+        println!("Starting docker compose...");
 
         let status = Command::new("docker-compose")
             .args(["--profile", "dev", "up", "-d"])
@@ -51,7 +51,7 @@ pub async fn start_docker_compose_test_profile() {
     DOCKER.get_or_init(|| {
         tracing::info!("Starting docker-compose with test profile...");
 
-        let status = Command::new("docker-compose")
+        let status = Command::new("docker compose")
             .args(["--profile", "test", "--env-file", env_file, "up", "-d"])
             .status()
             .expect("failed to start docker-compose");

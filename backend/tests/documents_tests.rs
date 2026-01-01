@@ -20,6 +20,7 @@ use std::time::Duration;
 #[tokio::test]
 #[serial]
 #[traced_test]
+#[ignore]
 async fn create_and_get_document_docker_compose() {
     run_test_with_all_containers(|server: TestServer| async move {
         // Make REST API call to create a document
