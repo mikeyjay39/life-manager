@@ -56,6 +56,6 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Run Integration Tests
-        run: cargo test --test '*' --manifest-path backend/Cargo.toml
+        run: cd backend && cargo test --test '*'
 
 
