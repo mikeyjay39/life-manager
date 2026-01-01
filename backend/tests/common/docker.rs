@@ -1,6 +1,7 @@
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
-use std::env;
+use std::env::{self, current_dir};
+use std::path::PathBuf;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
@@ -15,7 +16,7 @@ use crate::common::setup::wait_for_service_to_be_ready;
 */
 pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
-    let _ = Command::new("docker-compose").args(["down", "-v"]).status();
+    let _ = Command::new("docker compose").args(["down", "-v"]).status();
     println!("docker-compose stopped.");
 }
 
@@ -24,9 +25,9 @@ static DOCKER: OnceCell<()> = OnceCell::new();
 pub async fn start_docker_compose_dev_profile() {
     dotenv().ok();
     DOCKER.get_or_init(|| {
-        println!("Starting docker-compose...");
+        println!("Starting docker compose...");
 
-        let status = Command::new("docker-compose")
+        let status = Command::new("docker compose")
             .args(["--profile", "dev", "up", "-d"])
             .status()
             .expect("failed to start docker-compose");
@@ -46,18 +47,30 @@ pub async fn start_docker_compose_dev_profile() {
 * as loading environment variables from the .test.env file.
 */
 pub async fn start_docker_compose_test_profile() {
-    let env_file = ".test.env";
-    dotenv::from_filename(env_file).ok();
-    DOCKER.get_or_init(|| {
-        tracing::info!("Starting docker-compose with test profile...");
+    let cwd = current_dir().expect("Could not get cwd");
+    let env_file_path: PathBuf = cwd.join(".test.env");
 
-        let status = Command::new("docker-compose")
-            .args(["--profile", "test", "--env-file", env_file, "up", "-d"])
-            .status()
-            .expect("failed to start docker-compose");
+    dotenv::from_filename(&env_file_path).ok();
 
-        assert!(status.success());
-    });
+    tracing::info!(
+        "Starting docker compose with env_file: {}",
+        env_file_path.display()
+    );
+
+    let status = Command::new("docker")
+        .args([
+            "compose",
+            "--profile",
+            "test",
+            "--env-file",
+            env_file_path.to_str().unwrap(),
+            "up",
+            "-d",
+        ])
+        .status()
+        .expect("failed to start docker compose");
+
+    assert!(status.success());
 
     wait_for_services().await;
 }
