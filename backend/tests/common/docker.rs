@@ -1,6 +1,7 @@
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
-use std::env;
+use std::env::{self, current_dir};
+use std::path::PathBuf;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
@@ -46,18 +47,30 @@ pub async fn start_docker_compose_dev_profile() {
 * as loading environment variables from the .test.env file.
 */
 pub async fn start_docker_compose_test_profile() {
-    let env_file = ".test.env";
-    dotenv::from_filename(env_file).ok();
-    DOCKER.get_or_init(|| {
-        tracing::info!("Starting docker-compose with test profile...");
+    let cwd = current_dir().expect("Could not get cwd");
+    let env_file_path: PathBuf = cwd.join(".test.env");
 
-        let status = Command::new("docker compose")
-            .args(["--profile", "test", "--env-file", env_file, "up", "-d"])
-            .status()
-            .expect("failed to start docker compose");
+    dotenv::from_filename(&env_file_path).ok();
 
-        assert!(status.success());
-    });
+    tracing::info!(
+        "Starting docker compose with env_file: {}",
+        env_file_path.display()
+    );
+
+    let status = Command::new("docker")
+        .args([
+            "compose",
+            "--profile",
+            "test",
+            "--env-file",
+            env_file_path.to_str().unwrap(),
+            "up",
+            "-d",
+        ])
+        .status()
+        .expect("failed to start docker compose");
+
+    assert!(status.success());
 
     wait_for_services().await;
 }
