@@ -15,7 +15,7 @@ use crate::common::setup::wait_for_service_to_be_ready;
 */
 pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
-    let _ = Command::new("docker-compose").args(["down", "-v"]).status();
+    let _ = Command::new("docker compose").args(["down", "-v"]).status();
     println!("docker-compose stopped.");
 }
 
@@ -26,7 +26,7 @@ pub async fn start_docker_compose_dev_profile() {
     DOCKER.get_or_init(|| {
         println!("Starting docker compose...");
 
-        let status = Command::new("docker-compose")
+        let status = Command::new("docker compose")
             .args(["--profile", "dev", "up", "-d"])
             .status()
             .expect("failed to start docker-compose");
@@ -54,7 +54,7 @@ pub async fn start_docker_compose_test_profile() {
         let status = Command::new("docker compose")
             .args(["--profile", "test", "--env-file", env_file, "up", "-d"])
             .status()
-            .expect("failed to start docker-compose");
+            .expect("failed to start docker compose");
 
         assert!(status.success());
     });
