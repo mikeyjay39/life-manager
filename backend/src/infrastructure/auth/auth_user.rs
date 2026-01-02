@@ -4,7 +4,7 @@ use axum::{
 };
 use jsonwebtoken::{DecodingKey, Validation, decode};
 
-use crate::infrastructure::{auth::Claims, login::JWT_SECRET};
+use crate::infrastructure::auth::{login_handler::JWT_SECRET, login_request::Claims};
 
 pub struct AuthUser {
     pub username: String,

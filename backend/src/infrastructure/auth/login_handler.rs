@@ -2,7 +2,7 @@ use axum::{Json, http::StatusCode};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use time::{Duration, OffsetDateTime};
 
-use crate::infrastructure::auth::{Claims, LoginRequest, LoginResponse};
+use crate::infrastructure::auth::login_request::{Claims, LoginRequest, LoginResponse};
 
 pub static JWT_SECRET: &[u8] = b"dev-secret"; // move to env in real apps
 

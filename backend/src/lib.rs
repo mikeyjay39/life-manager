@@ -5,7 +5,7 @@ use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
-        document_orm_collection::DocumentOrmCollection, login::login,
+        auth::login_handler::login, document_orm_collection::DocumentOrmCollection,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
         test_protected_endpoint_handler::test_protected_endpoint,
