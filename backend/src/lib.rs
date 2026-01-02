@@ -5,10 +5,13 @@ use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
-        auth::login_handler::login, auth::test_protected_endpoint_handler::test_protected_endpoint,
-        document::document_orm_collection::DocumentOrmCollection,
+        auth::{login_handler::login, test_protected_endpoint_handler::test_protected_endpoint},
+        document::{
+            document_orm_collection::DocumentOrmCollection, document_router::document_router,
+        },
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
-        reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
+        reqwest_http_client::ReqwestHttpClient,
+        tesseract_adapter::TesseractAdapter,
     },
 };
 use axum::{
@@ -90,10 +93,8 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/login", post(login))
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
-        .route("/documents", post(create_document))
-        .route("/documents/{id}", get(get_document))
         .route("/protected", get(test_protected_endpoint)) // TODO: Remove this after testing
-        .route("/upload", post(upload)) // TODO: Remove this after testing
+        .merge(document_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
