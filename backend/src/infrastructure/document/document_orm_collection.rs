@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::sync::Arc;
 
 use crate::application::document_repository::DocumentRepository;
 use crate::schema::documents;
@@ -13,11 +14,11 @@ use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
-    pub pool: Pool,
+    pub pool: Arc<Pool>,
 }
 
 impl DocumentOrmCollection {
-    pub fn new(pool: Pool) -> Self {
+    pub fn new(pool: Arc<Pool>) -> Self {
         DocumentOrmCollection { pool }
     }
 }

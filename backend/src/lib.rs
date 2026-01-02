@@ -1,20 +1,9 @@
 mod application;
 mod domain;
 pub mod infrastructure;
-use crate::{
-    application::document_use_cases::DocumentUseCases,
-    infrastructure::{
-        auth::{
-            auth_router::auth_router, auth_use_cases::AuthUseCases,
-            superuser_only_login_service::SuperuserOnlyLoginService,
-        },
-        document::{
-            document_orm_collection::DocumentOrmCollection, document_router::document_router,
-        },
-        ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
-        reqwest_http_client::ReqwestHttpClient,
-        tesseract_adapter::TesseractAdapter,
-    },
+use crate::infrastructure::{
+    app_state::AppStateBuilder, auth::auth_router::auth_router,
+    document::document_router::document_router,
 };
 use axum::{
     Router,
@@ -22,30 +11,18 @@ use axum::{
     http::{Method, Request},
     routing::get,
 };
-use deadpool_diesel::{Manager, Pool, Runtime};
-use diesel::PgConnection;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-use dotenvy::dotenv;
 use infrastructure::app_state::AppState;
 use std::env;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
-
 #[tokio::main]
 pub async fn start_server() {
-    // Init db
-    let pool = create_connection_pool();
-    tracing::info!("Running migrations...");
-    run_migrations(&pool).await;
-
-    let app = build_app(pool).await;
+    let app = build_app(None).await;
 
     // Define the address to run the server on
     let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
@@ -57,7 +34,12 @@ pub async fn start_server() {
     axum::serve(listener, app).await.unwrap();
 }
 
-pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
+pub async fn build_app(app_state: Option<AppState>) -> Router {
+    let state = match app_state {
+        Some(s) => s,
+        None => AppStateBuilder::new().build().await,
+    };
+
     // logging
     tracing_subscriber::registry()
         .with(
@@ -68,24 +50,6 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         )
         .try_init()
         .ok();
-
-    let state: AppState = AppState {
-        document_use_cases: Arc::new(DocumentUseCases {
-            document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
-            reader: Arc::new(TesseractAdapter::new(
-                env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
-                Arc::new(ReqwestHttpClient::new()),
-            )),
-            summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
-                env::var("OLLAMA_URL")
-                    .ok()
-                    .and_then(|url_str| url_str.parse().ok()),
-            )),
-        }),
-        auth_use_cases: Arc::new(AuthUseCases {
-            login_service: Arc::new(SuperuserOnlyLoginService::new()),
-        }),
-    };
 
     Router::new()
         .route("/health", get(|| async { "up" }))
@@ -120,31 +84,4 @@ fn rest_api_router() -> Router<AppState> {
     Router::new()
         .nest("/auth", auth_router())
         .nest("/documents", document_router())
-}
-
-pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    tracing::info!("Creating connection pool to database at {}", database_url);
-    create_connection_pool_from_url(&database_url)
-}
-
-pub fn create_connection_pool_from_url(database_url: &str) -> deadpool_diesel::postgres::Pool {
-    let mgr = deadpool_diesel::postgres::Manager::new(database_url.to_string(), Runtime::Tokio1);
-    deadpool_diesel::postgres::Pool::builder(mgr)
-        .max_size(16)
-        .build()
-        .expect("Failed to create pool.")
-}
-
-/// Run pending migrations
-async fn run_migrations(pool: &Pool<Manager<PgConnection>>) -> bool {
-    // Get a database connection from the pool
-    let conn = pool.get().await.expect("Failed to get DB connection");
-    // Run pending migrations on the connection
-    let _ = conn
-        .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
-        .await
-        .expect("Failed to run migrations");
-    true
 }

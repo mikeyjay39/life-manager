@@ -1,5 +1,6 @@
 use std::{
     env::{self, set_var},
+    sync::Arc,
     thread::sleep,
     time::Duration,
 };
@@ -8,6 +9,10 @@ use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::{Manager, Pool};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use life_manager::infrastructure::{
+    app_state::{AppState, AppStateBuilder},
+    db::create_connection_pool_from_url,
+};
 use reqwest::Client;
 use serde_json::json;
 use wiremock::{
@@ -109,12 +114,16 @@ pub async fn build_app_server(url: &str) -> TestServer {
     // Use Diesel to connect to Postgres
     tracing::info!("Creating connection pool...");
 
-    let pool = life_manager::create_connection_pool_from_url(url);
+    let pool = create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
     tracing::info!("Building backend app...");
-    let app = life_manager::build_app(pool).await;
+    let state: AppState = AppStateBuilder::new()
+        .with_db_pool(Arc::new(pool))
+        .build()
+        .await;
+    let app = life_manager::build_app(Some(state)).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
         ..TestServerConfig::default()
