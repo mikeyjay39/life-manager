@@ -11,4 +11,4 @@ pub mod login;
 pub mod ollama_document_summarizer_adapter;
 pub mod reqwest_http_client;
 pub mod tesseract_adapter;
-pub mod test_protected_endpoint;
+pub mod test_protected_endpoint_handler;

@@ -8,6 +8,7 @@ use crate::{
         document_orm_collection::DocumentOrmCollection, login::login,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
+        test_protected_endpoint_handler::test_protected_endpoint,
     },
 };
 use axum::{
@@ -91,6 +92,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/documents", post(create_document))
         .route("/documents/{id}", get(get_document))
+        .route("/protected", get(test_protected_endpoint)) // TODO: Remove this after testing
         .route("/upload", post(upload)) // TODO: Remove this after testing
         .layer(
             CorsLayer::new()
