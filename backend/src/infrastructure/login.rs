@@ -7,7 +7,7 @@ use crate::infrastructure::auth::{Claims, LoginRequest, LoginResponse};
 pub static JWT_SECRET: &[u8] = b"dev-secret"; // move to env in real apps
 
 pub async fn login(Json(req): Json<LoginRequest>) -> Result<Json<LoginResponse>, StatusCode> {
-    // 🔴 Replace with real authentication
+    // TODO: Replace with real authentication
     if req.username != "admin" || req.password != "password" {
         return Err(StatusCode::UNAUTHORIZED);
     }

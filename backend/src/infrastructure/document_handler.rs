@@ -1,12 +1,12 @@
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::infrastructure::document_state::DocumentState;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::app_state::AppState;
 use super::document_dto::DocumentDto;
 
 #[derive(Deserialize, Serialize)]
@@ -26,7 +26,7 @@ pub struct CreateDocumentCommand {
  *
  */
 pub async fn create_document(
-    State(state): State<AppState>,
+    State(DocumentState(document_use_cases)): State<DocumentState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     tracing::info!("Received multipart form data");
@@ -55,8 +55,8 @@ pub async fn create_document(
     if let Some(_payload) = json_data {
         let document_opt = match !file_data.is_empty() {
             true => {
-                let reader = state.document_use_cases.reader;
-                let summarizer = state.document_use_cases.summarizer;
+                let reader = document_use_cases.reader.clone();
+                let summarizer = document_use_cases.summarizer.clone();
                 let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
@@ -77,7 +77,7 @@ pub async fn create_document(
 
         document.print_details();
 
-        let repo = state.document_use_cases.document_repository;
+        let repo = document_use_cases.document_repository.clone();
         let saved_doc_res = repo.save_document(document).await;
         match saved_doc_res {
             Err(e) => {
@@ -98,9 +98,12 @@ pub async fn create_document(
     }
 }
 
-pub async fn get_document(State(state): State<AppState>, Path(id): Path<u32>) -> impl IntoResponse {
+pub async fn get_document(
+    State(DocumentState(document_use_cases)): State<DocumentState>,
+    Path(id): Path<u32>,
+) -> impl IntoResponse {
     tracing::info!("Fetching document with ID: {}", id);
-    let repo = state.document_use_cases.document_repository;
+    let repo = document_use_cases.document_repository.clone();
     match repo.get_document(id as i32).await {
         Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
         None => (StatusCode::NOT_FOUND, Json(json!({}))),
@@ -132,6 +135,7 @@ mod tests {
     use crate::application::document_use_cases::DocumentUseCases;
     use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
     use crate::domain::document_text_reader::DocumentTextReader;
+    use crate::infrastructure::app_state::AppState;
     use crate::infrastructure::document_collection::DocumentCollection;
 
     use super::*;
@@ -174,11 +178,11 @@ mod tests {
         };
 
         let state: AppState = AppState {
-            document_use_cases: DocumentUseCases {
+            document_use_cases: Arc::new(DocumentUseCases {
                 document_repository: Arc::new(DocumentCollection::new()),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
-            },
+            }),
         };
 
         // Serialize the JSON payload
@@ -205,9 +209,12 @@ mod tests {
             .unwrap();
 
         let multipart = Multipart::from_request(request, &state).await.unwrap();
-        let response = create_document(State(state), multipart)
-            .await
-            .into_response();
+        let response = create_document(
+            State(DocumentState(state.document_use_cases.clone())),
+            multipart,
+        )
+        .await
+        .into_response();
 
         let (parts, body) = response.into_parts();
         let status_code = parts.status;
@@ -235,15 +242,19 @@ mod tests {
             .expect("Failed to save document to seed test");
 
         let state: AppState = AppState {
-            document_use_cases: DocumentUseCases {
+            document_use_cases: Arc::new(DocumentUseCases {
                 document_repository: Arc::new(repo),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
-            },
+            }),
         };
 
         // Act
-        let response = get_document(State(state), Path(1)).await;
+        let response = get_document(
+            State(DocumentState(state.document_use_cases.clone())),
+            Path(1),
+        )
+        .await;
 
         let response = response.into_response();
         let status_code = response.status();
@@ -271,15 +282,19 @@ mod tests {
             .expect("Failed to save document to seed test");
 
         let state: AppState = AppState {
-            document_use_cases: DocumentUseCases {
+            document_use_cases: Arc::new(DocumentUseCases {
                 document_repository: Arc::new(repo),
                 reader: Arc::new(MockDocumentTextReader {}),
                 summarizer: Arc::new(MockDocumentSummarizer {}),
-            },
+            }),
         };
 
         // Act
-        let response = get_document(State(state), Path(2)).await;
+        let response = get_document(
+            State(DocumentState(state.document_use_cases.clone())),
+            Path(2),
+        )
+        .await;
         let response = response.into_response();
         let status_code = response.status();
         let body = response.into_body();

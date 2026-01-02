@@ -70,7 +70,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
 
     // Build our application with a single route
     let state: AppState = AppState {
-        document_use_cases: DocumentUseCases {
+        document_use_cases: Arc::new(DocumentUseCases {
             document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
             reader: Arc::new(TesseractAdapter::new(
                 env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
@@ -81,7 +81,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                     .ok()
                     .and_then(|url_str| url_str.parse().ok()),
             )),
-        },
+        }),
     };
 
     Router::new()
