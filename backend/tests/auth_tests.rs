@@ -2,7 +2,7 @@ mod common;
 
 use crate::common::setup::run_test_with_test_profile;
 use axum_test::TestServer;
-use life_manager::infrastructure::auth::{LoginRequest, LoginResponse};
+use life_manager::infrastructure::auth::login_request::{LoginRequest, LoginResponse};
 use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
 use tracing_test::traced_test;
@@ -85,7 +85,7 @@ async fn protected_endpoint_bad_token_fails_auth() {
 
 async fn do_login(server: &TestServer, username: &str, password: &str) -> Result<Response, Error> {
     let url_result = server
-        .server_url("/login")
+        .server_url("/auth/login")
         .expect("Failed to get server URL");
     let url = url_result.as_str();
     tracing::info!("URL: {}", url);
@@ -101,7 +101,7 @@ async fn do_login(server: &TestServer, username: &str, password: &str) -> Result
 
 async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Response, Error> {
     let url_result = server
-        .server_url("/protected")
+        .server_url("/auth/protected")
         .expect("Failed to get server URL");
     let url = url_result.as_str();
     tracing::info!("URL: {}", url);

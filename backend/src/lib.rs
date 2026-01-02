@@ -5,7 +5,7 @@ use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
-        auth::{login_handler::login, test_protected_endpoint_handler::test_protected_endpoint},
+        auth::{auth_router::auth_router, login_handler::login},
         document::{
             document_orm_collection::DocumentOrmCollection, document_router::document_router,
         },
@@ -24,10 +24,7 @@ use deadpool_diesel::{Manager, Pool, Runtime};
 use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
-use infrastructure::{
-    app_state::AppState,
-    document::document_handler::{create_document, get_document, upload},
-};
+use infrastructure::app_state::AppState;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -88,12 +85,9 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     };
 
     Router::new()
-        .route("/", get(handler))
         .route("/health", get(|| async { "up" }))
         .route("/login", post(login))
-        .route("/foo", get(|| async { "Hello, Foo!" }))
-        .route("/bar", get(|| async { String::from("Hello, Bar!") }))
-        .route("/protected", get(test_protected_endpoint)) // TODO: Remove this after testing
+        .nest("/auth", auth_router())
         .nest("/documents", document_router())
         .layer(
             CorsLayer::new()
@@ -116,14 +110,6 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
             )),
         )
         .with_state(state)
-}
-
-// Define a handler for the route
-async fn handler() -> String {
-    let document = Document::new(123, "Test", "This is a test document.");
-    document.print_details();
-    tracing::info!("{}", document.content);
-    document.content
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
