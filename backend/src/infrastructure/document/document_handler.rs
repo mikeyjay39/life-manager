@@ -1,6 +1,6 @@
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
-use crate::infrastructure::document_state::DocumentState;
+use crate::infrastructure::document::document_state::DocumentState;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
@@ -136,7 +136,7 @@ mod tests {
     use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
     use crate::domain::document_text_reader::DocumentTextReader;
     use crate::infrastructure::app_state::AppState;
-    use crate::infrastructure::document_collection::DocumentCollection;
+    use crate::infrastructure::document::document_collection::DocumentCollection;
 
     use super::*;
     use async_trait::async_trait;

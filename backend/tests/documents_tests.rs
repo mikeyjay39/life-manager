@@ -3,7 +3,7 @@ mod common;
 use std::fs;
 
 use axum_test::TestServer;
-use life_manager::infrastructure::{
+use life_manager::infrastructure::document::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
 use reqwest::multipart::{Form, Part};

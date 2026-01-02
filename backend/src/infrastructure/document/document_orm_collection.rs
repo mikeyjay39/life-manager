@@ -4,7 +4,7 @@ use crate::application::document_repository::DocumentRepository;
 use crate::schema::documents;
 use crate::{
     domain::document::Document,
-    infrastructure::document_entity::{self, DocumentEntity},
+    infrastructure::document::document_entity::{self, DocumentEntity},
 };
 use async_trait::async_trait;
 use deadpool_diesel::InteractError;

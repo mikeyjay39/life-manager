@@ -7,8 +7,8 @@ use crate::{
 };
 
 /**
- `DocumentState` is a wrapper around DocumentUseCases to be used as state in Axum handlers so we
-* don't couple against the entire AppState.
+ `DocumentState` is a wrapper around `DocumentUseCases` to be used as state in Axum handlers so we
+ don't couple against the entire AppState.
 */
 #[derive(Clone)]
 pub struct DocumentState(pub Arc<DocumentUseCases>);

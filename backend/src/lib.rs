@@ -5,10 +5,10 @@ use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document::Document,
     infrastructure::{
-        auth::login_handler::login, document_orm_collection::DocumentOrmCollection,
+        auth::login_handler::login, auth::test_protected_endpoint_handler::test_protected_endpoint,
+        document::document_orm_collection::DocumentOrmCollection,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         reqwest_http_client::ReqwestHttpClient, tesseract_adapter::TesseractAdapter,
-        test_protected_endpoint_handler::test_protected_endpoint,
     },
 };
 use axum::{
@@ -23,7 +23,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 use infrastructure::{
     app_state::AppState,
-    document_handler::{create_document, get_document, upload},
+    document::document_handler::{create_document, get_document, upload},
 };
 use std::env;
 use std::net::SocketAddr;
