@@ -10,6 +10,6 @@ use crate::infrastructure::{
 
 pub fn document_router() -> Router<AppState> {
     Router::new()
-        .route("/documents", post(create_document))
-        .route("/documents/{id}", get(get_document))
+        .route("/", post(create_document))
+        .route("/{id}", get(get_document))
 }

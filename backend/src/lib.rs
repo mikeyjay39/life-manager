@@ -94,7 +94,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .route("/foo", get(|| async { "Hello, Foo!" }))
         .route("/bar", get(|| async { String::from("Hello, Bar!") }))
         .route("/protected", get(test_protected_endpoint)) // TODO: Remove this after testing
-        .merge(document_router())
+        .nest("/documents", document_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
