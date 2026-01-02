@@ -1,16 +1,24 @@
-use axum::{Json, http::StatusCode};
+use axum::{Json, extract::State, http::StatusCode};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use time::{Duration, OffsetDateTime};
 
-use crate::infrastructure::auth::login_request::{Claims, LoginRequest, LoginResponse};
+use crate::infrastructure::auth::{
+    auth_state::AuthState,
+    login_request::{Claims, LoginRequest, LoginResponse},
+};
 
 pub static JWT_SECRET: &[u8] = b"dev-secret"; // move to env in real apps
 
-pub async fn login(Json(req): Json<LoginRequest>) -> Result<Json<LoginResponse>, StatusCode> {
-    // TODO: Replace with real authentication
-    if req.username != "admin" || req.password != "password" {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
+pub async fn login(
+    State(AuthState(auth_use_cases)): State<AuthState>,
+    Json(req): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, StatusCode> {
+    tracing::info!("Login attempt for user: {}", req.username);
+
+    auth_use_cases
+        .login_service
+        .login(&req)
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     let exp = OffsetDateTime::now_utc() + Duration::hours(1);
 

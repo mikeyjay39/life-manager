@@ -3,9 +3,11 @@ mod domain;
 pub mod infrastructure;
 use crate::{
     application::document_use_cases::DocumentUseCases,
-    domain::document::Document,
     infrastructure::{
-        auth::{auth_router::auth_router, login_handler::login},
+        auth::{
+            auth_router::auth_router, auth_use_cases::AuthUseCases,
+            superuser_only_login_service::SuperuserOnlyLoginService,
+        },
         document::{
             document_orm_collection::DocumentOrmCollection, document_router::document_router,
         },
@@ -18,7 +20,7 @@ use axum::{
     Router,
     body::Body,
     http::{Method, Request},
-    routing::{get, post},
+    routing::get,
 };
 use deadpool_diesel::{Manager, Pool, Runtime};
 use diesel::PgConnection;
@@ -57,7 +59,6 @@ pub async fn start_server() {
 
 pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
     // logging
-
     tracing_subscriber::registry()
         .with(
             fmt::layer()
@@ -68,7 +69,6 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
         .try_init()
         .ok();
 
-    // Build our application with a single route
     let state: AppState = AppState {
         document_use_cases: Arc::new(DocumentUseCases {
             document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
@@ -81,6 +81,9 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
                     .ok()
                     .and_then(|url_str| url_str.parse().ok()),
             )),
+        }),
+        auth_use_cases: Arc::new(AuthUseCases {
+            login_service: Arc::new(SuperuserOnlyLoginService::new()),
         }),
     };
 
