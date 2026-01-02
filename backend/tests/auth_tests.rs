@@ -7,6 +7,8 @@ use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
 use tracing_test::traced_test;
 
+const AUTH_URL: &str = "/api/v1/auth";
+
 #[tokio::test]
 #[serial]
 #[traced_test]
@@ -85,7 +87,7 @@ async fn protected_endpoint_bad_token_fails_auth() {
 
 async fn do_login(server: &TestServer, username: &str, password: &str) -> Result<Response, Error> {
     let url_result = server
-        .server_url("/auth/login")
+        .server_url(format!("{}/login", AUTH_URL).as_str())
         .expect("Failed to get server URL");
     let url = url_result.as_str();
     tracing::info!("URL: {}", url);
@@ -101,7 +103,7 @@ async fn do_login(server: &TestServer, username: &str, password: &str) -> Result
 
 async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Response, Error> {
     let url_result = server
-        .server_url("/auth/protected")
+        .server_url(format!("{}/protected", AUTH_URL).as_str())
         .expect("Failed to get server URL");
     let url = url_result.as_str();
     tracing::info!("URL: {}", url);

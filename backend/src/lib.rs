@@ -86,9 +86,7 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
 
     Router::new()
         .route("/health", get(|| async { "up" }))
-        .route("/login", post(login))
-        .nest("/auth", auth_router())
-        .nest("/documents", document_router())
+        .nest("/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
@@ -110,6 +108,15 @@ pub async fn build_app(pool: deadpool_diesel::postgres::Pool) -> Router {
             )),
         )
         .with_state(state)
+}
+
+/**
+Hold the routers for domains and features.
+*/
+fn rest_api_router() -> Router<AppState> {
+    Router::new()
+        .nest("/auth", auth_router())
+        .nest("/documents", document_router())
 }
 
 pub fn create_connection_pool() -> deadpool_diesel::postgres::Pool {
