@@ -1,10 +1,11 @@
 use std::error::Error;
+use std::sync::Arc;
 
 use crate::application::document_repository::DocumentRepository;
 use crate::schema::documents;
 use crate::{
     domain::document::Document,
-    infrastructure::document_entity::{self, DocumentEntity},
+    infrastructure::document::document_entity::{self, DocumentEntity},
 };
 use async_trait::async_trait;
 use deadpool_diesel::InteractError;
@@ -13,11 +14,11 @@ use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
-    pub pool: Pool,
+    pub pool: Arc<Pool>,
 }
 
 impl DocumentOrmCollection {
-    pub fn new(pool: Pool) -> Self {
+    pub fn new(pool: Arc<Pool>) -> Self {
         DocumentOrmCollection { pool }
     }
 }

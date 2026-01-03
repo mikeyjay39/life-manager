@@ -3,7 +3,7 @@ mod common;
 use std::fs;
 
 use axum_test::TestServer;
-use life_manager::infrastructure::{
+use life_manager::infrastructure::document::{
     document_dto::DocumentDto, document_handler::CreateDocumentCommand,
 };
 use reqwest::multipart::{Form, Part};
@@ -13,6 +13,8 @@ use tracing_test::traced_test;
 use crate::common::setup::{run_test_with_all_containers, run_test_with_test_profile};
 use reqwest::ClientBuilder;
 use std::time::Duration;
+
+const DOCUMENTS_URL: &str = "/api/v1/documents";
 
 #[tokio::test]
 #[serial]
@@ -48,7 +50,7 @@ async fn create_and_get_document_docker_compose() {
             );
 
         let url_result = server
-            .server_url("/documents")
+            .server_url(DOCUMENTS_URL)
             .expect("Failed to get server URL");
         let url = url_result.as_str();
         tracing::info!("URL: {}", url);
@@ -71,7 +73,7 @@ async fn create_and_get_document_docker_compose() {
 
         // Verify the document was created in the database
         let get_request_url_result = server
-            .server_url(&format!("/documents/{}", &saved_document_resp.id))
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, &saved_document_resp.id))
             .expect("Failed to get server URL");
         let get_request_url = get_request_url_result.as_str();
         tracing::info!("Get Request URL: {}", get_request_url);
@@ -134,7 +136,7 @@ async fn create_and_get_document() {
             );
 
         let url_result = server
-            .server_url("/documents")
+            .server_url(DOCUMENTS_URL)
             .expect("Failed to get server URL");
         let url = url_result.as_str();
         tracing::info!("URL: {}", url);
@@ -156,7 +158,7 @@ async fn create_and_get_document() {
 
         // Verify the document was created in the database
         let get_request_url_result = server
-            .server_url(&format!("/documents/{}", &saved_document_resp.id))
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, &saved_document_resp.id))
             .expect("Failed to get server URL");
         let get_request_url = get_request_url_result.as_str();
         tracing::info!("Get Request URL: {}", get_request_url);
@@ -206,7 +208,7 @@ async fn create_and_get_document_no_file() {
         );
 
         let url_result = server
-            .server_url("/documents")
+            .server_url(DOCUMENTS_URL)
             .expect("Failed to get server URL");
         let url = url_result.as_str();
         tracing::info!("URL: {}", url);
@@ -225,7 +227,7 @@ async fn create_and_get_document_no_file() {
         // Verify the document was created in the database
 
         let get_request_url_result = server
-            .server_url(&format!("/documents/{}", &response_document.id))
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, &response_document.id))
             .expect("Failed to get server URL");
         let get_request_url = get_request_url_result.as_str();
         tracing::info!("Get Request URL: {}", get_request_url);

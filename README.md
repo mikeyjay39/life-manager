@@ -9,7 +9,7 @@ cargo run
 ## Example API calls
 
 ```bash
-curl --location 'http://127.0.0.1:3000/documents/1'
+curl --location 'http://127.0.0.1:3000/api/v1/documents/1'
 curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"id\": 99, \"title\":\"MYTEST\",\"content\":\"this is an example\"}" -F "file=@README.md" localhost:3000/documents
 ```
 
