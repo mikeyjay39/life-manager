@@ -27,7 +27,7 @@ pub struct AppState {
 */
 pub struct AppStateBuilder {
     document_use_cases: Option<Arc<DocumentUseCases>>,
-    auth_use_cases: Arc<AuthUseCases>,
+    auth_use_cases: Option<Arc<AuthUseCases>>,
     db_pool: Option<Arc<deadpool_diesel::postgres::Pool>>,
 }
 
@@ -35,9 +35,7 @@ impl AppStateBuilder {
     pub fn new() -> Self {
         Self {
             document_use_cases: None,
-            auth_use_cases: Arc::new(AuthUseCases {
-                login_service: Arc::new(SuperuserOnlyLoginService::default()),
-            }),
+            auth_use_cases: None,
             db_pool: None,
         }
     }
@@ -48,7 +46,7 @@ impl AppStateBuilder {
     }
 
     pub fn with_auth_use_cases(mut self, auth_use_cases: Arc<AuthUseCases>) -> Self {
-        self.auth_use_cases = auth_use_cases;
+        self.auth_use_cases = Some(auth_use_cases);
         self
     }
 
@@ -66,7 +64,11 @@ impl AppStateBuilder {
             document_use_cases: self
                 .document_use_cases
                 .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
-            auth_use_cases: self.auth_use_cases,
+            auth_use_cases: self.auth_use_cases.unwrap_or_else(|| {
+                Arc::new(AuthUseCases {
+                    login_service: Arc::new(SuperuserOnlyLoginService::default()),
+                })
+            }),
         }
     }
 }
