@@ -36,7 +36,7 @@ impl AppStateBuilder {
         Self {
             document_use_cases: None,
             auth_use_cases: Arc::new(AuthUseCases {
-                login_service: Arc::new(SuperuserOnlyLoginService::new()),
+                login_service: Arc::new(SuperuserOnlyLoginService::default()),
             }),
             db_pool: None,
         }

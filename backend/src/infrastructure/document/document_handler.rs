@@ -135,7 +135,6 @@ mod tests {
     use crate::application::document_use_cases::DocumentUseCases;
     use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
     use crate::domain::document_text_reader::DocumentTextReader;
-    use crate::infrastructure::app_state::AppState;
     use crate::infrastructure::document::document_collection::DocumentCollection;
 
     use super::*;
@@ -177,13 +176,11 @@ mod tests {
             content: String::from("This is test content."),
         };
 
-        let state: AppState = AppState {
-            document_use_cases: Arc::new(DocumentUseCases {
-                document_repository: Arc::new(DocumentCollection::new()),
-                reader: Arc::new(MockDocumentTextReader {}),
-                summarizer: Arc::new(MockDocumentSummarizer {}),
-            }),
-        };
+        let document_use_cases = Arc::new(DocumentUseCases {
+            document_repository: Arc::new(DocumentCollection::new()),
+            reader: Arc::new(MockDocumentTextReader {}),
+            summarizer: Arc::new(MockDocumentSummarizer {}),
+        });
 
         // Serialize the JSON payload
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -208,13 +205,10 @@ mod tests {
             .body(Body::from(multipart_body))
             .unwrap();
 
-        let multipart = Multipart::from_request(request, &state).await.unwrap();
-        let response = create_document(
-            State(DocumentState(state.document_use_cases.clone())),
-            multipart,
-        )
-        .await
-        .into_response();
+        let multipart = Multipart::from_request(request, &()).await.unwrap();
+        let response = create_document(State(DocumentState(document_use_cases.clone())), multipart)
+            .await
+            .into_response();
 
         let (parts, body) = response.into_parts();
         let status_code = parts.status;
@@ -241,20 +235,15 @@ mod tests {
             .await
             .expect("Failed to save document to seed test");
 
-        let state: AppState = AppState {
-            document_use_cases: Arc::new(DocumentUseCases {
-                document_repository: Arc::new(repo),
-                reader: Arc::new(MockDocumentTextReader {}),
-                summarizer: Arc::new(MockDocumentSummarizer {}),
-            }),
-        };
+        let document_use_cases = Arc::new(DocumentUseCases {
+            document_repository: Arc::new(repo),
+            reader: Arc::new(MockDocumentTextReader {}),
+            summarizer: Arc::new(MockDocumentSummarizer {}),
+        });
 
         // Act
-        let response = get_document(
-            State(DocumentState(state.document_use_cases.clone())),
-            Path(1),
-        )
-        .await;
+        let response =
+            get_document(State(DocumentState(document_use_cases.clone())), Path(1)).await;
 
         let response = response.into_response();
         let status_code = response.status();
@@ -281,20 +270,15 @@ mod tests {
             .await
             .expect("Failed to save document to seed test");
 
-        let state: AppState = AppState {
-            document_use_cases: Arc::new(DocumentUseCases {
-                document_repository: Arc::new(repo),
-                reader: Arc::new(MockDocumentTextReader {}),
-                summarizer: Arc::new(MockDocumentSummarizer {}),
-            }),
-        };
+        let document_use_cases = Arc::new(DocumentUseCases {
+            document_repository: Arc::new(repo),
+            reader: Arc::new(MockDocumentTextReader {}),
+            summarizer: Arc::new(MockDocumentSummarizer {}),
+        });
 
         // Act
-        let response = get_document(
-            State(DocumentState(state.document_use_cases.clone())),
-            Path(2),
-        )
-        .await;
+        let response =
+            get_document(State(DocumentState(document_use_cases.clone())), Path(2)).await;
         let response = response.into_response();
         let status_code = response.status();
         let body = response.into_body();
