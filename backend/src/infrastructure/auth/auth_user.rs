@@ -4,7 +4,7 @@ use axum::{
 };
 use jsonwebtoken::{DecodingKey, Validation, decode};
 
-use crate::infrastructure::auth::{login_handler::JWT_SECRET, login_request::Claims};
+use crate::infrastructure::auth::{jwt_secret::JWT_SECRET, login_request::Claims};
 
 pub struct AuthUser {
     pub username: String,
@@ -29,7 +29,7 @@ where
 
         let claims = decode::<Claims>(
             token,
-            &DecodingKey::from_secret(JWT_SECRET),
+            &DecodingKey::from_secret(&JWT_SECRET),
             &Validation::default(),
         )
         .map_err(|_| StatusCode::UNAUTHORIZED)?

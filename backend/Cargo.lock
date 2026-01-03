@@ -1809,6 +1809,7 @@ dependencies = [
  "tracing-test",
  "uuid",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]

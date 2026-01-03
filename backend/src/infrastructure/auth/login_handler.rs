@@ -4,10 +4,9 @@ use time::{Duration, OffsetDateTime};
 
 use crate::infrastructure::auth::{
     auth_state::AuthState,
+    jwt_secret::JWT_SECRET,
     login_request::{Claims, LoginRequest, LoginResponse},
 };
-
-pub static JWT_SECRET: &[u8] = b"dev-secret"; // move to env in real apps
 
 pub async fn login(
     State(AuthState(auth_use_cases)): State<AuthState>,
@@ -30,7 +29,7 @@ pub async fn login(
     let token = encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(JWT_SECRET),
+        &EncodingKey::from_secret(&JWT_SECRET),
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 

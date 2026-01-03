@@ -6,3 +6,9 @@ use crate::infrastructure::auth::login_service::LoginService;
 pub struct AuthUseCases {
     pub login_service: Arc<dyn LoginService>,
 }
+
+impl AuthUseCases {
+    pub fn new(login_service: Arc<dyn LoginService>) -> Self {
+        AuthUseCases { login_service }
+    }
+}
