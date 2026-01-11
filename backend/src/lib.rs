@@ -11,6 +11,7 @@ use axum::{
     http::{Method, Request},
     routing::get,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use infrastructure::app_state::AppState;
 use std::env;
 use std::net::SocketAddr;
@@ -19,12 +20,6 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
-use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::{fs::File, io::BufReader};
-use tokio_rustls::{
-    TlsAcceptor,
-    rustls::{Certificate, PrivateKey, ServerConfig},
-};
 
 #[tokio::main]
 pub async fn start_server() {
@@ -36,51 +31,17 @@ pub async fn start_server() {
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server with TLS
-
     let cert_path = std::env::var("TLS_CERT_PATH").expect("TLS_CERT_PATH must be set");
     let key_path = std::env::var("TLS_KEY_PATH").expect("TLS_KEY_PATH must be set");
 
-    let cert_file =
-        &mut BufReader::new(File::open(cert_path).expect("Cannot open certificate file"));
-    let key_file = &mut BufReader::new(File::open(key_path).expect("Cannot open key file"));
+    let config = RustlsConfig::from_pem_file(cert_path, key_path)
+        .await
+        .expect("invalid TLS config");
 
-    let cert_chain: Vec<Certificate> = certs(cert_file)
-        .unwrap()
-        .into_iter()
-        .map(Certificate)
-        .collect();
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
-        .unwrap()
-        .into_iter()
-        .map(PrivateKey)
-        .collect();
-    let private_key = keys.remove(0);
-
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth()
-        .with_single_cert(cert_chain, private_key)
-        .expect("invalid TLS credentials");
-    let acceptor = TlsAcceptor::from(std::sync::Arc::new(config));
-
-    let tcp_listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    let incoming_tls_stream = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener)
-        .filter_map(|conn| async {
-            match conn {
-                Ok(stream) => match acceptor.accept(stream).await {
-                    Ok(tls_stream) => Some(Ok::<_, std::io::Error>(tls_stream)),
-                    Err(e) => {
-                        tracing::error!("TLS error: {:?}", e);
-                        None
-                    }
-                },
-                Err(e) => {
-                    tracing::error!("TCP error: {:?}", e);
-                    None
-                }
-            }
-        });
-    axum::serve(incoming_tls_stream, app).await.unwrap();
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
 pub async fn build_app(app_state: Option<AppState>) -> Router {
