@@ -29,6 +29,8 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json", "time"] }
 uuid = { version = "1", features = ["v4"] }
 zeroize = "1.7"
+tokio-rustls = "0.24"
+rustls-pemfile = "2.0.0"
 
 [dev-dependencies]
 axum-test = "18.1.0"
