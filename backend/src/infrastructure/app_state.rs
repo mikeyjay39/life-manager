@@ -56,10 +56,12 @@ impl AppStateBuilder {
     }
 
     pub async fn build(self) -> AppState {
+        tracing::info!("Building AppState...");
         let pool = match self.db_pool {
             Some(pool) => pool,
             None => Arc::new(init_db().await),
         };
+        tracing::info!("AppState DB pool initialized.");
         AppState {
             document_use_cases: self
                 .document_use_cases
@@ -74,6 +76,7 @@ impl AppStateBuilder {
 }
 
 fn default_document_use_cases(pool: Arc<deadpool_diesel::postgres::Pool>) -> DocumentUseCases {
+    tracing::info!("Creating default DocumentUseCases...");
     DocumentUseCases {
         document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
         reader: Arc::new(TesseractAdapter::new(

@@ -21,6 +21,13 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
+use rustls::crypto::{CryptoProvider, ring};
+
+fn install_crypto_provider() {
+    CryptoProvider::install_default(ring::default_provider())
+        .expect("failed to install rustls crypto provider");
+}
+
 #[tokio::main]
 pub async fn start_server() {
     let app = build_app(None).await;
@@ -28,7 +35,7 @@ pub async fn start_server() {
     // Define the address to run the server on
     let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
     let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
-    tracing::info!("Tracing Listening on http://{}", addr);
+    tracing::info!("Tracing Listening on https://{}", addr);
 
     // Run the server with TLS
     let cert_path = std::env::var("TLS_CERT_PATH").expect("TLS_CERT_PATH must be set");
@@ -45,6 +52,8 @@ pub async fn start_server() {
 }
 
 pub async fn build_app(app_state: Option<AppState>) -> Router {
+    tracing::info!("Building application...");
+    install_crypto_provider();
     let state = match app_state {
         Some(s) => s,
         None => AppStateBuilder::new().build().await,
