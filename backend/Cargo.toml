@@ -31,6 +31,7 @@ uuid = { version = "1", features = ["v4"] }
 zeroize = "1.7"
 tokio-rustls = "0.24"
 rustls-pemfile = "2.0.0"
+tokio-stream = "0.1.18"
 
 [dev-dependencies]
 axum-test = "18.1.0"

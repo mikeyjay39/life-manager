@@ -19,6 +19,12 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
+use rustls_pemfile::{certs, pkcs8_private_keys};
+use std::{fs::File, io::BufReader};
+use tokio_rustls::{
+    TlsAcceptor,
+    rustls::{Certificate, PrivateKey, ServerConfig},
+};
 
 #[tokio::main]
 pub async fn start_server() {
@@ -30,15 +36,12 @@ pub async fn start_server() {
     tracing::info!("Tracing Listening on http://{}", addr);
 
     // Run the server with TLS
-    use tokio_rustls::TlsAcceptor;
-    use rustls::{ServerConfig, Certificate, PrivateKey};
-    use rustls_pemfile::{certs, pkcs8_private_keys};
-    use std::{fs::File, io::BufReader};
 
     let cert_path = std::env::var("TLS_CERT_PATH").expect("TLS_CERT_PATH must be set");
     let key_path = std::env::var("TLS_KEY_PATH").expect("TLS_KEY_PATH must be set");
 
-    let cert_file = &mut BufReader::new(File::open(cert_path).expect("Cannot open certificate file"));
+    let cert_file =
+        &mut BufReader::new(File::open(cert_path).expect("Cannot open certificate file"));
     let key_file = &mut BufReader::new(File::open(key_path).expect("Cannot open key file"));
 
     let cert_chain: Vec<Certificate> = certs(cert_file)
@@ -66,9 +69,15 @@ pub async fn start_server() {
             match conn {
                 Ok(stream) => match acceptor.accept(stream).await {
                     Ok(tls_stream) => Some(Ok::<_, std::io::Error>(tls_stream)),
-                    Err(e) => { tracing::error!("TLS error: {:?}", e); None }
+                    Err(e) => {
+                        tracing::error!("TLS error: {:?}", e);
+                        None
+                    }
                 },
-                Err(e) => { tracing::error!("TCP error: {:?}", e); None }
+                Err(e) => {
+                    tracing::error!("TCP error: {:?}", e);
+                    None
+                }
             }
         });
     axum::serve(incoming_tls_stream, app).await.unwrap();
