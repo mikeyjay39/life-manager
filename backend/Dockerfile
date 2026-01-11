@@ -9,8 +9,12 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
 
-# Copy your existing binary into the container
+# binary into the container
 COPY target/debug/life-manager /app/life-manager
+
+# copy TLS cert and key
+# TODO: verify the path works
+COPY certs/ /app/certs/
 
 # Ensure it’s executable and owned by appuser
 RUN chmod +x /app/life-manager && chown appuser:appuser /app/life-manager
