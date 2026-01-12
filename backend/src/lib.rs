@@ -13,8 +13,9 @@ use axum::{
 };
 use axum_server::tls_rustls::RustlsConfig;
 use infrastructure::app_state::AppState;
-use std::env;
 use std::net::SocketAddr;
+use std::{env, time::Duration};
+use tokio::time::sleep;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
@@ -30,6 +31,8 @@ fn install_crypto_provider() {
 
 #[tokio::main]
 pub async fn start_server() {
+    sleep(Duration::from_secs(1000)).await;
+    tracing::info!("Starting server");
     let app = build_app(None).await;
 
     // Define the address to run the server on
