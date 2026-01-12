@@ -13,6 +13,7 @@ use axum::{
 };
 use axum_server::tls_rustls::RustlsConfig;
 use infrastructure::app_state::AppState;
+use std::env;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};

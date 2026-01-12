@@ -38,16 +38,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - ${ENV_FILE}
     environment:
-      DATABASE_URL: ${DATABASE_URL}
       APP_PORT: ${APP_PORT}
-      OLLAMA_URL: ${OLLAMA_URL}
-      TESSERACT_URL: ${TESSERACT_URL}
-      RUST_LOG: ${RUST_LOG}
-      JWT_SECRET: ${JWT_SECRET}
-      TLS_CERT_PATH: ${TLS_CERT_PATH}
-      TLS_KEY_PATH: ${TLS_KEY_PATH}
-      RUST_BACKTRACE: ${RUST_BACKTRACE}
     ports:
       - "${APP_PORT}:${APP_PORT}"
     restart: on-failure
