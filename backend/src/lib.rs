@@ -21,11 +21,16 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
+use once_cell::sync::OnceCell;
 use rustls::crypto::{CryptoProvider, ring};
 
+static INSTALL_CRYPTO_PROVIDER_ONCE: OnceCell<()> = OnceCell::new();
+
 fn install_crypto_provider() {
-    CryptoProvider::install_default(ring::default_provider())
-        .expect("failed to install rustls crypto provider");
+    INSTALL_CRYPTO_PROVIDER_ONCE.get_or_init(|| {
+        CryptoProvider::install_default(ring::default_provider())
+            .expect("failed to install rustls crypto provider");
+    });
 }
 
 #[tokio::main]
