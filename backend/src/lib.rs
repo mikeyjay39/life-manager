@@ -40,7 +40,10 @@ pub async fn start_server() {
 
     // Define the address to run the server on
     let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
-    let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
+    let addr = SocketAddr::from((
+        [0, 0, 0, 0],
+        app_port.parse().expect("Could not parse app_port"),
+    ));
     tracing::info!("Tracing Listening on https://{}", addr);
 
     // Run the server with TLS
@@ -54,7 +57,7 @@ pub async fn start_server() {
     axum_server::bind_rustls(addr, config)
         .serve(app.into_make_service())
         .await
-        .unwrap();
+        .expect("Could not start axum_server")
 }
 
 pub async fn build_app(app_state: Option<AppState>) -> Router {
