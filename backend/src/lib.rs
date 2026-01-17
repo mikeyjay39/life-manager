@@ -11,6 +11,7 @@ use axum::{
     http::{Method, Request},
     routing::get,
 };
+use axum_server::tls_rustls::RustlsConfig;
 use infrastructure::app_state::AppState;
 use std::env;
 use std::net::SocketAddr;
@@ -20,21 +21,48 @@ use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
 
+use once_cell::sync::OnceCell;
+use rustls::crypto::{CryptoProvider, ring};
+
+static INSTALL_CRYPTO_PROVIDER_ONCE: OnceCell<()> = OnceCell::new();
+
+fn install_crypto_provider() {
+    INSTALL_CRYPTO_PROVIDER_ONCE.get_or_init(|| {
+        CryptoProvider::install_default(ring::default_provider())
+            .expect("failed to install rustls crypto provider");
+    });
+}
+
 #[tokio::main]
 pub async fn start_server() {
+    tracing::info!("Starting server");
     let app = build_app(None).await;
 
     // Define the address to run the server on
     let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
-    let addr = SocketAddr::from(([0, 0, 0, 0], app_port.parse().unwrap()));
-    tracing::info!("Tracing Listening on http://{}", addr);
+    let addr = SocketAddr::from((
+        [0, 0, 0, 0],
+        app_port.parse().expect("Could not parse app_port"),
+    ));
+    tracing::info!("Tracing Listening on https://{}", addr);
 
-    // Run the server
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    // Run the server with TLS
+    let cert_path = std::env::var("TLS_CERT_PATH").expect("TLS_CERT_PATH must be set");
+    let key_path = std::env::var("TLS_KEY_PATH").expect("TLS_KEY_PATH must be set");
+
+    let config = RustlsConfig::from_pem_file(cert_path, key_path)
+        .await
+        .expect("invalid TLS config");
+
+    axum_server::bind_rustls(addr, config)
+        .serve(app.into_make_service())
+        .await
+        .expect("Could not start axum_server")
 }
 
 pub async fn build_app(app_state: Option<AppState>) -> Router {
+    tracing::info!("Building application...");
+    install_crypto_provider();
     let state = match app_state {
         Some(s) => s,
         None => AppStateBuilder::new().build().await,

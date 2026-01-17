@@ -1,27 +1,38 @@
+# ---- Build stage ----
+FROM rust:bookworm AS builder
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+RUN cargo build --release
+
+COPY . .
+RUN cargo build --release
+
+# ---- Runtime stage ----
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libssl3 libpq5 \
  && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
 
-# Copy your existing binary into the container
-COPY target/debug/life-manager /app/life-manager
+COPY --from=builder /app/target/release/life-manager /app/life-manager
+COPY certs/ /app/certs/
 
-# Ensure it’s executable and owned by appuser
-RUN chmod +x /app/life-manager && chown appuser:appuser /app/life-manager
+RUN chmod +x /app/life-manager \
+ && chown appuser:appuser /app/life-manager \
+ && chown -R appuser:appuser /app/certs \
+ && chmod 600 /app/certs/key.pem \
+ && chmod 644 /app/certs/cert.pem
 
 USER appuser
 
-# Use an environment variable for the port instead of hardcoding
 ENV RUST_LOG=debug
-ENV PORT=${PORT}
-
-# Document that the app listens on $PORT (defaults can still be handled by docker-compose)
-EXPOSE ${PORT}
+ENV PORT=3000
+EXPOSE 3000
 
 CMD ["/app/life-manager"]

@@ -1,2 +1,4 @@
 .env filter=git-crypt diff=git-crypt
 .dev.env filter=git-crypt diff=git-crypt
+.prod.env filter=git-crypt diff=git-crypt
+**/*/certs/* filter=git-crypt diff=git-crypt
