@@ -24,7 +24,7 @@ const DOCUMENTS_URL: &str = "/api/v1/documents";
 #[ignore]
 async fn create_and_get_document_docker_compose() {
     run_test_with_all_containers(|server: TestServer| async move {
-        let auth_header = build_auth_header(&server);
+        let auth_header = build_auth_header(&server).await;
 
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
