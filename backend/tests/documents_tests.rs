@@ -10,7 +10,9 @@ use reqwest::multipart::{Form, Part};
 use serial_test::serial;
 use tracing_test::traced_test;
 
-use crate::common::setup::{run_test_with_all_containers, run_test_with_test_profile};
+use crate::common::setup::{
+    build_auth_header, run_test_with_all_containers, run_test_with_test_profile,
+};
 use reqwest::ClientBuilder;
 use std::time::Duration;
 
@@ -22,6 +24,8 @@ const DOCUMENTS_URL: &str = "/api/v1/documents";
 #[ignore]
 async fn create_and_get_document_docker_compose() {
     run_test_with_all_containers(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
             id: 2,
@@ -59,7 +63,13 @@ async fn create_and_get_document_docker_compose() {
             .timeout(Duration::from_secs(30)) // Total request timeout
             .build()
             .expect("Failed to build HTTP client");
-        let res = match client.post(url).multipart(form).send().await {
+        let res = match client
+            .post(url)
+            .multipart(form)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+        {
             Ok(response) => response,
             Err(e) => panic!("Failed to send request: {}", e),
         };
@@ -80,6 +90,7 @@ async fn create_and_get_document_docker_compose() {
 
         let get_response = reqwest::Client::new()
             .get(get_request_url)
+            .header("Authorization", &auth_header)
             .send()
             .await
             .expect("Failed to send request");
@@ -99,15 +110,13 @@ async fn create_and_get_document_docker_compose() {
     .await;
 }
 
-/**
-* Test creating and retrieving a document via the REST API
-* Uploads a real file but mocks the Ollama integration.
-*/
 #[tokio::test]
 #[serial]
 #[traced_test]
 async fn create_and_get_document() {
     run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
             id: 2,
@@ -144,7 +153,13 @@ async fn create_and_get_document() {
         let client = ClientBuilder::new()
             .build()
             .expect("Failed to build HTTP client");
-        let res = match client.post(url).multipart(form).send().await {
+        let res = match client
+            .post(url)
+            .multipart(form)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+        {
             Ok(response) => response,
             Err(e) => panic!("Failed to send request: {}", e),
         };
@@ -165,6 +180,7 @@ async fn create_and_get_document() {
 
         let get_response = reqwest::Client::new()
             .get(get_request_url)
+            .header("Authorization", &auth_header)
             .send()
             .await
             .expect("Failed to send request");
@@ -189,6 +205,9 @@ async fn create_and_get_document() {
 #[traced_test]
 async fn create_and_get_document_no_file() {
     run_test_with_test_profile(|server: TestServer| async move {
+        // Login to get a token
+        let auth_header = build_auth_header(&server).await;
+
         // Seed 1 document into the database
         let payload = CreateDocumentCommand {
             id: 2,
@@ -216,6 +235,7 @@ async fn create_and_get_document_no_file() {
             .post(url)
             .body(multipart_body)
             .header("Content-Type", "multipart/form-data; boundary=boundary")
+            .header("Authorization", &auth_header)
             .send()
             .await
             .expect("Failed to send request");
@@ -233,6 +253,7 @@ async fn create_and_get_document_no_file() {
         tracing::info!("Get Request URL: {}", get_request_url);
         let get_response = reqwest::Client::new()
             .get(get_request_url)
+            .header("Authorization", &auth_header)
             .send()
             .await
             .expect("Failed to send request");

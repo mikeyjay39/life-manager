@@ -1,8 +1,8 @@
 mod common;
 
-use crate::common::setup::run_test_with_test_profile;
+use crate::common::setup::{build_auth_header, run_test_with_test_profile};
 use axum_test::TestServer;
-use life_manager::infrastructure::auth::login_request::{LoginRequest, LoginResponse};
+use life_manager::infrastructure::auth::login_request::LoginRequest;
 use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
 use tracing_test::traced_test;
@@ -14,21 +14,10 @@ const AUTH_URL: &str = "/api/v1/auth";
 #[traced_test]
 async fn login_and_jwt_auth_good_credentials() {
     run_test_with_test_profile(|server: TestServer| async move {
-        let res = match do_login(&server, "admin", "password").await {
-            Ok(response) => response,
-            Err(e) => panic!("Failed to send request: {}", e),
-        };
-        tracing::info!("Response: {:?}", res);
-        assert!(
-            res.status().is_success(),
-            "Response status was not successful: {}",
-            res.error_for_status().unwrap_err()
-        );
-        let login_response: LoginResponse = res.json().await.unwrap();
-        assert_ne!(login_response.token.len(), 0);
+        let auth_header = build_auth_header(&server).await;
 
         // Test JWT validation
-        let res = match call_protected_endpoint(&server, &login_response.token).await {
+        let res = match call_protected_endpoint(&server, &auth_header).await {
             Ok(response) => response,
             Err(e) => panic!("Failed to send request: {}", e),
         };
@@ -101,7 +90,10 @@ async fn do_login(server: &TestServer, username: &str, password: &str) -> Result
     client.post(url).json(&req).send().await
 }
 
-async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Response, Error> {
+async fn call_protected_endpoint(
+    server: &TestServer,
+    auth_header: &str,
+) -> Result<Response, Error> {
     let url_result = server
         .server_url(format!("{}/protected", AUTH_URL).as_str())
         .expect("Failed to get server URL");
@@ -110,5 +102,9 @@ async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Res
     let client = ClientBuilder::new()
         .build()
         .expect("Failed to build HTTP client");
-    client.get(url).bearer_auth(token).send().await
+    client
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
 }

@@ -1,5 +1,6 @@
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::infrastructure::auth::auth_user::AuthUser;
 use crate::infrastructure::document::document_state::DocumentState;
 use axum::extract::{Multipart, Path, State};
 use axum::response::IntoResponse;
@@ -26,6 +27,7 @@ pub struct CreateDocumentCommand {
  *
  */
 pub async fn create_document(
+    AuthUser { username: _ }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
@@ -99,6 +101,7 @@ pub async fn create_document(
 }
 
 pub async fn get_document(
+    AuthUser { username: _ }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
@@ -206,7 +209,8 @@ mod tests {
             .unwrap();
 
         let multipart = Multipart::from_request(request, &()).await.unwrap();
-        let response = create_document(State(DocumentState(document_use_cases.clone())), multipart)
+        let auth_user = AuthUser { username: "testuser".to_string() };
+        let response = create_document(auth_user, State(DocumentState(document_use_cases.clone())), multipart)
             .await
             .into_response();
 
@@ -242,8 +246,9 @@ mod tests {
         });
 
         // Act
+        let auth_user = AuthUser { username: "testuser".to_string() };
         let response =
-            get_document(State(DocumentState(document_use_cases.clone())), Path(1)).await;
+            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(1)).await;
 
         let response = response.into_response();
         let status_code = response.status();
@@ -277,8 +282,9 @@ mod tests {
         });
 
         // Act
+        let auth_user = AuthUser { username: "testuser".to_string() };
         let response =
-            get_document(State(DocumentState(document_use_cases.clone())), Path(2)).await;
+            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(2)).await;
         let response = response.into_response();
         let status_code = response.status();
         let body = response.into_body();
