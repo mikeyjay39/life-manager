@@ -17,7 +17,6 @@ use reqwest::ClientBuilder;
 use std::time::Duration;
 
 const DOCUMENTS_URL: &str = "/api/v1/documents";
-const AUTH_URL: &str = "/api/v1/auth/login";
 
 #[tokio::test]
 #[serial]
