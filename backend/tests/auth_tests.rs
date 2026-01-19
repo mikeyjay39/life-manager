@@ -90,7 +90,10 @@ async fn do_login(server: &TestServer, username: &str, password: &str) -> Result
     client.post(url).json(&req).send().await
 }
 
-async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Response, Error> {
+async fn call_protected_endpoint(
+    server: &TestServer,
+    auth_header: &str,
+) -> Result<Response, Error> {
     let url_result = server
         .server_url(format!("{}/protected", AUTH_URL).as_str())
         .expect("Failed to get server URL");
@@ -99,5 +102,9 @@ async fn call_protected_endpoint(server: &TestServer, token: &str) -> Result<Res
     let client = ClientBuilder::new()
         .build()
         .expect("Failed to build HTTP client");
-    client.get(url).bearer_auth(token).send().await
+    client
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
 }
