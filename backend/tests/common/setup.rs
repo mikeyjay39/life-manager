@@ -11,9 +11,11 @@ use diesel::PgConnection;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
+    auth::login_request::{LoginRequest, LoginResponse},
     db::create_connection_pool_from_url,
 };
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
+
 use serde_json::json;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -23,6 +25,8 @@ use wiremock::{
 use crate::common::docker::{
     docker_compose_down, start_docker_compose_dev_profile, start_docker_compose_test_profile,
 };
+
+const AUTH_URL: &str = "/api/v1/auth";
 
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
@@ -168,4 +172,37 @@ async fn run_migrations(pool: &Pool<Manager<PgConnection>>) -> bool {
         .await
         .expect("Failed to run migrations");
     true
+}
+
+pub async fn build_auth_header(server: &TestServer) -> String {
+    let username = "admin";
+    let password = "password";
+
+    let url_result = server
+        .server_url(format!("{}/login", AUTH_URL).as_str())
+        .expect("Failed to get server URL");
+
+    let url = url_result.as_str();
+    tracing::info!("URL: {}", url);
+    let req = LoginRequest {
+        username: username.into(),
+        password: password.into(),
+    };
+    let client = ClientBuilder::new()
+        .build()
+        .expect("Failed to build HTTP client");
+    let res = match client.post(url).json(&req).send().await {
+        Ok(response) => response,
+        Err(e) => panic!("Failed to send request: {}", e),
+    };
+
+    tracing::info!("Response: {:?}", res);
+    assert!(
+        res.status().is_success(),
+        "Response status was not successful: {}",
+        res.error_for_status().unwrap_err()
+    );
+    let login_response: LoginResponse = res.json().await.unwrap();
+    assert_ne!(login_response.token.len(), 0);
+    format!("Bearer {}", login_response.token)
 }
