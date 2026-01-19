@@ -25,16 +25,7 @@ const AUTH_URL: &str = "/api/v1/auth/login";
 #[ignore]
 async fn create_and_get_document_docker_compose() {
     run_test_with_all_containers(|server: TestServer| async move {
-        // Login to get a token
-        let login_request_body = life_manager::infrastructure::auth::login_request::LoginRequest {
-            username: "testuser".to_string(),
-            password: "testpassword".to_string(),
-        };
-
-        let login_response: life_manager::infrastructure::auth::login_request::LoginResponse =
-            server.post(AUTH_URL).json(&login_request_body).await.json();
-
-        let auth_header = format!("Bearer {}", login_response.token);
+        let auth_header = build_auth_header(&server);
 
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
