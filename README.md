@@ -1,9 +1,30 @@
 # life-manager
 
-## How to run
+## Dev Container
+The dev container contains all dependencies needed and mounts your neovim config. You can build and run the app
+from there as well run the integration tests.
 
+- To build dev container:
+```
+cd backend/.container
+docker build -t rust-nvim:latest .
+```
+
+- To run and connect to the container:
+```
+backend/.container/run.sh
+```
+
+## How to run
+### Backend App Only
 ```bash
 cargo run
+```
+
+### Backend Stack with Docker Compose
+This needs to be done outside of the dev container if we are using the Ollama container.
+```
+backend/.start_backend.sh <dev | prod>
 ```
 
 ## Example API calls
