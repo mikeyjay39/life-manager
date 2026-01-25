@@ -18,6 +18,9 @@ docker run -it --rm \
   -v cargo-git:/root/.cargo/git \
   -v rust-target:/workspace/target \
   \
+  --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  \
   -e WAYLAND_DISPLAY \
   -e XDG_RUNTIME_DIR \
   -v "$XDG_RUNTIME_DIR:$XDG_RUNTIME_DIR" \

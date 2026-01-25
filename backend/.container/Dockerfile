@@ -18,20 +18,27 @@ RUN pacman -Sy --noconfirm \
     neovim \
     rustup \
     postgresql-libs \
+    docker \
+    docker-compose \
     && pacman -Scc --noconfirm
 
+# Initialize rustup properly
+RUN rustup toolchain install stable
 RUN rustup default stable
 
 RUN rustup component add rust-analyzer
 
-RUN cargo install cargo-nextest
+RUN cargo install cargo-nextest --locked
 
 # ----------------------------------
 # Cargo/Rust environment
 # ----------------------------------
 ENV CARGO_HOME=/root/.cargo
 ENV RUSTUP_HOME=/root/.rustup
-ENV PATH="${CARGO_HOME}/bin:${PATH}"
+ENV PATH="/root/.cargo/bin:${PATH}:/usr/lib/rustup:/usr/lib/rustup/bin"
+
+# auto-load rustup env
+RUN echo 'source $HOME/.cargo/env' >> /root/.bashrc
 
 RUN mkdir -p ${CARGO_HOME} ${RUSTUP_HOME}
 
