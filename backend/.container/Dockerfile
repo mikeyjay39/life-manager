@@ -43,15 +43,6 @@ RUN echo 'source $HOME/.cargo/env' >> /root/.bashrc
 RUN mkdir -p ${CARGO_HOME} ${RUSTUP_HOME}
 
 # ----------------------------------
-# Install rustup + nightly + components + cargo-nextest
-# ----------------------------------
-# RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --no-modify-path \
-#     && ${CARGO_HOME}/bin/rustup toolchain install nightly \
-#     && ${CARGO_HOME}/bin/rustup default nightly \
-#     && ${CARGO_HOME}/bin/rustup component add rustfmt clippy rust-analyzer \
-#     && ${CARGO_HOME}/bin/cargo install cargo-nextest --locked
-
-# ----------------------------------
 # Set working directory
 # ----------------------------------
 WORKDIR /workspace
