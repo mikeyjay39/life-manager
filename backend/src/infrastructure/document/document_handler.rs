@@ -113,6 +113,16 @@ pub async fn get_document(
     }
 }
 
+pub async fn get_documents(
+    AuthUser { username: user }: AuthUser,
+    State(DocumentState(document_use_cases)): State<DocumentState>,
+) -> impl IntoResponse {
+    tracing::info!("Fetching documents for user: {}", &user);
+    something;
+    let repo = document_use_cases.document_repository.clone();
+    todo!();
+}
+
 fn return_500() -> (StatusCode, Json<serde_json::Value>) {
     (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({})))
 }
@@ -209,10 +219,16 @@ mod tests {
             .unwrap();
 
         let multipart = Multipart::from_request(request, &()).await.unwrap();
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response = create_document(auth_user, State(DocumentState(document_use_cases.clone())), multipart)
-            .await
-            .into_response();
+        let auth_user = AuthUser {
+            username: "testuser".to_string(),
+        };
+        let response = create_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            multipart,
+        )
+        .await
+        .into_response();
 
         let (parts, body) = response.into_parts();
         let status_code = parts.status;
@@ -246,9 +262,15 @@ mod tests {
         });
 
         // Act
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response =
-            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(1)).await;
+        let auth_user = AuthUser {
+            username: "testuser".to_string(),
+        };
+        let response = get_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Path(1),
+        )
+        .await;
 
         let response = response.into_response();
         let status_code = response.status();
@@ -282,9 +304,15 @@ mod tests {
         });
 
         // Act
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response =
-            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(2)).await;
+        let auth_user = AuthUser {
+            username: "testuser".to_string(),
+        };
+        let response = get_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Path(2),
+        )
+        .await;
         let response = response.into_response();
         let status_code = response.status();
         let body = response.into_body();

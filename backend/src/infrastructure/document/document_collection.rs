@@ -16,6 +16,43 @@ impl DocumentRepository for DocumentCollection {
         documents.iter().find(|doc| doc.id == id).cloned()
     }
 
+    async fn get_documents(&self, user_id: &str, limit: &u32) -> Vec<Document> {
+        let mut documents: Vec<Document> = {
+            let guard = self.documents.lock().await;
+            guard.clone()
+        }; // mutex unlocked here
+
+        documents.sort_by_key(|d| (d.title.clone(), d.id));
+
+        documents
+            .into_iter()
+            .filter(|doc| doc.user_id == user_id)
+            .take(*limit as usize)
+            .collect()
+    }
+
+    async fn get_documents_title_cursor(
+        &self,
+        user_id: &str,
+        limit: &u32,
+        title: &str,
+        doc_id: &i32,
+    ) -> Vec<Document> {
+        let mut documents: Vec<Document> = {
+            let guard = self.documents.lock().await;
+            guard.clone()
+        };
+
+        documents.sort_by_key(|d| (d.title.clone(), d.id));
+
+        documents
+            .into_iter()
+            .filter(|doc| doc.user_id == user_id)
+            .filter(|doc| *doc.title > *title || (doc.title == title && doc.id > *doc_id))
+            .take(*limit as usize)
+            .collect()
+    }
+
     async fn save_document(
         &self,
         document: Document,

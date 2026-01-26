@@ -14,16 +14,18 @@ pub struct Document {
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
+    pub user_id: String,
 }
 
 impl Document {
     // Creates a new document
-    pub fn new(id: i32, title: &str, content: &str) -> Self {
+    pub fn new(id: i32, title: &str, content: &str, user_id: &str) -> Self {
         Self {
             id,
             title: title.to_string(),
             content: String::from(content),
             tags: vec![],
+            user_id: user_id.to_string(),
         }
     }
 

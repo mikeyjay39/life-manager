@@ -9,6 +9,7 @@ pub struct DocumentEntity {
     pub id: i32,
     pub title: String,
     pub content: String,
+    pub user_id: String,
     // pub created_at: Option<NaiveDateTime>,
 }
 
