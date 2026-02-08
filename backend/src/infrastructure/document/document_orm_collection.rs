@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use deadpool_diesel::InteractError;
 use deadpool_diesel::postgres::Pool;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
@@ -43,7 +44,12 @@ impl DocumentRepository for DocumentOrmCollection {
 
         match result {
             Ok(r) => match r {
-                Ok(entity) => Some(Document::new(entity.id, &entity.title, &entity.content)),
+                Ok(entity) => Some(Document::new(
+                    entity.id,
+                    &entity.title,
+                    &entity.content,
+                    entity.user_id,
+                )),
                 Err(_) => None,
             },
             Err(e) => {
@@ -53,7 +59,7 @@ impl DocumentRepository for DocumentOrmCollection {
         }
     }
 
-    async fn get_documents(&self, user_id: &str, limit: &u32) -> Vec<Document> {
+    async fn get_documents(&self, user_id: &Uuid, limit: &u32) -> Vec<Document> {
         let conn = match self.pool.get().await {
             Ok(conn) => conn,
             Err(e) => {
@@ -80,7 +86,7 @@ impl DocumentRepository for DocumentOrmCollection {
             Ok(r) => match r {
                 Ok(entities) => entities
                     .into_iter()
-                    .map(|e| Document::new(e.id, &e.title, &e.content))
+                    .map(|e| Document::new(e.id, &e.title, &e.content, e.user_id))
                     .collect(),
                 Err(_) => return vec![],
             },
@@ -94,7 +100,7 @@ impl DocumentRepository for DocumentOrmCollection {
 
     async fn get_documents_title_cursor(
         &self,
-        user_id: &str,
+        user_id: &Uuid,
         limit: &u32,
         title: &str,
         doc_id: &i32,
@@ -133,7 +139,7 @@ impl DocumentRepository for DocumentOrmCollection {
             Ok(r) => match r {
                 Ok(entities) => entities
                     .into_iter()
-                    .map(|e| Document::new(e.id, &e.title, &e.content))
+                    .map(|e| Document::new(e.id, &e.title, &e.content, e.user_id))
                     .collect(),
                 Err(_) => return vec![],
             },
@@ -169,6 +175,7 @@ impl DocumentRepository for DocumentOrmCollection {
                         saved_doc.id,
                         &saved_doc.title,
                         &saved_doc.content,
+                        saved_doc.user_id,
                     ))
                 }
                 Err(e) => {

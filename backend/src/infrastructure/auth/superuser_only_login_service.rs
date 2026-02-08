@@ -1,8 +1,14 @@
 use std::env;
 
 use async_trait::async_trait;
+use uuid::Uuid;
 
-use crate::infrastructure::auth::{login_request::LoginRequest, login_service::LoginService};
+use crate::infrastructure::auth::{
+    login_request::LoginRequest,
+    login_service::{LoginResult, LoginService},
+};
+
+const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
 
 /**
 * A login service that only allows a superuser to log in.
@@ -12,6 +18,7 @@ use crate::infrastructure::auth::{login_request::LoginRequest, login_service::Lo
 pub struct SuperuserOnlyLoginService {
     admin_username: String,
     admin_password: String,
+    admin_user_id: Uuid,
 }
 
 impl SuperuserOnlyLoginService {
@@ -19,6 +26,7 @@ impl SuperuserOnlyLoginService {
         SuperuserOnlyLoginService {
             admin_username,
             admin_password,
+            admin_user_id: Uuid::parse_str(ADMIN_USER_ID).expect("Invalid ADMIN_USER_ID format"),
         }
     }
 }
@@ -33,11 +41,13 @@ impl Default for SuperuserOnlyLoginService {
 
 #[async_trait]
 impl LoginService for SuperuserOnlyLoginService {
-    fn login(&self, login_req: &LoginRequest) -> Result<String, String> {
+    fn login(&self, login_req: &LoginRequest) -> Result<LoginResult, String> {
         let LoginRequest { username, password } = login_req;
 
         if username == &self.admin_username && password == &self.admin_password {
-            Ok("superuser_token".to_string())
+            Ok(LoginResult {
+                user_id: self.admin_user_id.clone(),
+            })
         } else {
             Err("Invalid user credentials".to_string())
         }
@@ -60,6 +70,9 @@ mod tests {
         };
         let result = service.login(&login_req);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "superuser_token".to_string());
+        assert_eq!(
+            result.unwrap().user_id.to_string(),
+            ADMIN_USER_ID.to_string()
+        );
     }
 }

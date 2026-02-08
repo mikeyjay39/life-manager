@@ -166,6 +166,7 @@ mod tests {
 
     use async_trait::async_trait;
     use serde_json::to_vec;
+    use uuid::Uuid;
 
     use crate::{
         domain::{
@@ -227,7 +228,8 @@ mod tests {
             "http://localhost:8884".to_string(),
             Arc::new(MockHttpClient::new()),
         );
-        let uploaded_document_input = UploadedDocumentInput::new(file_name.to_string(), buffer);
+        let uploaded_document_input =
+            UploadedDocumentInput::new(file_name.to_string(), buffer, Uuid::new_v4());
         let result = adapter.read_image(&uploaded_document_input).await;
         let text = match result {
             Ok(text) => {

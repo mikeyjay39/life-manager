@@ -10,7 +10,7 @@ axum-server = { version = "0.7.3", features = ["tls-rustls"] }
 chrono = "0.4"
 deadpool-diesel = { version = "0.6", features = ["postgres"] }
 diesel_migrations = "2"
-diesel = { version = "2.2.0", features = ["postgres", "chrono"] }
+diesel = { version = "2.2.0", features = ["postgres", "chrono", "uuid"] }
 dotenvy = "0.15.0"
 image = "0.25.5"
 jsonwebtoken = "9"
@@ -29,7 +29,7 @@ tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["trace", "cors"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json", "time"] }
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 zeroize = "1.7"
 
 [dev-dependencies]

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::domain::document_summarizer::DocumentSummarizer;
 use crate::domain::document_summarizer::DocumentSummaryResult;
@@ -14,18 +15,18 @@ pub struct Document {
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
-    pub user_id: String,
+    pub user_id: Uuid,
 }
 
 impl Document {
     // Creates a new document
-    pub fn new(id: i32, title: &str, content: &str, user_id: &str) -> Self {
+    pub fn new(id: i32, title: &str, content: &str, user_id: Uuid) -> Self {
         Self {
             id,
             title: title.to_string(),
             content: String::from(content),
             tags: vec![],
-            user_id: user_id.to_string(),
+            user_id,
         }
     }
 
@@ -62,6 +63,7 @@ impl Document {
             title,
             content: summary,
             tags: vec![],
+            user_id: uploaded_document_input.user_id,
         };
         Some(document)
     }
@@ -88,7 +90,12 @@ mod tests {
 
     #[test]
     fn test_document_creation() {
-        let doc = Document::new(1, "Test Document", "This is a test content.");
+        let doc = Document::new(
+            1,
+            "Test Document",
+            "This is a test content.",
+            Uuid::new_v4(),
+        );
         assert_eq!(doc.id, 1);
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "This is a test content.");
@@ -97,7 +104,12 @@ mod tests {
 
     #[test]
     fn test_document_print_details() {
-        let doc = Document::new(2, "Another Document", "Content of another document.");
+        let doc = Document::new(
+            2,
+            "Another Document",
+            "Content of another document.",
+            Uuid::new_v4(),
+        );
         doc.print_details();
     }
 }

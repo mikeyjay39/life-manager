@@ -1,3 +1,4 @@
+use crate::application::get_documents_query::GetDocumentsQuery;
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::auth::auth_user::AuthUser;
@@ -27,7 +28,7 @@ pub struct CreateDocumentCommand {
  *
  */
 pub async fn create_document(
-    AuthUser { username: _ }: AuthUser,
+    AuthUser { user_id }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
@@ -59,13 +60,15 @@ pub async fn create_document(
             true => {
                 let reader = document_use_cases.reader.clone();
                 let summarizer = document_use_cases.summarizer.clone();
-                let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
+                let uploaded_document_input =
+                    UploadedDocumentInput::new(file_name, file_data, user_id);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
             false => Some(Document::new(
                 _payload.id,
                 &_payload.title,
                 &_payload.content,
+                user_id,
             )),
         };
 
@@ -101,7 +104,7 @@ pub async fn create_document(
 }
 
 pub async fn get_document(
-    AuthUser { username: _ }: AuthUser,
+    AuthUser { user_id: _ }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
@@ -114,13 +117,14 @@ pub async fn get_document(
 }
 
 pub async fn get_documents(
-    AuthUser { username: user }: AuthUser,
+    AuthUser { user_id }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
 ) -> impl IntoResponse {
-    tracing::info!("Fetching documents for user: {}", &user);
-    something;
+    tracing::info!("Fetching documents for user: {}", user_id.to_string());
     let repo = document_use_cases.document_repository.clone();
-    todo!();
+    let query = GetDocumentsQuery::new(repo, user_id);
+    let documents = query.execute(&100).await;
+    (StatusCode::OK, Json(json!(documents)))
 }
 
 fn return_500() -> (StatusCode, Json<serde_json::Value>) {
@@ -156,6 +160,7 @@ mod tests {
     use axum::extract::FromRequest;
     use axum::http::{Request, StatusCode};
     use serde_json::from_slice;
+    use uuid::Uuid;
 
     struct MockDocumentTextReader;
 
@@ -220,7 +225,7 @@ mod tests {
 
         let multipart = Multipart::from_request(request, &()).await.unwrap();
         let auth_user = AuthUser {
-            username: "testuser".to_string(),
+            user_id: Uuid::new_v4(),
         };
         let response = create_document(
             auth_user,
@@ -249,7 +254,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_document() {
         // Arrange
-        let document = Document::new(1, "Test Document", "This is test content.");
+        let document = Document::new(1, "Test Document", "This is test content.", Uuid::new_v4());
         let repo = DocumentCollection::new();
         repo.save_document(document)
             .await
@@ -263,7 +268,7 @@ mod tests {
 
         // Act
         let auth_user = AuthUser {
-            username: "testuser".to_string(),
+            user_id: Uuid::new_v4(),
         };
         let response = get_document(
             auth_user,
@@ -291,7 +296,12 @@ mod tests {
     #[tokio::test]
     async fn test_get_document_not_found() {
         // Arrange
-        let document = Document::new(1, "Test Document", "This is a test content.");
+        let document = Document::new(
+            1,
+            "Test Document",
+            "This is a test content.",
+            Uuid::new_v4(),
+        );
         let repo = DocumentCollection::new();
         repo.save_document(document)
             .await
@@ -305,7 +315,7 @@ mod tests {
 
         // Act
         let auth_user = AuthUser {
-            username: "testuser".to_string(),
+            user_id: Uuid::new_v4(),
         };
         let response = get_document(
             auth_user,
