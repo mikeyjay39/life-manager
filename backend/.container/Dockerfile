@@ -21,7 +21,7 @@ RUN pacman -Sy --noconfirm \
     docker \
     docker-compose \
     nodejs \
-    ttf-jetbrains-mono-nerd 3.4.0-2 \
+    ttf-jetbrains-mono-nerd \
     ncurses \
     && pacman -Scc --noconfirm
 

@@ -103,7 +103,6 @@ impl DocumentRepository for DocumentOrmCollection {
         user_id: &Uuid,
         limit: &u32,
         title: &str,
-        doc_id: &i32,
     ) -> Vec<Document> {
         let conn = match self.pool.get().await {
             Ok(conn) => conn,
@@ -120,15 +119,13 @@ impl DocumentRepository for DocumentOrmCollection {
         let user_id = user_id.to_owned();
         let limit = limit.to_owned() as i64;
         let title = title.to_owned();
-        let doc_id = doc_id.to_owned();
 
         let result: Result<Result<Vec<DocumentEntity>, diesel::result::Error>, InteractError> =
             conn.interact(move |conn| {
                 documents::table
                     .filter(documents::user_id.eq(user_id))
                     .filter(documents::title.gt(title))
-                    .filter(documents::id.gt(doc_id))
-                    .order_by((documents::title.asc(), documents::id.asc()))
+                    .order_by((documents::title.asc()))
                     .limit(limit)
                     .select(DocumentEntity::as_select())
                     .get_results(conn)

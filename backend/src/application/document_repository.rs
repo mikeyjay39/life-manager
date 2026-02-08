@@ -15,7 +15,6 @@ pub trait DocumentRepository: Sync + Send {
         user_id: &Uuid,
         limit: &u32,
         title: &str,
-        doc_id: &i32,
     ) -> Vec<Document>;
     async fn save_document(
         &self,

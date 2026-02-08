@@ -37,7 +37,6 @@ impl DocumentRepository for DocumentCollection {
         user_id: &Uuid,
         limit: &u32,
         title: &str,
-        doc_id: &i32,
     ) -> Vec<Document> {
         let mut documents: Vec<Document> = {
             let guard = self.documents.lock().await;
@@ -49,7 +48,7 @@ impl DocumentRepository for DocumentCollection {
         documents
             .into_iter()
             .filter(|doc| doc.user_id == *user_id)
-            .filter(|doc| *doc.title > *title || (doc.title == title && doc.id > *doc_id))
+            .filter(|doc| *doc.title > *title)
             .take(*limit as usize)
             .collect()
     }
