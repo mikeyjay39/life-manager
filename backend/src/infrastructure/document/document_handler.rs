@@ -3,7 +3,7 @@ use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::auth::auth_user::AuthUser;
 use crate::infrastructure::document::document_state::DocumentState;
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,11 @@ pub struct CreateDocumentCommand {
     pub id: i32,
     pub title: String,
     pub content: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GetDocumentsQueryParams {
+    pub title: Option<String>,
 }
 
 /**
@@ -136,8 +141,9 @@ pub async fn get_documents(
 pub async fn get_documents_by_title(
     AuthUser { user_id }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
-    Path(title): Path<String>,
+    Query(params): Query<GetDocumentsQueryParams>,
 ) -> impl IntoResponse {
+    let title = params.title.unwrap_or_else(|| "".to_string());
     tracing::info!(
         "Fetching documents for user: {} with title cursor: {}",
         user_id.to_string(),
@@ -178,7 +184,7 @@ mod tests {
 
     use super::*;
     use async_trait::async_trait;
-    use axum::body::{Body, Bytes, to_bytes};
+    use axum::body::{Body, to_bytes};
     use axum::extract::FromRequest;
     use axum::http::{Request, StatusCode};
     use serde::de::DeserializeOwned;
@@ -339,7 +345,7 @@ mod tests {
         let response = get_documents_by_title(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Path("".to_string()),
+            Query(GetDocumentsQueryParams { title: None }),
         )
         .await;
         let ProcessedResponse {
@@ -366,7 +372,9 @@ mod tests {
         let response = get_documents_by_title(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Path("Second Document".to_string()),
+            Query(GetDocumentsQueryParams {
+                title: Some("Second Document".to_string()),
+            }),
         )
         .await;
         let ProcessedResponse {
@@ -393,8 +401,10 @@ mod tests {
         let response = get_documents_by_title(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Path("Test Document".to_string()), // NOTE: Check given_user_and_documents function for
-                                               // name of last document.
+            Query(GetDocumentsQueryParams {
+                title: Some("Test Document".to_string()),
+            }), // NOTE: Check given_user_and_documents function for
+                // name of last document.
         )
         .await;
         let ProcessedResponse {
