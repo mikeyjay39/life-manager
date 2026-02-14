@@ -372,6 +372,39 @@ async fn get_all_documents() {
         }
 
         tracing::info!("Successfully retrieved {} documents", documents.len());
+
+        // Test title query parameter
+        let get_all_url_result = server
+            .server_url("/api/v1/documents?title=First")
+            .expect("Failed to get server URL");
+        let get_all_url = get_all_url_result.as_str();
+        tracing::info!("GET All Documents URL: {}", get_all_url);
+
+        let get_response = reqwest::Client::new()
+            .get(get_all_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send GET request");
+
+        tracing::info!("GET Response status: {:?}", get_response.status());
+        assert!(
+            get_response.status().is_success(),
+            "GET all documents failed with status: {}",
+            get_response.status()
+        );
+
+        let documents: Vec<DocumentDto> = get_response
+            .json()
+            .await
+            .expect("Failed to parse response as Vec<DocumentDto>");
+
+        // Verify we got at least the documents we created
+        assert!(
+            documents.len() >= 2,
+            "Expected at least 3 documents, got {}",
+            documents.len()
+        );
     })
     .await;
 }
