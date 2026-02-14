@@ -125,7 +125,7 @@ impl DocumentRepository for DocumentOrmCollection {
                 documents::table
                     .filter(documents::user_id.eq(user_id))
                     .filter(documents::title.gt(title))
-                    .order_by((documents::title.asc()))
+                    .order_by(documents::title.asc())
                     .limit(limit)
                     .select(DocumentEntity::as_select())
                     .get_results(conn)
@@ -153,6 +153,7 @@ impl DocumentRepository for DocumentOrmCollection {
         let new_document = document_entity::NewDocumentEntity {
             title: document.title.clone(),
             content: document.content.clone(),
+            user_id: document.user_id,
         };
 
         let result = conn

@@ -19,5 +19,6 @@ pub struct DocumentEntity {
 pub struct NewDocumentEntity {
     pub title: String,
     pub content: String,
+    pub user_id: Uuid,
     // pub created_at: Option<NaiveDateTime>,
 }
