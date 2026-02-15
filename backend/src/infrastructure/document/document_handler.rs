@@ -1,8 +1,9 @@
+use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::auth::auth_user::AuthUser;
 use crate::infrastructure::document::document_state::DocumentState;
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
@@ -10,11 +11,18 @@ use serde_json::json;
 
 use super::document_dto::DocumentDto;
 
+const PAGE_LIMIT: u32 = 100;
+
 #[derive(Deserialize, Serialize)]
 pub struct CreateDocumentCommand {
     pub id: i32,
     pub title: String,
     pub content: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct GetDocumentsQueryParams {
+    pub title: Option<String>,
 }
 
 /**
@@ -27,7 +35,7 @@ pub struct CreateDocumentCommand {
  *
  */
 pub async fn create_document(
-    AuthUser { username: _ }: AuthUser,
+    AuthUser { user_id }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
@@ -59,13 +67,15 @@ pub async fn create_document(
             true => {
                 let reader = document_use_cases.reader.clone();
                 let summarizer = document_use_cases.summarizer.clone();
-                let uploaded_document_input = UploadedDocumentInput::new(file_name, file_data);
+                let uploaded_document_input =
+                    UploadedDocumentInput::new(file_name, file_data, user_id);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
             false => Some(Document::new(
                 _payload.id,
                 &_payload.title,
                 &_payload.content,
+                user_id,
             )),
         };
 
@@ -101,7 +111,7 @@ pub async fn create_document(
 }
 
 pub async fn get_document(
-    AuthUser { username: _ }: AuthUser,
+    AuthUser { user_id: _ }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     Path(id): Path<u32>,
 ) -> impl IntoResponse {
@@ -111,6 +121,38 @@ pub async fn get_document(
         Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
         None => (StatusCode::NOT_FOUND, Json(json!({}))),
     }
+}
+
+/**
+* NOTE: This is a testing function that doesn't guarantee order and is not suited for pagination.
+*
+*/
+pub async fn get_documents(
+    AuthUser { user_id }: AuthUser,
+    State(DocumentState(document_use_cases)): State<DocumentState>,
+) -> impl IntoResponse {
+    tracing::info!("Fetching documents for user: {}", user_id.to_string());
+    let repo = document_use_cases.document_repository.clone();
+    let query = GetDocumentsQuery::new(repo, user_id, PAGE_LIMIT);
+    let documents = query.execute().await;
+    (StatusCode::OK, Json(json!(documents)))
+}
+
+pub async fn get_documents_by_title(
+    AuthUser { user_id }: AuthUser,
+    State(DocumentState(document_use_cases)): State<DocumentState>,
+    Query(params): Query<GetDocumentsQueryParams>,
+) -> impl IntoResponse {
+    let title = params.title.unwrap_or_else(|| "".to_string());
+    tracing::info!(
+        "Fetching documents for user: {} with title cursor: {}",
+        user_id.to_string(),
+        title
+    );
+    let repo = document_use_cases.document_repository.clone();
+    let query = GetDocumentsTitleCursorQuery::new(repo, user_id, title, PAGE_LIMIT);
+    let documents = query.execute().await;
+    (StatusCode::OK, Json(json!(documents)))
 }
 
 fn return_500() -> (StatusCode, Json<serde_json::Value>) {
@@ -145,7 +187,9 @@ mod tests {
     use axum::body::{Body, to_bytes};
     use axum::extract::FromRequest;
     use axum::http::{Request, StatusCode};
+    use serde::de::DeserializeOwned;
     use serde_json::from_slice;
+    use uuid::Uuid;
 
     struct MockDocumentTextReader;
 
@@ -168,6 +212,16 @@ mod tests {
                 title: String::from("Test Document"),
             })
         }
+    }
+
+    struct GivenUserAndDocuments {
+        pub auth_user: AuthUser,
+        pub document_use_cases: Arc<DocumentUseCases>,
+    }
+
+    struct ProcessedResponse<T> {
+        pub status_code: StatusCode,
+        pub response_payload: T,
     }
 
     #[tokio::test]
@@ -209,10 +263,16 @@ mod tests {
             .unwrap();
 
         let multipart = Multipart::from_request(request, &()).await.unwrap();
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response = create_document(auth_user, State(DocumentState(document_use_cases.clone())), multipart)
-            .await
-            .into_response();
+        let auth_user = AuthUser {
+            user_id: Uuid::new_v4(),
+        };
+        let response = create_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            multipart,
+        )
+        .await
+        .into_response();
 
         let (parts, body) = response.into_parts();
         let status_code = parts.status;
@@ -232,35 +292,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_document() {
-        // Arrange
-        let document = Document::new(1, "Test Document", "This is test content.");
-        let repo = DocumentCollection::new();
-        repo.save_document(document)
-            .await
-            .expect("Failed to save document to seed test");
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        } = given_user_and_documents().await;
+        let response = get_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Path(1),
+        )
+        .await;
 
-        let document_use_cases = Arc::new(DocumentUseCases {
-            document_repository: Arc::new(repo),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
-        });
-
-        // Act
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response =
-            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(1)).await;
-
-        let response = response.into_response();
-        let status_code = response.status();
-        let body = response.into_body();
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_document,
+        } = process_response::<Document>(response).await;
         // Assert
         assert_eq!(status_code, StatusCode::OK);
-
-        let bytes = to_bytes(body, usize::MAX)
-            .await
-            .expect("Failed to read body");
-        let response_document =
-            serde_json::from_slice::<Document>(&bytes).expect("Failed to deserialize JSON");
 
         assert_eq!(response_document.title, "Test Document");
         assert_eq!(response_document.content, "This is test content.");
@@ -268,10 +316,128 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_document_not_found() {
-        // Arrange
-        let document = Document::new(1, "Test Document", "This is a test content.");
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        } = given_user_and_documents().await;
+
+        let response = get_document(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Path(999999),
+        )
+        .await;
+        let response = response.into_response();
+        let status_code = response.status();
+
+        // Assert
+        assert_eq!(status_code, StatusCode::NOT_FOUND);
+        // TODO: assert empty response body
+    }
+
+    #[tokio::test]
+    async fn test_get_documents_by_title_empty() {
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        } = given_user_and_documents().await;
+
+        let response = get_documents_by_title(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Query(GetDocumentsQueryParams { title: None }),
+        )
+        .await;
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_documents,
+        } = process_response::<Vec<Document>>(response).await;
+
+        // Assert
+        assert_eq!(status_code, StatusCode::OK);
+        assert_eq!(response_documents.len(), 2); // NOTE: Check given_user_and_documents function for length
+    }
+
+    /**
+     * This tests that documents are returned in order, and we should skip the ones with a name
+     * before the one we search on.
+     */
+    #[tokio::test]
+    async fn test_get_documents_by_title_named() {
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        } = given_user_and_documents().await;
+
+        let response = get_documents_by_title(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Query(GetDocumentsQueryParams {
+                title: Some("Second Document".to_string()),
+            }),
+        )
+        .await;
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_documents,
+        } = process_response::<Vec<Document>>(response).await;
+
+        // Assert
+        assert_eq!(status_code, StatusCode::OK);
+        assert_eq!(response_documents.len(), 1); // NOTE: Check given_user_and_documents function for length
+    }
+
+    /**
+     * This tests that documents are returned in order, and we should not return any when we search
+     * with the last one.
+     * */
+    #[tokio::test]
+    async fn test_get_documents_by_title_last() {
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        } = given_user_and_documents().await;
+
+        let response = get_documents_by_title(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Query(GetDocumentsQueryParams {
+                title: Some("Test Document".to_string()),
+            }), // NOTE: Check given_user_and_documents function for
+                // name of last document.
+        )
+        .await;
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_documents,
+        } = process_response::<Vec<Document>>(response).await;
+
+        // Assert
+        assert_eq!(status_code, StatusCode::OK);
+        assert_eq!(response_documents.len(), 0);
+    }
+
+    async fn given_user_and_documents() -> GivenUserAndDocuments {
+        let auth_user = AuthUser {
+            user_id: Uuid::new_v4(),
+        };
+        let document1 = Document::new(
+            1,
+            "Test Document",
+            "This is test content.",
+            auth_user.user_id,
+        );
+        let document2 = Document::new(
+            2,
+            "Second Document",
+            "This is the second document",
+            auth_user.user_id,
+        );
         let repo = DocumentCollection::new();
-        repo.save_document(document)
+        repo.save_document(document1)
+            .await
+            .expect("Failed to save document to seed test");
+        repo.save_document(document2)
             .await
             .expect("Failed to save document to seed test");
 
@@ -281,19 +447,29 @@ mod tests {
             summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
-        // Act
-        let auth_user = AuthUser { username: "testuser".to_string() };
-        let response =
-            get_document(auth_user, State(DocumentState(document_use_cases.clone())), Path(2)).await;
+        return GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+        };
+    }
+
+    async fn process_response<T>(response: impl IntoResponse) -> ProcessedResponse<T>
+    where
+        T: DeserializeOwned,
+    {
         let response = response.into_response();
         let status_code = response.status();
         let body = response.into_body();
-        let _bytes = to_bytes(body, usize::MAX)
+        let bytes = to_bytes(body, usize::MAX)
             .await
             .expect("Failed to read body");
 
-        // Assert
-        assert_eq!(status_code, StatusCode::NOT_FOUND);
-        // TODO: assert empty response body
+        let response_payload =
+            serde_json::from_slice::<T>(&bytes).expect("Failed to deserialize JSON");
+
+        ProcessedResponse {
+            status_code,
+            response_payload,
+        }
     }
 }

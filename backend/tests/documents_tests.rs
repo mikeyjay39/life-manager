@@ -265,3 +265,146 @@ async fn create_and_get_document_no_file() {
     })
     .await;
 }
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn get_all_documents() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+
+        // Create multiple documents
+        let documents_to_create = vec![
+            CreateDocumentCommand {
+                id: 1,
+                title: String::from("First Document"),
+                content: String::from("Content of first document"),
+            },
+            CreateDocumentCommand {
+                id: 2,
+                title: String::from("Second Document"),
+                content: String::from("Content of second document"),
+            },
+            CreateDocumentCommand {
+                id: 3,
+                title: String::from("Third Document"),
+                content: String::from("Content of third document"),
+            },
+        ];
+
+        // Create each document
+        for payload in &documents_to_create {
+            let json_string = serde_json::to_string(&payload).unwrap();
+
+            let multipart_body = format!(
+                "--boundary\r\n\
+            Content-Disposition: form-data; name=\"json\"\r\n\
+            Content-Type: application/json\r\n\r\n\
+            {}\r\n\
+            --boundary--",
+                json_string
+            );
+
+            let url_result = server
+                .server_url(DOCUMENTS_URL)
+                .expect("Failed to get server URL");
+            let url = url_result.as_str();
+
+            let res = reqwest::Client::new()
+                .post(url)
+                .body(multipart_body)
+                .header("Content-Type", "multipart/form-data; boundary=boundary")
+                .header("Authorization", &auth_header)
+                .send()
+                .await
+                .expect("Failed to send request");
+
+            assert!(
+                res.status().is_success(),
+                "Failed to create document with title: {}",
+                payload.title
+            );
+        }
+
+        // Now test the GET endpoint to retrieve all documents
+        let get_all_url_result = server
+            .server_url(DOCUMENTS_URL)
+            .expect("Failed to get server URL");
+        let get_all_url = get_all_url_result.as_str();
+        tracing::info!("GET All Documents URL: {}", get_all_url);
+
+        let get_response = reqwest::Client::new()
+            .get(get_all_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send GET request");
+
+        tracing::info!("GET Response status: {:?}", get_response.status());
+        assert!(
+            get_response.status().is_success(),
+            "GET all documents failed with status: {}",
+            get_response.status()
+        );
+
+        let documents: Vec<DocumentDto> = get_response
+            .json()
+            .await
+            .expect("Failed to parse response as Vec<DocumentDto>");
+
+        // Verify we got at least the documents we created
+        assert!(
+            documents.len() >= 3,
+            "Expected at least 3 documents, got {}",
+            documents.len()
+        );
+
+        // Verify that our created documents are in the response
+        for expected_doc in &documents_to_create {
+            let found = documents
+                .iter()
+                .any(|doc| doc.title == expected_doc.title && doc.content == expected_doc.content);
+            assert!(
+                found,
+                "Document with title '{}' not found in response",
+                expected_doc.title
+            );
+        }
+
+        tracing::info!("Successfully retrieved {} documents", documents.len());
+
+        // Test title query parameter
+        let get_all_url_result = server
+            .server_url("/api/v1/documents?title=First")
+            .expect("Failed to get server URL");
+        let get_all_url = get_all_url_result.as_str();
+        tracing::info!("GET All Documents URL: {}", get_all_url);
+
+        let get_response = reqwest::Client::new()
+            .get(get_all_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send GET request");
+
+        tracing::info!("GET Response status: {:?}", get_response.status());
+        assert!(
+            get_response.status().is_success(),
+            "GET all documents failed with status: {}",
+            get_response.status()
+        );
+
+        let documents: Vec<DocumentDto> = get_response
+            .json()
+            .await
+            .expect("Failed to parse response as Vec<DocumentDto>");
+
+        // Verify we got at least the documents we created
+        assert!(
+            documents.len() >= 2,
+            "Expected at least 3 documents, got {}",
+            documents.len()
+        );
+    })
+    .await;
+}

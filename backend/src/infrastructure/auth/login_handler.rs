@@ -14,7 +14,7 @@ pub async fn login(
 ) -> Result<Json<LoginResponse>, StatusCode> {
     tracing::info!("Login attempt for user: {}", req.username);
 
-    auth_use_cases
+    let login_result = auth_use_cases
         .login_service
         .login(&req)
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
@@ -22,7 +22,7 @@ pub async fn login(
     let exp = OffsetDateTime::now_utc() + Duration::hours(1);
 
     let claims = Claims {
-        sub: req.username,
+        sub: login_result.user_id,
         exp: exp.unix_timestamp() as usize,
     };
 

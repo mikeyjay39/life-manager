@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use uuid::Uuid;
 
 use crate::domain::document::Document;
 
@@ -8,6 +9,13 @@ use crate::domain::document::Document;
 #[async_trait]
 pub trait DocumentRepository: Sync + Send {
     async fn get_document(&self, id: i32) -> Option<Document>;
+    async fn get_documents(&self, user_id: &Uuid, limit: &u32) -> Vec<Document>;
+    async fn get_documents_title_cursor(
+        &self,
+        user_id: &Uuid,
+        limit: &u32,
+        title: &str,
+    ) -> Vec<Document>;
     async fn save_document(
         &self,
         document: Document,

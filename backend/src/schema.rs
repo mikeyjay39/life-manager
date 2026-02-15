@@ -4,5 +4,6 @@ diesel::table! {
         #[max_length = 255]
         title -> Varchar,
         content -> Text,
+        user_id -> Uuid,
     }
 }

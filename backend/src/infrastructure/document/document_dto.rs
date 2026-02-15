@@ -24,12 +24,19 @@ impl DocumentDto {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
+
     use super::*;
     use crate::domain::document::Document;
 
     #[test]
     fn test_document_dto_conversion() {
-        let document = Document::new(1, "Test Document", "This is a test content.");
+        let document = Document::new(
+            1,
+            "Test Document",
+            "This is a test content.",
+            Uuid::new_v4(),
+        );
         let dto = DocumentDto::from_document(&document);
         assert_eq!(dto.id, 1);
         assert_eq!(dto.title, "Test Document");

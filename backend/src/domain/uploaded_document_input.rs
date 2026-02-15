@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 /**
 * Structure representing an uploaded document input.
 */
@@ -7,6 +9,7 @@ pub struct UploadedDocumentInput {
     /** Raw binary data of the uploaded file. */
     pub file_data: Vec<u8>,
     pub extension: String,
+    pub user_id: Uuid,
 }
 
 impl UploadedDocumentInput {
@@ -17,17 +20,19 @@ impl UploadedDocumentInput {
      *
      * * `file_name` - The name of the uploaded file.
      * * `file_data` - The raw binary data of the uploaded file.
+     * * `user_id` - The ID of the user who uploaded the document.
      *
      * # Returns
      *
      * A new instance of `UploadedDocumentInput`.
      */
-    pub fn new(file_name: String, file_data: Vec<u8>) -> Self {
+    pub fn new(file_name: String, file_data: Vec<u8>, user_id: Uuid) -> Self {
         let extension = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
         UploadedDocumentInput {
             file_name,
             file_data,
             extension,
+            user_id,
         }
     }
 
@@ -42,6 +47,8 @@ mod tests {
     use std::io::Read;
     use std::path::PathBuf;
 
+    use uuid::Uuid;
+
     use super::UploadedDocumentInput;
 
     #[test]
@@ -53,7 +60,8 @@ mod tests {
         file.read_to_end(&mut buffer)
             .expect("Failed to read the file");
         let buffer_length = buffer.len();
-        let uploaded_document_input = UploadedDocumentInput::new(file_name.to_string(), buffer);
+        let uploaded_document_input =
+            UploadedDocumentInput::new(file_name.to_string(), buffer, Uuid::new_v4());
         assert_eq!(uploaded_document_input.extension, "png");
         assert_eq!(uploaded_document_input.file_name, file_name);
         assert_eq!(uploaded_document_input.file_data.len(), buffer_length);

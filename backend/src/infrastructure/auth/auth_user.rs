@@ -3,11 +3,12 @@ use axum::{
     http::{StatusCode, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Validation, decode};
+use uuid::Uuid;
 
 use crate::infrastructure::auth::{jwt_secret::JWT_SECRET, login_request::Claims};
 
 pub struct AuthUser {
-    pub username: String,
+    pub user_id: Uuid,
 }
 
 impl<S> FromRequestParts<S> for AuthUser
@@ -36,7 +37,7 @@ where
         .claims;
 
         Ok(AuthUser {
-            username: claims.sub,
+            user_id: claims.sub,
         })
     }
 }

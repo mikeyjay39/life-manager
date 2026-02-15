@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use deadpool_diesel::InteractError;
 use deadpool_diesel::postgres::Pool;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
@@ -43,7 +44,12 @@ impl DocumentRepository for DocumentOrmCollection {
 
         match result {
             Ok(r) => match r {
-                Ok(entity) => Some(Document::new(entity.id, &entity.title, &entity.content)),
+                Ok(entity) => Some(Document::new(
+                    entity.id,
+                    &entity.title,
+                    &entity.content,
+                    entity.user_id,
+                )),
                 Err(_) => None,
             },
             Err(e) => {
@@ -53,11 +59,101 @@ impl DocumentRepository for DocumentOrmCollection {
         }
     }
 
+    async fn get_documents(&self, user_id: &Uuid, limit: &u32) -> Vec<Document> {
+        let conn = match self.pool.get().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::error!("Could not get db connection for get_documents: {}", e);
+                let result: Vec<Document> = vec![];
+                return result;
+            }
+        };
+
+        let user_id = user_id.to_owned();
+        let limit = limit.to_owned() as i64;
+
+        let result: Result<Result<Vec<DocumentEntity>, diesel::result::Error>, InteractError> =
+            conn.interact(move |conn| {
+                documents::table
+                    .filter(documents::user_id.eq(user_id))
+                    .limit(limit)
+                    .select(DocumentEntity::as_select())
+                    .get_results(conn)
+            })
+            .await;
+
+        match result {
+            Ok(r) => match r {
+                Ok(entities) => entities
+                    .into_iter()
+                    .map(|e| Document::new(e.id, &e.title, &e.content, e.user_id))
+                    .collect(),
+                Err(_) => return vec![],
+            },
+            Err(e) => {
+                tracing::error!("Error retrieving document: {}", e);
+                let result: Vec<Document> = vec![];
+                return result;
+            }
+        }
+    }
+
+    async fn get_documents_title_cursor(
+        &self,
+        user_id: &Uuid,
+        limit: &u32,
+        title: &str,
+    ) -> Vec<Document> {
+        let conn = match self.pool.get().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::error!(
+                    "Could not get db connection for get_documents_title_cursor: {}",
+                    e
+                );
+                let result: Vec<Document> = vec![];
+                return result;
+            }
+        };
+
+        let user_id = user_id.to_owned();
+        let limit = limit.to_owned() as i64;
+        let title = title.to_owned();
+
+        let result: Result<Result<Vec<DocumentEntity>, diesel::result::Error>, InteractError> =
+            conn.interact(move |conn| {
+                documents::table
+                    .filter(documents::user_id.eq(user_id))
+                    .filter(documents::title.gt(title))
+                    .order_by(documents::title.asc())
+                    .limit(limit)
+                    .select(DocumentEntity::as_select())
+                    .get_results(conn)
+            })
+            .await;
+
+        match result {
+            Ok(r) => match r {
+                Ok(entities) => entities
+                    .into_iter()
+                    .map(|e| Document::new(e.id, &e.title, &e.content, e.user_id))
+                    .collect(),
+                Err(_) => return vec![],
+            },
+            Err(e) => {
+                tracing::error!("Error retrieving document: {}", e);
+                let result: Vec<Document> = vec![];
+                return result;
+            }
+        }
+    }
+
     async fn save_document(&self, document: Document) -> Result<Document, Box<dyn Error>> {
         let conn = self.pool.get().await?;
         let new_document = document_entity::NewDocumentEntity {
             title: document.title.clone(),
             content: document.content.clone(),
+            user_id: document.user_id,
         };
 
         let result = conn
@@ -77,6 +173,7 @@ impl DocumentRepository for DocumentOrmCollection {
                         saved_doc.id,
                         &saved_doc.title,
                         &saved_doc.content,
+                        saved_doc.user_id,
                     ))
                 }
                 Err(e) => {

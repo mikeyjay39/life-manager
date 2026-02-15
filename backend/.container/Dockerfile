@@ -20,6 +20,9 @@ RUN pacman -Sy --noconfirm \
     postgresql-libs \
     docker \
     docker-compose \
+    nodejs \
+    ttf-jetbrains-mono-nerd \
+    ncurses \
     && pacman -Scc --noconfirm
 
 # Initialize rustup properly

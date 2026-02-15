@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 use crate::{application::document_repository::DocumentRepository, domain::document::Document};
 
@@ -14,6 +15,42 @@ impl DocumentRepository for DocumentCollection {
         let documents = self.documents.lock().await;
         tracing::info!("Total documents in collection: {}", documents.len());
         documents.iter().find(|doc| doc.id == id).cloned()
+    }
+
+    async fn get_documents(&self, user_id: &Uuid, limit: &u32) -> Vec<Document> {
+        let mut documents: Vec<Document> = {
+            let guard = self.documents.lock().await;
+            guard.clone()
+        }; // mutex unlocked here
+
+        documents.sort_by_key(|d| (d.title.clone(), d.id));
+
+        documents
+            .into_iter()
+            .filter(|doc| doc.user_id == *user_id)
+            .take(*limit as usize)
+            .collect()
+    }
+
+    async fn get_documents_title_cursor(
+        &self,
+        user_id: &Uuid,
+        limit: &u32,
+        title: &str,
+    ) -> Vec<Document> {
+        let mut documents: Vec<Document> = {
+            let guard = self.documents.lock().await;
+            guard.clone()
+        };
+
+        documents.sort_by_key(|d| (d.title.clone(), d.id));
+
+        documents
+            .into_iter()
+            .filter(|doc| doc.user_id == *user_id)
+            .filter(|doc| *doc.title > *title)
+            .take(*limit as usize)
+            .collect()
     }
 
     async fn save_document(
@@ -54,7 +91,12 @@ mod tests {
             let documents = collection.documents.lock().await;
             assert_eq!(documents.len(), 0);
         }
-        let doc = Document::new(1, "Test document", "This is a test content.");
+        let doc = Document::new(
+            1,
+            "Test document",
+            "This is a test content.",
+            Uuid::new_v4(),
+        );
         collection
             .save_document(doc)
             .await
@@ -68,7 +110,12 @@ mod tests {
     #[tokio::test]
     pub async fn test_get_document() {
         let collection: DocumentCollection = DocumentCollection::new();
-        let doc = Document::new(1, "Test document", "This is a test content.");
+        let doc = Document::new(
+            1,
+            "Test document",
+            "This is a test content.",
+            Uuid::new_v4(),
+        );
         collection
             .save_document(doc.clone())
             .await
