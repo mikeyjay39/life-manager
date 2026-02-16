@@ -10,6 +10,12 @@ cd backend/.container
 docker build -t rust-nvim:latest .
 ```
 
+- To build dev container while iterating on changes, use the `--no-cache` flag:
+```
+cd backend/.container
+docker build -t --no-cache rust-nvim:latest .
+```
+
 - To run and connect to the container:
 ```
 backend/.container/run.sh
