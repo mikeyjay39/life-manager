@@ -20,8 +20,6 @@ RUN groupadd -g ${GROUP_ID} ${USERNAME} && \
 # Set password safely
 RUN echo "$USERNAME:changeme" | chpasswd
 
-# RUN pacman -S --noconfirm docker docker-compose fc-cache
-
 # Install yay (AUR helper)
 # Create a non-root user for building AUR packages
 RUN useradd -m -G wheel -s /bin/bash builder && \
@@ -69,13 +67,23 @@ RUN mkdir -p /home/${USERNAME}/.local/share/nvim \
 ENV CARGO_HOME=/home/${USERNAME}/.cargo
 ENV RUSTUP_HOME=/home/${USERNAME}/.rustup
 
-RUN cd /home/${USERNAME}/life-manager && \
+RUN su -c 'cd /home/${USERNAME}/life-manager && \
     rustup toolchain install stable && \
     rustup default stable &&  \
     rustup component add rust-analyzer && \
-    cargo install cargo-nextest --locked
+    cargo install cargo-nextest --locked' ${USERNAME}
 
-ENV PATH="/home/${USERNAME}/.cargo/bin:${PATH}:/usr/lib/rustup:/usr/lib/rustup/bin"
+ENV PATH="/home/${USERNAME}/.cargo/bin:${PATH}:/usr/lib/rustup:/usr/lib/rustup/bin:/home/${USERNAME}/.rustup"
+
+# Manually compile and install Rust treesitter parser
+# nvim-treesitter's TSInstall has issues finding the compiler, so we compile manually
+RUN cd /tmp && \
+    git clone --depth 1 https://github.com/tree-sitter/tree-sitter-rust.git && \
+    cd tree-sitter-rust && \
+    gcc -o rust.so -shared src/parser.c src/scanner.c -I./src -Os -fPIC && \
+    mkdir -p /home/${USERNAME}/.local/share/nvim/lazy/nvim-treesitter/parser && \
+    cp rust.so /home/${USERNAME}/.local/share/nvim/lazy/nvim-treesitter/parser/ && \
+    cd / && rm -rf /tmp/tree-sitter-rust
 
 RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 

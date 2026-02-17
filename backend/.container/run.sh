@@ -23,6 +23,8 @@ docker run -it --rm \
   -v nvim-share:/home/$USERNAME/.local/share/nvim \
   -v nvim-state:/home/$USERNAME/.local/state/nvim \
   -v nvim-cache:/home/$USERNAME/.cache/nvim \
+  -v nvim-cargo:/home/$USERNAME/.cargo \
+  -v nvim-rustup:/home/$USERNAME/.rustup \
   -v starship-cache:/home/$USERNAME/.cache/starship \
   -v zoxide-data:/home/$USERNAME/.local/share/zoxide \
   --network host \
