@@ -21,6 +21,7 @@ echo "Using temporary GPG directory: $TEMP_GPG_DIR"
 docker run -it --rm \
   -v "$TEMP_GPG_DIR:/home/$USERNAME/.gnupg" \
   --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   -w /home/$USERNAME/life-manager \
   rust-nvim \
   zsh

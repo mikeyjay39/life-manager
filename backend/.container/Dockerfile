@@ -4,7 +4,7 @@ FROM archlinux:base
 # System dependencies (without rustup!)
 # ----------------------------------
 RUN pacman -Syu --noconfirm
-RUN pacman -S --noconfirm git base-devel sudo
+RUN pacman -S --noconfirm git base-devel sudo rustup
 
 # ----------------------------------
 # Create user matching host user
@@ -48,20 +48,18 @@ RUN mv /home/${USERNAME}/scripts /home/${USERNAME}/.scripts
 
 RUN su -c 'source /usr/share/nvm/init-nvm.sh && nvm install 22 && nvm use 22' ${USERNAME}
 
-RUN source /home/${USERNAME}/dotfiles/install/install-rust-dependencies.sh
+# RUN source /home/${USERNAME}/dotfiles/install/install-rust-dependencies.sh
 
 RUN pacman -Scc --noconfirm
 
 RUN cd /home/${USERNAME} && git clone https://github.com/mikeyjay39/life-manager
-RUN cd /home/${USERNAME}/life-manager && cargo install cargo-nextest --locked
 
 # Initialize rustup properly
-# RUN rustup toolchain install stable
-# RUN rustup default stable
-#
-# RUN rustup component add rust-analyzer
-#
-# RUN cargo install cargo-nextest --locked
+RUN cd /home/${USERNAME}/life-manager && \
+    rustup toolchain install stable && \
+    rustup default stable &&  \
+    rustup component add rust-analyzer && \
+    cargo install cargo-nextest --locked
 
 # ----------------------------------
 # Cargo/Rust environment
