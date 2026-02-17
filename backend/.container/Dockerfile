@@ -11,10 +11,15 @@ RUN pacman -S --noconfirm git base-devel sudo rustup postgresql-libs
 # ----------------------------------
 ARG USER_ID=1000
 ARG GROUP_ID=1000
+ARG DOCKER_GID=965
 ARG USERNAME=devuser
 
+# Create docker group with host's docker GID
+RUN groupadd -g ${DOCKER_GID} docker || true
+
+# Create user with proper groups
 RUN groupadd -g ${GROUP_ID} ${USERNAME} && \
-    useradd -m -u ${USER_ID} -g ${GROUP_ID} -G wheel -s /bin/bash ${USERNAME} && \
+    useradd -m -u ${USER_ID} -g ${GROUP_ID} -G wheel,docker -s /bin/bash ${USERNAME} && \
     echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 # Set password safely
