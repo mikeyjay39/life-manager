@@ -20,11 +20,24 @@ echo "Using temporary GPG directory: $TEMP_GPG_DIR"
 
 docker run -it --rm \
   -v "$TEMP_GPG_DIR:/home/$USERNAME/.gnupg" \
+  -v nvim-share:/home/$USERNAME/.local/share/nvim \
+  -v nvim-state:/home/$USERNAME/.local/state/nvim \
+  -v nvim-cache:/home/$USERNAME/.cache/nvim \
+  -v starship-cache:/home/$USERNAME/.cache/starship \
+  -v zoxide-data:/home/$USERNAME/.local/share/zoxide \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -w /home/$USERNAME/life-manager \
   rust-nvim \
   zsh
+
+# docker run -it \
+#   -v "$TEMP_GPG_DIR:/home/$USERNAME/.gnupg" \
+#   --network host \
+#   -v /var/run/docker.sock:/var/run/docker.sock \
+#   -w /home/$USERNAME/life-manager \
+#   rust-nvim \
+#   zsh
 
 # Cleanup happens automatically via trap
 # docker run -it --rm \

@@ -4,7 +4,7 @@ FROM archlinux:base
 # System dependencies (without rustup!)
 # ----------------------------------
 RUN pacman -Syu --noconfirm
-RUN pacman -S --noconfirm git base-devel sudo rustup
+RUN pacman -S --noconfirm git base-devel sudo rustup postgresql-libs 
 
 # ----------------------------------
 # Create user matching host user
@@ -48,25 +48,36 @@ RUN mv /home/${USERNAME}/scripts /home/${USERNAME}/.scripts
 
 RUN su -c 'source /usr/share/nvm/init-nvm.sh && nvm install 22 && nvm use 22' ${USERNAME}
 
-# RUN source /home/${USERNAME}/dotfiles/install/install-rust-dependencies.sh
-
 RUN pacman -Scc --noconfirm
 
 RUN cd /home/${USERNAME} && git clone https://github.com/mikeyjay39/life-manager
 
-# Initialize rustup properly
+# Create directories for mounted volumes with proper ownership
+RUN mkdir -p /home/${USERNAME}/.local/share/nvim \
+             /home/${USERNAME}/.local/share/zoxide \
+             /home/${USERNAME}/.local/state/nvim \
+             /home/${USERNAME}/.cache/nvim \
+             /home/${USERNAME}/.cargo \
+             /home/${USERNAME}/.rustup \
+             /home/${USERNAME}/.cache/starship && \
+             chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
+
+# ----------------------------------
+# Cargo/Rust environment
+# ----------------------------------
+
+ENV CARGO_HOME=/home/${USERNAME}/.cargo
+ENV RUSTUP_HOME=/home/${USERNAME}/.rustup
+
 RUN cd /home/${USERNAME}/life-manager && \
     rustup toolchain install stable && \
     rustup default stable &&  \
     rustup component add rust-analyzer && \
     cargo install cargo-nextest --locked
 
-# ----------------------------------
-# Cargo/Rust environment
-# ----------------------------------
-# ENV CARGO_HOME=/root/.cargo
-# ENV RUSTUP_HOME=/root/.rustup
-# ENV PATH="/root/.cargo/bin:${PATH}:/usr/lib/rustup:/usr/lib/rustup/bin"
+ENV PATH="/home/${USERNAME}/.cargo/bin:${PATH}:/usr/lib/rustup:/usr/lib/rustup/bin"
+
+RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 
 # auto-load rustup env
 # RUN echo 'source $HOME/.cargo/env' >> /root/.bashrc
@@ -78,12 +89,7 @@ RUN cd /home/${USERNAME}/life-manager && \
 # ----------------------------------
 # WORKDIR /workspace
 
-# ----------------------------------
-# Default command
-# ----------------------------------
 
-
-RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
