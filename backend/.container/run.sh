@@ -18,7 +18,9 @@ chmod 600 "$TEMP_GPG_DIR"/* 2>/dev/null || true
 
 echo "Using temporary GPG directory: $TEMP_GPG_DIR"
 
-docker run -it --rm \
+docker run -it \
+  -e GH_TOKEN=${GH_TOKEN} \
+  -e CURSOR_API_KEY=${CURSOR_API_KEY} \
   -v "$TEMP_GPG_DIR:/home/$USERNAME/.gnupg" \
   -v nvim-share:/home/$USERNAME/.local/share/nvim \
   -v nvim-state:/home/$USERNAME/.local/state/nvim \
