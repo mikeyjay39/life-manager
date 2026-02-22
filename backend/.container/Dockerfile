@@ -92,17 +92,6 @@ RUN cd /tmp && \
 
 RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 
-# auto-load rustup env
-# RUN echo 'source $HOME/.cargo/env' >> /root/.bashrc
-
-# RUN mkdir -p ${CARGO_HOME} ${RUSTUP_HOME}
-
-# ----------------------------------
-# Set working directory
-# ----------------------------------
-# WORKDIR /workspace
-
-
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
