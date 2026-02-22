@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use once_cell::sync::OnceCell;
 use std::env::{self, current_dir};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -16,7 +16,12 @@ use crate::common::setup::wait_for_service_to_be_ready;
 */
 pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
-    let _ = Command::new("docker compose").args(["down", "-v"]).status();
+    let _ = Command::new("docker compose")
+        .args(["down", "-v"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status();
     println!("docker-compose stopped.");
 }
 
@@ -29,6 +34,9 @@ pub async fn start_docker_compose_dev_profile() {
 
         let status = Command::new("docker compose")
             .args(["--profile", "dev", "up", "-d"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .status()
             .expect("failed to start docker-compose");
 
@@ -67,6 +75,9 @@ pub async fn start_docker_compose_test_profile() {
             "up",
             "-d",
         ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .status()
         .expect("failed to start docker compose");
 
@@ -97,6 +108,9 @@ fn wait_for_postgres(container: Option<&str>) {
     for _ in 0..30 {
         let output = Command::new("docker")
             .args(["inspect", "--format={{.State.Health.Status}}", container])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .output()
             .expect("docker inspect failed");
 
