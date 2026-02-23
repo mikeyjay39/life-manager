@@ -29,6 +29,7 @@ docker run -it \
   -v nvim-rustup:/home/$USERNAME/.rustup \
   -v starship-cache:/home/$USERNAME/.cache/starship \
   -v zoxide-data:/home/$USERNAME/.local/share/zoxide \
+  -v "$HOME/.config/github-copilot:/home/$USERNAME/.config/github-copilot" \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -w /home/$USERNAME/life-manager \
