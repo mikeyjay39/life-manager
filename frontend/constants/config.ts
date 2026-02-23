@@ -15,11 +15,11 @@ import Constants from 'expo-constants';
 
 const getDefaultApiUrl = (): string => {
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000';
+    return 'https://10.0.2.2:3000';
   }
-  return 'http://localhost:3000';
+  return 'https://localhost:3000';
 };
 
-export const API_BASE_URL = 
-  Constants.expoConfig?.extra?.apiUrl || 
+export const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiUrl ||
   getDefaultApiUrl();
