@@ -8,7 +8,7 @@ use crate::infrastructure::{
 use axum::{
     Router,
     body::Body,
-    http::{Method, Request},
+    http::{header, Method, Request},
     routing::get,
 };
 use axum_server::tls_rustls::RustlsConfig;
@@ -84,7 +84,8 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
         .nest("/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+                .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
                 .allow_origin(tower_http::cors::Any),
         )
         .layer(

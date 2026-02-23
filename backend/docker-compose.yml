@@ -15,20 +15,20 @@ services:
       retries: 5
     profiles: ["test", "dev", "prod"]
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "${OLLAMA_PORT}:${OLLAMA_PORT}"
-    volumes:
-      - ollama:/root/.ollama
-      - ./ollama-entrypoint.sh:/entrypoint.sh
-    entrypoint: ["/entrypoint.sh"]
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - "OLLAMA_PORT=${OLLAMA_PORT}"
-    restart: unless-stopped
-    profiles: ["dev", "prod"]
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   ports:
+  #     - "${OLLAMA_PORT}:${OLLAMA_PORT}"
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #     - ./ollama-entrypoint.sh:/entrypoint.sh
+  #   entrypoint: ["/entrypoint.sh"]
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0
+  #     - "OLLAMA_PORT=${OLLAMA_PORT}"
+  #   restart: unless-stopped
+  #   profiles: ["dev", "prod"]
 
   life-manager:
     build:
