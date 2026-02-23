@@ -38,6 +38,8 @@ RUN cd /home/builder && \
     cd .. && \
     rm -rf yay
 
+# Install cursor-cli from AUR. Run as builder user and disable D-Bus so it works without systemd in Docker.
+RUN DBUS_SESSION_BUS_ADDRESS= XDG_RUNTIME_DIR=/tmp sudo -u builder yay -S --noconfirm cursor-cli
 
 RUN cd /home/${USERNAME} && git clone https://github.com/mikeyjay39/dotfiles.git 
 
@@ -91,6 +93,9 @@ RUN cd /tmp && \
     cd / && rm -rf /tmp/tree-sitter-rust
 
 RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
+
+# Use nvim as git editor
+RUN git config --global core.editor "nvim"
 
 
 USER ${USERNAME}
