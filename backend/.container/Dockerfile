@@ -95,9 +95,9 @@ RUN cd /tmp && \
 RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 
 # Use nvim as git editor
-RUN git config --global core.editor "nvim"
+RUN su -c 'git config --global core.editor "nvim"' ${USERNAME}
 
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
-CMD ["nvim"]
+CMD ["zsh"]
