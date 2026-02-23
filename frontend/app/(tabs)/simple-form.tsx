@@ -1,9 +1,46 @@
 import React, { useState } from "react";
-import { View, TextInput, Button, Text, StyleSheet, Alert } from "react-native";
+import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
+import { useAuth } from "@/contexts/AuthContext";
+import { createAuthenticatedClient } from "@/lib/api/client";
+import { router } from "expo-router";
 
 export default function SimpleForm() {
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const { token, logout } = useAuth();
+
+  const testProtectedEndpoint = async () => {
+    if (!token) {
+      Alert.alert("Error", "No authentication token available.");
+      return;
+    }
+
+    setTestLoading(true);
+    try {
+      const client = createAuthenticatedClient(token, async () => {
+        Alert.alert("Session Expired", "Please log in again.");
+        await logout();
+        router.replace('/login');
+      });
+
+      const response = await client('/api/v1/auth/protected', {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      const data = await response.text();
+      Alert.alert("Success", `Protected endpoint says: ${data}`);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Error", err.message || "Something went wrong");
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!value.trim()) {
@@ -52,6 +89,16 @@ export default function SimpleForm() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity 
+        style={[styles.testButton, testLoading && styles.buttonDisabled]}
+        onPress={testProtectedEndpoint}
+        disabled={testLoading}
+      >
+        <Text style={styles.testButtonText}>
+          {testLoading ? "Testing..." : "Test Protected Endpoint"}
+        </Text>
+      </TouchableOpacity>
+      
       <Text style={styles.label}>Enter Value:</Text>
       <TextInput
         style={styles.input}
@@ -79,5 +126,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 16,
+  },
+  testButton: {
+    backgroundColor: "#0a7ea4",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  testButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
