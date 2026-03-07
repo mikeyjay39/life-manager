@@ -1,9 +1,8 @@
 diesel::table! {
     documents (id) {
-        id -> Int4,
-        #[max_length = 255]
-        title -> Varchar,
+        id -> Text,
+        title -> Text,
         content -> Text,
-        user_id -> Uuid,
+        user_id -> Text,
     }
 }

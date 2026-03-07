@@ -36,8 +36,11 @@ backend/.start_backend.sh <dev | prod>
 ## Example API calls
 
 ```bash
-curl --location 'http://127.0.0.1:3000/api/v1/documents/1'
-curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"id\": 99, \"title\":\"MYTEST\",\"content\":\"this is an example\"}" -F "file=@README.md" localhost:3000/documents
+# Get a document by UUID
+curl --location 'http://127.0.0.1:3000/api/v1/documents/550e8400-e29b-41d4-a716-446655440000'
+
+# Create a document
+curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"title\":\"MYTEST\",\"content\":\"this is an example\"}" -F "file=@README.md" localhost:3000/documents
 ```
 
 
@@ -47,15 +50,18 @@ curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"id\": 99, \"titl
 
 See this tutorial: https://diesel.rs/guides/getting-started
 
-Install the Diesel command-line interface for PostgreSQL:
+Install the Diesel command-line interface for SQLite:
 
 ```bash
-cargo install diesel_cli --no-default-features --features postgres
+cargo install diesel_cli --no-default-features --features sqlite
 ```
 
-Run migrations:
+Set up the database and run migrations:
 
 ```bash
+cd backend
+export DATABASE_URL=./data/life-manager.db
+diesel setup
 diesel migration run
 ```
 

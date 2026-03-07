@@ -28,7 +28,6 @@ async fn create_and_get_document_docker_compose() {
 
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
-            id: 2,
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
         };
@@ -119,7 +118,6 @@ async fn create_and_get_document() {
 
         // Make REST API call to create a document
         let payload = CreateDocumentCommand {
-            id: 2,
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
         };
@@ -210,7 +208,6 @@ async fn create_and_get_document_no_file() {
 
         // Seed 1 document into the database
         let payload = CreateDocumentCommand {
-            id: 2,
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
         };
@@ -276,17 +273,14 @@ async fn get_all_documents() {
         // Create multiple documents
         let documents_to_create = vec![
             CreateDocumentCommand {
-                id: 1,
                 title: String::from("First Document"),
                 content: String::from("Content of first document"),
             },
             CreateDocumentCommand {
-                id: 2,
                 title: String::from("Second Document"),
                 content: String::from("Content of second document"),
             },
             CreateDocumentCommand {
-                id: 3,
                 title: String::from("Third Document"),
                 content: String::from("Content of third document"),
             },

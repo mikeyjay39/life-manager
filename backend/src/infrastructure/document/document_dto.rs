@@ -1,11 +1,12 @@
 use serde::Deserialize;
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::domain::document::Document;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct DocumentDto {
-    pub id: i32,
+    pub id: Uuid,
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
@@ -31,14 +32,14 @@ mod tests {
 
     #[test]
     fn test_document_dto_conversion() {
+        let user_id = Uuid::new_v4();
         let document = Document::new(
-            1,
             "Test Document",
             "This is a test content.",
-            Uuid::new_v4(),
+            user_id,
         );
         let dto = DocumentDto::from_document(&document);
-        assert_eq!(dto.id, 1);
+        assert_eq!(dto.id, document.id);
         assert_eq!(dto.title, "Test Document");
         assert_eq!(dto.content, "This is a test content.");
         assert!(dto.tags.is_empty());

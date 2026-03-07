@@ -10,7 +10,7 @@ pub struct DocumentCollection {
 
 #[async_trait]
 impl DocumentRepository for DocumentCollection {
-    async fn get_document(&self, id: i32) -> Option<Document> {
+    async fn get_document(&self, id: Uuid) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
         let documents = self.documents.lock().await;
         tracing::info!("Total documents in collection: {}", documents.len());
@@ -21,7 +21,7 @@ impl DocumentRepository for DocumentCollection {
         let mut documents: Vec<Document> = {
             let guard = self.documents.lock().await;
             guard.clone()
-        }; // mutex unlocked here
+        };
 
         documents.sort_by_key(|d| (d.title.clone(), d.id));
 
@@ -92,7 +92,6 @@ mod tests {
             assert_eq!(documents.len(), 0);
         }
         let doc = Document::new(
-            1,
             "Test document",
             "This is a test content.",
             Uuid::new_v4(),
@@ -111,17 +110,17 @@ mod tests {
     pub async fn test_get_document() {
         let collection: DocumentCollection = DocumentCollection::new();
         let doc = Document::new(
-            1,
             "Test document",
             "This is a test content.",
             Uuid::new_v4(),
         );
+        let doc_id = doc.id;
         collection
             .save_document(doc.clone())
             .await
             .expect("Failed to save document");
 
-        let retrieved_doc = collection.get_document(1).await.unwrap();
+        let retrieved_doc = collection.get_document(doc_id).await.unwrap();
         assert_eq!(retrieved_doc.id, doc.id);
         assert_eq!(retrieved_doc.title, doc.title);
         assert_eq!(retrieved_doc.content, doc.content);

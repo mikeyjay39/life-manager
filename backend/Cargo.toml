@@ -8,9 +8,9 @@ async-trait = "0.1.59"
 axum = { version = "0.8.6", features = ["multipart"] }
 axum-server = { version = "0.7.3", features = ["tls-rustls"] }
 chrono = "0.4"
-deadpool-diesel = { version = "0.6", features = ["postgres"] }
+deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel_migrations = "2"
-diesel = { version = "2.2.0", features = ["postgres", "chrono", "uuid"] }
+diesel = { version = "2.2.0", features = ["sqlite", "chrono", "uuid", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.0"
 image = "0.25.5"
 jsonwebtoken = "9"
@@ -38,7 +38,6 @@ dotenv = "0.15.0"
 image = "0.25.5"
 imageproc = "0.25.0"
 serial_test = "3.2.0"
-testcontainers-modules = { version = "0.13.0", features = ["postgres"] }
 testcontainers = { version = "0.25.0" }
 tracing-test = "0.2"
 wiremock = "0.6.5"
