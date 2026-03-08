@@ -50,7 +50,6 @@ pub async fn start_docker_compose_dev_profile() {
 
 /// Starts the docker-compose services with the "test" profile defined in docker-compose.yml as well
 /// as loading environment variables from the .test.env file.
-/// Note: With SQLite, we no longer need PostgreSQL, so this only starts Tesseract.
 pub async fn start_docker_compose_test_profile() {
     let cwd = current_dir().expect("Could not get cwd");
     let env_file_path: PathBuf = cwd.join(".test.env");
