@@ -1,9 +1,4 @@
-use std::{
-    env::set_var,
-    sync::Arc,
-    thread::sleep,
-    time::Duration,
-};
+use std::{env::set_var, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::sqlite::Pool;
@@ -44,12 +39,12 @@ where
     tracing::info!("Starting beforeEach setup");
     // beforeEach
     start_docker_compose_dev_profile().await;
-    
+
     // Create temp SQLite database file
     let temp_db = NamedTempFile::new().expect("Failed to create temp DB file");
     let db_path = temp_db.path().to_str().unwrap();
     let database_url = db_path.to_string();
-    
+
     let server = build_app_server(&database_url).await;
     let url = server
         .server_address()
@@ -70,15 +65,16 @@ where
     Fut: std::future::Future<Output = ()>,
 {
     tracing::info!("Starting beforeEach setup");
-    
+
     // Create temp SQLite database file
     let temp_db = NamedTempFile::new().expect("Failed to create temp DB file");
     let db_path = temp_db.path().to_str().unwrap();
     let database_url = db_path.to_string();
-    
+    tracing::info!("Created temp SQLite database at {}", db_path);
+
     // Start docker compose for Tesseract only
     start_docker_compose_test_profile().await;
-    
+
     let ollama: MockServer = mock_ollama_response().await;
 
     unsafe {
