@@ -1,13 +1,7 @@
-use std::{
-    env::{self, set_var},
-    sync::Arc,
-    thread::sleep,
-    time::Duration,
-};
+use std::{env::set_var, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
-use deadpool_diesel::{Manager, Pool};
-use diesel::PgConnection;
+use deadpool_diesel::sqlite::Pool;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
@@ -15,6 +9,7 @@ use life_manager::infrastructure::{
     db::create_connection_pool_from_url,
 };
 use reqwest::{Client, ClientBuilder};
+use tempfile::NamedTempFile;
 
 use serde_json::json;
 use wiremock::{
@@ -31,13 +26,11 @@ const AUTH_URL: &str = "/api/v1/auth";
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-/**
-* Run test with all docker containers started via docker-compose
-*
-* WARNING: This includes starting the Ollama container which is an expensive process. Very few
-* tests should use this setup function. Unless needing to explicitly test Ollama integration,
-* prefer using `run_test_with_test_profile` which omits the Ollama container.
-*/
+/// Run test with all docker containers started via docker-compose
+///
+/// WARNING: This includes starting the Ollama container which is an expensive process. Very few
+/// tests should use this setup function. Unless needing to explicitly test Ollama integration,
+/// prefer using `run_test_with_test_profile` which omits the Ollama container.
 pub async fn run_test_with_all_containers<F, Fut>(test: F)
 where
     F: FnOnce(TestServer) -> Fut,
@@ -46,7 +39,12 @@ where
     tracing::info!("Starting beforeEach setup");
     // beforeEach
     start_docker_compose_dev_profile().await;
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+    // Create temp SQLite database file
+    let temp_db = NamedTempFile::new().expect("Failed to create temp DB file");
+    let db_path = temp_db.path().to_str().unwrap();
+    let database_url = db_path.to_string();
+
     let server = build_app_server(&database_url).await;
     let url = server
         .server_address()
@@ -67,13 +65,21 @@ where
     Fut: std::future::Future<Output = ()>,
 {
     tracing::info!("Starting beforeEach setup");
-    // beforeEach
+
+    // Create temp SQLite database file
+    let temp_db = NamedTempFile::new().expect("Failed to create temp DB file");
+    let db_path = temp_db.path().to_str().unwrap();
+    let database_url = db_path.to_string();
+    tracing::info!("Created temp SQLite database at {}", db_path);
+
+    // Start docker compose for Tesseract only
     start_docker_compose_test_profile().await;
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
     let ollama: MockServer = mock_ollama_response().await;
 
     unsafe {
         set_var("OLLAMA_URL", ollama.uri());
+        set_var("DATABASE_URL", &database_url);
     }
 
     let server = build_app_server(&database_url).await;
@@ -86,7 +92,8 @@ where
     test(server).await;
 
     // afterEach (async cleanup)
-    tracing::info!("Tests completed with all containers.");
+    // Temp file auto-deleted when temp_db goes out of scope
+    tracing::info!("Tests completed with test profile.");
     docker_compose_down();
 }
 
@@ -110,13 +117,10 @@ async fn mock_ollama_response() -> MockServer {
     server
 }
 
-/**
-* Build the application server with the given database URL
-* and runs migrations.
-*/
+/// Build the application server with the given database URL
+/// and runs migrations.
 pub async fn build_app_server(url: &str) -> TestServer {
-    // Use Diesel to connect to Postgres
-    tracing::info!("Creating connection pool...");
+    tracing::info!("Creating SQLite connection pool...");
 
     let pool = create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
@@ -163,10 +167,8 @@ pub async fn wait_for_service_to_be_ready(url: &str, service_name: &str) {
     panic!("{} did not become ready at {}", service_name, url);
 }
 
-async fn run_migrations(pool: &Pool<Manager<PgConnection>>) -> bool {
-    // Get a database connection from the pool
+async fn run_migrations(pool: &Pool) -> bool {
     let conn = pool.get().await.expect("Failed to get DB connection");
-    // Run pending migrations on the connection
     let _ = conn
         .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await

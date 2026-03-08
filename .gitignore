@@ -1,3 +1,10 @@
 target/*
 backend/target/*
 node_modules/
+
+# SQLite database files
+backend/data/*
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm

@@ -8,12 +8,10 @@ use std::time::Duration;
 
 use crate::common::setup::wait_for_service_to_be_ready;
 
-/**
-* Stops the docker-compose services.
-* WARNING: Starting the Ollama container is an expensive process that needs to download models
-* which are several GBs in size. Therefore, avoid stopping and starting the services frequently
-* during tests.
-*/
+/// Stops the docker-compose services.
+/// WARNING: Starting the Ollama container is an expensive process that needs to download models
+/// which are several GBs in size. Therefore, avoid stopping and starting the services frequently
+/// during tests.
 pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
     let _ = Command::new("docker compose")
@@ -50,10 +48,8 @@ pub async fn start_docker_compose_dev_profile() {
     wait_for_services().await;
 }
 
-/**
-* Starts the docker-compose services with the "test" profile defined in docker-compose.yml as well
-* as loading environment variables from the .test.env file.
-*/
+/// Starts the docker-compose services with the "test" profile defined in docker-compose.yml as well
+/// as loading environment variables from the .test.env file.
 pub async fn start_docker_compose_test_profile() {
     let cwd = current_dir().expect("Could not get cwd");
     let env_file_path: PathBuf = cwd.join(".test.env");
@@ -88,7 +84,6 @@ pub async fn start_docker_compose_test_profile() {
 
 async fn wait_for_services() {
     wait_for_tesseract_ready().await;
-    wait_for_postgres(None);
 }
 
 async fn wait_for_ollama_ready() {
@@ -101,26 +96,4 @@ async fn wait_for_tesseract_ready() {
     let base_url = env::var("TESSERACT_URL").expect("TESSERACT_URL must be set");
     let url = format!("{}/", base_url);
     wait_for_service_to_be_ready(&url, "TESSERACT").await;
-}
-
-fn wait_for_postgres(container: Option<&str>) {
-    let container = container.unwrap_or("postgres_container");
-    for _ in 0..30 {
-        let output = Command::new("docker")
-            .args(["inspect", "--format={{.State.Health.Status}}", container])
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output()
-            .expect("docker inspect failed");
-
-        if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "healthy" {
-            tracing::info!("Postgres container is healthy");
-            return;
-        }
-
-        sleep(Duration::from_secs(1));
-    }
-
-    panic!("Postgres container never became healthy");
 }

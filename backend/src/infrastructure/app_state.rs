@@ -1,5 +1,7 @@
 use std::{env, sync::Arc};
 
+use deadpool_diesel::sqlite::Pool;
+
 use crate::{
     application::document_use_cases::DocumentUseCases,
     infrastructure::{
@@ -20,15 +22,13 @@ pub struct AppState {
     pub auth_use_cases: Arc<AuthUseCases>,
 }
 
-/**
-* Builder for AppState
-* NOTE: If no DocumentUseCases are provided, default ones will be created using environment
-* variables, including the DB connection pool.
-*/
+/// Builder for AppState
+/// NOTE: If no DocumentUseCases are provided, default ones will be created using environment
+/// variables, including the DB connection pool.
 pub struct AppStateBuilder {
     document_use_cases: Option<Arc<DocumentUseCases>>,
     auth_use_cases: Option<Arc<AuthUseCases>>,
-    db_pool: Option<Arc<deadpool_diesel::postgres::Pool>>,
+    db_pool: Option<Arc<Pool>>,
 }
 
 impl AppStateBuilder {
@@ -50,7 +50,7 @@ impl AppStateBuilder {
         self
     }
 
-    pub fn with_db_pool(mut self, db_pool: Arc<deadpool_diesel::postgres::Pool>) -> Self {
+    pub fn with_db_pool(mut self, db_pool: Arc<Pool>) -> Self {
         self.db_pool = Some(db_pool);
         self
     }
@@ -75,7 +75,7 @@ impl AppStateBuilder {
     }
 }
 
-fn default_document_use_cases(pool: Arc<deadpool_diesel::postgres::Pool>) -> DocumentUseCases {
+fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
     tracing::info!("Creating default DocumentUseCases...");
     DocumentUseCases {
         document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
@@ -97,7 +97,7 @@ impl Default for AppStateBuilder {
     }
 }
 
-async fn init_db() -> deadpool_diesel::postgres::Pool {
+async fn init_db() -> Pool {
     let pool = create_connection_pool();
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;

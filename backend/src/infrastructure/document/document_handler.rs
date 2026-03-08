@@ -8,6 +8,7 @@ use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use uuid::Uuid;
 
 use super::document_dto::DocumentDto;
 
@@ -15,7 +16,6 @@ const PAGE_LIMIT: u32 = 100;
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateDocumentCommand {
-    pub id: i32,
     pub title: String,
     pub content: String,
 }
@@ -25,15 +25,12 @@ pub struct GetDocumentsQueryParams {
     pub title: Option<String>,
 }
 
-/**
- * Creates a new document by processing multipart form data.
- * +---------+     +-----------+     +--------+     +----------+
- * |         |     |           |     |        |     |          |
- * | Handler |---->| Tesseract |---->| Ollama |---->| Postgres |
- * |         |     |           |     |        |     |          |
- * +---------+     +-----------+     +--------+     +----------+
- *
- */
+/// Creates a new document by processing multipart form data.
+/// +---------+     +-----------+     +--------+     +--------+
+/// |         |     |           |     |        |     |        |
+/// | Handler |---->| Tesseract |---->| Ollama |---->| SQLite |
+/// |         |     |           |     |        |     |        |
+/// +---------+     +-----------+     +--------+     +--------+
 pub async fn create_document(
     AuthUser { user_id }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
@@ -72,7 +69,6 @@ pub async fn create_document(
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
             false => Some(Document::new(
-                _payload.id,
                 &_payload.title,
                 &_payload.content,
                 user_id,
@@ -113,11 +109,11 @@ pub async fn create_document(
 pub async fn get_document(
     AuthUser { user_id: _ }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
     tracing::info!("Fetching document with ID: {}", id);
     let repo = document_use_cases.document_repository.clone();
-    match repo.get_document(id as i32).await {
+    match repo.get_document(id).await {
         Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
         None => (StatusCode::NOT_FOUND, Json(json!({}))),
     }
@@ -217,6 +213,9 @@ mod tests {
     struct GivenUserAndDocuments {
         pub auth_user: AuthUser,
         pub document_use_cases: Arc<DocumentUseCases>,
+        pub document1_id: Uuid,
+        #[allow(dead_code)]
+        pub document2_id: Uuid,
     }
 
     struct ProcessedResponse<T> {
@@ -228,7 +227,6 @@ mod tests {
     async fn test_create_document() {
         // Arrange
         let payload = CreateDocumentCommand {
-            id: 1,
             title: String::from("Test Document"),
             content: String::from("This is test content."),
         };
@@ -288,6 +286,7 @@ mod tests {
             from_slice(&bytes).expect("Failed to deserialize body");
         assert_eq!(response_document.title, "Test Document");
         assert_eq!(response_document.content, "This is test content.");
+        assert!(!response_document.id.is_nil());
     }
 
     #[tokio::test]
@@ -295,11 +294,13 @@ mod tests {
         let GivenUserAndDocuments {
             auth_user,
             document_use_cases,
+            document1_id,
+            ..
         } = given_user_and_documents().await;
         let response = get_document(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Path(1),
+            Path(document1_id),
         )
         .await;
 
@@ -319,12 +320,13 @@ mod tests {
         let GivenUserAndDocuments {
             auth_user,
             document_use_cases,
+            ..
         } = given_user_and_documents().await;
 
         let response = get_document(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Path(999999),
+            Path(Uuid::new_v4()),
         )
         .await;
         let response = response.into_response();
@@ -332,7 +334,6 @@ mod tests {
 
         // Assert
         assert_eq!(status_code, StatusCode::NOT_FOUND);
-        // TODO: assert empty response body
     }
 
     #[tokio::test]
@@ -340,6 +341,7 @@ mod tests {
         let GivenUserAndDocuments {
             auth_user,
             document_use_cases,
+            ..
         } = given_user_and_documents().await;
 
         let response = get_documents_by_title(
@@ -358,15 +360,14 @@ mod tests {
         assert_eq!(response_documents.len(), 2); // NOTE: Check given_user_and_documents function for length
     }
 
-    /**
-     * This tests that documents are returned in order, and we should skip the ones with a name
-     * before the one we search on.
-     */
+    /// This tests that documents are returned in order, and we should skip the ones with a name
+    /// before the one we search on.
     #[tokio::test]
     async fn test_get_documents_by_title_named() {
         let GivenUserAndDocuments {
             auth_user,
             document_use_cases,
+            ..
         } = given_user_and_documents().await;
 
         let response = get_documents_by_title(
@@ -387,15 +388,14 @@ mod tests {
         assert_eq!(response_documents.len(), 1); // NOTE: Check given_user_and_documents function for length
     }
 
-    /**
-     * This tests that documents are returned in order, and we should not return any when we search
-     * with the last one.
-     * */
+    /// This tests that documents are returned in order, and we should not return any when we search
+    /// with the last one.
     #[tokio::test]
     async fn test_get_documents_by_title_last() {
         let GivenUserAndDocuments {
             auth_user,
             document_use_cases,
+            ..
         } = given_user_and_documents().await;
 
         let response = get_documents_by_title(
@@ -422,17 +422,17 @@ mod tests {
             user_id: Uuid::new_v4(),
         };
         let document1 = Document::new(
-            1,
             "Test Document",
             "This is test content.",
             auth_user.user_id,
         );
         let document2 = Document::new(
-            2,
             "Second Document",
             "This is the second document",
             auth_user.user_id,
         );
+        let document1_id = document1.id;
+        let document2_id = document2.id;
         let repo = DocumentCollection::new();
         repo.save_document(document1)
             .await
@@ -447,10 +447,12 @@ mod tests {
             summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
-        return GivenUserAndDocuments {
+        GivenUserAndDocuments {
             auth_user,
             document_use_cases,
-        };
+            document1_id,
+            document2_id,
+        }
     }
 
     async fn process_response<T>(response: impl IntoResponse) -> ProcessedResponse<T>

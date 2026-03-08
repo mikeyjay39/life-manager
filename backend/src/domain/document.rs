@@ -11,7 +11,7 @@ use crate::domain::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
-    pub id: i32,
+    pub id: Uuid,
     pub title: String,
     pub content: String,
     pub tags: Vec<String>,
@@ -19,8 +19,19 @@ pub struct Document {
 }
 
 impl Document {
-    // Creates a new document
-    pub fn new(id: i32, title: &str, content: &str, user_id: Uuid) -> Self {
+    /// Creates a new document with an auto-generated UUID
+    pub fn new(title: &str, content: &str, user_id: Uuid) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            title: title.to_string(),
+            content: String::from(content),
+            tags: vec![],
+            user_id,
+        }
+    }
+
+    /// Creates a document with a known ID (for loading from database)
+    pub fn with_id(id: Uuid, title: &str, content: &str, user_id: Uuid) -> Self {
         Self {
             id,
             title: title.to_string(),
@@ -59,7 +70,7 @@ impl Document {
 
         let DocumentSummaryResult { summary, title } = summary_result;
         let document = Document {
-            id: 0,
+            id: Uuid::new_v4(),
             title,
             content: summary,
             tags: vec![],
@@ -91,13 +102,29 @@ mod tests {
 
     #[test]
     fn test_document_creation() {
+        let user_id = Uuid::new_v4();
         let doc = Document::new(
-            1,
             "Test Document",
             "This is a test content.",
-            Uuid::new_v4(),
+            user_id,
         );
-        assert_eq!(doc.id, 1);
+        assert!(!doc.id.is_nil());
+        assert_eq!(doc.title, "Test Document");
+        assert_eq!(doc.content, "This is a test content.");
+        assert!(doc.tags.is_empty());
+    }
+
+    #[test]
+    fn test_document_with_id() {
+        let doc_id = Uuid::new_v4();
+        let user_id = Uuid::new_v4();
+        let doc = Document::with_id(
+            doc_id,
+            "Test Document",
+            "This is a test content.",
+            user_id,
+        );
+        assert_eq!(doc.id, doc_id);
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "This is a test content.");
         assert!(doc.tags.is_empty());
@@ -106,7 +133,6 @@ mod tests {
     #[test]
     fn test_document_print_details() {
         let doc = Document::new(
-            2,
             "Another Document",
             "Content of another document.",
             Uuid::new_v4(),
@@ -114,14 +140,12 @@ mod tests {
         doc.print_details();
     }
 
-    // Edge case tests
-
     #[test]
     fn test_document_with_empty_strings() {
         let user_id = Uuid::new_v4();
-        let doc = Document::new(0, "", "", user_id);
+        let doc = Document::new("", "", user_id);
         
-        assert_eq!(doc.id, 0);
+        assert!(!doc.id.is_nil());
         assert_eq!(doc.title, "");
         assert_eq!(doc.content, "");
         assert_eq!(doc.user_id, user_id);
@@ -134,11 +158,11 @@ mod tests {
         let long_content = "B".repeat(1_000_000);
         let user_id = Uuid::new_v4();
         
-        let doc = Document::new(i32::MAX, &long_title, &long_content, user_id);
+        let doc = Document::new(&long_title, &long_content, user_id);
         
         assert_eq!(doc.title.len(), 10_000);
         assert_eq!(doc.content.len(), 1_000_000);
-        assert_eq!(doc.id, i32::MAX);
+        assert!(!doc.id.is_nil());
     }
 
     #[test]
@@ -147,31 +171,10 @@ mod tests {
         let content = "Content with émojis 😀 and special chars: <>&\"'\n\t\r";
         let user_id = Uuid::new_v4();
         
-        let doc = Document::new(42, title, content, user_id);
+        let doc = Document::new(title, content, user_id);
         
         assert_eq!(doc.title, title);
         assert_eq!(doc.content, content);
-    }
-
-    #[test]
-    fn test_document_with_boundary_ids() {
-        let user_id = Uuid::new_v4();
-        
-        // Minimum i32
-        let doc_min = Document::new(i32::MIN, "Min ID", "Content", user_id);
-        assert_eq!(doc_min.id, i32::MIN);
-        
-        // Maximum i32
-        let doc_max = Document::new(i32::MAX, "Max ID", "Content", user_id);
-        assert_eq!(doc_max.id, i32::MAX);
-        
-        // Zero
-        let doc_zero = Document::new(0, "Zero ID", "Content", user_id);
-        assert_eq!(doc_zero.id, 0);
-        
-        // Negative
-        let doc_neg = Document::new(-1, "Negative ID", "Content", user_id);
-        assert_eq!(doc_neg.id, -1);
     }
 
     #[test]
@@ -180,9 +183,8 @@ mod tests {
         let content = "\n\n  Content\n  with\n  newlines  \n\n";
         let user_id = Uuid::new_v4();
         
-        let doc = Document::new(1, title, content, user_id);
+        let doc = Document::new(title, content, user_id);
         
-        // Document should preserve whitespace exactly as provided
         assert_eq!(doc.title, title);
         assert_eq!(doc.content, content);
     }
@@ -190,7 +192,7 @@ mod tests {
     #[test]
     fn test_content_getter() {
         let content = "Test content";
-        let doc = Document::new(1, "Title", content, Uuid::new_v4());
+        let doc = Document::new("Title", content, Uuid::new_v4());
         
         assert_eq!(doc.content(), content);
         assert_eq!(doc.content(), &doc.content);
@@ -198,16 +200,14 @@ mod tests {
 
     #[test]
     fn test_set_content() {
-        let mut doc = Document::new(1, "Title", "Original", Uuid::new_v4());
+        let mut doc = Document::new("Title", "Original", Uuid::new_v4());
         
         doc.set_content("Updated content".to_string());
         assert_eq!(doc.content, "Updated content");
         
-        // Set to empty string
         doc.set_content(String::new());
         assert_eq!(doc.content, "");
         
-        // Set to very long string
         let long_content = "X".repeat(100_000);
         doc.set_content(long_content.clone());
         assert_eq!(doc.content, long_content);
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn test_document_clone() {
         let user_id = Uuid::new_v4();
-        let doc = Document::new(1, "Title", "Content", user_id);
+        let doc = Document::new("Title", "Content", user_id);
         let cloned = doc.clone();
         
         assert_eq!(doc.id, cloned.id);
@@ -229,15 +229,12 @@ mod tests {
     #[test]
     fn test_document_serialization() {
         let user_id = Uuid::new_v4();
-        let doc = Document::new(123, "Serialize Test", "Content here", user_id);
+        let doc = Document::new("Serialize Test", "Content here", user_id);
         
-        // Test serialization
         let serialized = serde_json::to_string(&doc).expect("Failed to serialize");
-        assert!(serialized.contains("123"));
         assert!(serialized.contains("Serialize Test"));
         assert!(serialized.contains("Content here"));
         
-        // Test deserialization
         let deserialized: Document = serde_json::from_str(&serialized)
             .expect("Failed to deserialize");
         assert_eq!(deserialized.id, doc.id);
@@ -363,7 +360,7 @@ mod tests {
             .await
             .expect("Should create document");
 
-        assert_eq!(doc.id, 0);
+        assert!(!doc.id.is_nil());
         assert_eq!(doc.title, "Generated Title");
         assert_eq!(doc.content, "This is a summary");
         assert_eq!(doc.user_id, user_id);
