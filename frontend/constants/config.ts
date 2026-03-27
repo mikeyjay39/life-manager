@@ -1,22 +1,18 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 /**
  * API configuration for the Life Manager backend.
- * 
- * For local development:
- * - Web: http://localhost:3000
- * - Android emulator: http://10.0.2.2:3000
- * - iOS simulator: http://localhost:3000
- * - Physical device: use your machine's LAN IP (e.g., http://192.168.x.x:3000)
- * 
- * You can override this via app.config.js/ts by setting `extra.apiUrl`.
+ *
+ * Local HTTPS uses `backend/certs/cert.pem` (CN=localhost). The request host must match,
+ * so the default is `https://localhost:3000` on all platforms.
+ *
+ * Android emulator: run `adb reverse tcp:3000 tcp:3000` so localhost reaches the host.
+ * See docs/development_faq.md (Local HTTPS).
+ *
+ * Override via Expo `extra.apiUrl` when needed.
  */
 
 const getDefaultApiUrl = (): string => {
-  if (Platform.OS === 'android') {
-    return 'https://10.0.2.2:3000';
-  }
   return 'https://localhost:3000';
 };
 

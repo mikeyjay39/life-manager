@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { API_BASE_URL } from '@/constants/config';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getStoredToken, setStoredToken, clearStoredToken } from '@/lib/auth/storage';
+import { apiFetch } from '@/lib/api/client';
 
 type AuthContextType = {
   token: string | null;
@@ -8,6 +8,7 @@ type AuthContextType = {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
+  handleUnauthorized: () => Promise<void>;
 };
 
 type LoginResult = {
@@ -38,9 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     restoreToken();
   }, []);
 
+  const clearAuthState = useCallback(async () => {
+    await clearStoredToken();
+    setToken(null);
+  }, []);
+
+  const handleUnauthorized = useCallback(async () => {
+    try {
+      await clearAuthState();
+    } catch (error) {
+      console.error('Unauthorized handler error:', error);
+    }
+  }, [clearAuthState]);
+
   const login = async (username: string, password: string): Promise<LoginResult> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+      const response = await apiFetch('/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,8 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await clearStoredToken();
-      setToken(null);
+      await clearAuthState();
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -93,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     logout,
+    handleUnauthorized,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
