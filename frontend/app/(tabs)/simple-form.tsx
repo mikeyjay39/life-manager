@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { createAuthenticatedClient } from "@/lib/api/client";
-import { router } from "expo-router";
+import { apiFetch, createAuthenticatedClient } from "@/lib/api/client";
 
 export default function SimpleForm() {
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
-  const { token, logout } = useAuth();
+  const { token, handleUnauthorized } = useAuth();
 
   const testProtectedEndpoint = async () => {
     if (!token) {
@@ -18,11 +17,7 @@ export default function SimpleForm() {
 
     setTestLoading(true);
     try {
-      const client = createAuthenticatedClient(token, async () => {
-        Alert.alert("Session Expired", "Please log in again.");
-        await logout();
-        router.replace('/login');
-      });
+      const client = createAuthenticatedClient(token, handleUnauthorized);
 
       const response = await client('/api/v1/auth/protected', {
         method: 'GET',
@@ -63,8 +58,9 @@ export default function SimpleForm() {
         `--boundary--`;
 
       // TODO: replace with your backend endpoint and parameters
-      const response = await fetch("http://localhost:3000/documents", {
+      const response = await apiFetch("/documents", {
         method: "POST",
+        onUnauthorized: handleUnauthorized,
         headers: {
           "Content-Type": "multipart/form-data; boundary=boundary",
         },

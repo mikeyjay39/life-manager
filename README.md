@@ -60,7 +60,7 @@ Set up the database and run migrations:
 
 ```bash
 cd backend
-export DATABASE_URL=./data/life-manager.db
+export DATABASE_URL=./data/test.db
 diesel setup
 diesel migration run
 ```

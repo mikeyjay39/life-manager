@@ -4,6 +4,7 @@ node_modules/
 
 # SQLite database files
 backend/data/*
+!backend/data/.gitkeep
 data/*.db
 data/*.db-journal
 data/*.db-wal
