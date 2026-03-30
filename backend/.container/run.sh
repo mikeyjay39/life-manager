@@ -20,6 +20,7 @@ docker run -it \
   --name "$CONTAINER_NAME" \
   -e GH_TOKEN="${GH_TOKEN:-}" \
   -e CURSOR_API_KEY="${CURSOR_API_KEY:-}" \
+  -e TERM="xterm-256color" \
   -v "${HOME_VOLUME}:/home/$USERNAME" \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
