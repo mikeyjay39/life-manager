@@ -97,7 +97,17 @@ RUN chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
 # Use nvim as git editor
 RUN su -c 'git config --global core.editor "nvim"' ${USERNAME}
 
+# Snapshot home for first-run seed when a named volume masks /home/$USERNAME
+RUN cp -a /home/${USERNAME} /opt/seed-home
 
-USER ${USERNAME}
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENV USERNAME=${USERNAME}
+ENV USER_ID=${USER_ID}
+ENV GROUP_ID=${GROUP_ID}
+
 WORKDIR /home/${USERNAME}
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["zsh"]

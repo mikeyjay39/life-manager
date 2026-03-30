@@ -28,8 +28,9 @@ git-crypt add-gpg-user USER_ID
 
 After cloninng the repo, unlock with:
 ```bash
-git-crypt unlock
+git-crypt unlock ~/life-manager-symetric.key
 ```
+NOTE: key is stored in my password manager
 
 ## Local HTTPS (React Native and self-signed certs)
 
