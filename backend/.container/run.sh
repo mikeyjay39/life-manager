@@ -16,20 +16,10 @@ if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
   exec docker start -ai "$CONTAINER_NAME"
 fi
 
-TEMP_GPG_DIR=$(mktemp -d -t gnupg-container-XXXXXX)
-trap 'rm -rf "$TEMP_GPG_DIR"' EXIT
-
-cp -r "$HOME/.gnupg"/* "$TEMP_GPG_DIR/" 2>/dev/null || true
-chmod 700 "$TEMP_GPG_DIR"
-chmod 600 "$TEMP_GPG_DIR"/* 2>/dev/null || true
-
-echo "Using temporary GPG directory: $TEMP_GPG_DIR"
-
 docker run -it \
   --name "$CONTAINER_NAME" \
   -e GH_TOKEN="${GH_TOKEN:-}" \
   -e CURSOR_API_KEY="${CURSOR_API_KEY:-}" \
-  -v "$TEMP_GPG_DIR:/home/$USERNAME/.gnupg" \
   -v "${HOME_VOLUME}:/home/$USERNAME" \
   --network host \
   -v /var/run/docker.sock:/var/run/docker.sock \
