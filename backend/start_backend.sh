@@ -40,6 +40,12 @@ export PROFILE
 # ---- Build Rust backend ----
 cargo build 
 
+# ---- Start backend as separate process if dev ----
+if [[ "$PROFILE" == "dev" ]]; then
+    cargo run &
+    echo "Backend started in development mode"
+fi
+
 # ---- Stop & remove only this project's containers ----
 docker compose --profile "$PROFILE" down
 
