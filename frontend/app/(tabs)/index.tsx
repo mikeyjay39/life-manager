@@ -6,7 +6,7 @@ import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import SimpleForm from './simple-form';
+import DocumentCreateForm from '@/components/document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -75,7 +75,7 @@ export default function HomeScreen() {
         <ThemedText>
           Hello Nyuszi!
         </ThemedText>
-        <SimpleForm />
+        <DocumentCreateForm />
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
           Press{' '}
