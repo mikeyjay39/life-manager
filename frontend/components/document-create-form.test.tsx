@@ -1,0 +1,105 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import DocumentCreateForm from './document-create-form';
+import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch } from '@/lib/api/client';
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock('@/lib/api/client', () => ({
+  apiFetch: vi.fn(),
+}));
+
+vi.mock('expo-document-picker', () => ({
+  getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
+const mockUseAuth = vi.mocked(useAuth);
+const mockApiFetch = vi.mocked(apiFetch);
+
+function defaultAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}) {
+  return {
+    token: 'test-token',
+    handleUnauthorized: vi.fn(),
+    isAuthenticated: true,
+    isLoading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe('DocumentCreateForm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue(defaultAuth());
+    mockApiFetch.mockResolvedValue(
+      new Response(JSON.stringify({ id: '550e8400-e29b-41d4-a716-446655440000', title: 'My Title' }), {
+        status: 201,
+      })
+    );
+  });
+
+  it('shows error alert when there is no token', () => {
+    const alertSpy = vi.spyOn(Alert, 'alert');
+    mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
+    render(<DocumentCreateForm />);
+    fireEvent.press(screen.getByText('Create document'));
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'No authentication token available.');
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('shows validation alert when title or content is missing', () => {
+    const alertSpy = vi.spyOn(Alert, 'alert');
+    render(<DocumentCreateForm />);
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
+    fireEvent.press(screen.getByText('Create document'));
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'Please enter a title and content.');
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('submits document with POST and bearer token when valid', async () => {
+    render(<DocumentCreateForm />);
+    fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
+    fireEvent.press(screen.getByText('Create document'));
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+    const call = mockApiFetch.mock.calls[0];
+    expect(call[0]).toContain('/api/v1/documents');
+    expect(call[1]).toMatchObject({
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token' },
+    });
+  });
+
+  it('shows error alert when response is not ok', async () => {
+    const alertSpy = vi.spyOn(Alert, 'alert');
+    mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
+    render(<DocumentCreateForm />);
+    fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
+    fireEvent.press(screen.getByText('Create document'));
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Error', expect.stringContaining('400'));
+    });
+  });
+
+  it('shows success alert with id when response contains id', async () => {
+    const alertSpy = vi.spyOn(Alert, 'alert');
+    render(<DocumentCreateForm />);
+    fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
+    fireEvent.press(screen.getByText('Create document'));
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Success',
+        expect.stringContaining('550e8400-e29b-41d4-a716-446655440000')
+      );
+    });
+  });
+});

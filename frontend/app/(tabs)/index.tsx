@@ -7,6 +7,7 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import DocumentCreateForm from '@/components/document-create-form';
+import DocumentList from '@/components/document-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -76,6 +77,7 @@ export default function HomeScreen() {
           Hello Nyuszi!
         </ThemedText>
         <DocumentCreateForm />
+        <DocumentList />
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
           Press{' '}
