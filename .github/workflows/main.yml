@@ -29,7 +29,7 @@ jobs:
         run: npm run test:run
         working-directory: frontend
 
-  unit-tests:
+  backend-unit-tests:
     runs-on: ubuntu-latest
 
     steps:
