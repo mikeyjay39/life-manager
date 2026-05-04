@@ -26,7 +26,7 @@ const AUTH_URL: &str = "/api/v1/auth";
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-/// Run test with all docker containers started via docker-compose
+/// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///
 /// WARNING: This includes starting the Ollama container which is an expensive process. Very few
 /// tests should use this setup function. Unless needing to explicitly test Ollama integration,

@@ -1,0 +1,11 @@
+node_modules
+.expo
+dist
+.git
+.gitignore
+*.md
+.vscode
+coverage
+**/*.test.ts
+**/*.test.tsx
+**/__tests__

@@ -1,0 +1,79 @@
+# Compose file lives at the repository root (paths below are relative to this directory).
+#
+# The browser must reach whatever URL you set for EXPO_PUBLIC_API_BASE_URL (same host/port
+# as your TLS cert when using HTTPS). A typical local setup is https://localhost:${APP_PORT}
+# using backend/certs. Set EXPO_PUBLIC_API_BASE_URL in backend/.prod.env, backend/.dev.env,
+# or the environment before running compose.
+
+name: life-manager
+
+services:
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   ports:
+  #     - "${OLLAMA_PORT}:${OLLAMA_PORT}"
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #     - ./backend/ollama-entrypoint.sh:/entrypoint.sh
+  #   entrypoint: ["/entrypoint.sh"]
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0
+  #     - "OLLAMA_PORT=${OLLAMA_PORT}"
+  #   restart: unless-stopped
+  #   profiles: ["dev", "prod"]
+
+  life-manager:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: life_manager_app
+    env_file:
+      - ${ENV_FILE}
+    environment:
+      APP_PORT: ${APP_PORT}
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    volumes:
+      - ./backend/data:/app/data
+    restart: on-failure
+    profiles: ["prod"]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-https://localhost:3000}
+    container_name: life_manager_frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    restart: on-failure
+    profiles: ["prod"]
+
+  frontend_dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: life_manager_frontend_dev
+    environment:
+      EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-https://localhost:3000}
+    ports:
+      - "${FRONTEND_DEV_PORT:-8081}:8081"
+    restart: on-failure
+    profiles: ["dev"]
+
+  tesseract:
+    image: hertzg/tesseract-server:latest
+    container_name: tesseract
+    ports:
+      - "${TESSERACT_PORT}:${TESSERACT_PORT}"
+    environment:
+      - TESSERACT_LANGUAGE=eng
+    restart: unless-stopped
+    profiles: ["test", "dev", "prod"]
+
+volumes:
+  ollama:

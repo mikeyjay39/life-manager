@@ -9,13 +9,19 @@ import Constants from 'expo-constants';
  * Android emulator: run `adb reverse tcp:3000 tcp:3000` so localhost reaches the host.
  * See docs/development_faq.md (Local HTTPS).
  *
- * Override via Expo `extra.apiUrl` when needed.
+ * Override order: EXPO_PUBLIC_API_BASE_URL (build/runtime for web) → Expo `extra.apiUrl`
+ * (from app.config.ts / app.json) → default below.
  */
 
 const getDefaultApiUrl = (): string => {
   return 'https://localhost:3000';
 };
 
+const rawPublic =
+  typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_API_BASE_URL : undefined;
+const fromPublicEnv = rawPublic?.trim() ?? '';
+
 export const API_BASE_URL =
-  Constants.expoConfig?.extra?.apiUrl ||
+  (fromPublicEnv || undefined) ??
+  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
   getDefaultApiUrl();
