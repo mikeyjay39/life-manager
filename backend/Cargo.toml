@@ -11,6 +11,9 @@ chrono = "0.4"
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel_migrations = "2"
 diesel = { version = "2.2.0", features = ["sqlite", "chrono", "uuid", "returning_clauses_for_sqlite_3_35"] }
+# Link SQLite statically in the binary so the runtime image does not need libsqlite3.so.0
+# (avoids “cannot open shared object file” in minimal Docker images).
+libsqlite3-sys = { version = "0.35", features = ["bundled"] }
 dotenvy = "0.15.0"
 image = "0.25.5"
 jsonwebtoken = "9"

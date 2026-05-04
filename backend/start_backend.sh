@@ -48,6 +48,11 @@ if [[ "$PROFILE" == "dev" ]]; then
     echo "Backend started in development mode"
 fi
 
+# --- Build backend container if prod profile
+if [[ "$PROFILE" == "prod" ]]; then
+  docker compose --env-file backend/.prod.env --profile prod build --no-cache life-manager
+fi
+
 # ---- Docker Compose from repo root (compose file lives at root) ----
 cd "$REPO_ROOT"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" down

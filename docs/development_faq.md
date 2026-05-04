@@ -34,7 +34,7 @@ NOTE: key is stored in my password manager
 
 ## Local HTTP (API URL)
 
-The backend listens on plain HTTP (see `APP_PORT`, default `3000`). The frontend default API base URL is `http://localhost:3000`; override with `EXPO_PUBLIC_API_BASE_URL` or Expo `extra.apiUrl` when the API is on another host or port.
+The backend listens on plain HTTP (see `APP_PORT`, default `3000`). For local Expo without Docker, the frontend default API base URL is `http://localhost:3000`. When using the Compose **prod** profile, the `gateway` service listens on port **80** by default and proxies `/api` to the backend — set `EXPO_PUBLIC_API_BASE_URL` to `http://localhost` (or `http://localhost:<NGINX_PORT>` if you changed `NGINX_PORT`). Override with `EXPO_PUBLIC_API_BASE_URL` or Expo `extra.apiUrl` whenever the API is on another host or port.
 
 - **Android Emulator:** run `adb reverse tcp:3000 tcp:3000` so the emulator’s `localhost:3000` reaches your machine. Use `http://localhost:3000` for the API URL when reversed.
 - **Physical devices** on the LAN should set `extra.apiUrl` / env to an origin the device can reach (for example `http://192.168.1.10:3000`).
@@ -42,7 +42,7 @@ The backend listens on plain HTTP (see `APP_PORT`, default `3000`). The frontend
 **Quick check**
 
 ```bash
-curl -v --max-time 8 http://localhost:3000/health
+curl -v --max-time 8 http://localhost:3000/api/health
 ```
 
 ### Frontend base URL

@@ -58,7 +58,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
         .ok();
 
     Router::new()
-        .route("/health", get(|| async { "up" }))
+        .route("/api/health", get(|| async { "up" }))
         .nest("/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()

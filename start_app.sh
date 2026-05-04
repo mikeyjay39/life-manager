@@ -1,4 +1,15 @@
-#! /usr/bin/sh
+! /usr/bin/sh
 
-backend/start_backend.sh dev &
-frontend/start_frontend.sh &
+set -euo pipefail
+
+PROFILE="$1"
+: "${PROFILE:?PROFILE not set}"
+
+# ---- Validate profile ----
+if [[ "$PROFILE" != "dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
+  echo "Error: invalid profile '$PROFILE'"
+  echo "Usage: start_app.sh <test | dev | prod>"
+  exit 1
+fi
+
+backend/start_backend.sh $PROFILE &
