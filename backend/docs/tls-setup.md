@@ -1,34 +1,24 @@
-# TLS Setup for Axum Backend
+# TLS (HTTPS) in front of the backend
 
-This document describes how to enable TLS termination in your Axum backend using tokio-rustls.
+The Axum backend listens for **plain HTTP** only. It does not load certificates or terminate TLS in-process.
 
-## Prerequisites
-- Ensure you have SSL certificate and key files, e.g., `cert.pem` and `key.pem` (can be self-signed for development or from a trusted authority for production).
+For HTTPS you typically:
 
-## Configuration
-- Set the following environment variables before starting your server:
-  - `TLS_CERT_PATH=/absolute/or/relative/path/to/cert.pem`
-  - `TLS_KEY_PATH=/absolute/or/relative/path/to/key.pem`
+1. Run a **reverse proxy** (Nginx, Caddy, Traefik, a cloud load balancer, etc.) that holds the TLS certificate and key.
+2. Proxy to the backend over HTTP on your internal network (for example `http://127.0.0.1:${APP_PORT}`).
+3. Configure the frontend `EXPO_PUBLIC_API_BASE_URL` / `extra.apiUrl` to the **public HTTPS origin** clients use.
 
-Example for unix shell:
-```sh
-export TLS_CERT_PATH=cert.pem
-export TLS_KEY_PATH=key.pem
-```
+## Example: self-signed cert for local experiments (proxy side only)
 
-## Running the Server
-- Start the backend as usual. If the cert/key files and environment variables are correctly set, the server will accept HTTPS connections on the configured address.
-
-## Notes
-- For production, obtain your certificate from a trusted Certificate Authority (CA).
-- For local testing, you can generate a self-signed certificate using OpenSSL:
+Generate PEM files for the proxy (not for Axum):
 
 ```sh
 openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
 ```
 
-Place these files securely and set the `TLS_CERT_PATH` and `TLS_KEY_PATH` accordingly.
+Point your reverse proxy at those files and forward to `http://localhost:3000` (or whatever `APP_PORT` is).
 
 ## Troubleshooting
-- If the server fails to start, check that the cert/key files exist, the paths are correct, and the files have the correct permissions.
 
+- If the browser shows certificate errors, fix trust/config on the **proxy**, not in this repo’s Rust binary.
+- If API calls fail from the app, ensure `EXPO_PUBLIC_API_BASE_URL` matches the scheme and host the client actually uses (HTTPS after the proxy, HTTP only for direct local development).

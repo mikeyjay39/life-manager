@@ -11,7 +11,6 @@ use axum::{
     http::{header, Method, Request},
     routing::get,
 };
-use axum_server::tls_rustls::RustlsConfig;
 use infrastructure::app_state::AppState;
 use std::env;
 use std::net::SocketAddr;
@@ -20,18 +19,6 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub mod schema;
-
-use once_cell::sync::OnceCell;
-use rustls::crypto::{CryptoProvider, ring};
-
-static INSTALL_CRYPTO_PROVIDER_ONCE: OnceCell<()> = OnceCell::new();
-
-fn install_crypto_provider() {
-    INSTALL_CRYPTO_PROVIDER_ONCE.get_or_init(|| {
-        CryptoProvider::install_default(ring::default_provider())
-            .expect("failed to install rustls crypto provider");
-    });
-}
 
 #[tokio::main]
 pub async fn start_server() {
@@ -44,17 +31,9 @@ pub async fn start_server() {
         [0, 0, 0, 0],
         app_port.parse().expect("Could not parse app_port"),
     ));
-    tracing::info!("Tracing Listening on https://{}", addr);
+    tracing::info!("Tracing Listening on http://{}", addr);
 
-    // Run the server with TLS
-    let cert_path = std::env::var("TLS_CERT_PATH").expect("TLS_CERT_PATH must be set");
-    let key_path = std::env::var("TLS_KEY_PATH").expect("TLS_KEY_PATH must be set");
-
-    let config = RustlsConfig::from_pem_file(cert_path, key_path)
-        .await
-        .expect("invalid TLS config");
-
-    axum_server::bind_rustls(addr, config)
+    axum_server::bind(addr)
         .serve(app.into_make_service())
         .await
         .expect("Could not start axum_server")
@@ -62,7 +41,6 @@ pub async fn start_server() {
 
 pub async fn build_app(app_state: Option<AppState>) -> Router {
     tracing::info!("Building application...");
-    install_crypto_provider();
     let state = match app_state {
         Some(s) => s,
         None => AppStateBuilder::new().build().await,

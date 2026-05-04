@@ -1,9 +1,8 @@
 # Compose file lives at the repository root (paths below are relative to this directory).
 #
-# The browser must reach whatever URL you set for EXPO_PUBLIC_API_BASE_URL (same host/port
-# as your TLS cert when using HTTPS). A typical local setup is https://localhost:${APP_PORT}
-# using backend/certs. Set EXPO_PUBLIC_API_BASE_URL in backend/.prod.env, backend/.dev.env,
-# or the environment before running compose.
+# Set EXPO_PUBLIC_API_BASE_URL to the API origin the browser can reach (scheme + host + port).
+# Default fallbacks use plain HTTP on localhost. Override in backend/.prod.env, backend/.dev.env,
+# or the environment before running compose if your API is elsewhere or behind HTTPS.
 
 name: life-manager
 
@@ -45,7 +44,7 @@ services:
       dockerfile: Dockerfile
       target: production
       args:
-        EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-https://localhost:3000}
+        EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-http://localhost:3000}
     container_name: life_manager_frontend
     ports:
       - "${FRONTEND_PORT:-8080}:80"
@@ -59,7 +58,7 @@ services:
       target: development
     container_name: life_manager_frontend_dev
     environment:
-      EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-https://localhost:3000}
+      EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-http://localhost:3000}
     ports:
       - "${FRONTEND_DEV_PORT:-8081}:8081"
     restart: on-failure

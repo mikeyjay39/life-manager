@@ -21,13 +21,9 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 WORKDIR /app
 
 COPY --from=builder /app/target/release/life-manager /app/life-manager
-COPY certs/ /app/certs/
 
 RUN chmod +x /app/life-manager \
- && chown appuser:appuser /app/life-manager \
- && chown -R appuser:appuser /app/certs \
- && chmod 600 /app/certs/key.pem \
- && chmod 644 /app/certs/cert.pem
+ && chown appuser:appuser /app/life-manager
 
 USER appuser
 
