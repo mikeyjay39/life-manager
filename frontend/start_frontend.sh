@@ -1,4 +1,15 @@
-#! /usr/bin/sh
+#!/usr/bin/env sh
+
+set -euo pipefail
+
+PROFILE="$1"
+: "${PROFILE:?PROFILE not set}"
+
+if [[ "$PROFILE" == "prod" ]]; then
+  # In production mode, we assume the frontend is already built and served by a web server.
+  echo "running in production mode, skipping Expo frontend..."
+  exit 0
+fi
 
 port=8081
 echo "Closing existing Expo instances on port ${port}..."

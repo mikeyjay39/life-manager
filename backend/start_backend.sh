@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -euo pipefail
 
 # ---- Check arguments ----
@@ -48,9 +48,9 @@ if [[ "$PROFILE" == "dev" ]]; then
     echo "Backend started in development mode"
 fi
 
-# --- Build backend container if prod profile
+# --- Build prod images (gateway template must match repo or nginx fails at runtime)
 if [[ "$PROFILE" == "prod" ]]; then
-  docker compose --env-file backend/.prod.env --profile prod build --no-cache life-manager
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod build --no-cache life-manager gateway frontend
 fi
 
 # ---- Docker Compose from repo root (compose file lives at root) ----

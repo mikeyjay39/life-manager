@@ -1,4 +1,4 @@
-! /usr/bin/sh
+#!/usr/bin/env sh
 
 set -euo pipefail
 
@@ -13,3 +13,4 @@ if [[ "$PROFILE" != "dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; th
 fi
 
 backend/start_backend.sh $PROFILE &
+frontend/start_frontend.sh $PROFILE &
