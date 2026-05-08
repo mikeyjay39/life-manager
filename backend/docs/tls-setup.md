@@ -8,15 +8,45 @@ For HTTPS you typically:
 2. Proxy to the backend over HTTP on your internal network (for example `http://127.0.0.1:${APP_PORT}`).
 3. Configure the frontend `EXPO_PUBLIC_API_BASE_URL` / `extra.apiUrl` to the **public HTTPS origin** clients use.
 
-## Example: self-signed cert for local experiments (proxy side only)
+## Local setup: nginx TLS termination with self-signed localhost certs
 
-Generate PEM files for the proxy (not for Axum):
+The Compose `gateway` service is configured to:
+
+- Listen on `80` and redirect to HTTPS.
+- Listen on `443` with TLS.
+- Read cert files from `./nginx/certs` mounted to `/etc/nginx/certs` in the container.
+
+### 1) Generate localhost cert/key
+
+From the repository root:
 
 ```sh
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+mkdir -p nginx/certs
+openssl req -x509 -newkey rsa:4096 \
+  -keyout nginx/certs/localhost.key \
+  -out nginx/certs/localhost.crt \
+  -days 365 -nodes -subj "/CN=localhost"
 ```
 
-Point your reverse proxy at those files and forward to `http://localhost:3000` (or whatever `APP_PORT` is).
+### 2) Start prod profile
+
+```sh
+./start_app.sh prod
+```
+
+### 3) Verify redirect and HTTPS proxying
+
+```sh
+curl -I http://localhost
+curl -k https://localhost/api/health
+curl -k https://localhost/
+```
+
+Expected behavior:
+
+- `http://localhost` responds with redirect to `https://localhost/...`.
+- `https://localhost/api/health` reaches the backend through nginx.
+- `https://localhost/` serves the frontend.
 
 ## Troubleshooting
 
