@@ -11,7 +11,8 @@ if [[ "$PROFILE" == "prod" ]]; then
   exit 0
 fi
 
-port=8081
+: "${FRONTEND_PORT:=8080}"
+port="$FRONTEND_PORT"
 echo "Closing existing Expo instances on port ${port}..."
 kill -9 $(netstat -tulnp 2>/dev/null | grep ${port} | awk '{print $7}' | cut -d'/' -f1)
 echo $? "existing Expo instances closed."
@@ -28,7 +29,7 @@ echo "Starting Expo frontend..."
 
 cd "$(dirname "$0")"
 
-# http://localhost:8081/
+# http://localhost:${FRONTEND_PORT}/
 npx expo start
 
 cd -

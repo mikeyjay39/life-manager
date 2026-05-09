@@ -7,10 +7,11 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 8081
 ENV NODE_ENV=development
+ENV FRONTEND_PORT=8080
+EXPOSE 8080
 
-CMD ["npx", "expo", "start", "--web", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["sh", "-c", "npx expo start --web --host localhost --port \"$FRONTEND_PORT\""]
 
 # ---- Builder: static web export (profile prod) ----
 FROM node:22-bookworm AS builder

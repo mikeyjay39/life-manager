@@ -38,8 +38,8 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 
 | Profile | Compose services | Typical host ports (see env / Compose defaults) |
 |---------|------------------|--------------------------------------------------|
-| **prod** | `life-manager`, `frontend`, `gateway`, `tesseract` | **`NGINX_PORT`** → **`gateway`** (default **80**); **`APP_PORT`** → API container (default **3000**); **`FRONTEND_PORT`** → static frontend container (default **8080**); **`TESSERACT_PORT`** → Tesseract |
-| **dev** | `frontend_dev`, `tesseract` | **`FRONTEND_DEV_PORT`** → **`frontend_dev`** (default **8081**); **`TESSERACT_PORT`**; backend on host **`APP_PORT`** (**3000**) via **`cargo run`** |
+| **prod** | `life-manager`, `frontend`, `gateway`, `tesseract` | **`NGINX_PORT`** → **`gateway`** (default **80**); **`APP_PORT`** → API container (default **3000**); **`FRONTEND_PORT`** → static **`frontend`** container (default **8080**); **`TESSERACT_PORT`** → Tesseract |
+| **dev** | `frontend_dev`, `tesseract` | **`FRONTEND_PORT`** → **`frontend_dev`** / Expo (default **8080**); **`TESSERACT_PORT`**; backend on host **`APP_PORT`** (**3000**) via **`cargo run`** |
 | **test** | `tesseract` only | **`TESSERACT_PORT`** |
 
 Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry).
