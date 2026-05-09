@@ -44,6 +44,19 @@ cargo build
 
 # ---- Start backend as separate process if dev ----
 if [[ "$PROFILE" == "dev" ]]; then
+    : "${APP_PORT:=3000}"
+    echo "Stopping any process listening on TCP port ${APP_PORT}..."
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k "${APP_PORT}/tcp" 2>/dev/null || true
+    elif command -v lsof >/dev/null 2>&1; then
+        pids=$(lsof -ti ":${APP_PORT}" -sTCP:LISTEN 2>/dev/null || true)
+        if [ -n "${pids:-}" ]; then
+            # shellcheck disable=SC2086
+            kill $pids 2>/dev/null || true
+        fi
+    else
+        echo "Warning: neither fuser nor lsof found; cannot free port ${APP_PORT}"
+    fi
     cargo run &
     echo "Backend started in development mode"
 fi
