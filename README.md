@@ -23,12 +23,12 @@ backend/.container/run.sh
 
 ## How to run
 
-### Full stack (`start_app.sh`)
+### Full stack (`build_and_start_app.sh`)
 
 From the repository root (not inside the dev container if you rely on host Docker):
 
 ```bash
-./start_app.sh <test | dev | prod>
+./build_and_start_app.sh <test | dev | prod>
 ```
 
 This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `backend/.<profile>.env` (for example `backend/.prod.env`).

@@ -31,7 +31,7 @@ openssl req -x509 -newkey rsa:4096 \
 ### 2) Start prod profile
 
 ```sh
-./start_app.sh prod
+./build_and_start_app.sh prod
 ```
 
 ### 3) Verify redirect and HTTPS proxying

@@ -34,7 +34,7 @@ NOTE: key is stored in my password manager
 
 ## Docker Compose profiles and ports
 
-Root-level **`docker-compose.yml`** groups services under Compose **profiles** (`dev`, `prod`, `test`). **`start_app.sh`** (and **`backend/start_backend.sh`**) pass `--profile <profile>` and `--env-file backend/.<profile>.env` so variables like **`APP_PORT`** and **`TESSERACT_PORT`** apply consistently.
+Root-level **`docker-compose.yml`** groups services under Compose **profiles** (`dev`, `prod`, `test`). **`build_and_start_app.sh`** (and **`backend/start_backend.sh`**) pass `--profile <profile>` and `--env-file backend/.<profile>.env` so variables like **`APP_PORT`** and **`TESSERACT_PORT`** apply consistently.
 
 | Profile | Compose services | Typical host ports (see env / Compose defaults) |
 |---------|------------------|--------------------------------------------------|
@@ -42,7 +42,7 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 | **dev** | `frontend_dev`, `tesseract` | **`FRONTEND_DEV_PORT`** → **`frontend_dev`** (default **8081**); **`TESSERACT_PORT`**; backend on host **`APP_PORT`** (**3000**) via **`cargo run`** |
 | **test** | `tesseract` only | **`TESSERACT_PORT`** |
 
-Orchestration summary: see **[`README.md`](../README.md)** (`start_app.sh`, containers vs host processes, and **prod** gateway entry).
+Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry).
 
 ## Local HTTP (API URL)
 
