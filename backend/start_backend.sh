@@ -2,18 +2,41 @@
 set -euo pipefail
 
 # ---- Check arguments ----
-if [ "$#" -lt 1 ]; then
-  echo "Usage: start_backend.sh <test | dev | prod>"
+BUILD_IMAGE=0
+PROFILE=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --build-image)
+      BUILD_IMAGE=1
+      shift
+      ;;
+    dev|test|prod)
+      if [ -n "$PROFILE" ]; then
+        echo "Error: profile specified more than once"
+        exit 1
+      fi
+      PROFILE="$1"
+      shift
+      ;;
+    *)
+      echo "Error: unknown argument '$1'"
+      echo "Usage: start_backend.sh <test | dev | prod> [--build-image]"
+      exit 1
+      ;;
+  esac
+done
+
+if [ -z "$PROFILE" ]; then
+  echo "Usage: start_backend.sh <test | dev | prod> [--build-image]"
   exit 1
 fi
 
-PROFILE="$1"
 : "${PROFILE:?PROFILE not set}"
 
 # ---- Validate profile ----
 if [[ "$PROFILE" != "dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
   echo "Error: invalid profile '$PROFILE'"
-  echo "Usage: start_backend.sh <test | dev | prod>"
+  echo "Usage: start_backend.sh <test | dev | prod> [--build-image]"
   exit 1
 fi
 
@@ -42,27 +65,30 @@ export PROFILE
 cd "$BACKEND_DIR"
 cargo build
 
+# ---- Kill backend process ----
+APP_PORT="${APP_PORT:=3000}"
+echo "Stopping any process listening on TCP port ${APP_PORT}..."
+if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${APP_PORT}/tcp" 2>/dev/null || true
+elif command -v lsof >/dev/null 2>&1; then
+    pids=$(lsof -ti ":${APP_PORT}" -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "${pids:-}" ]; then
+        # shellcheck disable=SC2086
+        kill $pids 2>/dev/null || true
+    fi
+else
+    echo "Warning: neither fuser nor lsof found; cannot free port ${APP_PORT}"
+fi
+
 # ---- Start backend as separate process if dev ----
 if [[ "$PROFILE" == "dev" ]]; then
-    : "${APP_PORT:=3000}"
-    echo "Stopping any process listening on TCP port ${APP_PORT}..."
-    if command -v fuser >/dev/null 2>&1; then
-        fuser -k "${APP_PORT}/tcp" 2>/dev/null || true
-    elif command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -ti ":${APP_PORT}" -sTCP:LISTEN 2>/dev/null || true)
-        if [ -n "${pids:-}" ]; then
-            # shellcheck disable=SC2086
-            kill $pids 2>/dev/null || true
-        fi
-    else
-        echo "Warning: neither fuser nor lsof found; cannot free port ${APP_PORT}"
-    fi
     cargo run &
     echo "Backend started in development mode"
 fi
 
 # --- Build prod images (gateway template must match repo or nginx fails at runtime)
-if [[ "$PROFILE" == "prod" ]]; then
+if [[ "$PROFILE" == "prod" && "$BUILD_IMAGE" -eq 1 ]]; then
+  echo "Building Docker images for production..."
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod build --no-cache life-manager gateway frontend
 fi
 
