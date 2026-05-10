@@ -1,34 +1,54 @@
-# TLS Setup for Axum Backend
+# TLS (HTTPS) in front of the backend
 
-This document describes how to enable TLS termination in your Axum backend using tokio-rustls.
+The Axum backend listens for **plain HTTP** only. It does not load certificates or terminate TLS in-process.
 
-## Prerequisites
-- Ensure you have SSL certificate and key files, e.g., `cert.pem` and `key.pem` (can be self-signed for development or from a trusted authority for production).
+For HTTPS you typically:
 
-## Configuration
-- Set the following environment variables before starting your server:
-  - `TLS_CERT_PATH=/absolute/or/relative/path/to/cert.pem`
-  - `TLS_KEY_PATH=/absolute/or/relative/path/to/key.pem`
+1. Run a **reverse proxy** (Nginx, Caddy, Traefik, a cloud load balancer, etc.) that holds the TLS certificate and key.
+2. Proxy to the backend over HTTP on your internal network (for example `http://127.0.0.1:${APP_PORT}`).
+3. Configure the frontend `EXPO_PUBLIC_API_BASE_URL` / `extra.apiUrl` to the **public HTTPS origin** clients use.
 
-Example for unix shell:
-```sh
-export TLS_CERT_PATH=cert.pem
-export TLS_KEY_PATH=key.pem
-```
+## Local setup: nginx TLS termination with self-signed localhost certs
 
-## Running the Server
-- Start the backend as usual. If the cert/key files and environment variables are correctly set, the server will accept HTTPS connections on the configured address.
+The Compose `gateway` service is configured to:
 
-## Notes
-- For production, obtain your certificate from a trusted Certificate Authority (CA).
-- For local testing, you can generate a self-signed certificate using OpenSSL:
+- Listen on `80` and redirect to HTTPS.
+- Listen on `443` with TLS.
+- Read cert files from `./nginx/certs` mounted to `/etc/nginx/certs` in the container.
+
+### 1) Generate localhost cert/key
+
+From the repository root:
 
 ```sh
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+mkdir -p nginx/certs
+openssl req -x509 -newkey rsa:4096 \
+  -keyout nginx/certs/localhost.key \
+  -out nginx/certs/localhost.crt \
+  -days 365 -nodes -subj "/CN=localhost"
 ```
 
-Place these files securely and set the `TLS_CERT_PATH` and `TLS_KEY_PATH` accordingly.
+### 2) Start prod profile
+
+```sh
+./build_and_start_app.sh prod
+```
+
+### 3) Verify redirect and HTTPS proxying
+
+```sh
+curl -I http://localhost
+curl -k https://localhost/api/health
+curl -k https://localhost/
+```
+
+Expected behavior:
+
+- `http://localhost` responds with redirect to `https://localhost/...`.
+- `https://localhost/api/health` reaches the backend through nginx.
+- `https://localhost/` serves the frontend.
 
 ## Troubleshooting
-- If the server fails to start, check that the cert/key files exist, the paths are correct, and the files have the correct permissions.
 
+- If the browser shows certificate errors, fix trust/config on the **proxy**, not in this repo’s Rust binary.
+- If API calls fail from the app, ensure `EXPO_PUBLIC_API_BASE_URL` matches the scheme and host the client actually uses (HTTPS after the proxy, HTTP only for direct local development).

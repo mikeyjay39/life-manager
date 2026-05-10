@@ -1,12 +1,20 @@
 use dotenv::dotenv;
 use once_cell::sync::OnceCell;
-use std::env::{self, current_dir};
-use std::path::PathBuf;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
 
 use crate::common::setup::wait_for_service_to_be_ready;
+
+fn compose_file() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../docker-compose.yml")
+}
+
+fn test_env_file() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(".test.env")
+}
 
 /// Stops the docker-compose services.
 /// WARNING: Starting the Ollama container is an expensive process that needs to download models
@@ -14,8 +22,15 @@ use crate::common::setup::wait_for_service_to_be_ready;
 /// during tests.
 pub fn docker_compose_down() {
     println!("Stopping docker-compose...");
-    let _ = Command::new("docker compose")
-        .args(["down", "-v"])
+    let compose = compose_file();
+    let _ = Command::new("docker")
+        .args([
+            "compose",
+            "-f",
+            compose.to_str().expect("compose path utf-8"),
+            "down",
+            "-v",
+        ])
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -30,8 +45,17 @@ pub async fn start_docker_compose_dev_profile() {
     DOCKER.get_or_init(|| {
         println!("Starting docker compose...");
 
-        let status = Command::new("docker compose")
-            .args(["--profile", "dev", "up", "-d"])
+        let compose = compose_file();
+        let status = Command::new("docker")
+            .args([
+                "compose",
+                "-f",
+                compose.to_str().expect("compose path utf-8"),
+                "--profile",
+                "dev",
+                "up",
+                "-d",
+            ])
             .stdin(Stdio::null())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
@@ -48,11 +72,10 @@ pub async fn start_docker_compose_dev_profile() {
     wait_for_services().await;
 }
 
-/// Starts the docker-compose services with the "test" profile defined in docker-compose.yml as well
-/// as loading environment variables from the .test.env file.
+/// Starts docker compose with the "test" profile from the repository root `docker-compose.yml`,
+/// loading environment variables from `backend/.test.env`.
 pub async fn start_docker_compose_test_profile() {
-    let cwd = current_dir().expect("Could not get cwd");
-    let env_file_path: PathBuf = cwd.join(".test.env");
+    let env_file_path = test_env_file();
 
     dotenv::from_filename(&env_file_path).ok();
 
@@ -61,13 +84,16 @@ pub async fn start_docker_compose_test_profile() {
         env_file_path.display()
     );
 
+    let compose = compose_file();
     let status = Command::new("docker")
         .args([
             "compose",
+            "-f",
+            compose.to_str().expect("compose path utf-8"),
             "--profile",
             "test",
             "--env-file",
-            env_file_path.to_str().unwrap(),
+            env_file_path.to_str().expect("env path utf-8"),
             "up",
             "-d",
         ])

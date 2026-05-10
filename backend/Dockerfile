@@ -13,7 +13,7 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libssl3 libpq5 \
+    ca-certificates gosu libssl3 libpq5 \
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
@@ -21,18 +21,16 @@ RUN useradd --system --create-home --shell /usr/sbin/nologin appuser
 WORKDIR /app
 
 COPY --from=builder /app/target/release/life-manager /app/life-manager
-COPY certs/ /app/certs/
 
 RUN chmod +x /app/life-manager \
- && chown appuser:appuser /app/life-manager \
- && chown -R appuser:appuser /app/certs \
- && chmod 600 /app/certs/key.pem \
- && chmod 644 /app/certs/cert.pem
+ && chown appuser:appuser /app/life-manager
 
-USER appuser
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 ENV RUST_LOG=debug
 ENV PORT=3000
 EXPOSE 3000
 
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/app/life-manager"]

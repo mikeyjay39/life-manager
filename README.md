@@ -22,16 +22,46 @@ backend/.container/run.sh
 ```
 
 ## How to run
-### Backend App Only
+
+### Full stack (`build_and_start_app.sh`)
+
+From the repository root (not inside the dev container if you rely on host Docker):
+
 ```bash
-cargo run
+./build_and_start_app.sh <test | dev | prod>
 ```
 
-### Backend Stack with Docker Compose
-This needs to be done outside of the dev container if we are using the Ollama container.
+This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `backend/.<profile>.env` (for example `backend/.prod.env`).
+
+| Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
+|--------|---------|----------|----------------------------------------|
+| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway`, `tesseract` |
+| **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | `frontend_dev`, `tesseract` |
+| **test** | `cargo build` only; the API is **not** started by these scripts | Expo on the host (same as dev) | **`tesseract` only** |
+
+**Ports (defaults)** — override `APP_PORT` / service ports in `backend/.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
+
+| Port / setting | What uses it |
+|----------------|----------------|
+| **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by container **`life-manager`** in **prod**. |
+| **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/api` → backend). Often the main browser URL. |
+| **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **dev**. |
+| **`TESSERACT_PORT`** (default **8884** in sample env files) | Tesseract OCR sidecar. |
+
+The Compose file is **`docker-compose.yml`** at the repo root; its header comments describe gateway routing and **`EXPO_PUBLIC_API_BASE_URL`**. For **prod**, `start_backend.sh` runs `docker compose build` for `life-manager`, `gateway`, and `frontend` before `up` so nginx templates stay in sync with the repo.
+
+**Dev note:** Expo on the host and the **`frontend_dev`** service both default to **`FRONTEND_PORT`** (**8080**). If both run, change **`FRONTEND_PORT`** for one side or run only one frontend workflow.
+
+**Prod note:** `frontend/start_frontend.sh` exits immediately in prod; the UI is served from Docker (`frontend` + `gateway`).
+
+More detail on API URLs and mobile: [`docs/development_faq.md`](docs/development_faq.md).
+
+### Backend app only
+```bash
+cd backend && cargo run
 ```
-backend/.start_backend.sh <dev | prod>
-```
+
+Uses `APP_PORT` from your environment (see `backend/.dev.env` for local defaults).
 
 ## Example API calls
 

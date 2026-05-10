@@ -1,6 +1,18 @@
-#! /usr/bin/sh
+#!/usr/bin/env sh
 
-port=8081
+set -euo pipefail
+
+PROFILE="$1"
+: "${PROFILE:?PROFILE not set}"
+
+if [[ "$PROFILE" == "prod" ]]; then
+  # In production mode, we assume the frontend is already built and served by a web server.
+  echo "running in production mode, skipping Expo frontend..."
+  exit 0
+fi
+
+: "${FRONTEND_PORT:=8080}"
+port="$FRONTEND_PORT"
 echo "Closing existing Expo instances on port ${port}..."
 kill -9 $(netstat -tulnp 2>/dev/null | grep ${port} | awk '{print $7}' | cut -d'/' -f1)
 echo $? "existing Expo instances closed."
@@ -17,7 +29,7 @@ echo "Starting Expo frontend..."
 
 cd "$(dirname "$0")"
 
-# http://localhost:8081/
+# http://localhost:${FRONTEND_PORT}/
 npx expo start
 
 cd -

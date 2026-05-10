@@ -26,7 +26,7 @@ const AUTH_URL: &str = "/api/v1/auth";
 // Embed database migrations
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-/// Run test with all docker containers started via docker-compose
+/// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///
 /// WARNING: This includes starting the Ollama container which is an expensive process. Very few
 /// tests should use this setup function. Unless needing to explicitly test Ollama integration,
@@ -139,7 +139,7 @@ pub async fn build_app_server(url: &str) -> TestServer {
 
     let server = TestServer::new_with_config(app, config).expect("Failed to start test server");
     let health_url = server
-        .server_url("/health")
+        .server_url("/api/health")
         .expect("Failed to get server URL");
 
     wait_for_service_to_be_ready(health_url.as_str(), "Life Manager Backend").await;
