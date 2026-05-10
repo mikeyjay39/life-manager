@@ -68,11 +68,7 @@ pub async fn create_document(
                     UploadedDocumentInput::new(file_name, file_data, user_id);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
-            false => Some(Document::new(
-                &_payload.title,
-                &_payload.content,
-                user_id,
-            )),
+            false => Some(Document::new(&_payload.title, &_payload.content, user_id)),
         };
 
         let document = match document_opt {
@@ -421,11 +417,7 @@ mod tests {
         let auth_user = AuthUser {
             user_id: Uuid::new_v4(),
         };
-        let document1 = Document::new(
-            "Test Document",
-            "This is test content.",
-            auth_user.user_id,
-        );
+        let document1 = Document::new("Test Document", "This is test content.", auth_user.user_id);
         let document2 = Document::new(
             "Second Document",
             "This is the second document",

@@ -28,16 +28,16 @@ backend/.container/run.sh
 From the repository root (not inside the dev container if you rely on host Docker):
 
 ```bash
-./build_and_start_app.sh <test | dev | prod>
+./build_and_start_app.sh <test | dev | prod> [--build-image] [--with-tesseract]
 ```
 
 This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `backend/.<profile>.env` (for example `backend/.prod.env`).
 
 | Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
 |--------|---------|----------|----------------------------------------|
-| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway`, `tesseract` |
-| **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | `frontend_dev`, `tesseract` |
-| **test** | `cargo build` only; the API is **not** started by these scripts | Expo on the host (same as dev) | **`tesseract` only** |
+| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway` |
+| **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | `frontend_dev` |
+| **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
 **Ports (defaults)** — override `APP_PORT` / service ports in `backend/.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
 
@@ -46,7 +46,18 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by container **`life-manager`** in **prod**. |
 | **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/api` → backend). Often the main browser URL. |
 | **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **dev**. |
-| **`TESSERACT_PORT`** (default **8884** in sample env files) | Tesseract OCR sidecar. |
+| **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
+| **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
+
+### Optional Tesseract (OCR sidecar)
+
+Sample env files default **`TESSERACT_ENABLED=false`**, so **`docker compose`** does not need to run the **`tesseract`** service for normal dev/test/prod. To enable OCR (images or scanned PDFs), run Compose with the extra profile and point the API at the container, for example:
+
+```bash
+docker compose -f docker-compose.yml --env-file backend/.prod.env --profile prod --profile tesseract up -d
+```
+
+Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod**) to start **`frontend_dev`** or **prod** stack **and** the sidecar in one step.
 
 The Compose file is **`docker-compose.yml`** at the repo root; its header comments describe gateway routing and **`EXPO_PUBLIC_API_BASE_URL`**. For **prod**, `start_backend.sh` runs `docker compose build` for `life-manager`, `gateway`, and `frontend` before `up` so nginx templates stay in sync with the repo.
 

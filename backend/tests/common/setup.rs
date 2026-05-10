@@ -1,4 +1,4 @@
-use std::{env::set_var, sync::Arc, thread::sleep, time::Duration};
+use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::sqlite::Pool;
@@ -17,9 +17,7 @@ use wiremock::{
     matchers::{method, path},
 };
 
-use crate::common::docker::{
-    docker_compose_down, start_docker_compose_dev_profile, start_docker_compose_test_profile,
-};
+use crate::common::docker::{docker_compose_down, start_docker_compose_dev_profile};
 
 const AUTH_URL: &str = "/api/v1/auth";
 
@@ -31,6 +29,7 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 /// WARNING: This includes starting the Ollama container which is an expensive process. Very few
 /// tests should use this setup function. Unless needing to explicitly test Ollama integration,
 /// prefer using `run_test_with_test_profile` which omits the Ollama container.
+#[allow(dead_code)]
 pub async fn run_test_with_all_containers<F, Fut>(test: F)
 where
     F: FnOnce(TestServer) -> Fut,
@@ -72,8 +71,8 @@ where
     let database_url = db_path.to_string();
     tracing::info!("Created temp SQLite database at {}", db_path);
 
-    // Start docker compose for Tesseract only
-    start_docker_compose_test_profile().await;
+    let test_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test.env");
+    dotenv::from_filename(&test_env_path).ok();
 
     let ollama: MockServer = mock_ollama_response().await;
 

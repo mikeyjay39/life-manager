@@ -91,11 +91,7 @@ mod tests {
             let documents = collection.documents.lock().await;
             assert_eq!(documents.len(), 0);
         }
-        let doc = Document::new(
-            "Test document",
-            "This is a test content.",
-            Uuid::new_v4(),
-        );
+        let doc = Document::new("Test document", "This is a test content.", Uuid::new_v4());
         collection
             .save_document(doc)
             .await
@@ -109,11 +105,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_get_document() {
         let collection: DocumentCollection = DocumentCollection::new();
-        let doc = Document::new(
-            "Test document",
-            "This is a test content.",
-            Uuid::new_v4(),
-        );
+        let doc = Document::new("Test document", "This is a test content.", Uuid::new_v4());
         let doc_id = doc.id;
         collection
             .save_document(doc.clone())

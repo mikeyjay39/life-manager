@@ -48,7 +48,12 @@ impl DocumentRepository for DocumentOrmCollection {
                 Ok(entity) => {
                     let doc_id = Uuid::parse_str(&entity.id).ok()?;
                     let user_id = Uuid::parse_str(&entity.user_id).ok()?;
-                    Some(Document::with_id(doc_id, &entity.title, &entity.content, user_id))
+                    Some(Document::with_id(
+                        doc_id,
+                        &entity.title,
+                        &entity.content,
+                        user_id,
+                    ))
                 }
                 Err(_) => None,
             },
@@ -173,7 +178,12 @@ impl DocumentRepository for DocumentOrmCollection {
                     tracing::info!("Document saved with ID: {}", saved_doc.id);
                     let doc_id = Uuid::parse_str(&saved_doc.id)?;
                     let user_id = Uuid::parse_str(&saved_doc.user_id)?;
-                    Ok(Document::with_id(doc_id, &saved_doc.title, &saved_doc.content, user_id))
+                    Ok(Document::with_id(
+                        doc_id,
+                        &saved_doc.title,
+                        &saved_doc.content,
+                        user_id,
+                    ))
                 }
                 Err(e) => {
                     tracing::error!("Error saving document: {}", e);
