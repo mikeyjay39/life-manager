@@ -29,9 +29,11 @@ services:
   #   profiles: ["dev", "prod"]
 
   life-manager:
+    image: public.ecr.aws/b1a6d4u1/life-manager-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
+    pull_policy: always
     container_name: life_manager_app
     env_file:
       - ${ENV_FILE}
@@ -45,12 +47,14 @@ services:
     profiles: ["prod"]
 
   frontend:
+    image: public.ecr.aws/b1a6d4u1/life-manager-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: production
       args:
         EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-https://localhost}
+    pull_policy: always
     container_name: life_manager_frontend
     ports:
       - "${FRONTEND_PORT:-8080}:80"
@@ -58,10 +62,11 @@ services:
     profiles: ["prod"]
 
   gateway:
+    image: public.ecr.aws/b1a6d4u1/life-manager-gateway:latest
     build:
       context: ./nginx
       dockerfile: gateway.Dockerfile
-    image: life-manager-gateway:latest
+    pull_policy: always
     container_name: life_manager_gateway
     profiles: ["prod"]
     env_file:
