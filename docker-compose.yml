@@ -73,7 +73,8 @@ services:
       - "${NGINX_PORT:-80}:80"
       - "443:443"
     volumes:
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # Writable so the gateway entrypoint can create localhost.crt/key when missing (see nginx/docker-entrypoint.d).
+      - ./nginx/certs:/etc/nginx/certs
     depends_on:
       - life-manager
       - frontend
