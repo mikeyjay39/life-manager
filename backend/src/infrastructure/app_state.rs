@@ -4,12 +4,14 @@ use deadpool_diesel::sqlite::Pool;
 
 use crate::{
     application::document_use_cases::DocumentUseCases,
+    domain::document_text_reader::DocumentTextReader,
     infrastructure::{
         auth::{
             auth_use_cases::AuthUseCases, superuser_only_login_service::SuperuserOnlyLoginService,
         },
         db::{create_connection_pool, run_migrations},
         document::document_orm_collection::DocumentOrmCollection,
+        noop_document_text_reader::NoOpDocumentTextReader,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         reqwest_http_client::ReqwestHttpClient,
         tesseract_adapter::TesseractAdapter,
@@ -75,14 +77,26 @@ impl AppStateBuilder {
     }
 }
 
+fn tesseract_enabled_from_env() -> bool {
+    env::var("TESSERACT_ENABLED")
+        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"))
+        .unwrap_or(false)
+}
+
 fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
     tracing::info!("Creating default DocumentUseCases...");
+    let reader: Arc<dyn DocumentTextReader> = if tesseract_enabled_from_env() {
+        Arc::new(TesseractAdapter::new(
+            env::var("TESSERACT_URL")
+                .expect("TESSERACT_URL must be set when TESSERACT_ENABLED is true"),
+            Arc::new(ReqwestHttpClient::new()),
+        ))
+    } else {
+        Arc::new(NoOpDocumentTextReader::new())
+    };
     DocumentUseCases {
         document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
-        reader: Arc::new(TesseractAdapter::new(
-            env::var("TESSERACT_URL").expect("TESSERACT_URL must be set"),
-            Arc::new(ReqwestHttpClient::new()),
-        )),
+        reader,
         summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
             env::var("OLLAMA_URL")
                 .ok()

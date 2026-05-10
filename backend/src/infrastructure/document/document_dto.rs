@@ -33,11 +33,7 @@ mod tests {
     #[test]
     fn test_document_dto_conversion() {
         let user_id = Uuid::new_v4();
-        let document = Document::new(
-            "Test Document",
-            "This is a test content.",
-            user_id,
-        );
+        let document = Document::new("Test Document", "This is a test content.", user_id);
         let dto = DocumentDto::from_document(&document);
         assert_eq!(dto.id, document.id);
         assert_eq!(dto.title, "Test Document");

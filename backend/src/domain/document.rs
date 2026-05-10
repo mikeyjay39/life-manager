@@ -103,11 +103,7 @@ mod tests {
     #[test]
     fn test_document_creation() {
         let user_id = Uuid::new_v4();
-        let doc = Document::new(
-            "Test Document",
-            "This is a test content.",
-            user_id,
-        );
+        let doc = Document::new("Test Document", "This is a test content.", user_id);
         assert!(!doc.id.is_nil());
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "This is a test content.");
@@ -118,12 +114,7 @@ mod tests {
     fn test_document_with_id() {
         let doc_id = Uuid::new_v4();
         let user_id = Uuid::new_v4();
-        let doc = Document::with_id(
-            doc_id,
-            "Test Document",
-            "This is a test content.",
-            user_id,
-        );
+        let doc = Document::with_id(doc_id, "Test Document", "This is a test content.", user_id);
         assert_eq!(doc.id, doc_id);
         assert_eq!(doc.title, "Test Document");
         assert_eq!(doc.content, "This is a test content.");
@@ -144,7 +135,7 @@ mod tests {
     fn test_document_with_empty_strings() {
         let user_id = Uuid::new_v4();
         let doc = Document::new("", "", user_id);
-        
+
         assert!(!doc.id.is_nil());
         assert_eq!(doc.title, "");
         assert_eq!(doc.content, "");
@@ -157,9 +148,9 @@ mod tests {
         let long_title = "A".repeat(10_000);
         let long_content = "B".repeat(1_000_000);
         let user_id = Uuid::new_v4();
-        
+
         let doc = Document::new(&long_title, &long_content, user_id);
-        
+
         assert_eq!(doc.title.len(), 10_000);
         assert_eq!(doc.content.len(), 1_000_000);
         assert!(!doc.id.is_nil());
@@ -170,9 +161,9 @@ mod tests {
         let title = "文档标题 🚀 Тест";
         let content = "Content with émojis 😀 and special chars: <>&\"'\n\t\r";
         let user_id = Uuid::new_v4();
-        
+
         let doc = Document::new(title, content, user_id);
-        
+
         assert_eq!(doc.title, title);
         assert_eq!(doc.content, content);
     }
@@ -182,9 +173,9 @@ mod tests {
         let title = "  Title with spaces  ";
         let content = "\n\n  Content\n  with\n  newlines  \n\n";
         let user_id = Uuid::new_v4();
-        
+
         let doc = Document::new(title, content, user_id);
-        
+
         assert_eq!(doc.title, title);
         assert_eq!(doc.content, content);
     }
@@ -193,7 +184,7 @@ mod tests {
     fn test_content_getter() {
         let content = "Test content";
         let doc = Document::new("Title", content, Uuid::new_v4());
-        
+
         assert_eq!(doc.content(), content);
         assert_eq!(doc.content(), &doc.content);
     }
@@ -201,13 +192,13 @@ mod tests {
     #[test]
     fn test_set_content() {
         let mut doc = Document::new("Title", "Original", Uuid::new_v4());
-        
+
         doc.set_content("Updated content".to_string());
         assert_eq!(doc.content, "Updated content");
-        
+
         doc.set_content(String::new());
         assert_eq!(doc.content, "");
-        
+
         let long_content = "X".repeat(100_000);
         doc.set_content(long_content.clone());
         assert_eq!(doc.content, long_content);
@@ -218,7 +209,7 @@ mod tests {
         let user_id = Uuid::new_v4();
         let doc = Document::new("Title", "Content", user_id);
         let cloned = doc.clone();
-        
+
         assert_eq!(doc.id, cloned.id);
         assert_eq!(doc.title, cloned.title);
         assert_eq!(doc.content, cloned.content);
@@ -230,13 +221,13 @@ mod tests {
     fn test_document_serialization() {
         let user_id = Uuid::new_v4();
         let doc = Document::new("Serialize Test", "Content here", user_id);
-        
+
         let serialized = serde_json::to_string(&doc).expect("Failed to serialize");
         assert!(serialized.contains("Serialize Test"));
         assert!(serialized.contains("Content here"));
-        
-        let deserialized: Document = serde_json::from_str(&serialized)
-            .expect("Failed to deserialize");
+
+        let deserialized: Document =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
         assert_eq!(deserialized.id, doc.id);
         assert_eq!(deserialized.title, doc.title);
         assert_eq!(deserialized.content, doc.content);
@@ -341,14 +332,10 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_success() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "test.pdf".to_string(),
-            vec![1, 2, 3],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
 
         let reader = Arc::new(MockTextReader::success(
-            "Extracted text from document".to_string()
+            "Extracted text from document".to_string(),
         ));
 
         let summarizer = Arc::new(MockSummarizer::success(
@@ -370,15 +357,9 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_reader_error() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "test.pdf".to_string(),
-            vec![1, 2, 3],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::error(
-            "Failed to read document".to_string()
-        ));
+        let reader = Arc::new(MockTextReader::error("Failed to read document".to_string()));
 
         let summarizer = Arc::new(MockSummarizer::success(
             "Summary".to_string(),
@@ -392,19 +373,11 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_summarizer_error() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "test.pdf".to_string(),
-            vec![1, 2, 3],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::success(
-            "Extracted text".to_string()
-        ));
+        let reader = Arc::new(MockTextReader::success("Extracted text".to_string()));
 
-        let summarizer = Arc::new(MockSummarizer::error(
-            "Failed to summarize".to_string()
-        ));
+        let summarizer = Arc::new(MockSummarizer::error("Failed to summarize".to_string()));
 
         let result = Document::from_file(&input, reader, summarizer).await;
         assert!(result.is_none());
@@ -413,18 +386,11 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_with_empty_text() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "empty.pdf".to_string(),
-            vec![],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("empty.pdf".to_string(), vec![], user_id);
 
         let reader = Arc::new(MockTextReader::success(String::new()));
 
-        let summarizer = Arc::new(MockSummarizer::success(
-            String::new(),
-            String::new(),
-        ));
+        let summarizer = Arc::new(MockSummarizer::success(String::new(), String::new()));
 
         let doc = Document::from_file(&input, reader, summarizer)
             .await
@@ -437,11 +403,7 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_with_very_long_text() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "large.pdf".to_string(),
-            vec![1; 10000],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("large.pdf".to_string(), vec![1; 10000], user_id);
 
         let long_text = "A".repeat(1_000_000);
         let long_summary = "B".repeat(500_000);
@@ -465,14 +427,10 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_with_unicode() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new(
-            "unicode.pdf".to_string(),
-            vec![1, 2, 3],
-            user_id,
-        );
+        let input = UploadedDocumentInput::new("unicode.pdf".to_string(), vec![1, 2, 3], user_id);
 
         let reader = Arc::new(MockTextReader::success(
-            "Text with émojis 🚀 and 中文字符".to_string()
+            "Text with émojis 🚀 and 中文字符".to_string(),
         ));
 
         let summarizer = Arc::new(MockSummarizer::success(

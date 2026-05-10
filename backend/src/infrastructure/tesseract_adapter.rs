@@ -1,23 +1,20 @@
-use std::{error::Error, io::Write, sync::Arc};
+use std::{error::Error, sync::Arc};
 
 use async_trait::async_trait;
 use reqwest::multipart::{Form, Part};
 use serde_json::json;
-use tempfile::NamedTempFile;
 
 use crate::{
     domain::{
         document_text_reader::DocumentTextReader, uploaded_document_input::UploadedDocumentInput,
     },
-    infrastructure::http_client::{HttpClient, HttpResponse},
+    infrastructure::{
+        document_text_extraction::{get_text_from_pdf, needs_ocr},
+        http_client::{HttpClient, HttpResponse},
+    },
 };
 
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-
-static OCR_EXTENSIONS: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| HashSet::from(["png", "jpg", "jpeg", "tiff", "bmp", "gif"]));
 
 #[derive(Debug, Deserialize, Serialize)]
 struct TesseractResponse {
@@ -43,47 +40,6 @@ impl TesseractAdapter {
             http_client,
         }
     }
-
-    /**
-     * Attempts to extract text from a PDF without OCR. Returns None if no text is found.
-     */
-    fn get_text_from_pdf(
-        &self,
-        uploaded_document_input: &UploadedDocumentInput,
-    ) -> Result<Option<String>, Box<dyn Error>> {
-        // pdf-extract needs a file so we create a temp file
-        let mut tmp = NamedTempFile::new()?;
-        tmp.write_all(&uploaded_document_input.file_data)?;
-        tmp.flush()?;
-
-        // Extract text
-        let text = pdf_extract::extract_text(tmp.path())?;
-
-        if text.trim().is_empty() {
-            tracing::info!(
-                "No text extracted from PDF. {}",
-                uploaded_document_input.file_name
-            );
-            Ok(None) // likely scanned PDF and needs OCR
-        } else {
-            tracing::info!(
-                "Extracted text from PDF: {}\n, {}",
-                uploaded_document_input.file_name,
-                text
-            );
-            Ok(Some(text))
-        }
-    }
-
-    /**
-     * Determines if the uploaded document likely needs OCR based on its file extension.
-     *
-     * NOTE: Some .pdf files do not work with OCR if they contain embedded text. If they are scanned
-     * images then OCR will work. We check in an earlier step if there is embedded text to extract.
-     */
-    fn needs_ocr(&self, uploaded_document_input: &UploadedDocumentInput) -> bool {
-        OCR_EXTENSIONS.contains(uploaded_document_input.extension.as_str())
-    }
 }
 
 #[async_trait]
@@ -95,7 +51,7 @@ impl DocumentTextReader for TesseractAdapter {
         // If it's a PDF, try to extract text without OCR first
         if uploaded_document_input.is_pdf() {
             tracing::info!("File '{}' is a PDF.", uploaded_document_input.file_name);
-            match self.get_text_from_pdf(uploaded_document_input)? {
+            match get_text_from_pdf(uploaded_document_input)? {
                 Some(text) => {
                     tracing::info!("Extracted text from PDF without OCR.");
                     return Ok(text);
@@ -109,7 +65,7 @@ impl DocumentTextReader for TesseractAdapter {
             }
         }
 
-        if !self.needs_ocr(uploaded_document_input) {
+        if !needs_ocr(uploaded_document_input) {
             tracing::info!(
                 "File '{}' does not need OCR.",
                 uploaded_document_input.file_name
@@ -214,16 +170,8 @@ mod tests {
 
     #[tokio::test]
     pub async fn test_read_image() {
-        use std::fs::File;
-        use std::io::Read;
-        use std::path::PathBuf;
-
         let file_name = "hello_world.png";
-        let path = PathBuf::from(format!("tests/resources/{}", file_name));
-        let mut file = File::open(path).expect("Failed to open the file");
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .expect("Failed to read the file");
+        let buffer = vec![0_u8, 1, 2];
         let adapter = super::TesseractAdapter::new(
             "http://localhost:8884".to_string(),
             Arc::new(MockHttpClient::new()),

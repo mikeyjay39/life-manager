@@ -8,7 +8,7 @@ use crate::infrastructure::{
 use axum::{
     Router,
     body::Body,
-    http::{header, Method, Request},
+    http::{Method, Request, header},
     routing::get,
 };
 use infrastructure::app_state::AppState;
@@ -62,7 +62,13 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
         .nest("/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()
-                .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
                 .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
                 .allow_origin(tower_http::cors::Any),
         )
