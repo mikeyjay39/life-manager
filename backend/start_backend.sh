@@ -70,9 +70,6 @@ echo "Loaded environment variables from $ENV_PATH"
 export ENV_FILE="backend/.${PROFILE}.env"
 export PROFILE
 
-# ---- Build Rust backend ----
-cd "$BACKEND_DIR"
-cargo build
 
 # ---- Kill backend process ----
 APP_PORT="${APP_PORT:=3000}"
@@ -91,6 +88,9 @@ fi
 
 # ---- Start backend as separate process if dev ----
 if [[ "$PROFILE" == "dev" ]]; then
+   # ---- Build Rust backend ----
+    cd "$BACKEND_DIR"
+    cargo build
     cargo run &
     echo "Backend started in development mode"
 fi
