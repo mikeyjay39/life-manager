@@ -10,17 +10,25 @@ import Constants from 'expo-constants';
  *
  * Override order: EXPO_PUBLIC_API_BASE_URL (build/runtime for web) → Expo `extra.apiUrl`
  * (from app.config.ts / app.json) → default below.
+ *
+ * If EXPO_PUBLIC_API_BASE_URL is set to an empty value, API_BASE_URL is empty so requests
+ * use root-relative paths (same origin as the page — use behind the prod gateway).
  */
 
 const getDefaultApiUrl = (): string => {
   return 'http://localhost:3000';
 };
 
-const rawPublic =
-  typeof process !== 'undefined' ? process.env.EXPO_PUBLIC_API_BASE_URL : undefined;
-const fromPublicEnv = rawPublic?.trim() ?? '';
+const hasExplicitPublicApiUrl =
+  typeof process !== 'undefined' &&
+  process.env.EXPO_PUBLIC_API_BASE_URL !== undefined;
 
-export const API_BASE_URL =
-  (fromPublicEnv || undefined) ??
-  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
-  getDefaultApiUrl();
+const trimmedPublic =
+  typeof process !== 'undefined'
+    ? (process.env.EXPO_PUBLIC_API_BASE_URL ?? '').trim()
+    : '';
+
+export const API_BASE_URL = hasExplicitPublicApiUrl
+  ? trimmedPublic
+  : ((Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
+    getDefaultApiUrl());
