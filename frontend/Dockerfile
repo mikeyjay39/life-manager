@@ -22,7 +22,8 @@ RUN npm ci
 
 COPY . .
 
-ARG EXPO_PUBLIC_API_BASE_URL=https://localhost
+# Empty = same-origin /api calls via the gateway (see frontend/constants/config.ts).
+ARG EXPO_PUBLIC_API_BASE_URL=
 ENV EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
 
 RUN npx expo export --platform web

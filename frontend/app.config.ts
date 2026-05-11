@@ -8,12 +8,13 @@ export default (): ExpoConfig => {
     base.extra && typeof base.extra === 'object'
       ? { ...(base.extra as Record<string, unknown>) }
       : ({} as Record<string, unknown>);
-  const fromEnv = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  const rawPublic = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const hasExplicitPublicApiUrl = rawPublic !== undefined;
 
-  if (fromEnv) {
+  if (hasExplicitPublicApiUrl) {
     return {
       ...base,
-      extra: { ...existingExtra, apiUrl: fromEnv },
+      extra: { ...existingExtra, apiUrl: (rawPublic ?? '').trim() },
     };
   }
 
