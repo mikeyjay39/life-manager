@@ -26,7 +26,7 @@ services:
   #   profiles: ["dev", "prod"]
 
   life-manager:
-    image: public.ecr.aws/b1a6d4u1/life-manager-backend:latest
+    image: ${LIFE_MANAGER_BACKEND_IMAGE}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -44,7 +44,7 @@ services:
     profiles: ["prod"]
 
   frontend:
-    image: public.ecr.aws/b1a6d4u1/life-manager-frontend:latest
+    image: ${LIFE_MANAGER_FRONTEND_IMAGE}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -59,7 +59,7 @@ services:
     profiles: ["prod"]
 
   gateway:
-    image: public.ecr.aws/b1a6d4u1/life-manager-gateway:latest
+    image: ${LIFE_MANAGER_GATEWAY_IMAGE}
     build:
       context: ./nginx
       dockerfile: gateway.Dockerfile
@@ -99,7 +99,7 @@ services:
   # OCR sidecar — not started with dev/test/prod alone; use e.g.
   # docker compose --profile prod --profile tesseract up -d
   tesseract:
-    image: hertzg/tesseract-server:latest
+    image: ${TESSERACT_SERVER_IMAGE:-hertzg/tesseract-server:latest}
     container_name: tesseract
     ports:
       - "${TESSERACT_PORT}:${TESSERACT_PORT}"
