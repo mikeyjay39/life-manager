@@ -77,6 +77,7 @@ services:
     volumes:
       # Writable so the gateway entrypoint can create localhost.crt/key when missing (see nginx/docker-entrypoint.d).
       - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/certbot/webroot:/var/www/certbot
     depends_on:
       - life-manager
       - frontend
