@@ -3,7 +3,7 @@ server {
     server_name localhost;
 
     # HTTP-01: serve challenges on plain HTTP; do not redirect this path to HTTPS.
-    location /.well-known/acme-challenge/ {
+    location ^~ /.well-known/acme-challenge/ {
         root /var/www/certbot;
         default_type text/plain;
     }
@@ -21,7 +21,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/localhost.key;
 
     # If the CA follows a redirect to HTTPS, still serve the token from the webroot.
-    location /.well-known/acme-challenge/ {
+    location ^~ /.well-known/acme-challenge/ {
         root /var/www/certbot;
         default_type text/plain;
     }
