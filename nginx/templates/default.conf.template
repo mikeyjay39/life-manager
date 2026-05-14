@@ -1,16 +1,30 @@
 server {
-    listen 80;
+    listen 80 default_server;
     server_name localhost;
 
-    return 301 https://$host$request_uri;
+    # HTTP-01: serve challenges on plain HTTP; do not redirect this path to HTTPS.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl default_server;
     server_name localhost;
 
     ssl_certificate /etc/nginx/certs/localhost.crt;
     ssl_certificate_key /etc/nginx/certs/localhost.key;
+
+    # If the CA follows a redirect to HTTPS, still serve the token from the webroot.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
 
     location /api {
         proxy_pass http://life-manager:${APP_PORT};
