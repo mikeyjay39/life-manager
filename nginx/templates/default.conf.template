@@ -1,16 +1,35 @@
 server {
-    listen 80;
-    server_name localhost;
+    listen 80 default_server;
+    server_name life-manager.jeszenka.com;
 
-    return 301 https://$host$request_uri;
+    # HTTP-01: serve challenges on plain HTTP; do not redirect this path to HTTPS.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 
 server {
-    listen 443 ssl;
-    server_name localhost;
+    listen 443 ssl default_server;
+    server_name life-manager.jeszenka.com;
 
-    ssl_certificate /etc/nginx/certs/localhost.crt;
-    ssl_certificate_key /etc/nginx/certs/localhost.key;
+    ssl_certificate /etc/letsencrypt/live/life-manager.jeszenka.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/life-manager.jeszenka.com/privkey.pem;
+
+    # SSL Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # If the CA follows a redirect to HTTPS, still serve the token from the webroot.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+    }
 
     location /api {
         proxy_pass http://life-manager:${APP_PORT};

@@ -30,7 +30,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    pull_policy: always
     container_name: life_manager_app
     env_file:
       - ${ENV_FILE}
@@ -51,10 +50,12 @@ services:
       target: production
       args:
         EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-}
-    pull_policy: always
     container_name: life_manager_frontend
     ports:
       - "${FRONTEND_PORT:-8080}:80"
+    volumes:
+      # Same host path as gateway: if ACME hits the frontend (e.g. old gateway image), tokens exist and are not served as SPA index.html.
+      - ./nginx/certbot/webroot:/var/www/certbot:ro
     restart: on-failure
     profiles: ["prod"]
 
@@ -63,7 +64,6 @@ services:
     build:
       context: ./nginx
       dockerfile: gateway.Dockerfile
-    pull_policy: always
     container_name: life_manager_gateway
     profiles: ["prod"]
     env_file:
@@ -75,8 +75,12 @@ services:
       - "${NGINX_PORT:-80}:80"
       - "443:443"
     volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       # Writable so the gateway entrypoint can create localhost.crt/key when missing (see nginx/docker-entrypoint.d).
       - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/certbot/webroot:/var/www/certbot
+      # Pick up nginx template edits without rebuilding the gateway image.
+      - ./nginx/templates/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       - life-manager
       - frontend
