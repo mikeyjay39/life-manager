@@ -30,7 +30,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    pull_policy: always
     container_name: life_manager_app
     env_file:
       - ${ENV_FILE}
@@ -51,7 +50,6 @@ services:
       target: production
       args:
         EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-}
-    pull_policy: always
     container_name: life_manager_frontend
     ports:
       - "${FRONTEND_PORT:-8080}:80"
@@ -66,7 +64,6 @@ services:
     build:
       context: ./nginx
       dockerfile: gateway.Dockerfile
-    pull_policy: always
     container_name: life_manager_gateway
     profiles: ["prod"]
     env_file:
@@ -78,6 +75,7 @@ services:
       - "${NGINX_PORT:-80}:80"
       - "443:443"
     volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
       # Writable so the gateway entrypoint can create localhost.crt/key when missing (see nginx/docker-entrypoint.d).
       - ./nginx/certs:/etc/nginx/certs
       - ./nginx/certbot/webroot:/var/www/certbot
