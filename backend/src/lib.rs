@@ -1,4 +1,5 @@
 mod application;
+mod build_info;
 mod domain;
 pub mod infrastructure;
 use crate::infrastructure::{
@@ -23,6 +24,7 @@ pub mod schema;
 #[tokio::main]
 pub async fn start_server() {
     tracing::info!("Starting server");
+    build_info::init();
     let app = build_app(None).await;
 
     // Define the address to run the server on
@@ -59,6 +61,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
 
     Router::new()
         .route("/api/health", get(|| async { "up" }))
+        .route("/api/version", get(|| async { build_info::git_commit() }))
         .nest("/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()
