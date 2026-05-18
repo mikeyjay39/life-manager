@@ -122,3 +122,43 @@ jobs:
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
 
+  deploy-backend-lightsail:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deploy-backend-image
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-west-2
+      ECR_REGISTRY: 089366939950.dkr.ecr.us-west-2.amazonaws.com
+      DEPLOY_PATH: /home/ec2-user/life-manager
+      GITHUB_SHA: ${{ github.sha }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR login password
+        id: ecr-password
+        run: echo "password=$(aws ecr get-login-password --region "${AWS_REGION}")" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy prod stack on Lightsail
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          ECR_PASSWORD: ${{ steps.ecr-password.outputs.password }}
+          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          GITHUB_SHA: ${{ env.GITHUB_SHA }}
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ec2-user
+          key: ${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: ECR_PASSWORD,ECR_REGISTRY,DEPLOY_PATH,GITHUB_SHA
+          script: |
+            set -euo pipefail
+            cd "${DEPLOY_PATH}"
+            git pull origin main
+            bash scripts/deploy-prod-lightsail.sh
+
