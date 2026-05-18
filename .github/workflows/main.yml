@@ -52,6 +52,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Write build revision
+        run: ./backend/scripts/write_rev.sh
+
       - name: Run Unit Tests
         run: cargo test --lib --manifest-path backend/Cargo.toml
   integration-tests:
@@ -76,6 +79,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Write build revision
+        run: ./backend/scripts/write_rev.sh
 
       - name: Run Integration Tests
         run: cd backend && cargo test --test '*'

@@ -90,6 +90,7 @@ fi
 if [[ "$PROFILE" == "dev" ]]; then
    # ---- Build Rust backend ----
     cd "$BACKEND_DIR"
+    "$BACKEND_DIR/scripts/write_rev.sh"
     cargo build
     cargo run &
     echo "Backend started in development mode"
@@ -98,6 +99,7 @@ fi
 # --- Build prod images (gateway template must match repo or nginx fails at runtime)
 if [[ "$PROFILE" == "prod" && "$BUILD_IMAGE" -eq 1 ]]; then
   echo "Building Docker images for production..."
+  "$BACKEND_DIR/scripts/write_rev.sh"
   if [[ "$WITH_TESSERACT" -eq 1 ]]; then
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod --profile tesseract build --no-cache life-manager gateway frontend
   else

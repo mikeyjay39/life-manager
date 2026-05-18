@@ -1,5 +1,6 @@
 target/*
 backend/target/*
+backend/rev.txt
 node_modules/
 
 # SQLite database files
