@@ -86,4 +86,39 @@ jobs:
       - name: Run Integration Tests
         run: cd backend && cargo test --test '*'
 
+  deploy-backend-image:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend-unit-tests, backend-unit-tests, integration-tests]
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-west-2
+      ECR_REGISTRY: 089366939950.dkr.ecr.us-west-2.amazonaws.com
+      ECR_REPOSITORY: life-manager-backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Write build revision
+        run: ./backend/scripts/write_rev.sh
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
 
