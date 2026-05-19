@@ -1,39 +1,31 @@
 # Frontend — agent instructions
 
-Parent: [../AGENTS.md](../AGENTS.md). **Critical Rules** apply (agents do not run git or manual DB writes). **Do not assume** — ask when unsure. Update this file and [../AGENTS.md](../AGENTS.md) when frontend workflow or conventions change.
+Hub: [../AGENTS.md](../AGENTS.md) (**Critical Rules** and **Do not assume** apply). API / URLs: [../docs/agents/api.md](../docs/agents/api.md). Tests: [../docs/agents/testing.md](../docs/agents/testing.md).
+
+Update this file and the hub when frontend conventions change.
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `app/` | Expo Router — file-based routes (`(tabs)/`, `login.tsx`, `_layout.tsx`) |
-| `components/` | UI components; co-locate `ComponentName.test.tsx` |
-| `contexts/` | React context (`AuthContext` for token/login/logout) |
+| `app/` | Expo Router (`(tabs)/`, `login.tsx`, `_layout.tsx`) |
+| `components/` | UI; co-locate `*.test.tsx` |
+| `contexts/` | `AuthContext` (token, login, logout) |
 | `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch` |
-| `constants/config.ts` | `API_BASE_URL` resolution |
+| `constants/` | `config.ts` — `API_BASE_URL` |
 
-## API base URL
+Use `@/` path alias (`tsconfig.json`).
 
-Override order (see `constants/config.ts`, `app.config.ts`):
+## API and auth
 
-1. `EXPO_PUBLIC_API_BASE_URL` (build/runtime)
-2. Expo `extra.apiUrl`
+- Base URL and device notes: [../docs/agents/api.md](../docs/agents/api.md)
+- `authenticatedFetch` from `@/lib/api/client` — not raw `fetch` with hard-coded hosts
+- `useAuth()` from `@/contexts/AuthContext`; 401/403 → `handleUnauthorized`
 
-- **Dev:** usually `http://localhost:3000` (or host reachable from device/emulator)
-- **Prod:** same origin as **gateway** (not raw frontend container port)
+## Tests
 
-Use `authenticatedFetch` from `@/lib/api/client` — do not hard-code full URLs in components.
-
-## Auth
-
-- `useAuth()` from `@/contexts/AuthContext` for token and `handleUnauthorized`
-- On 401/403, client calls `onUnauthorized` (typically logout)
-
-## Tests (Vitest + Testing Library)
-
-- Co-locate: `components/foo.test.tsx` next to `foo.tsx`
-- Mock `@/contexts/AuthContext` and `@/lib/api/client` as in existing tests
-- BDD-style `it('given X when Y then Z', ...)` with Given/When/Then comments when helpful
+- Vitest + Testing Library; mock `AuthContext` and `@/lib/api/client` (see existing `*.test.tsx`)
+- BDD-style names and Given/When/Then comments: [../docs/agents/testing.md](../docs/agents/testing.md)
 
 ```bash
 cd frontend && npm ci && npm run test:run
@@ -42,5 +34,8 @@ npm run lint
 
 ## Examples
 
-- List + tests: `components/document-list.tsx`, `document-list.test.tsx`
-- Form + tests: `components/document-create-form.tsx`, `document-create-form.test.tsx`
+| Task | Files |
+|------|--------|
+| List + tests | `components/document-list.tsx`, `document-list.test.tsx` |
+| Form + tests | `components/document-create-form.tsx`, `document-create-form.test.tsx` |
+| API client | `lib/api/client.ts` |

@@ -1,29 +1,12 @@
 ---
-description: Expo Router, Vitest, and API client patterns for the frontend
+description: Frontend — follow stack agent docs
 globs: frontend/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
-# Frontend (Expo / React Native)
+# Frontend
 
-Follow [AGENTS.md](../AGENTS.md) and [frontend/AGENTS.md](../frontend/AGENTS.md). Do not assume — stop and ask the user if unsure. Update agent docs in the same change when frontend conventions or workflows change.
-
-## Structure
-
-- Screens in `app/` (expo-router); reusable UI in `components/`
-- Use `@/` imports; API via `authenticatedFetch` from `@/lib/api/client`
-- Auth via `useAuth()` from `@/contexts/AuthContext`
-
-## Tests
-
-- Co-locate `*.test.tsx`; mock AuthContext and api client
-- BDD names: `given … when … then …`; optional Given/When/Then comments
-
-## Config
-
-- `EXPO_PUBLIC_API_BASE_URL` or `extra.apiUrl` — must match backend reachability (see development_faq for emulator/device)
-
-## Reference
+Follow [AGENTS.md](../AGENTS.md), [frontend/AGENTS.md](../frontend/AGENTS.md), [docs/agents/api.md](../docs/agents/api.md), [docs/agents/testing.md](../docs/agents/testing.md).
 
 @frontend/components/document-list.test.tsx
 @frontend/lib/api/client.ts

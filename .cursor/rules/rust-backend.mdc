@@ -1,31 +1,12 @@
 ---
-description: Rust backend layer boundaries, Diesel, and BDD-style tests
+description: Rust backend — follow stack agent docs
 globs: backend/**/*.rs
 alwaysApply: false
 ---
 
 # Rust backend
 
-Follow [AGENTS.md](../AGENTS.md) and [backend/AGENTS.md](../backend/AGENTS.md). Do not assume — stop and ask the user if unsure. Update agent docs in the same change when backend conventions or workflows change.
-
-## Layers
-
-- `domain/` — no `application` or `infrastructure` imports
-- `application/` — no `infrastructure` imports
-- `infrastructure/` — handlers, Diesel, adapters; wire use cases here
-
-## Handlers
-
-- Match `infrastructure/document/` patterns: router → handler → `DocumentUseCases` / app state
-- Multipart document create: `json` part + `file` part (see development_faq)
-
-## Tests
-
-- Unit tests: `Given*` setup structs, scenario-style names, `// Given` / `// When` / `// Then`
-- Integration: `backend/tests/`, use `serial_test` when sharing Docker/state
-- Never run `diesel migration run`; authoring `migrations/*.sql` is OK
-
-## Reference
+Follow [AGENTS.md](../AGENTS.md), [backend/AGENTS.md](../backend/AGENTS.md), [docs/agents/api.md](../docs/agents/api.md), [docs/agents/testing.md](../docs/agents/testing.md).
 
 @backend/src/infrastructure/document/document_handler.rs
 @backend/tests/documents_tests.rs

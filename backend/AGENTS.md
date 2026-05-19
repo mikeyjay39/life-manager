@@ -1,18 +1,22 @@
 # Backend — agent instructions
 
-Parent: [../AGENTS.md](../AGENTS.md). **Critical Rules** (git read-only, DB read-only for agents) and **Do not assume** (ask when unsure) apply here. Update this file and [../AGENTS.md](../AGENTS.md) when backend workflow or conventions change.
+Hub: [../AGENTS.md](../AGENTS.md) (**Critical Rules** and **Do not assume** apply). API: [../docs/agents/api.md](../docs/agents/api.md). Tests: [../docs/agents/testing.md](../docs/agents/testing.md).
+
+Update this file and the hub when backend conventions change.
 
 ## Layout
 
 ```
 backend/src/
-  domain/           # Entities, traits — no application/infrastructure imports
+  domain/           # Entities, traits
   application/      # Use cases, commands, repository traits
   infrastructure/   # HTTP, Diesel, adapters (auth, document, tesseract, ollama)
   schema.rs         # Generated — do not hand-edit
-backend/migrations/ # SQL migrations — OK to author; user runs diesel migration run
-backend/tests/      # Integration tests (testcontainers, serial_test)
+backend/migrations/ # Author SQL here; user runs diesel migration run
+backend/tests/      # Integration tests
 ```
+
+Rust **edition 2024** (`Cargo.toml`).
 
 ## Layer rules
 
@@ -22,35 +26,30 @@ backend/tests/      # Integration tests (testcontainers, serial_test)
 | `application` | `domain`, `application` |
 | `infrastructure` | any layer |
 
-New features: extend `domain` / `application` first, then add handlers/ORM in `infrastructure/<feature>/`.
+New features: `domain` / `application` first, then `infrastructure/<feature>/` (see `infrastructure/document/`).
 
 ## API wiring
 
-- App router: `lib.rs` — nests `/api/v1` → `auth`, `documents`
-- Per-feature: `*_router.rs`, `*_handler.rs`, `*_state.rs`
-- Auth: JWT via `infrastructure/auth/`; handlers receive `AuthUser` where required
+- `lib.rs`: `/api/health`, `/api/version`, nest `/api/v1` → `auth`, `documents`
+- Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs`
+- Endpoints table: [../docs/agents/api.md](../docs/agents/api.md)
 
 ## Diesel / SQLite
 
-- Edition 2024, SQLite with bundled `libsqlite3-sys`
-- Agents: author `migrations/*.sql` only; never run `diesel migration run`
-- `DATABASE_URL` from env (e.g. `backend/.dev.env`)
+- Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` from `backend/.<profile>.env`
+- Agents: edit `migrations/*.sql` only — never `diesel migration run` or hand-edit `schema.rs`
+- User applies migrations per [../README.md](../README.md)
 
 ## Tests
 
-- **Unit:** `#[cfg(test)]` in modules (e.g. `document_handler.rs`) — `Given*` fixtures, `#[tokio::test]`
-- **Integration:** `backend/tests/*_tests.rs` — `serial_test::serial`, `traced_test`, testcontainers in `tests/common/`
-- Run: `./scripts/write_rev.sh` from repo root, then `cargo test --lib` / `cargo test --test '*'`
-- `#[ignore]` tests (docker-compose full stack, live Ollama) are skipped in normal CI
-
-## Optional quality
-
-```bash
-cargo fmt --manifest-path backend/Cargo.toml -- --check
-cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
-```
+- **Unit:** `#[cfg(test)]` in modules — `Given*` fixtures, `#[tokio::test]`, BDD-style names ([../docs/agents/testing.md](../docs/agents/testing.md))
+- **Integration:** `tests/*_tests.rs` — `serial_test::serial`, `traced_test`, testcontainers (`tests/common/`)
+- Always `./backend/scripts/write_rev.sh` before backend test runs (see testing doc for commands)
 
 ## Examples
 
-- Handler + BDD-style unit tests: `src/infrastructure/document/document_handler.rs`
-- Integration: `tests/documents_tests.rs`
+| Task | File |
+|------|------|
+| Handler + unit tests | `src/infrastructure/document/document_handler.rs` |
+| Router | `src/infrastructure/document/document_router.rs` |
+| Integration | `tests/documents_tests.rs` |
