@@ -32,6 +32,10 @@ cd frontend && npm ci && npm run test:run
 npm run lint
 ```
 
+## Workflow diagrams
+
+Multi-step UI flows (auth → fetch → render, wizards, etc.) follow the hub [**Definition of done**](../AGENTS.md#definition-of-done): add an ASCII UML sequence or activity diagram as a comment on the orchestrating component or hook. Canonical backend example: [`document_handler.rs`](../backend/src/infrastructure/document/document_handler.rs) (`create_document`).
+
 ## Examples
 
 | Task | Files |

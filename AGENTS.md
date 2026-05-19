@@ -72,6 +72,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 
 - [ ] Layer/layout rules ([backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md))
 - [ ] Tests per [docs/agents/testing.md](docs/agents/testing.md) when behavior changed
+- [ ] **ASCII workflow diagrams** — new multi-step workflows (orchestration across layers, services, or non-trivial branching) include an ASCII UML diagram as a code comment on the entry point (handler, use case, screen/hook). Use a **sequence** diagram for call/message order; **activity** for branches/steps; both only when both help. Example: [`create_document` in `document_handler.rs`](backend/src/infrastructure/document/document_handler.rs). When changing existing workflows: update an existing diagram if the flow changed materially; add one if missing and non-trivial; skip trivial one-step CRUD.
 - [ ] Agent docs updated if workflows changed
 - [ ] User told if they must apply migrations, change env, or run git
 

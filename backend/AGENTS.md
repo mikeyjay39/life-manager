@@ -50,6 +50,6 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 | Task | File |
 |------|------|
-| Handler + unit tests | `src/infrastructure/document/document_handler.rs` |
+| Handler + unit tests + ASCII sequence diagram | `src/infrastructure/document/document_handler.rs` (`create_document` doc comment — see hub **Definition of done**) |
 | Router | `src/infrastructure/document/document_router.rs` |
 | Integration | `tests/documents_tests.rs` |
