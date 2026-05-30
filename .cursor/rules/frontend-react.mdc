@@ -1,0 +1,12 @@
+---
+description: Frontend — follow stack agent docs
+globs: frontend/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Frontend
+
+Follow [AGENTS.md](../AGENTS.md), [frontend/AGENTS.md](../frontend/AGENTS.md), [docs/agents/api.md](../docs/agents/api.md), [docs/agents/testing.md](../docs/agents/testing.md).
+
+@frontend/components/document-list.test.tsx
+@frontend/lib/api/client.ts
