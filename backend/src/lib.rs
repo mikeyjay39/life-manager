@@ -1,14 +1,13 @@
 mod build_info;
-use auth::auth_router;
 use axum::{
     Router,
     body::Body,
     http::{Method, Request, header},
     routing::get,
 };
-use life_manager::infrastructure::{
-    app_state::{AppState, AppStateBuilder},
-    document::document_router::document_router,
+use life_manager::{
+    infrastructure::app_state::{AppState, AppStateBuilder},
+    life_manager_api_router,
 };
 use std::env;
 use std::net::SocketAddr;
@@ -58,7 +57,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
     Router::new()
         .route("/api/health", get(|| async { "up" }))
         .route("/api/version", get(|| async { build_info::git_commit() }))
-        .nest("/life-manager/api/v1", rest_api_router())
+        .nest("/life-manager", life_manager_api_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([
@@ -87,13 +86,4 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
             )),
         )
         .with_state(state)
-}
-
-/**
-Hold the routers for domains and features.
-*/
-fn rest_api_router() -> Router<AppState> {
-    Router::new()
-        .nest("/auth", auth_router::<AppState>())
-        .nest("/documents", document_router())
 }
