@@ -1,8 +1,9 @@
 # Compose file lives at the repository root (paths below are relative to this directory).
 #
 # Prod profile: the `gateway` service is the main entry (HTTP NGINX_PORT defaults to 80; HTTPS 443).
-# It proxies / to the static frontend and /api to the life-manager backend. The prod frontend build
-# defaults to an empty EXPO_PUBLIC_API_BASE_URL so the browser uses same-origin /api paths. Override
+# It proxies / to the static frontend, /life-manager/api to the life-manager v1 API, and /api to
+# health/version endpoints. The prod frontend build defaults to an empty EXPO_PUBLIC_API_BASE_URL
+# so the browser uses same-origin /life-manager/api paths. Override
 # with a full origin if you must talk to the API on another host (non-gateway devices, etc.).
 #
 # Dev (frontend_dev) defaults EXPO_PUBLIC_API_BASE_URL to http://localhost:3000 for direct backend access.

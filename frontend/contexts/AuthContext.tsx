@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getStoredToken, setStoredToken, clearStoredToken } from '@/lib/auth/storage';
 import { apiFetch } from '@/lib/api/client';
+import { API_V1_PREFIX } from '@/constants/config';
 
 type AuthContextType = {
   token: string | null;
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string): Promise<LoginResult> => {
     try {
-      const response = await apiFetch('/api/v1/auth/login', {
+      const response = await apiFetch(`${API_V1_PREFIX}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

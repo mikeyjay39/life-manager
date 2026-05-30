@@ -4,6 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
+import { API_V1_PREFIX } from '@/constants/config';
 
 function parseTags(input: string): string[] {
   return input
@@ -71,7 +72,7 @@ export default function DocumentCreateForm() {
 
     setLoading(true);
     try {
-      const response = await apiFetch('/api/v1/documents', {
+      const response = await apiFetch(`${API_V1_PREFIX}/documents`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

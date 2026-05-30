@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
+import { API_V1_PREFIX } from '@/constants/config';
 
 type DocumentRow = {
   id: string;
@@ -32,7 +33,7 @@ export default function DocumentList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await authenticatedFetch('/api/v1/documents', {
+      const response = await authenticatedFetch(`${API_V1_PREFIX}/documents`, {
         method: 'GET',
         token,
         onUnauthorized: handleUnauthorized,

@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
+import { API_V1_PREFIX } from '@/constants/config';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -70,7 +71,7 @@ describe('DocumentCreateForm', () => {
       expect(mockApiFetch).toHaveBeenCalled();
     });
     const call = mockApiFetch.mock.calls[0];
-    expect(call[0]).toContain('/api/v1/documents');
+    expect(call[0]).toContain(`${API_V1_PREFIX}/documents`);
     expect(call[1]).toMatchObject({
       method: 'POST',
       headers: { Authorization: 'Bearer test-token' },

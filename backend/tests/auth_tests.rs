@@ -7,7 +7,7 @@ use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
 use tracing_test::traced_test;
 
-const AUTH_URL: &str = "/api/v1/auth";
+const AUTH_URL: &str = "/life-manager/api/v1/auth";
 
 #[tokio::test]
 #[serial]

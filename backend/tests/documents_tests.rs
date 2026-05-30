@@ -16,7 +16,7 @@ use crate::common::setup::{
 use reqwest::ClientBuilder;
 use std::time::Duration;
 
-const DOCUMENTS_URL: &str = "/api/v1/documents";
+const DOCUMENTS_URL: &str = "/life-manager/api/v1/documents";
 
 #[tokio::test]
 #[serial]
@@ -369,7 +369,7 @@ async fn get_all_documents() {
 
         // Test title query parameter
         let get_all_url_result = server
-            .server_url("/api/v1/documents?title=First")
+            .server_url("/life-manager/api/v1/documents?title=First")
             .expect("Failed to get server URL");
         let get_all_url = get_all_url_result.as_str();
         tracing::info!("GET All Documents URL: {}", get_all_url);

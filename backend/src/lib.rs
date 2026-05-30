@@ -58,7 +58,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
     Router::new()
         .route("/api/health", get(|| async { "up" }))
         .route("/api/version", get(|| async { build_info::git_commit() }))
-        .nest("/api/v1", rest_api_router())
+        .nest("/life-manager/api/v1", rest_api_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([

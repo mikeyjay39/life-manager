@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import DocumentList from './document-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
+import { API_V1_PREFIX } from '@/constants/config';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -56,7 +57,7 @@ describe('DocumentList', () => {
     });
     expect(screen.getByText('Beta')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
-      '/api/v1/documents',
+      `${API_V1_PREFIX}/documents`,
       expect.objectContaining({ method: 'GET', token: 'tok' })
     );
   });

@@ -20,7 +20,7 @@ use wiremock::{
 
 use crate::common::docker::{docker_compose_down, start_docker_compose_dev_profile};
 
-const AUTH_URL: &str = "/api/v1/auth";
+const AUTH_URL: &str = "/life-manager/api/v1/auth";
 
 /// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///
