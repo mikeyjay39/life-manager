@@ -1825,16 +1825,12 @@ dependencies = [
  "async-trait",
  "auth",
  "axum",
- "axum-server",
- "axum-test",
  "chrono",
  "deadpool-diesel",
  "diesel",
  "diesel_migrations",
- "dotenv",
  "dotenvy",
  "image",
- "imageproc",
  "lazy_static",
  "libsqlite3-sys",
  "ollama-rs",
@@ -1843,17 +1839,11 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "serial_test",
  "tempfile",
- "testcontainers",
  "tokio",
- "tower",
- "tower-http",
  "tracing",
- "tracing-subscriber",
  "tracing-test",
  "uuid",
- "wiremock",
 ]
 
 [[package]]
@@ -1986,6 +1976,36 @@ dependencies = [
  "migrations_internals",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "mikeyjay-server"
+version = "0.1.0"
+dependencies = [
+ "auth",
+ "axum",
+ "axum-server",
+ "axum-test",
+ "deadpool-diesel",
+ "diesel_migrations",
+ "dotenv",
+ "image",
+ "imageproc",
+ "life-manager",
+ "once_cell",
+ "reqwest",
+ "serde_json",
+ "serial_test",
+ "tempfile",
+ "testcontainers",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-test",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]

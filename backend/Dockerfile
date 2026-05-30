@@ -4,7 +4,9 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
 COPY auth/Cargo.toml auth/
+COPY life-manager/Cargo.toml life-manager/
 RUN mkdir -p auth/src && echo "pub fn _dummy() {}" > auth/src/lib.rs \
+ && mkdir -p life-manager/src && echo "pub fn _dummy() {}" > life-manager/src/lib.rs \
  && mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 

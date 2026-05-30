@@ -1,3 +1,3 @@
 fn main() {
-    life_manager::start_server();
+    mikeyjay_server::start_server();
 }

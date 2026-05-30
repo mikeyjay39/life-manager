@@ -51,10 +51,16 @@ mod tests {
 
     use super::UploadedDocumentInput;
 
+    fn test_resources_path(file_name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests/resources")
+            .join(file_name)
+    }
+
     #[test]
     pub fn test_new() {
         let file_name = "hello_world.png";
-        let path = PathBuf::from(format!("tests/resources/{}", file_name));
+        let path = test_resources_path(file_name);
         let mut file = File::open(path).expect("Failed to open the file");
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)

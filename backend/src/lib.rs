@@ -1,25 +1,21 @@
-mod application;
 mod build_info;
-mod domain;
-pub mod infrastructure;
 use auth::auth_router;
-use crate::infrastructure::{
-    app_state::AppStateBuilder, document::document_router::document_router,
-};
 use axum::{
     Router,
     body::Body,
     http::{Method, Request, header},
     routing::get,
 };
-use infrastructure::app_state::AppState;
+use life_manager::infrastructure::{
+    app_state::{AppState, AppStateBuilder},
+    document::document_router::document_router,
+};
 use std::env;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
-pub mod schema;
 
 #[tokio::main]
 pub async fn start_server() {
