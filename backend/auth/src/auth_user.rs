@@ -5,7 +5,7 @@ use axum::{
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use uuid::Uuid;
 
-use crate::infrastructure::auth::{jwt_secret::JWT_SECRET, login_request::Claims};
+use crate::{jwt_secret::JWT_SECRET, login_request::Claims};
 
 pub struct AuthUser {
     pub user_id: Uuid,

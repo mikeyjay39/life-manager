@@ -1,7 +1,7 @@
 use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
-use crate::infrastructure::auth::auth_user::AuthUser;
+use auth::AuthUser;
 use crate::infrastructure::document::document_state::DocumentState;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;

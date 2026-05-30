@@ -3,7 +3,9 @@ FROM rust:bookworm AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+COPY auth/Cargo.toml auth/
+RUN mkdir -p auth/src && echo "pub fn _dummy() {}" > auth/src/lib.rs \
+ && mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 
 COPY . .

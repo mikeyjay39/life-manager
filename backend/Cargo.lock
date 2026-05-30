@@ -157,6 +157,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "auth"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "jsonwebtoken",
+ "serde",
+ "time",
+ "tracing",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1809,6 +1823,7 @@ name = "life-manager"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "auth",
  "axum",
  "axum-server",
  "axum-test",
@@ -1820,7 +1835,6 @@ dependencies = [
  "dotenvy",
  "image",
  "imageproc",
- "jsonwebtoken",
  "lazy_static",
  "libsqlite3-sys",
  "ollama-rs",
@@ -1832,7 +1846,6 @@ dependencies = [
  "serial_test",
  "tempfile",
  "testcontainers",
- "time",
  "tokio",
  "tower",
  "tower-http",
@@ -1841,7 +1854,6 @@ dependencies = [
  "tracing-test",
  "uuid",
  "wiremock",
- "zeroize",
 ]
 
 [[package]]

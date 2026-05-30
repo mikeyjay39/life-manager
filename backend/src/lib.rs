@@ -2,9 +2,9 @@ mod application;
 mod build_info;
 mod domain;
 pub mod infrastructure;
+use auth::auth_router;
 use crate::infrastructure::{
-    app_state::AppStateBuilder, auth::auth_router::auth_router,
-    document::document_router::document_router,
+    app_state::AppStateBuilder, document::document_router::document_router,
 };
 use axum::{
     Router,
@@ -98,6 +98,6 @@ Hold the routers for domains and features.
 */
 fn rest_api_router() -> Router<AppState> {
     Router::new()
-        .nest("/auth", auth_router())
+        .nest("/auth", auth_router::<AppState>())
         .nest("/documents", document_router())
 }

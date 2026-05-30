@@ -3,9 +3,9 @@ use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::sqlite::Pool;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use auth::{LoginRequest, LoginResponse};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
-    auth::login_request::{LoginRequest, LoginResponse},
     db::create_connection_pool_from_url,
 };
 use reqwest::{Client, ClientBuilder};

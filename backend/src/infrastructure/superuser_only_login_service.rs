@@ -1,12 +1,8 @@
 use std::env;
 
 use async_trait::async_trait;
+use auth::{LoginRequest, LoginResult, LoginService};
 use uuid::Uuid;
-
-use crate::infrastructure::auth::{
-    login_request::LoginRequest,
-    login_service::{LoginResult, LoginService},
-};
 
 const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
 
@@ -46,7 +42,7 @@ impl LoginService for SuperuserOnlyLoginService {
 
         if username == &self.admin_username && password == &self.admin_password {
             Ok(LoginResult {
-                user_id: self.admin_user_id.clone(),
+                user_id: self.admin_user_id,
             })
         } else {
             Err("Invalid user credentials".to_string())
@@ -57,12 +53,10 @@ impl LoginService for SuperuserOnlyLoginService {
 #[cfg(test)]
 mod tests {
 
-    use tokio::test;
-
     use super::*;
 
     #[test]
-    async fn test_superuser_login_success() {
+    fn test_superuser_login_success() {
         let service = SuperuserOnlyLoginService::new("admin".to_string(), "password".to_string());
         let login_req = LoginRequest {
             username: "admin".to_string(),

@@ -2,7 +2,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use time::{Duration, OffsetDateTime};
 
-use crate::infrastructure::auth::{
+use crate::{
     auth_state::AuthState,
     jwt_secret::JWT_SECRET,
     login_request::{Claims, LoginRequest, LoginResponse},
