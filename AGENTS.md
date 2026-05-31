@@ -21,6 +21,7 @@ Personal/family life-management app. **Documents** are implemented today; more d
 | [README.md](README.md) | Run profiles, ports, Compose, Diesel setup, domain diagram |
 | [docs/development_faq.md](docs/development_faq.md) | Multipart uploads, git-crypt, local HTTP / devices |
 | [docs/todos.md](docs/todos.md) | Planned work — do not implement unless asked |
+| [docs/architecture.md](docs/architecture.md) | Workspace layout, HTTP routing, deployment diagrams |
 | [docs/agents/api.md](docs/agents/api.md) | HTTP routes, auth, API base URL |
 | [docs/agents/testing.md](docs/agents/testing.md) | CI commands, BDD examples |
 | [frontend/README.md](frontend/README.md) | Frontend setup |
@@ -41,7 +42,7 @@ These override everything else in agent docs.
 
 **Never run** write SQL or migration-apply CLI (`INSERT`…`REPLACE`, `diesel migration run`, `diesel database reset`, write `sqlite3`, etc.).
 
-**OK:** `SELECT`, read-only Diesel inspect (`diesel migration list`, `diesel print-schema`), **authoring** `backend/migrations/*.sql`, **`cargo test`** / **`cargo run`** (app/test harness owns DB). Details: [backend/AGENTS.md](backend/AGENTS.md).
+**OK:** `SELECT`, read-only Diesel inspect (`diesel migration list`, `diesel print-schema`), **authoring** `backend/libs/life-manager/migrations/*.sql`, **`cargo test`** / **`cargo run`** (app/test harness owns DB). Details: [backend/AGENTS.md](backend/AGENTS.md).
 
 ## Do not assume
 
@@ -65,14 +66,14 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 
 - Small, focused diffs; match surrounding code.
 - **Update agent docs** in the same change when workflows/conventions change ([AGENTS.md](AGENTS.md), stack `AGENTS.md`, `docs/agents/*`, `.cursor/rules/*.mdc`).
-- Do not edit: `backend/src/schema.rs`, `backend/rev.txt`, `backend/target/`, `frontend/node_modules/`.
+- Do not edit: `backend/libs/life-manager/src/schema.rs`, `backend/rev.txt`, `backend/target/`, `frontend/node_modules/`.
 - No secrets in commits; see git-crypt in development FAQ.
 
 ## Definition of done
 
 - [ ] Layer/layout rules ([backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md))
 - [ ] Tests per [docs/agents/testing.md](docs/agents/testing.md) when behavior changed
-- [ ] **ASCII workflow diagrams** — new multi-step workflows (orchestration across layers, services, or non-trivial branching) include an ASCII UML diagram as a code comment on the entry point (handler, use case, screen/hook). Use a **sequence** diagram for call/message order; **activity** for branches/steps; both only when both help. Example: [`create_document` in `document_handler.rs`](backend/src/infrastructure/document/document_handler.rs). When changing existing workflows: update an existing diagram if the flow changed materially; add one if missing and non-trivial; skip trivial one-step CRUD.
+- [ ] **ASCII workflow diagrams** — new multi-step workflows (orchestration across layers, services, or non-trivial branching) include an ASCII UML diagram as a code comment on the entry point (handler, use case, screen/hook). Use a **sequence** diagram for call/message order; **activity** for branches/steps; both only when both help. Example: [`create_document` in `document_handler.rs`](backend/libs/life-manager/src/infrastructure/document/document_handler.rs). When changing existing workflows: update an existing diagram if the flow changed materially; add one if missing and non-trivial; skip trivial one-step CRUD.
 - [ ] Agent docs updated if workflows changed
 - [ ] User told if they must apply migrations, change env, or run git
 

@@ -1,25 +1,20 @@
-mod application;
 mod build_info;
-mod domain;
-pub mod infrastructure;
-use crate::infrastructure::{
-    app_state::AppStateBuilder, auth::auth_router::auth_router,
-    document::document_router::document_router,
-};
 use axum::{
     Router,
     body::Body,
     http::{Method, Request, header},
     routing::get,
 };
-use infrastructure::app_state::AppState;
+use life_manager::{
+    infrastructure::app_state::{AppState, AppStateBuilder},
+    life_manager_api_router,
+};
 use std::env;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
-pub mod schema;
 
 #[tokio::main]
 pub async fn start_server() {
@@ -62,7 +57,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
     Router::new()
         .route("/api/health", get(|| async { "up" }))
         .route("/api/version", get(|| async { build_info::git_commit() }))
-        .nest("/api/v1", rest_api_router())
+        .nest("/life-manager", life_manager_api_router())
         .layer(
             CorsLayer::new()
                 .allow_methods([
@@ -91,13 +86,4 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
             )),
         )
         .with_state(state)
-}
-
-/**
-Hold the routers for domains and features.
-*/
-fn rest_api_router() -> Router<AppState> {
-    Router::new()
-        .nest("/auth", auth_router())
-        .nest("/documents", document_router())
 }

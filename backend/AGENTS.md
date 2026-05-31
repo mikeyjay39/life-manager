@@ -7,18 +7,36 @@ Update this file and the hub when backend conventions change.
 ## Layout
 
 ```
-backend/src/
-  domain/           # Entities, traits
-  application/      # Use cases, commands, repository traits
-  infrastructure/   # HTTP, Diesel, adapters (auth, document, tesseract, ollama)
-  schema.rs         # Generated — do not hand-edit
-backend/migrations/ # Author SQL here; user runs diesel migration run
-backend/tests/      # Integration tests
+backend/
+  src/                    # mikeyjay-server binary (lib.rs, main.rs, build_info)
+  libs/
+    auth/                 # JWT login, auth_router
+    life-manager/
+      src/domain/
+      src/application/
+      src/infrastructure/ # HTTP handlers, Diesel, adapters
+      src/schema.rs       # Generated — do not hand-edit
+      migrations/         # Author SQL here; user runs diesel migration run
+  tests/                  # Integration tests
 ```
 
 Rust **edition 2024** (`Cargo.toml`).
 
+## Workspace crates
+
+| Crate | Role |
+|-------|------|
+| **`mikeyjay-server`** | HTTP server binary; top-level routes in `src/lib.rs` |
+| **`auth`** | Shared authentication (`libs/auth/`) |
+| **`life-manager`** | Domain logic, Diesel/SQLite, feature routers (`libs/life-manager/`) |
+
+`mikeyjay-server` depends on `auth` + `life-manager`. New domain code goes in `life-manager`; shared auth in `auth`.
+
+**Naming:** Cargo package `mikeyjay-server`, library crate `life-manager`, binary artifact `life-manager` (see `[[bin]]` in root `Cargo.toml`).
+
 ## Layer rules
+
+Applies within **`libs/life-manager/src/`**:
 
 | Layer | May import |
 |-------|------------|
@@ -30,14 +48,15 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 ## API wiring
 
-- `lib.rs`: `/api/health`, `/api/version`, nest `/api/v1` → `auth`, `documents`
+- `backend/src/lib.rs`: `/api/health`, `/api/version`, nest `/life-manager` → `life_manager_api_router()`
+- `backend/libs/life-manager/src/lib.rs`: nest `/api/v1` → `auth`, `documents`
+- Public v1 paths: `/life-manager/api/v1/...` — see [../docs/agents/api.md](../docs/agents/api.md)
 - Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs`
-- Endpoints table: [../docs/agents/api.md](../docs/agents/api.md)
 
 ## Diesel / SQLite
 
 - Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` from `backend/.<profile>.env`
-- Agents: edit `migrations/*.sql` only — never `diesel migration run` or hand-edit `schema.rs`
+- Agents: edit `libs/life-manager/migrations/*.sql` only — never `diesel migration run` or hand-edit `libs/life-manager/src/schema.rs`
 - User applies migrations per [../README.md](../README.md)
 
 ## Tests
@@ -50,6 +69,6 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 | Task | File |
 |------|------|
-| Handler + unit tests + ASCII sequence diagram | `src/infrastructure/document/document_handler.rs` (`create_document` doc comment — see hub **Definition of done**) |
-| Router | `src/infrastructure/document/document_router.rs` |
+| Handler + unit tests + ASCII sequence diagram | `libs/life-manager/src/infrastructure/document/document_handler.rs` (`create_document` doc comment — see hub **Definition of done**) |
+| Router | `libs/life-manager/src/infrastructure/document/document_router.rs` |
 | Integration | `tests/documents_tests.rs` |

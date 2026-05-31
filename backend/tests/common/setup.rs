@@ -2,12 +2,13 @@ use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
 use deadpool_diesel::sqlite::Pool;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
+use diesel_migrations::MigrationHarness;
+use auth::{LoginRequest, LoginResponse};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
-    auth::login_request::{LoginRequest, LoginResponse},
-    db::create_connection_pool_from_url,
+    db::{MIGRATIONS, create_connection_pool_from_url},
 };
+use mikeyjay_server::build_app;
 use reqwest::{Client, ClientBuilder};
 use tempfile::NamedTempFile;
 
@@ -19,10 +20,7 @@ use wiremock::{
 
 use crate::common::docker::{docker_compose_down, start_docker_compose_dev_profile};
 
-const AUTH_URL: &str = "/api/v1/auth";
-
-// Embed database migrations
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+const AUTH_URL: &str = "/life-manager/api/v1/auth";
 
 /// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///
@@ -130,7 +128,7 @@ pub async fn build_app_server(url: &str) -> TestServer {
         .with_db_pool(Arc::new(pool))
         .build()
         .await;
-    let app = life_manager::build_app(Some(state)).await;
+    let app = build_app(Some(state)).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
         ..TestServerConfig::default()

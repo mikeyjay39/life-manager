@@ -2,15 +2,19 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import DocumentList from './document-list';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedFetch } from '@/lib/api/client';
+import { authenticatedFetch, apiV1 } from '@/lib/api/client';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock('@/lib/api/client', () => ({
-  authenticatedFetch: vi.fn(),
-}));
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
+  return {
+    ...actual,
+    authenticatedFetch: vi.fn(),
+  };
+});
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
@@ -56,7 +60,7 @@ describe('DocumentList', () => {
     });
     expect(screen.getByText('Beta')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
-      '/api/v1/documents',
+      apiV1('/documents'),
       expect.objectContaining({ method: 'GET', token: 'tok' })
     );
   });

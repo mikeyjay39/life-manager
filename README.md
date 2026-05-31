@@ -44,7 +44,7 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | Port / setting | What uses it |
 |----------------|----------------|
 | **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by container **`life-manager`** in **prod**. |
-| **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/api` → backend). Often the main browser URL. |
+| **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/life-manager/api` → v1 API, `/api` → health/version). Often the main browser URL. |
 | **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **dev**. |
 | **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
 | **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
@@ -65,6 +65,8 @@ The Compose file is **`docker-compose.yml`** at the repo root; its header commen
 
 **Prod note:** `frontend/start_frontend.sh` exits immediately in prod; the UI is served from Docker (`frontend` + `gateway`).
 
+Architecture diagrams (workspace layout, routing, deployment): [`docs/architecture.md`](docs/architecture.md).
+
 More detail on API URLs and mobile: [`docs/development_faq.md`](docs/development_faq.md).
 
 ### Backend app only
@@ -77,11 +79,17 @@ Uses `APP_PORT` from your environment (see `backend/.dev.env` for local defaults
 ## Example API calls
 
 ```bash
+# Health check
+curl --location 'http://127.0.0.1:3000/api/health'
+
 # Get a document by UUID
-curl --location 'http://127.0.0.1:3000/api/v1/documents/550e8400-e29b-41d4-a716-446655440000'
+curl --location 'http://127.0.0.1:3000/life-manager/api/v1/documents/550e8400-e29b-41d4-a716-446655440000'
 
 # Create a document
-curl -X POST -H "Content-Type: multipart/form-data" -F "json={\"title\":\"MYTEST\",\"content\":\"this is an example\"}" -F "file=@README.md" localhost:3000/documents
+curl -X POST -H "Content-Type: multipart/form-data" \
+  -F "json={\"title\":\"MYTEST\",\"content\":\"this is an example\"}" \
+  -F "file=@README.md" \
+  'http://127.0.0.1:3000/life-manager/api/v1/documents'
 ```
 
 

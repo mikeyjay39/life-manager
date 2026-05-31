@@ -157,6 +157,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "auth"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "jsonwebtoken",
+ "serde",
+ "time",
+ "tracing",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1809,18 +1823,14 @@ name = "life-manager"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "auth",
  "axum",
- "axum-server",
- "axum-test",
  "chrono",
  "deadpool-diesel",
  "diesel",
  "diesel_migrations",
- "dotenv",
  "dotenvy",
  "image",
- "imageproc",
- "jsonwebtoken",
  "lazy_static",
  "libsqlite3-sys",
  "ollama-rs",
@@ -1829,19 +1839,11 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "serial_test",
  "tempfile",
- "testcontainers",
- "time",
  "tokio",
- "tower",
- "tower-http",
  "tracing",
- "tracing-subscriber",
  "tracing-test",
  "uuid",
- "wiremock",
- "zeroize",
 ]
 
 [[package]]
@@ -1974,6 +1976,36 @@ dependencies = [
  "migrations_internals",
  "proc-macro2",
  "quote",
+]
+
+[[package]]
+name = "mikeyjay-server"
+version = "0.1.0"
+dependencies = [
+ "auth",
+ "axum",
+ "axum-server",
+ "axum-test",
+ "deadpool-diesel",
+ "diesel_migrations",
+ "dotenv",
+ "image",
+ "imageproc",
+ "life-manager",
+ "once_cell",
+ "reqwest",
+ "serde_json",
+ "serial_test",
+ "tempfile",
+ "testcontainers",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-test",
+ "uuid",
+ "wiremock",
 ]
 
 [[package]]

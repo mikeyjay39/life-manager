@@ -11,14 +11,17 @@ Update this file and the hub when frontend conventions change.
 | `app/` | Expo Router (`(tabs)/`, `login.tsx`, `_layout.tsx`) |
 | `components/` | UI; co-locate `*.test.tsx` |
 | `contexts/` | `AuthContext` (token, login, logout) |
-| `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch` |
-| `constants/` | `config.ts` — `API_BASE_URL` |
+| `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1` |
+| `constants/` | `config.ts` — `API_BASE_URL`, `API_V1_PREFIX` |
 
 Use `@/` path alias (`tsconfig.json`).
 
 ## API and auth
 
 - Base URL and device notes: [../docs/agents/api.md](../docs/agents/api.md)
+- `API_BASE_URL` — server origin (e.g. `http://localhost:3000` in dev, empty for same-origin prod)
+- `API_V1_PREFIX` — `/life-manager/api/v1`; build paths with `apiV1('/documents')` from `@/lib/api/client` (see `components/document-list.tsx`)
+- Do not hard-code `/api/v1` in components — use `apiV1`
 - `authenticatedFetch` from `@/lib/api/client` — not raw `fetch` with hard-coded hosts
 - `useAuth()` from `@/contexts/AuthContext`; 401/403 → `handleUnauthorized`
 
@@ -34,7 +37,7 @@ npm run lint
 
 ## Workflow diagrams
 
-Multi-step UI flows (auth → fetch → render, wizards, etc.) follow the hub [**Definition of done**](../AGENTS.md#definition-of-done): add an ASCII UML sequence or activity diagram as a comment on the orchestrating component or hook. Canonical backend example: [`document_handler.rs`](../backend/src/infrastructure/document/document_handler.rs) (`create_document`).
+Multi-step UI flows (auth → fetch → render, wizards, etc.) follow the hub [**Definition of done**](../AGENTS.md#definition-of-done): add an ASCII UML sequence or activity diagram as a comment on the orchestrating component or hook. Canonical backend example: [`document_handler.rs`](../backend/libs/life-manager/src/infrastructure/document/document_handler.rs) (`create_document`).
 
 ## Examples
 

@@ -32,3 +32,5 @@ export const API_BASE_URL = hasExplicitPublicApiUrl
   ? trimmedPublic
   : ((Constants.expoConfig?.extra?.apiUrl as string | undefined) ??
     getDefaultApiUrl());
+
+export const API_V1_PREFIX = '/life-manager/api/v1';

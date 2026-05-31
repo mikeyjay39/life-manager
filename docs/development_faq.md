@@ -44,7 +44,7 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 
 **Optional OCR:** add **`--profile tesseract`** so the **`tesseract`** service runs; set **`TESSERACT_ENABLED=true`** (sample env files default **`false`**, which selects **`NoOpDocumentTextReader`** in the backend—embedded PDF text still works; remote OCR does not). Example: **`docker compose --env-file backend/.prod.env --profile prod --profile tesseract up -d`**.
 
-Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry).
+Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry). Architecture diagrams: **[`architecture.md`](architecture.md)**.
 
 ## Local HTTP (API URL)
 
@@ -56,7 +56,11 @@ The backend listens on plain HTTP (see **`APP_PORT`**, default **`3000`**). For 
 **Quick check**
 
 ```bash
+# Ops endpoints (unchanged path)
 curl -v --max-time 8 http://localhost:3000/api/health
+
+# v1 API (dev: direct to backend; prod: use gateway origin + same path)
+curl -v --max-time 8 'http://localhost:3000/life-manager/api/v1/documents'
 ```
 
 ### Frontend base URL

@@ -63,9 +63,15 @@ mod tests {
     use super::*;
     use crate::domain::document_text_reader::DocumentTextReader;
 
+    fn test_resources_path(file_name: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/resources")
+            .join(file_name)
+    }
+
     #[tokio::test]
     async fn pdf_with_text_succeeds() {
-        let path = PathBuf::from("tests/resources/hello_world.pdf");
+        let path = test_resources_path("hello_world.pdf");
         let mut file = File::open(&path).expect("open pdf");
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
