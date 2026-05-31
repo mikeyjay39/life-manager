@@ -8,9 +8,10 @@
 #
 # Dev (frontend_dev) defaults EXPO_PUBLIC_API_BASE_URL to http://localhost:3000 for direct backend access.
 #
-# Deploy checklist (API path changes): rebuild and pull BOTH backend and frontend ECR images — API
-# paths are baked into the static frontend bundle at build time. A backend-only CI deploy is not
-# sufficient for prod to work end-to-end.
+# Deploy checklist (API path changes): API paths are baked into the static frontend bundle at
+# build time, so prod needs matching backend and frontend images. On merge to main, CI rebuilds
+# and pushes all three prod images (backend, frontend, gateway) to ECR; Lightsail pulls :latest
+# for the full stack via scripts/deploy-prod-lightsail.sh.
 
 name: life-manager
 

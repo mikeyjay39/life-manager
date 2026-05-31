@@ -132,8 +132,8 @@ jobs:
           target: production
           push: true
           tags: |
-            ${{ env.ECR_REGISTRY }}${{ ENV.FRONTEND_REPO }}:latest
-            ${{ env.ECR_REGISTRY }}/${{ ENV.FRONTEND_REPO }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_REPO }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.FRONTEND_REPO }}:${{ github.sha }}
 
       - name: Build and push gateway image
         uses: docker/build-push-action@v6
