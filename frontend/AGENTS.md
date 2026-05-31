@@ -11,7 +11,7 @@ Update this file and the hub when frontend conventions change.
 | `app/` | Expo Router (`(tabs)/`, `login.tsx`, `_layout.tsx`) |
 | `components/` | UI; co-locate `*.test.tsx` |
 | `contexts/` | `AuthContext` (token, login, logout) |
-| `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch` |
+| `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1` |
 | `constants/` | `config.ts` — `API_BASE_URL`, `API_V1_PREFIX` |
 
 Use `@/` path alias (`tsconfig.json`).
@@ -20,8 +20,8 @@ Use `@/` path alias (`tsconfig.json`).
 
 - Base URL and device notes: [../docs/agents/api.md](../docs/agents/api.md)
 - `API_BASE_URL` — server origin (e.g. `http://localhost:3000` in dev, empty for same-origin prod)
-- `API_V1_PREFIX` — `/life-manager/api/v1`; build paths as `` `${API_V1_PREFIX}/documents` `` (see `components/document-list.tsx`)
-- Do not hard-code `/api/v1` in components — use `API_V1_PREFIX`
+- `API_V1_PREFIX` — `/life-manager/api/v1`; build paths with `apiV1('/documents')` from `@/lib/api/client` (see `components/document-list.tsx`)
+- Do not hard-code `/api/v1` in components — use `apiV1`
 - `authenticatedFetch` from `@/lib/api/client` — not raw `fetch` with hard-coded hosts
 - `useAuth()` from `@/contexts/AuthContext`; 401/403 → `handleUnauthorized`
 

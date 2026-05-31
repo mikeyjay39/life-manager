@@ -32,6 +32,8 @@ Rust **edition 2024** (`Cargo.toml`).
 
 `mikeyjay-server` depends on `auth` + `life-manager`. New domain code goes in `life-manager`; shared auth in `auth`.
 
+**Naming:** Cargo package `mikeyjay-server`, library crate `life-manager`, binary artifact `life-manager` (see `[[bin]]` in root `Cargo.toml`).
+
 ## Layer rules
 
 Applies within **`libs/life-manager/src/`**:

@@ -1,5 +1,5 @@
 [workspace]
-members = ["libs/auth", "libs/life-manager"]
+members = [".", "libs/auth", "libs/life-manager"]
 resolver = "2"
 
 [workspace.dependencies]

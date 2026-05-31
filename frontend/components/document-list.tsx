@@ -9,8 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedFetch } from '@/lib/api/client';
-import { API_V1_PREFIX } from '@/constants/config';
+import { authenticatedFetch, apiV1 } from '@/lib/api/client';
 
 type DocumentRow = {
   id: string;
@@ -33,7 +32,7 @@ export default function DocumentList() {
     setLoading(true);
     setError(null);
     try {
-      const response = await authenticatedFetch(`${API_V1_PREFIX}/documents`, {
+      const response = await authenticatedFetch(apiV1('/documents'), {
         method: 'GET',
         token,
         onUnauthorized: handleUnauthorized,

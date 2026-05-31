@@ -7,6 +7,10 @@
 # with a full origin if you must talk to the API on another host (non-gateway devices, etc.).
 #
 # Dev (frontend_dev) defaults EXPO_PUBLIC_API_BASE_URL to http://localhost:3000 for direct backend access.
+#
+# Deploy checklist (API path changes): rebuild and pull BOTH backend and frontend ECR images — API
+# paths are baked into the static frontend bundle at build time. A backend-only CI deploy is not
+# sufficient for prod to work end-to-end.
 
 name: life-manager
 

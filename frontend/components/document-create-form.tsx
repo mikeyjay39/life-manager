@@ -3,8 +3,7 @@ import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity } from 'reac
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiFetch } from '@/lib/api/client';
-import { API_V1_PREFIX } from '@/constants/config';
+import { apiFetch, apiV1 } from '@/lib/api/client';
 
 function parseTags(input: string): string[] {
   return input
@@ -72,7 +71,7 @@ export default function DocumentCreateForm() {
 
     setLoading(true);
     try {
-      const response = await apiFetch(`${API_V1_PREFIX}/documents`, {
+      const response = await apiFetch(apiV1('/documents'), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

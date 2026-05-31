@@ -56,7 +56,7 @@ jobs:
         run: ./backend/scripts/write_rev.sh
 
       - name: Run Unit Tests
-        run: cargo test --lib --manifest-path backend/Cargo.toml
+        run: cargo test --lib --workspace --manifest-path backend/Cargo.toml
   integration-tests:
     runs-on: ubuntu-latest
 

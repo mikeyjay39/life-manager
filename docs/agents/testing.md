@@ -17,7 +17,7 @@ npm run lint   # if frontend changed
 
 ```bash
 ./backend/scripts/write_rev.sh
-cargo test --lib --manifest-path backend/Cargo.toml
+cargo test --lib --workspace --manifest-path backend/Cargo.toml
 ```
 
 **Backend integration** (Docker via testcontainers — `backend/tests/common/`):

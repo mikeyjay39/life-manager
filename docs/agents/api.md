@@ -48,6 +48,6 @@ Override order (`frontend/constants/config.ts`, `app.config.ts`):
 
 ### Frontend path convention
 
-Import `API_V1_PREFIX` from `@/constants/config` (`/life-manager/api/v1`). Build API paths as `` `${API_V1_PREFIX}/documents` `` — do not hard-code `/api/v1` in components.
+Import `apiV1` from `@/lib/api/client` (wraps `API_V1_PREFIX` from `@/constants/config`). Example: `apiV1('/documents')` — do not hard-code `/api/v1` in components.
 
 Device/emulator notes: [../development_faq.md](../development_faq.md).

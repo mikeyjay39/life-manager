@@ -65,7 +65,7 @@ mod tests {
 
     fn test_resources_path(file_name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../tests/resources")
+            .join("../../tests/resources")
             .join(file_name)
     }
 
