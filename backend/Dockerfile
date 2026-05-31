@@ -2,14 +2,8 @@
 FROM rust:bookworm AS builder
 WORKDIR /app
 
-COPY Cargo.toml Cargo.lock ./
-COPY libs/auth/Cargo.toml libs/auth/
-COPY libs/life-manager/Cargo.toml libs/life-manager/
-RUN mkdir -p libs/auth/src && echo "pub fn _dummy() {}" > libs/auth/src/lib.rs \
- && mkdir -p libs/life-manager/src && echo "pub fn _dummy() {}" > libs/life-manager/src/lib.rs \
- && mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release
-
+# Single copy: workspace path crates (libs/*) must not be built from stub sources
+# and then linked by mikeyjay-server — that pattern breaks after COPY (stale rlibs).
 COPY . .
 RUN chmod +x scripts/write_rev.sh \
  && ./scripts/write_rev.sh
