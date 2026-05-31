@@ -86,14 +86,16 @@ jobs:
       - name: Run Integration Tests
         run: cd backend && cargo test --test '*'
 
-  deploy-backend-image:
+  deploy-prod-images:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [frontend-unit-tests, backend-unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-west-2
       ECR_REGISTRY: 089366939950.dkr.ecr.us-west-2.amazonaws.com
-      ECR_REPOSITORY: life-manager-backend
+      BACKEND_REPO: life-manager-backend
+      FRONTEND_REPO: life-manager-frontend
+      GATEWAY_REPO: life-manager-gateway
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -119,12 +121,33 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_REPO }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.BACKEND_REPO }}:${{ github.sha }}
 
-  deploy-backend-lightsail:
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          target: production
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}${{ ENV.FRONTEND_REPO }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ ENV.FRONTEND_REPO }}:${{ github.sha }}
+
+      - name: Build and push gateway image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./nginx
+          file: ./nginx/gateway.Dockerfile
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.GATEWAY_REPO }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.GATEWAY_REPO }}:${{ github.sha }}
+
+  deploy-prod-lightsail:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: deploy-backend-image
+    needs: deploy-prod-images
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-west-2

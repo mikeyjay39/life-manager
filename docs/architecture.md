@@ -96,6 +96,29 @@ The prod frontend build defaults to an empty **`EXPO_PUBLIC_API_BASE_URL`**, so 
 
 See **`docker-compose.yml`** header comments and **`nginx/templates/default.conf.template`** for proxy rules.
 
+### CI deploy to AWS (merge to `main`)
+
+Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Pull requests run tests only; a push to **`main`** builds all three prod images, pushes to ECR, then deploys on Lightsail.
+
+```mermaid
+sequenceDiagram
+  participant Dev as Developer
+  participant GH as GitHubActions
+  participant ECR as AmazonECR
+  participant LS as Lightsail
+
+  Dev->>GH: merge to main
+  GH->>GH: frontend, backend, integration tests
+  GH->>ECR: push life-manager-backend latest and sha
+  GH->>ECR: push life-manager-frontend latest and sha
+  GH->>ECR: push life-manager-gateway latest and sha
+  GH->>LS: SSH git pull and deploy-prod-lightsail.sh
+  LS->>ECR: docker compose pull prod images
+  LS->>LS: docker compose up -d prod profile
+```
+
+Image URLs are set in **`backend/.prod.env`** (`LIFE_MANAGER_*_IMAGE`). The deploy script is [`scripts/deploy-prod-lightsail.sh`](../scripts/deploy-prod-lightsail.sh).
+
 ## Dev, test, and prod profiles
 
 **`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`backend/.<profile>.env`**.
