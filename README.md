@@ -4,21 +4,16 @@
 The dev container contains all dependencies needed and mounts your neovim config. You can build and run the app
 from there as well run the integration tests.
 
-- To build dev container:
-```
-cd backend/.container
-docker build -t rust-nvim:latest .
+Scripts live in [`dev-container/`](dev-container/). They resolve their own directory, so run them from the repo root.
+
+- **Build** (includes host user/GID args, `--network=host`, and `--no-cache`):
+```bash
+./dev-container/build-image.sh
 ```
 
-- To build dev container while iterating on changes, use the `--no-cache` flag:
-```
-cd backend/.container
-docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) --build-arg USERNAME=$(whoami) --no-cache -t rust-nvim:latest .
-```
-
-- To run and connect to the container:
-```
-backend/.container/run.sh
+- **Run** and connect to the container:
+```bash
+./dev-container/run.sh
 ```
 
 ## How to run
