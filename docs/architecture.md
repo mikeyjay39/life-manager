@@ -124,11 +124,11 @@ sequenceDiagram
   LS->>LS: docker compose up -d prod profile
 ```
 
-Image URLs are set in **`backend/.prod.env`** (`LIFE_MANAGER_*_IMAGE`). The deploy script is [`scripts/deploy-prod-lightsail.sh`](../scripts/deploy-prod-lightsail.sh).
+Image URLs are set in **`.prod.env`** at the repo root (`LIFE_MANAGER_*_IMAGE`). The deploy script is [`scripts/deploy-prod-lightsail.sh`](../scripts/deploy-prod-lightsail.sh).
 
 ## Dev, test, and prod profiles
 
-**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`backend/.<profile>.env`**.
+**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`.<profile>.env`** at the repo root.
 
 ```mermaid
 flowchart TB

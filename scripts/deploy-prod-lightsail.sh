@@ -9,7 +9,7 @@ set -euo pipefail
 : "${GITHUB_SHA:?GITHUB_SHA is required}"
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
-ENV_FILE="${ENV_FILE:-backend/.prod.env}"
+ENV_FILE="${ENV_FILE:-.prod.env}"
 COMPOSE_PROFILE="${COMPOSE_PROFILE:-prod}"
 
 if docker compose version >/dev/null 2>&1; then

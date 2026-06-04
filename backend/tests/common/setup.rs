@@ -69,7 +69,7 @@ where
     let database_url = db_path.to_string();
     tracing::info!("Created temp SQLite database at {}", db_path);
 
-    let test_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(".test.env");
+    let test_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../.test.env");
     dotenv::from_filename(&test_env_path).ok();
 
     let ollama: MockServer = mock_ollama_response().await;

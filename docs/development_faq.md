@@ -34,7 +34,7 @@ NOTE: key is stored in my password manager
 
 ## Docker Compose profiles and ports
 
-Root-level **`docker-compose.yml`** groups services under Compose **profiles** (**`dev`**, **`prod`**, **`test`**, optional **`tesseract`**). **`build_and_start_app.sh`** (and **`backend/start_backend.sh`**) pass **`--profile <profile>`** and **`--env-file backend/.<profile>.env`** so variables like **`APP_PORT`** and **`TESSERACT_PORT`** apply consistently. The **`tesseract`** OCR sidecar is **not** included in **`dev`** / **`prod`** / **`test`** by default; enable it with **`--profile tesseract`** (and **`TESSERACT_ENABLED=true`**, or **`start_backend.sh --with-tesseract`**).
+Root-level **`docker-compose.yml`** groups services under Compose **profiles** (**`dev`**, **`prod`**, **`test`**, optional **`tesseract`**). **`build_and_start_app.sh`** (and **`backend/start_backend.sh`**) pass **`--profile <profile>`** and **`--env-file .<profile>.env`** so variables like **`APP_PORT`** and **`TESSERACT_PORT`** apply consistently. The **`tesseract`** OCR sidecar is **not** included in **`dev`** / **`prod`** / **`test`** by default; enable it with **`--profile tesseract`** (and **`TESSERACT_ENABLED=true`**, or **`start_backend.sh --with-tesseract`**).
 
 | Profile | Compose services | Typical host ports (see env / Compose defaults) |
 |---------|------------------|--------------------------------------------------|
@@ -42,7 +42,7 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 | **dev** | `frontend_dev` | **`FRONTEND_PORT`** → **`frontend_dev`** / Expo (default **8080**); backend on host **`APP_PORT`** (**3000**) via **`cargo run`** |
 | **test** | *(none)* | **`start_backend.sh`** skips **`docker compose`** for this profile |
 
-**Optional OCR:** add **`--profile tesseract`** so the **`tesseract`** service runs; set **`TESSERACT_ENABLED=true`** (sample env files default **`false`**, which selects **`NoOpDocumentTextReader`** in the backend—embedded PDF text still works; remote OCR does not). Example: **`docker compose --env-file backend/.prod.env --profile prod --profile tesseract up -d`**.
+**Optional OCR:** add **`--profile tesseract`** so the **`tesseract`** service runs; set **`TESSERACT_ENABLED=true`** (sample env files default **`false`**, which selects **`NoOpDocumentTextReader`** in the backend—embedded PDF text still works; remote OCR does not). Example: **`docker compose --env-file .prod.env --profile prod --profile tesseract up -d`**.
 
 Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry). Architecture diagrams: **[`architecture.md`](architecture.md)**.
 

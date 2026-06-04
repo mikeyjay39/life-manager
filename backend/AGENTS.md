@@ -55,7 +55,7 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 ## Diesel / SQLite
 
-- Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` from `backend/.<profile>.env`
+- Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` from `.<profile>.env` at the repo root
 - Agents: edit `libs/life-manager/migrations/*.sql` only — never `diesel migration run` or hand-edit `libs/life-manager/src/schema.rs`
 - User applies migrations per [../README.md](../README.md)
 
