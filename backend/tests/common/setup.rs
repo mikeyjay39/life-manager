@@ -1,12 +1,10 @@
 use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
-use deadpool_diesel::sqlite::Pool;
-use diesel_migrations::MigrationHarness;
 use auth::{LoginRequest, LoginResponse};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
-    db::{MIGRATIONS, create_connection_pool_from_url},
+    db::{create_connection_pool_from_url, run_migrations},
 };
 use mikeyjay_server::build_app;
 use reqwest::{Client, ClientBuilder};
@@ -162,15 +160,6 @@ pub async fn wait_for_service_to_be_ready(url: &str, service_name: &str) {
     }
 
     panic!("{} did not become ready at {}", service_name, url);
-}
-
-async fn run_migrations(pool: &Pool) -> bool {
-    let conn = pool.get().await.expect("Failed to get DB connection");
-    let _ = conn
-        .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
-        .await
-        .expect("Failed to run migrations");
-    true
 }
 
 pub async fn build_auth_header(server: &TestServer) -> String {

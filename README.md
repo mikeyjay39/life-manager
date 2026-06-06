@@ -107,7 +107,11 @@ cd backend
 export DATABASE_URL=./data/test.db
 diesel setup
 diesel migration run
+cd libs/auth
+diesel migration run --config-file diesel.toml
 ```
+
+The server and integration tests also apply both migration sets automatically on startup.
 
 ## Planned Features
 

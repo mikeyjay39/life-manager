@@ -31,7 +31,7 @@ flowchart TB
 | **`auth`** | Authentication router and JWT helpers; mounted under `/life-manager/api/v1/auth` |
 | **`life-manager`** | Domain logic, Diesel/SQLite, document API; nests `/api/v1` feature routers |
 
-Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**).
+Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**) and **`backend/libs/auth/`** (see **`backend/libs/auth/diesel.toml`**). App startup runs both migration sets on the shared SQLite database.
 
 ## HTTP routing
 
