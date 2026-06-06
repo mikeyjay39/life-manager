@@ -4,21 +4,16 @@
 The dev container contains all dependencies needed and mounts your neovim config. You can build and run the app
 from there as well run the integration tests.
 
-- To build dev container:
-```
-cd backend/.container
-docker build -t rust-nvim:latest .
+Scripts live in [`dev-container/`](dev-container/). They resolve their own directory, so run them from the repo root.
+
+- **Build** (includes host user/GID args, `--network=host`, and `--no-cache`):
+```bash
+./dev-container/build-image.sh
 ```
 
-- To build dev container while iterating on changes, use the `--no-cache` flag:
-```
-cd backend/.container
-docker build --build-arg USER_ID=$(id -u) --build-arg GROUP_ID=$(id -g) --build-arg USERNAME=$(whoami) --no-cache -t rust-nvim:latest .
-```
-
-- To run and connect to the container:
-```
-backend/.container/run.sh
+- **Run** and connect to the container:
+```bash
+./dev-container/run.sh
 ```
 
 ## How to run
@@ -31,7 +26,7 @@ From the repository root (not inside the dev container if you rely on host Docke
 ./build_and_start_app.sh <test | dev | prod> [--build-image] [--with-tesseract]
 ```
 
-This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `backend/.<profile>.env` (for example `backend/.prod.env`).
+This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `.<profile>.env` at the repo root (for example `.prod.env`).
 
 | Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
 |--------|---------|----------|----------------------------------------|
@@ -39,7 +34,7 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | `frontend_dev` |
 | **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
-**Ports (defaults)** — override `APP_PORT` / service ports in `backend/.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
+**Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
 
 | Port / setting | What uses it |
 |----------------|----------------|
@@ -54,7 +49,7 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 Sample env files default **`TESSERACT_ENABLED=false`**, so **`docker compose`** does not need to run the **`tesseract`** service for normal dev/test/prod. To enable OCR (images or scanned PDFs), run Compose with the extra profile and point the API at the container, for example:
 
 ```bash
-docker compose -f docker-compose.yml --env-file backend/.prod.env --profile prod --profile tesseract up -d
+docker compose -f docker-compose.yml --env-file .prod.env --profile prod --profile tesseract up -d
 ```
 
 Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod**) to start **`frontend_dev`** or **prod** stack **and** the sidecar in one step.
@@ -74,7 +69,7 @@ More detail on API URLs and mobile: [`docs/development_faq.md`](docs/development
 cd backend && cargo run
 ```
 
-Uses `APP_PORT` from your environment (see `backend/.dev.env` for local defaults).
+Uses `APP_PORT` from your environment (see `.dev.env` at the repo root for profile defaults, or `backend/.env` for bare `cargo run`).
 
 ## Example API calls
 

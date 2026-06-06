@@ -8,6 +8,7 @@ Personal/family life-management app. **Documents** are implemented today; more d
 |------|--------|-----------|
 | `backend/` | Rust (Axum, Diesel/SQLite) | [backend/AGENTS.md](backend/AGENTS.md) |
 | `frontend/` | Expo / React Native (Vitest) | [frontend/AGENTS.md](frontend/AGENTS.md) |
+| `dev-container/` | Docker dev environment (Rust, nvim, cursor-cli) | [README.md](README.md#dev-container) |
 | Root | Docker Compose, orchestration scripts | [README.md](README.md) |
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)

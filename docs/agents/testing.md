@@ -4,7 +4,7 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md).
 
 Match CI: [`.github/workflows/main.yml`](../../.github/workflows/main.yml).
 
-On **push to `main`** (after tests pass), CI builds and pushes three prod images to ECR (`life-manager-backend`, `life-manager-frontend`, `life-manager-gateway`), then deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
+On **push to `main`** (after tests pass), CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
 
 ## Commands
 

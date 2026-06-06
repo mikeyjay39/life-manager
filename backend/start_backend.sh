@@ -50,7 +50,7 @@ echo "DEBUG: PROFILE='$PROFILE' WITH_TESSERACT='$WITH_TESSERACT'"
 BACKEND_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$BACKEND_DIR/.." && pwd)"
 COMPOSE_FILE="$REPO_ROOT/docker-compose.yml"
-ENV_PATH="$BACKEND_DIR/.${PROFILE}.env"
+ENV_PATH="$REPO_ROOT/.${PROFILE}.env"
 
 # ---- Load .env file into the shell ----
 if [[ ! -f "$ENV_PATH" ]]; then
@@ -67,7 +67,7 @@ fi
 
 echo "Loaded environment variables from $ENV_PATH"
 # Compose substitutes ${ENV_FILE} on the life-manager service; path is relative to repo root.
-export ENV_FILE="backend/.${PROFILE}.env"
+export ENV_FILE=".${PROFILE}.env"
 export PROFILE
 
 
