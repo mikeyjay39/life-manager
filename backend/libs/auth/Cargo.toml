@@ -4,8 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+argon2 = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
+chrono = "0.4"
+deadpool-diesel = { version = "0.6", features = ["sqlite"] }
+diesel_migrations = "2"
+diesel = { version = "2.2.0", features = ["sqlite", "chrono", "uuid", "returning_clauses_for_sqlite_3_35"] }
+libsqlite3-sys = { version = "0.35", features = ["bundled"] }
 jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 time = { workspace = true }

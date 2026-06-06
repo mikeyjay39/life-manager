@@ -3,6 +3,7 @@ members = [".", "libs/auth", "libs/life-manager"]
 resolver = "2"
 
 [workspace.dependencies]
+argon2 = "0.5.3"
 async-trait = "0.1.59"
 axum = { version = "0.8.6", features = ["multipart"] }
 jsonwebtoken = "9"
