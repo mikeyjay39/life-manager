@@ -2037,6 +2037,7 @@ dependencies = [
  "life-manager",
  "once_cell",
  "reqwest",
+ "serde",
  "serde_json",
  "serial_test",
  "tempfile",

@@ -1,13 +1,13 @@
 use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
 use axum_test::{TestServer, TestServerConfig, Transport};
-use auth::{LoginRequest, LoginResponse};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
     db::{create_connection_pool_from_url, run_migrations},
 };
 use mikeyjay_server::build_app;
 use reqwest::{Client, ClientBuilder};
+use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 
 use serde_json::json;
@@ -19,6 +19,17 @@ use wiremock::{
 use crate::common::docker::{docker_compose_down, start_docker_compose_dev_profile};
 
 const AUTH_URL: &str = "/life-manager/api/v1/auth";
+
+#[derive(Serialize, Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub token: String,
+}
 
 /// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///

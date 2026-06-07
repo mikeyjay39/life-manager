@@ -1,7 +1,6 @@
 mod common;
 
-use crate::common::setup::{build_auth_header, run_test_with_test_profile};
-use auth::LoginRequest;
+use crate::common::setup::{LoginRequest, build_auth_header, run_test_with_test_profile};
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
