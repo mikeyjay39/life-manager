@@ -28,7 +28,7 @@ Nginx proxies `/life-manager/api` (v1 API) and `/api` (health/version) separatel
 ## Auth
 
 - Protected routes: `Authorization: Bearer <token>`
-- Backend auth crate: `backend/libs/auth/`; life-manager wires it via `libs/life-manager/src/infrastructure/auth_integration.rs`
+- Backend auth crate: `backend/libs/auth/` builds `AuthState` via `AuthStateBuilder`; life-manager composes it into `AppState` and wires `FromRef` via `libs/life-manager/src/infrastructure/auth_integration.rs`
 - Handlers receive `AuthUser` where required
 - Frontend: `useAuth()` + `authenticatedFetch` from `frontend/lib/api/client.ts` — do not hard-code origins in components
 

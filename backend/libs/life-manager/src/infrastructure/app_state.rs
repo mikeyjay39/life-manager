@@ -1,6 +1,6 @@
 use std::{env, sync::Arc};
 
-use auth::{AuthUseCases, infrastructure::superuser_only_login_service::SuperuserOnlyLoginService};
+use auth::{AuthState, AuthStateBuilder};
 use deadpool_diesel::sqlite::Pool;
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
 #[derive(Clone)]
 pub struct AppState {
     pub document_use_cases: Arc<DocumentUseCases>,
-    pub auth_use_cases: Arc<AuthUseCases>,
+    pub auth_state: AuthState,
 }
 
 /// Builder for AppState
@@ -27,7 +27,7 @@ pub struct AppState {
 /// variables, including the DB connection pool.
 pub struct AppStateBuilder {
     document_use_cases: Option<Arc<DocumentUseCases>>,
-    auth_use_cases: Option<Arc<AuthUseCases>>,
+    auth_state: Option<AuthState>,
     db_pool: Option<Arc<Pool>>,
 }
 
@@ -35,7 +35,7 @@ impl AppStateBuilder {
     pub fn new() -> Self {
         Self {
             document_use_cases: None,
-            auth_use_cases: None,
+            auth_state: None,
             db_pool: None,
         }
     }
@@ -45,8 +45,8 @@ impl AppStateBuilder {
         self
     }
 
-    pub fn with_auth_use_cases(mut self, auth_use_cases: Arc<AuthUseCases>) -> Self {
-        self.auth_use_cases = Some(auth_use_cases);
+    pub fn with_auth_state(mut self, auth_state: AuthState) -> Self {
+        self.auth_state = Some(auth_state);
         self
     }
 
@@ -66,11 +66,9 @@ impl AppStateBuilder {
             document_use_cases: self
                 .document_use_cases
                 .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
-            auth_use_cases: self.auth_use_cases.unwrap_or_else(|| {
-                Arc::new(AuthUseCases {
-                    login_service: Arc::new(SuperuserOnlyLoginService::default()),
-                })
-            }),
+            auth_state: self
+                .auth_state
+                .unwrap_or_else(|| AuthStateBuilder::new().build()),
         }
     }
 }

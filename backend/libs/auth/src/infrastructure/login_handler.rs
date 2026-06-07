@@ -8,12 +8,13 @@ use crate::domain::login_request::{Claims, LoginRequest, LoginResponse};
 use crate::domain::jwt_secret::JWT_SECRET;
 
 pub async fn login(
-    State(AuthState(auth_use_cases)): State<AuthState>,
+    State(auth_state): State<AuthState>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
     tracing::info!("Login attempt for user: {}", req.username);
 
-    let login_result = auth_use_cases
+    let login_result = auth_state
+        .0
         .login_service
         .login(&req)
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
