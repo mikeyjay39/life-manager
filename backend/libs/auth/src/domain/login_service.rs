@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::login_request::LoginRequest;
+use crate::domain::login_request::LoginRequest;
 
 #[derive(Debug)]
 pub struct LoginResult {

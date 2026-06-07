@@ -1,15 +1,13 @@
 use std::{env, sync::Arc};
 
+use auth::{AuthUseCases, infrastructure::superuser_only_login_service::SuperuserOnlyLoginService};
 use deadpool_diesel::sqlite::Pool;
-
-use auth::AuthUseCases;
 
 use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document_text_reader::DocumentTextReader,
     infrastructure::{
         db::{create_connection_pool, run_migrations},
-        superuser_only_login_service::SuperuserOnlyLoginService,
         document::document_orm_collection::DocumentOrmCollection,
         noop_document_text_reader::NoOpDocumentTextReader,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,

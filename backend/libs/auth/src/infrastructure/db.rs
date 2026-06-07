@@ -1,7 +1,7 @@
 use deadpool_diesel::sqlite::Pool;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
 pub async fn run_migrations(pool: &Pool) -> bool {
     let conn = pool.get().await.expect("Failed to get DB connection");

@@ -2,11 +2,10 @@ use axum::{Json, extract::State, http::StatusCode};
 use jsonwebtoken::{EncodingKey, Header, encode};
 use time::{Duration, OffsetDateTime};
 
-use crate::{
-    auth_state::AuthState,
-    jwt_secret::JWT_SECRET,
-    login_request::{Claims, LoginRequest, LoginResponse},
-};
+use crate::AuthState;
+use crate::domain::login_request::{Claims, LoginRequest, LoginResponse};
+
+use crate::domain::jwt_secret::JWT_SECRET;
 
 pub async fn login(
     State(AuthState(auth_use_cases)): State<AuthState>,

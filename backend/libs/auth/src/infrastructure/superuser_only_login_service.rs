@@ -1,8 +1,12 @@
 use std::env;
 
 use async_trait::async_trait;
-use auth::{LoginRequest, LoginResult, LoginService};
 use uuid::Uuid;
+
+use crate::domain::{
+    login_request::LoginRequest,
+    login_service::{LoginResult, LoginService},
+};
 
 const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
 
@@ -52,6 +56,8 @@ impl LoginService for SuperuserOnlyLoginService {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::domain::login_request::LoginRequest;
 
     use super::*;
 

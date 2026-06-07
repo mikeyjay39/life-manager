@@ -1,21 +1,12 @@
-mod auth_state;
-mod auth_use_cases;
-mod auth_user;
-mod auth_user_entity;
-pub mod db;
-mod jwt_secret;
+pub mod application;
+mod domain;
+pub mod infrastructure;
+mod router;
 mod schema;
-mod login_handler;
-mod login_request;
-mod login_service;
-pub mod router;
-mod test_protected_endpoint_handler;
 
-pub use auth_state::AuthState;
-pub use auth_use_cases::AuthUseCases;
-pub use auth_user::AuthUser;
-pub use auth_user_entity::{AuthUserEntity, NewAuthUserEntity};
-pub use db::{MIGRATIONS, run_migrations};
-pub use login_request::{Claims, LoginRequest, LoginResponse};
-pub use login_service::{LoginResult, LoginService};
+// HACK: do not export application. TODO: refactor this
+pub use application::auth_use_cases::AuthUseCases;
+pub use infrastructure::auth_state::AuthState;
+pub use infrastructure::auth_user::AuthUser;
+pub use infrastructure::db::run_migrations;
 pub use router::auth_router;

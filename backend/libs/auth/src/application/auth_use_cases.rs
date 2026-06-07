@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::login_service::LoginService;
+use crate::domain::login_service::LoginService;
 
 #[derive(Clone)]
 pub struct AuthUseCases {
