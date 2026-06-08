@@ -181,6 +181,7 @@ dependencies = [
  "diesel_migrations",
  "jsonwebtoken",
  "libsqlite3-sys",
+ "password-hash",
  "serde",
  "time",
  "tracing",

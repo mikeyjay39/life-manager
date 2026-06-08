@@ -5,9 +5,10 @@ edition = "2024"
 
 [dependencies]
 argon2 = { workspace = true }
+password-hash = { version = "0.5", features = ["getrandom"] }
 async-trait = { workspace = true }
 axum = { workspace = true }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel_migrations = "2"
 diesel = { version = "2.2.0", features = ["sqlite", "chrono", "uuid", "returning_clauses_for_sqlite_3_35"] }
