@@ -39,12 +39,21 @@ where
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .claims;
 
-        if claims.tenant != auth_state.0.tenant {
-            return Err(StatusCode::UNAUTHORIZED);
+        match claims.tenant == auth_state.0.tenant {
+            true => {
+                return Ok(AuthUser {
+                    user_id: claims.sub,
+                });
+            }
+            false => {
+                tracing::warn!(
+                    "Tenant claim {} did not match for tenant {} for user_id {}",
+                    claims.tenant,
+                    auth_state.0.tenant,
+                    claims.sub
+                );
+                return Err(StatusCode::UNAUTHORIZED);
+            }
         }
-
-        Ok(AuthUser {
-            user_id: claims.sub,
-        })
     }
 }
