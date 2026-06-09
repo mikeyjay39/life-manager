@@ -15,10 +15,11 @@ impl AuthStateBuilder {
         Self
     }
 
-    pub fn build(self) -> AuthState {
-        AuthState(Arc::new(AuthUseCases::new(Arc::new(
-            SuperuserOnlyLoginService::default(),
-        ))))
+    pub fn build(self, tenant: String) -> AuthState {
+        AuthState(Arc::new(AuthUseCases::new(
+            Arc::new(SuperuserOnlyLoginService::from_env_with_tenant(tenant.clone())),
+            tenant,
+        )))
     }
 }
 

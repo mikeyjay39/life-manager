@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub struct Claims {
     pub sub: Uuid,
     pub exp: usize,
+    pub tenant: String,
 }
 
 #[derive(Serialize, Deserialize)]

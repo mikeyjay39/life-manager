@@ -68,7 +68,7 @@ impl AppStateBuilder {
                 .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
             auth_state: self
                 .auth_state
-                .unwrap_or_else(|| AuthStateBuilder::new().build()),
+                .unwrap_or_else(|| AuthStateBuilder::new().build("life-manager".to_string())),
         }
     }
 }

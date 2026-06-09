@@ -1,12 +1,12 @@
 use axum::{
-    extract::FromRequestParts,
+    extract::{FromRef, FromRequestParts},
     http::{StatusCode, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use uuid::Uuid;
 
-use crate::domain::jwt_secret::JWT_SECRET;
 use crate::domain::login_request::Claims;
+use crate::{AuthState, domain::jwt_secret::JWT_SECRET};
 
 pub struct AuthUser {
     pub user_id: Uuid,
@@ -15,10 +15,12 @@ pub struct AuthUser {
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,
+    AuthState: FromRef<S>,
 {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let auth_state = AuthState::from_ref(state);
         let auth_header = parts
             .headers
             .get(axum::http::header::AUTHORIZATION)
@@ -36,6 +38,10 @@ where
         )
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .claims;
+
+        if claims.tenant != auth_state.0.tenant {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
 
         Ok(AuthUser {
             user_id: claims.sub,

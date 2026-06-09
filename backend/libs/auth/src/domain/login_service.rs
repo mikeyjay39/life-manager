@@ -6,6 +6,7 @@ use crate::domain::login_request::LoginRequest;
 #[derive(Debug)]
 pub struct LoginResult {
     pub user_id: Uuid,
+    pub tenant: String,
 }
 
 #[async_trait]

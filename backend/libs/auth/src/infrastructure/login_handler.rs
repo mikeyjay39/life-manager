@@ -24,6 +24,7 @@ pub async fn login(
     let claims = Claims {
         sub: login_result.user_id,
         exp: exp.unix_timestamp() as usize,
+        tenant: login_result.tenant,
     };
 
     let token = encode(
