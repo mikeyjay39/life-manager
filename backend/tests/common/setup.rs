@@ -1,5 +1,9 @@
 use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use time::{Duration as TimeDuration, OffsetDateTime};
+use uuid::Uuid;
+
 use axum_test::{TestServer, TestServerConfig, Transport};
 use life_manager::infrastructure::{
     app_state::{AppState, AppStateBuilder},
@@ -29,6 +33,43 @@ pub struct LoginRequest {
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     pub token: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TestClaims {
+    sub: Uuid,
+    exp: usize,
+    tenant: String,
+}
+
+pub fn decode_token_tenant(token: &str) -> String {
+    let token = token.strip_prefix("Bearer ").unwrap_or(token);
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let claims = decode::<TestClaims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .expect("Failed to decode token")
+    .claims;
+    claims.tenant
+}
+
+pub fn build_bearer_token_with_tenant(user_id: Uuid, tenant: &str) -> String {
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let exp = OffsetDateTime::now_utc() + TimeDuration::hours(1);
+    let claims = TestClaims {
+        sub: user_id,
+        exp: exp.unix_timestamp() as usize,
+        tenant: tenant.to_string(),
+    };
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .expect("Failed to encode test token");
+    format!("Bearer {token}")
 }
 
 /// Run test with all docker containers started via the repository root `docker-compose.yml`.

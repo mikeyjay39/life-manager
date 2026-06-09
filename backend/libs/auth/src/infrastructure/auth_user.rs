@@ -57,3 +57,106 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Once};
+
+    use axum::http::{Request, header};
+    use jsonwebtoken::{EncodingKey, Header, encode};
+    use time::{Duration, OffsetDateTime};
+
+    use super::*;
+    use crate::{
+        application::auth_use_cases::AuthUseCases,
+        infrastructure::superuser_only_login_service::SuperuserOnlyLoginService,
+    };
+
+    #[derive(Clone)]
+    struct TestState(AuthState);
+
+    impl FromRef<TestState> for AuthState {
+        fn from_ref(state: &TestState) -> Self {
+            state.0.clone()
+        }
+    }
+
+    fn init_test_env() {
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            unsafe {
+                std::env::set_var("JWT_SECRET", "test-secret");
+            }
+        });
+    }
+
+    fn given_auth_state(tenant: &str) -> TestState {
+        let tenant = tenant.to_string();
+        TestState(AuthState(Arc::new(AuthUseCases::new(
+            Arc::new(SuperuserOnlyLoginService::new(
+                "admin".into(),
+                "password".into(),
+                tenant.clone(),
+            )),
+            tenant,
+        ))))
+    }
+
+    fn given_bearer_token(user_id: Uuid, tenant: &str) -> String {
+        let exp = OffsetDateTime::now_utc() + Duration::hours(1);
+        let claims = Claims {
+            sub: user_id,
+            exp: exp.unix_timestamp() as usize,
+            tenant: tenant.to_string(),
+        };
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(&JWT_SECRET),
+        )
+        .expect("Failed to encode test token");
+        format!("Bearer {token}")
+    }
+
+    fn given_request_parts(bearer: &str) -> Parts {
+        Request::builder()
+            .header(header::AUTHORIZATION, bearer)
+            .body(())
+            .expect("Failed to build request")
+            .into_parts()
+            .0
+    }
+
+    #[tokio::test]
+    async fn given_matching_tenant_claim_when_extracting_auth_user_then_succeeds() {
+        init_test_env();
+        // Given
+        let user_id = Uuid::new_v4();
+        let state = given_auth_state("life-manager");
+        let bearer = given_bearer_token(user_id, "life-manager");
+        let mut parts = given_request_parts(&bearer);
+
+        // When
+        let result = AuthUser::from_request_parts(&mut parts, &state).await;
+
+        // Then
+        assert_eq!(result.unwrap().user_id, user_id);
+    }
+
+    #[tokio::test]
+    async fn given_mismatched_tenant_claim_when_extracting_auth_user_then_returns_unauthorized()
+    {
+        init_test_env();
+        // Given
+        let user_id = Uuid::new_v4();
+        let state = given_auth_state("life-manager");
+        let bearer = given_bearer_token(user_id, "other-tenant");
+        let mut parts = given_request_parts(&bearer);
+
+        // When
+        let result = AuthUser::from_request_parts(&mut parts, &state).await;
+
+        // Then
+        assert_eq!(result.err(), Some(StatusCode::UNAUTHORIZED));
+    }
+}

@@ -38,6 +38,8 @@ uuid = { workspace = true }
 [dev-dependencies]
 axum-test = "18.1.0"
 auth = { path = "libs/auth" }
+jsonwebtoken = { workspace = true }
+time = { workspace = true }
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel_migrations = "2"
 dotenv = "0.15.0"

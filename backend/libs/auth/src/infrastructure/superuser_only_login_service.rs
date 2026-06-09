@@ -81,11 +81,8 @@ mod tests {
             username: "admin".to_string(),
             password: "password".to_string(),
         };
-        let result = service.login(&login_req);
-        assert!(result.is_ok());
-        assert_eq!(
-            result.unwrap().user_id.to_string(),
-            ADMIN_USER_ID.to_string()
-        );
+        let result = service.login(&login_req).expect("Login should succeed");
+        assert_eq!(result.user_id.to_string(), ADMIN_USER_ID.to_string());
+        assert_eq!(result.tenant, "test_tenant");
     }
 }

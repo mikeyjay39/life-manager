@@ -36,3 +36,65 @@ pub async fn login(
 
     Ok(Json(LoginResponse { token }))
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Once};
+
+    use axum::Json;
+    use jsonwebtoken::{DecodingKey, Validation, decode};
+
+    use super::*;
+    use crate::{
+        application::auth_use_cases::AuthUseCases,
+        infrastructure::superuser_only_login_service::SuperuserOnlyLoginService,
+    };
+
+    fn init_test_env() {
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            unsafe {
+                std::env::set_var("JWT_SECRET", "test-secret");
+            }
+        });
+    }
+
+    fn given_auth_state(tenant: &str) -> AuthState {
+        let tenant = tenant.to_string();
+        AuthState(Arc::new(AuthUseCases::new(
+            Arc::new(SuperuserOnlyLoginService::new(
+                "admin".into(),
+                "password".into(),
+                tenant.clone(),
+            )),
+            tenant,
+        )))
+    }
+
+    #[tokio::test]
+    async fn given_valid_login_when_issuing_token_then_tenant_matches_auth_state() {
+        init_test_env();
+        // Given
+        let auth_state = given_auth_state("life-manager");
+        let req = LoginRequest {
+            username: "admin".into(),
+            password: "password".into(),
+        };
+
+        // When
+        let response = login(State(auth_state.clone()), Json(req))
+            .await
+            .expect("Login should succeed");
+
+        let claims = decode::<Claims>(
+            &response.token,
+            &DecodingKey::from_secret(&JWT_SECRET),
+            &Validation::default(),
+        )
+        .expect("Token should decode")
+        .claims;
+
+        // Then
+        assert_eq!(claims.tenant, auth_state.0.tenant);
+    }
+}
