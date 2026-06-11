@@ -1,7 +1,7 @@
 use axum::response::IntoResponse;
 
-use crate::AuthUser;
+use crate::{AuthUser, domain::principal::Principal};
 
-pub async fn test_protected_endpoint(AuthUser { user_id: user }: AuthUser) -> impl IntoResponse {
-    format!("Hello {}", user.to_string())
+pub async fn test_protected_endpoint(user: AuthUser) -> impl IntoResponse {
+    format!("Hello {}", user.user_id().to_string())
 }

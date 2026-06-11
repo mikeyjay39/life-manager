@@ -1,8 +1,8 @@
 use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
-use auth::AuthUser;
 use crate::infrastructure::document::document_state::DocumentState;
+use auth::AuthUser;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
@@ -32,7 +32,10 @@ pub struct GetDocumentsQueryParams {
 /// |         |     |           |     |        |     |        |
 /// +---------+     +-----------+     +--------+     +--------+
 pub async fn create_document(
-    AuthUser { user_id }: AuthUser,
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
@@ -103,7 +106,10 @@ pub async fn create_document(
 }
 
 pub async fn get_document(
-    AuthUser { user_id: _ }: AuthUser,
+    AuthUser {
+        user_id: _,
+        tenant: _tenant,
+    }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
@@ -120,7 +126,10 @@ pub async fn get_document(
 *
 */
 pub async fn get_documents(
-    AuthUser { user_id }: AuthUser,
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
 ) -> impl IntoResponse {
     tracing::info!("Fetching documents for user: {}", user_id.to_string());
@@ -131,7 +140,10 @@ pub async fn get_documents(
 }
 
 pub async fn get_documents_by_title(
-    AuthUser { user_id }: AuthUser,
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
     State(DocumentState(document_use_cases)): State<DocumentState>,
     Query(params): Query<GetDocumentsQueryParams>,
 ) -> impl IntoResponse {
@@ -259,6 +271,7 @@ mod tests {
         let multipart = Multipart::from_request(request, &()).await.unwrap();
         let auth_user = AuthUser {
             user_id: Uuid::new_v4(),
+            tenant: "test-tenant".to_string(),
         };
         let response = create_document(
             auth_user,
@@ -416,6 +429,7 @@ mod tests {
     async fn given_user_and_documents() -> GivenUserAndDocuments {
         let auth_user = AuthUser {
             user_id: Uuid::new_v4(),
+            tenant: "test-tenant".to_string(),
         };
         let document1 = Document::new("Test Document", "This is test content.", auth_user.user_id);
         let document2 = Document::new(

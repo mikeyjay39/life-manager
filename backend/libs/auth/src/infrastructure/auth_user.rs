@@ -5,11 +5,13 @@ use axum::{
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use uuid::Uuid;
 
-use crate::domain::login_request::Claims;
+use crate::domain::{login_request::Claims, principal::Principal};
 use crate::{AuthState, domain::jwt_secret::JWT_SECRET};
 
+#[derive(Debug, Clone, Default)]
 pub struct AuthUser {
     pub user_id: Uuid,
+    pub tenant: String,
 }
 
 impl<S> FromRequestParts<S> for AuthUser
@@ -43,6 +45,7 @@ where
             true => {
                 return Ok(AuthUser {
                     user_id: claims.sub,
+                    tenant: claims.tenant,
                 });
             }
             false => {
@@ -55,6 +58,16 @@ where
                 return Err(StatusCode::UNAUTHORIZED);
             }
         }
+    }
+}
+
+impl Principal for AuthUser {
+    fn user_id(&self) -> &Uuid {
+        &self.user_id
+    }
+
+    fn tenant(&self) -> &str {
+        self.tenant.as_str()
     }
 }
 
@@ -83,10 +96,8 @@ mod tests {
 
     fn init_test_env() {
         static INIT: Once = Once::new();
-        INIT.call_once(|| {
-            unsafe {
-                std::env::set_var("JWT_SECRET", "test-secret");
-            }
+        INIT.call_once(|| unsafe {
+            std::env::set_var("JWT_SECRET", "test-secret");
         });
     }
 
@@ -144,8 +155,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_mismatched_tenant_claim_when_extracting_auth_user_then_returns_unauthorized()
-    {
+    async fn given_mismatched_tenant_claim_when_extracting_auth_user_then_returns_unauthorized() {
         init_test_env();
         // Given
         let user_id = Uuid::new_v4();
