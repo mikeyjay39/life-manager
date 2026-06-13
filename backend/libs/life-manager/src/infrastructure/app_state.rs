@@ -62,13 +62,19 @@ impl AppStateBuilder {
             None => Arc::new(init_db().await),
         };
         tracing::info!("AppState DB pool initialized.");
+        let auth_state = match self.auth_state {
+            Some(auth_state) => auth_state,
+            None => {
+                AuthStateBuilder::new()
+                    .build("life-manager".to_string(), pool.clone())
+                    .await
+            }
+        };
         AppState {
             document_use_cases: self
                 .document_use_cases
                 .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
-            auth_state: self
-                .auth_state
-                .unwrap_or_else(|| AuthStateBuilder::new().build("life-manager".to_string())),
+            auth_state,
         }
     }
 }

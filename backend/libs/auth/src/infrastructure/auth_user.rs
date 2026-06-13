@@ -41,7 +41,7 @@ where
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .claims;
 
-        match claims.tenant == auth_state.0.tenant {
+        match claims.tenant == auth_state.use_cases.tenant {
             true => {
                 return Ok(AuthUser {
                     user_id: claims.sub,
@@ -52,7 +52,7 @@ where
                 tracing::warn!(
                     "Tenant claim {} did not match for tenant {} for user_id {}",
                     claims.tenant,
-                    auth_state.0.tenant,
+                    auth_state.use_cases.tenant,
                     claims.sub
                 );
                 return Err(StatusCode::UNAUTHORIZED);
@@ -82,7 +82,10 @@ mod tests {
     use super::*;
     use crate::{
         application::auth_use_cases::AuthUseCases,
-        infrastructure::superuser_only_login_service::SuperuserOnlyLoginService,
+        infrastructure::{
+            db::test_pool,
+            superuser_only_login_service::SuperuserOnlyLoginService,
+        },
     };
 
     #[derive(Clone)]
@@ -103,14 +106,17 @@ mod tests {
 
     fn given_auth_state(tenant: &str) -> TestState {
         let tenant = tenant.to_string();
-        TestState(AuthState(Arc::new(AuthUseCases::new(
-            Arc::new(SuperuserOnlyLoginService::new(
-                "admin".into(),
-                "password".into(),
-                tenant.clone(),
+        TestState(AuthState {
+            use_cases: Arc::new(AuthUseCases::new(
+                Arc::new(SuperuserOnlyLoginService::new(
+                    "admin".into(),
+                    "password".into(),
+                    tenant.clone(),
+                )),
+                tenant,
             )),
-            tenant,
-        ))))
+            pool: test_pool(),
+        })
     }
 
     fn given_bearer_token(user_id: Uuid, tenant: &str) -> String {

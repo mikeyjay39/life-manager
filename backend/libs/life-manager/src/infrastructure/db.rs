@@ -63,6 +63,5 @@ pub async fn run_migrations(pool: &Pool) -> bool {
         .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await
         .expect("Failed to run migrations");
-    auth::run_migrations(pool).await;
     true
 }

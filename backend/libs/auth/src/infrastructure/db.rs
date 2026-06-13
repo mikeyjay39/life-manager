@@ -11,3 +11,16 @@ pub async fn run_migrations(pool: &Pool) -> bool {
         .expect("Failed to run auth migrations");
     true
 }
+
+#[cfg(test)]
+pub fn test_pool() -> std::sync::Arc<Pool> {
+    use deadpool_diesel::sqlite::{Manager, Runtime};
+    use std::sync::{Arc, OnceLock};
+
+    static POOL: OnceLock<Arc<Pool>> = OnceLock::new();
+    POOL.get_or_init(|| {
+        let mgr = Manager::new(":memory:".to_string(), Runtime::Tokio1);
+        Arc::new(Pool::builder(mgr).max_size(1).build().unwrap())
+    })
+    .clone()
+}

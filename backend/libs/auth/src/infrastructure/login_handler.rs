@@ -14,7 +14,7 @@ pub async fn login(
     tracing::info!("Login attempt for user: {}", req.username);
 
     let login_result = auth_state
-        .0
+        .use_cases
         .login_service
         .login(&req)
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
@@ -47,28 +47,32 @@ mod tests {
     use super::*;
     use crate::{
         application::auth_use_cases::AuthUseCases,
-        infrastructure::superuser_only_login_service::SuperuserOnlyLoginService,
+        infrastructure::{
+            db::test_pool,
+            superuser_only_login_service::SuperuserOnlyLoginService,
+        },
     };
 
     fn init_test_env() {
         static INIT: Once = Once::new();
-        INIT.call_once(|| {
-            unsafe {
-                std::env::set_var("JWT_SECRET", "test-secret");
-            }
+        INIT.call_once(|| unsafe {
+            std::env::set_var("JWT_SECRET", "test-secret");
         });
     }
 
     fn given_auth_state(tenant: &str) -> AuthState {
         let tenant = tenant.to_string();
-        AuthState(Arc::new(AuthUseCases::new(
-            Arc::new(SuperuserOnlyLoginService::new(
-                "admin".into(),
-                "password".into(),
-                tenant.clone(),
+        AuthState {
+            use_cases: Arc::new(AuthUseCases::new(
+                Arc::new(SuperuserOnlyLoginService::new(
+                    "admin".into(),
+                    "password".into(),
+                    tenant.clone(),
+                )),
+                tenant,
             )),
-            tenant,
-        )))
+            pool: test_pool(),
+        }
     }
 
     #[tokio::test]
@@ -95,6 +99,6 @@ mod tests {
         .claims;
 
         // Then
-        assert_eq!(claims.tenant, auth_state.0.tenant);
+        assert_eq!(claims.tenant, auth_state.use_cases.tenant);
     }
 }
