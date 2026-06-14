@@ -13,14 +13,18 @@ pub async fn run_migrations(pool: &Pool) -> bool {
 }
 
 #[cfg(test)]
-pub fn test_pool() -> std::sync::Arc<Pool> {
+pub fn fresh_test_pool() -> std::sync::Arc<Pool> {
     use deadpool_diesel::sqlite::{Manager, Runtime};
-    use std::sync::{Arc, OnceLock};
+    use std::sync::Arc;
 
-    static POOL: OnceLock<Arc<Pool>> = OnceLock::new();
-    POOL.get_or_init(|| {
-        let mgr = Manager::new(":memory:".to_string(), Runtime::Tokio1);
-        Arc::new(Pool::builder(mgr).max_size(1).build().unwrap())
-    })
-    .clone()
+    let mgr = Manager::new(":memory:".to_string(), Runtime::Tokio1);
+    Arc::new(Pool::builder(mgr).max_size(1).build().unwrap())
+}
+
+#[cfg(test)]
+pub fn test_pool() -> std::sync::Arc<Pool> {
+    use std::sync::OnceLock;
+
+    static POOL: OnceLock<std::sync::Arc<Pool>> = OnceLock::new();
+    POOL.get_or_init(fresh_test_pool).clone()
 }

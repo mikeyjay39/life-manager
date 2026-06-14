@@ -1,8 +1,9 @@
 mod common;
 
+use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use crate::common::setup::{
     LoginRequest, build_auth_header, build_bearer_token_with_tenant, decode_token_tenant,
-    run_test_with_test_profile,
+    decode_token_user_id, run_test_with_test_profile,
 };
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response};
@@ -30,6 +31,8 @@ async fn login_and_jwt_auth_good_credentials() {
             "Response status was not successful: {}",
             res.error_for_status().unwrap_err()
         );
+        let body = res.text().await.expect("Failed to read protected endpoint body");
+        assert_eq!(body, format!("Hello {}", admin_user_uuid()));
     })
     .await;
 }
@@ -71,6 +74,46 @@ async fn given_valid_login_when_decoding_token_then_tenant_is_life_manager() {
 
         // Then
         assert_eq!(tenant, "life-manager");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_valid_login_when_decoding_token_then_sub_is_admin_user_id() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given
+        let auth_header = build_auth_header(&server).await;
+
+        // When
+        let user_id = decode_token_user_id(&auth_header);
+
+        // Then
+        assert_eq!(user_id, admin_user_uuid());
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn unknown_username_fail_login() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let res = match do_login(&server, "nobody", "password").await {
+            Ok(response) => response,
+            Err(e) => panic!("Failed to send request: {}", e),
+        };
+        tracing::info!("Response: {:?}", res);
+        assert!(
+            res.status().is_client_error(),
+            "Response status was not a 4xx: {}",
+            res.error_for_status().unwrap_err()
+        );
+        let login_response: String = res.text().await.unwrap_or_else(|e| {
+            panic!("Failed to read response text: {}", e);
+        });
+        assert_eq!(login_response.len(), 0);
     })
     .await;
 }

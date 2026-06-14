@@ -48,7 +48,10 @@ mod tests {
     use super::*;
     use crate::{
         AuthStateBuilder,
-        infrastructure::db::test_pool,
+        infrastructure::{
+            auth_user_seeder::admin_user_uuid,
+            db::test_pool,
+        },
     };
 
     fn init_test_env() {
@@ -91,5 +94,23 @@ mod tests {
 
         // Then
         assert_eq!(claims.tenant, auth_state.use_cases.tenant);
+        assert_eq!(claims.sub, admin_user_uuid());
+    }
+
+    #[tokio::test]
+    async fn given_invalid_password_when_issuing_token_then_returns_unauthorized() {
+        init_test_env();
+        // Given
+        let auth_state = given_auth_state("life-manager").await;
+        let req = LoginRequest {
+            username: "admin".into(),
+            password: "wrong-password".into(),
+        };
+
+        // When
+        let result = login(State(auth_state), Json(req)).await;
+
+        // Then
+        assert_eq!(result.err(), Some(StatusCode::UNAUTHORIZED));
     }
 }

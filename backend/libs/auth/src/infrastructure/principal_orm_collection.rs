@@ -57,3 +57,62 @@ impl PrincipalRepository for PrincipalOrmCollection {
         };
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Once};
+
+    use crate::{
+        domain::principal::PrincipalRepository,
+        infrastructure::{
+            auth_user_seeder::ensure_default_admin_user,
+            db::{fresh_test_pool, run_migrations},
+        },
+    };
+
+    use super::*;
+
+    fn init_test_env() {
+        static INIT: Once = Once::new();
+        INIT.call_once(|| unsafe {
+            std::env::set_var("ADMIN_USERNAME", "admin");
+            std::env::set_var("ADMIN_PASSWORD", "password");
+        });
+    }
+
+    #[tokio::test]
+    async fn given_seeded_admin_when_getting_principal_then_returns_user() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref()).await;
+        ensure_default_admin_user(&pool, "life-manager").await;
+        let repository = PrincipalOrmCollection::new(pool);
+
+        // When
+        let principal = repository
+            .get_principal("admin")
+            .await
+            .expect("Seeded admin should exist");
+
+        // Then
+        assert_eq!(principal.tenant(), "life-manager");
+        assert!(!principal.password_hash().is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_unknown_username_when_getting_principal_then_returns_none() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref()).await;
+        ensure_default_admin_user(&pool, "life-manager").await;
+        let repository = PrincipalOrmCollection::new(pool);
+
+        // When
+        let principal = repository.get_principal("nobody").await;
+
+        // Then
+        assert!(principal.is_none());
+    }
+}

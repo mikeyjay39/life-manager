@@ -43,16 +43,23 @@ struct TestClaims {
 }
 
 pub fn decode_token_tenant(token: &str) -> String {
+    decode_token_claims(token).tenant
+}
+
+pub fn decode_token_user_id(token: &str) -> Uuid {
+    decode_token_claims(token).sub
+}
+
+fn decode_token_claims(token: &str) -> TestClaims {
     let token = token.strip_prefix("Bearer ").unwrap_or(token);
     let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-    let claims = decode::<TestClaims>(
+    decode::<TestClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::default(),
     )
     .expect("Failed to decode token")
-    .claims;
-    claims.tenant
+    .claims
 }
 
 pub fn build_bearer_token_with_tenant(user_id: Uuid, tenant: &str) -> String {
