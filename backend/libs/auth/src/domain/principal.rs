@@ -5,8 +5,9 @@ use uuid::Uuid;
  * Represents the authenticated user in the system.
  */
 pub trait Principal: Sync + Send {
-    fn user_id(&self) -> &Uuid;
+    fn user_id(&self) -> Uuid;
     fn tenant(&self) -> &str;
+    fn password_hash(&self) -> &str;
 }
 
 /**
@@ -14,5 +15,5 @@ pub trait Principal: Sync + Send {
  */
 #[async_trait]
 pub trait PrincipalRepository: Sync + Send {
-    async fn get_principal(&self, user_id: &Uuid) -> Option<Box<dyn Principal>>;
+    async fn get_principal(&self, username: &str) -> Option<Box<dyn Principal>>;
 }

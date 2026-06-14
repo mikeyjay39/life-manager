@@ -1,5 +1,6 @@
 pub mod argon_password_hasher;
 pub mod auth_state;
+pub mod auth_user_seeder;
 pub mod auth_user;
 pub mod auth_user_entity;
 pub mod db;

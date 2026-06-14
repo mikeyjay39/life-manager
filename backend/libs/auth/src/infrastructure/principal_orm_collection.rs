@@ -3,10 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use deadpool_diesel::sqlite::Pool;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use uuid::Uuid;
 
 use crate::{
-    AuthUser,
     domain::principal::{Principal, PrincipalRepository},
     infrastructure::auth_user_entity::AuthUserEntity,
     schema::auth_users,
@@ -25,7 +23,7 @@ impl PrincipalOrmCollection {
 
 #[async_trait]
 impl PrincipalRepository for PrincipalOrmCollection {
-    async fn get_principal(&self, user_id: &Uuid) -> Option<Box<dyn Principal>> {
+    async fn get_principal(&self, username: &str) -> Option<Box<dyn Principal>> {
         let conn = match self.pool.get().await {
             Ok(conn) => conn,
             Err(e) => {
@@ -34,12 +32,11 @@ impl PrincipalRepository for PrincipalOrmCollection {
             }
         };
 
-        let user_id_str = user_id.to_string();
-
+        let username_for_query = username.to_string();
         let result = conn
             .interact(move |conn| {
                 auth_users::table
-                    .filter(auth_users::id.eq(user_id_str))
+                    .filter(auth_users::username.eq(username_for_query))
                     .select(AuthUserEntity::as_select())
                     .get_result(conn)
             })
@@ -47,21 +44,9 @@ impl PrincipalRepository for PrincipalOrmCollection {
 
         return match result {
             Ok(r) => match r {
-                Ok(entity) => {
-                    let user_id = match Uuid::parse_str(&entity.id) {
-                        Ok(uuid) => uuid,
-                        Err(e) => {
-                            tracing::error!("Failed to parse user_id as string from uuid.: {}", e);
-                            return None;
-                        }
-                    };
-                    Some(Box::new(AuthUser {
-                        user_id,
-                        tenant: entity.tenant,
-                    }))
-                }
+                Ok(entity) => Some(Box::new(entity)),
                 Err(_) => {
-                    tracing::warn!("No user found with ID: {}", user_id);
+                    tracing::warn!("No user found with ID: {}", username);
                     None
                 }
             },

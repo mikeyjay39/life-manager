@@ -17,6 +17,7 @@ pub async fn login(
         .use_cases
         .login_service
         .login(&req)
+        .await
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     let exp = OffsetDateTime::now_utc() + Duration::hours(1);
@@ -39,47 +40,37 @@ pub async fn login(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Once};
+    use std::sync::Once;
 
     use axum::Json;
     use jsonwebtoken::{DecodingKey, Validation, decode};
 
     use super::*;
     use crate::{
-        application::auth_use_cases::AuthUseCases,
-        infrastructure::{
-            db::test_pool,
-            superuser_only_login_service::SuperuserOnlyLoginService,
-        },
+        AuthStateBuilder,
+        infrastructure::db::test_pool,
     };
 
     fn init_test_env() {
         static INIT: Once = Once::new();
         INIT.call_once(|| unsafe {
             std::env::set_var("JWT_SECRET", "test-secret");
+            std::env::set_var("ADMIN_USERNAME", "admin");
+            std::env::set_var("ADMIN_PASSWORD", "password");
         });
     }
 
-    fn given_auth_state(tenant: &str) -> AuthState {
-        let tenant = tenant.to_string();
-        AuthState {
-            use_cases: Arc::new(AuthUseCases::new(
-                Arc::new(SuperuserOnlyLoginService::new(
-                    "admin".into(),
-                    "password".into(),
-                    tenant.clone(),
-                )),
-                tenant,
-            )),
-            pool: test_pool(),
-        }
+    async fn given_auth_state(tenant: &str) -> AuthState {
+        AuthStateBuilder::new()
+            .build(tenant.to_string(), test_pool())
+            .await
     }
 
     #[tokio::test]
     async fn given_valid_login_when_issuing_token_then_tenant_matches_auth_state() {
         init_test_env();
         // Given
-        let auth_state = given_auth_state("life-manager");
+        let auth_state = given_auth_state("life-manager").await;
         let req = LoginRequest {
             username: "admin".into(),
             password: "password".into(),

@@ -5,8 +5,10 @@ use axum::{
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use uuid::Uuid;
 
-use crate::domain::{login_request::Claims, principal::Principal};
-use crate::{AuthState, domain::jwt_secret::JWT_SECRET};
+use crate::{
+    AuthState,
+    domain::{jwt_secret::JWT_SECRET, login_request::Claims},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct AuthUser {
@@ -61,32 +63,16 @@ where
     }
 }
 
-impl Principal for AuthUser {
-    fn user_id(&self) -> &Uuid {
-        &self.user_id
-    }
-
-    fn tenant(&self) -> &str {
-        self.tenant.as_str()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Once};
+    use std::sync::Once;
 
     use axum::http::{Request, header};
     use jsonwebtoken::{EncodingKey, Header, encode};
     use time::{Duration, OffsetDateTime};
 
     use super::*;
-    use crate::{
-        application::auth_use_cases::AuthUseCases,
-        infrastructure::{
-            db::test_pool,
-            superuser_only_login_service::SuperuserOnlyLoginService,
-        },
-    };
+    use crate::{AuthStateBuilder, infrastructure::db::test_pool};
 
     #[derive(Clone)]
     struct TestState(AuthState);
@@ -101,22 +87,17 @@ mod tests {
         static INIT: Once = Once::new();
         INIT.call_once(|| unsafe {
             std::env::set_var("JWT_SECRET", "test-secret");
+            std::env::set_var("ADMIN_USERNAME", "admin");
+            std::env::set_var("ADMIN_PASSWORD", "password");
         });
     }
 
-    fn given_auth_state(tenant: &str) -> TestState {
-        let tenant = tenant.to_string();
-        TestState(AuthState {
-            use_cases: Arc::new(AuthUseCases::new(
-                Arc::new(SuperuserOnlyLoginService::new(
-                    "admin".into(),
-                    "password".into(),
-                    tenant.clone(),
-                )),
-                tenant,
-            )),
-            pool: test_pool(),
-        })
+    async fn given_auth_state(tenant: &str) -> TestState {
+        TestState(
+            AuthStateBuilder::new()
+                .build(tenant.to_string(), test_pool())
+                .await,
+        )
     }
 
     fn given_bearer_token(user_id: Uuid, tenant: &str) -> String {
@@ -149,7 +130,7 @@ mod tests {
         init_test_env();
         // Given
         let user_id = Uuid::new_v4();
-        let state = given_auth_state("life-manager");
+        let state = given_auth_state("life-manager").await;
         let bearer = given_bearer_token(user_id, "life-manager");
         let mut parts = given_request_parts(&bearer);
 
@@ -165,7 +146,7 @@ mod tests {
         init_test_env();
         // Given
         let user_id = Uuid::new_v4();
-        let state = given_auth_state("life-manager");
+        let state = given_auth_state("life-manager").await;
         let bearer = given_bearer_token(user_id, "other-tenant");
         let mut parts = given_request_parts(&bearer);
 

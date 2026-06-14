@@ -4,11 +4,10 @@ use async_trait::async_trait;
 use uuid::Uuid;
 
 use crate::domain::{
+    default_admin::admin_user_uuid,
     login_request::LoginRequest,
     login_service::{LoginResult, LoginService},
 };
-
-const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
 
 /**
 * A login service that only allows a superuser to log in.
@@ -27,7 +26,7 @@ impl SuperuserOnlyLoginService {
         SuperuserOnlyLoginService {
             admin_username,
             admin_password,
-            admin_user_id: Uuid::parse_str(ADMIN_USER_ID).expect("Invalid ADMIN_USER_ID format"),
+            admin_user_id: admin_user_uuid(),
             tenant,
         }
     }
@@ -49,7 +48,7 @@ impl Default for SuperuserOnlyLoginService {
 
 #[async_trait]
 impl LoginService for SuperuserOnlyLoginService {
-    fn login(&self, login_req: &LoginRequest) -> Result<LoginResult, String> {
+    async fn login(&self, login_req: &LoginRequest) -> Result<LoginResult, String> {
         let LoginRequest { username, password } = login_req;
 
         if username == &self.admin_username && password == &self.admin_password {
@@ -70,8 +69,8 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_superuser_login_success() {
+    #[tokio::test]
+    async fn test_superuser_login_success() {
         let service = SuperuserOnlyLoginService::new(
             "admin".to_string(),
             "password".to_string(),
@@ -81,8 +80,11 @@ mod tests {
             username: "admin".to_string(),
             password: "password".to_string(),
         };
-        let result = service.login(&login_req).expect("Login should succeed");
-        assert_eq!(result.user_id.to_string(), ADMIN_USER_ID.to_string());
+        let result = service
+            .login(&login_req)
+            .await
+            .expect("Login should succeed");
+        assert_eq!(result.user_id, admin_user_uuid());
         assert_eq!(result.tenant, "test_tenant");
     }
 }

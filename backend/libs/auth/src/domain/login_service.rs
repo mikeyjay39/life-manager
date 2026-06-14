@@ -11,5 +11,5 @@ pub struct LoginResult {
 
 #[async_trait]
 pub trait LoginService: Sync + Send {
-    fn login(&self, login_req: &LoginRequest) -> Result<LoginResult, String>;
+    async fn login(&self, login_req: &LoginRequest) -> Result<LoginResult, String>;
 }
