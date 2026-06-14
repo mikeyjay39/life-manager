@@ -3,10 +3,12 @@ use std::env;
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::domain::{
-    default_admin::admin_user_uuid,
-    login_request::LoginRequest,
-    login_service::{LoginResult, LoginService},
+use crate::{
+    domain::{
+        login_request::LoginRequest,
+        login_service::{LoginResult, LoginService},
+    },
+    infrastructure::auth_user_seeder::admin_user_uuid,
 };
 
 /**
@@ -65,7 +67,10 @@ impl LoginService for SuperuserOnlyLoginService {
 #[cfg(test)]
 mod tests {
 
-    use crate::domain::login_request::LoginRequest;
+    use crate::{
+        domain::login_request::LoginRequest,
+        infrastructure::auth_user_seeder::admin_user_uuid,
+    };
 
     use super::*;
 

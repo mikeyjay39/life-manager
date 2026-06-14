@@ -3,14 +3,21 @@ use std::{env, sync::Arc};
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
+use uuid::Uuid;
 
 use crate::{
-    domain::{auth_password_hasher::AuthPasswordHasher, default_admin::ADMIN_USER_ID},
+    domain::auth_password_hasher::AuthPasswordHasher,
     infrastructure::{
         argon_password_hasher::ArgonPasswordHasher, auth_user_entity::NewAuthUserEntity,
     },
     schema::auth_users,
 };
+
+const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
+
+pub fn admin_user_uuid() -> Uuid {
+    Uuid::parse_str(ADMIN_USER_ID).expect("Invalid ADMIN_USER_ID format")
+}
 
 pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) {
     let username = env::var("ADMIN_USERNAME").expect("ADMIN_USERNAME must be set");
@@ -41,7 +48,7 @@ pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) {
 
     let hasher = ArgonPasswordHasher;
     let new_user = NewAuthUserEntity {
-        id: ADMIN_USER_ID.to_string(),
+        id: admin_user_uuid().to_string(),
         username,
         password_hash: hasher.hash_password(&password),
         tenant: tenant.to_string(),
