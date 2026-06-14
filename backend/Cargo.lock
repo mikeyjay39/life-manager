@@ -1884,6 +1884,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "server-host",
  "tempfile",
  "tokio",
  "tracing",
@@ -2043,6 +2044,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
+ "server-host",
  "tempfile",
  "testcontainers",
  "time",
@@ -3410,6 +3412,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "server-host"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
 ]
 
 [[package]]

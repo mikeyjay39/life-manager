@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "libs/auth", "libs/life-manager"]
+members = [".", "libs/auth", "libs/common/server-host", "libs/life-manager"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -26,6 +26,7 @@ path = "src/main.rs"
 [dependencies]
 auth = { path = "libs/auth" }
 life-manager = { path = "libs/life-manager" }
+server-host = { path = "libs/common/server-host" }
 axum = { workspace = true }
 axum-server = "0.7.3"
 tokio = { version = "1.47.1", features = ["full"] }

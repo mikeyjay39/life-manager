@@ -5,10 +5,8 @@ use axum::{
     http::{Method, Request, header},
     routing::get,
 };
-use life_manager::{
-    infrastructure::app_state::{AppState, AppStateBuilder},
-    life_manager_api_router,
-};
+use life_manager::{LifeManagerState, LifeManagerTenant};
+use server_host::{AppBootstrap, TenantMount};
 use std::env;
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
@@ -20,7 +18,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 pub async fn start_server() {
     tracing::info!("Starting server");
     build_info::init();
-    let app = build_app(None).await;
+    let app = build_app().await;
 
     // Define the address to run the server on
     let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
@@ -36,12 +34,25 @@ pub async fn start_server() {
         .expect("Could not start axum_server")
 }
 
-pub async fn build_app(app_state: Option<AppState>) -> Router {
+pub async fn build_app() -> Router {
+    let bootstrap = AppBootstrap::from_env();
+    build_app_with_bootstrap(bootstrap).await
+}
+
+/// TODO: This is only used for int tests. Could we remove this and use build_app_with_bootstrap
+/// with a test-specific bootstrap instead?
+pub async fn build_app_with_life_manager_state(state: LifeManagerState) -> Router {
+    let life_manager = LifeManagerTenant::mount_with_state(state);
+    build_app_with_tenants(life_manager).await
+}
+
+async fn build_app_with_bootstrap(bootstrap: AppBootstrap) -> Router {
+    let life_manager = LifeManagerTenant::mount(&bootstrap).await;
+    build_app_with_tenants(life_manager).await
+}
+
+async fn build_app_with_tenants(life_manager: Router) -> Router {
     tracing::info!("Building application...");
-    let state = match app_state {
-        Some(s) => s,
-        None => AppStateBuilder::new().build().await,
-    };
 
     // logging
     tracing_subscriber::registry()
@@ -57,7 +68,7 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
     Router::new()
         .route("/api/health", get(|| async { "up" }))
         .route("/api/version", get(|| async { build_info::git_commit() }))
-        .nest("/life-manager", life_manager_api_router())
+        .nest(LifeManagerTenant::MOUNT_PATH, life_manager)
         .layer(
             CorsLayer::new()
                 .allow_methods([
@@ -85,5 +96,4 @@ pub async fn build_app(app_state: Option<AppState>) -> Router {
                 },
             )),
         )
-        .with_state(state)
 }

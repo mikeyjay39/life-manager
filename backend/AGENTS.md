@@ -10,10 +10,13 @@ Update this file and the hub when backend conventions change.
 backend/
   src/                    # mikeyjay-server binary (lib.rs, main.rs, build_info)
   libs/
+    common/
+      server-host/        # AppBootstrap, TenantMount trait (composition only)
     auth/                 # JWT login, auth_router
       src/schema.rs       # Generated — do not hand-edit
       migrations/         # Author SQL here; user runs diesel migration run
     life-manager/
+      src/life_manager_tenant.rs  # LifeManagerTenant (TenantMount impl)
       src/domain/
       src/application/
       src/infrastructure/ # HTTP handlers, Diesel, adapters
@@ -28,11 +31,12 @@ Rust **edition 2024** (`Cargo.toml`).
 
 | Crate | Role |
 |-------|------|
-| **`mikeyjay-server`** | HTTP server binary; top-level routes in `src/lib.rs` |
+| **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
+| **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
 | **`auth`** | Shared authentication (`libs/auth/`) |
-| **`life-manager`** | Domain logic, Diesel/SQLite, feature routers (`libs/life-manager/`) |
+| **`life-manager`** | First tenant crate: domain logic, Diesel/SQLite, document API |
 
-`mikeyjay-server` depends on `auth` + `life-manager`. New domain code goes in `life-manager`; shared auth in `auth`.
+`mikeyjay-server` depends on `server-host` + `life-manager`. New product tenants implement `TenantMount` in their own crate; shared auth stays in `auth`.
 
 **Naming:** Cargo package `mikeyjay-server`, library crate `life-manager`, binary artifact `life-manager` (see `[[bin]]` in root `Cargo.toml`).
 
@@ -50,10 +54,11 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 ## API wiring
 
-- `backend/src/lib.rs`: `/api/health`, `/api/version`, nest `/life-manager` → `life_manager_api_router()`
-- `backend/libs/life-manager/src/lib.rs`: nest `/api/v1` → `auth`, `documents`
+- `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; nest tenants via `TenantMount::mount`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; builds `LifeManagerState` (own DB pool) and calls `.with_state()` on the nested router
+- `backend/libs/life-manager/src/life_manager_tenant.rs` → `api_router()`: nest `/api/v1` → `auth`, `documents`
 - Public v1 paths: `/life-manager/api/v1/...` — see [../docs/agents/api.md](../docs/agents/api.md)
-- Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs`
+- Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs` (handler state via `FromRef<LifeManagerState>`)
 
 ## Diesel / SQLite
 

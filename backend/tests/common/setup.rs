@@ -5,11 +5,11 @@ use time::{Duration as TimeDuration, OffsetDateTime};
 use uuid::Uuid;
 
 use axum_test::{TestServer, TestServerConfig, Transport};
-use life_manager::infrastructure::{
-    app_state::{AppState, AppStateBuilder},
-    db::{create_connection_pool_from_url, run_migrations},
+use life_manager::{
+    LifeManagerDeps, LifeManagerStateBuilder,
+    infrastructure::db::{create_connection_pool_from_url, run_migrations},
 };
-use mikeyjay_server::build_app;
+use mikeyjay_server::build_app_with_life_manager_state;
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
@@ -174,11 +174,13 @@ pub async fn build_app_server(url: &str) -> TestServer {
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
     tracing::info!("Building backend app...");
-    let state: AppState = AppStateBuilder::new()
-        .with_db_pool(Arc::new(pool))
-        .build()
+    let state = LifeManagerStateBuilder::new()
+        .build(LifeManagerDeps {
+            db_pool: Some(Arc::new(pool)),
+            ..LifeManagerDeps::default()
+        })
         .await;
-    let app = build_app(Some(state)).await;
+    let app = build_app_with_life_manager_state(state).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
         ..TestServerConfig::default()

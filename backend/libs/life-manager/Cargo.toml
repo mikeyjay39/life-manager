@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 auth = { path = "../auth" }
+server-host = { path = "../common/server-host" }
 async-trait = { workspace = true }
 axum = { workspace = true }
 chrono = "0.4"

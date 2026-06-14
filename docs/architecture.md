@@ -11,14 +11,16 @@ flowchart TB
   subgraph backend["backend/"]
     bin["mikeyjay-server (binary)\nsrc/lib.rs, src/main.rs"]
     subgraph libs["libs/"]
+      host["server-host\nAppBootstrap, TenantMount"]
       auth["auth\nJWT login, auth middleware"]
-      lm["life-manager\ndocuments, DB, app state"]
+      lm["life-manager tenant\nLifeManagerState, own DB pool"]
     end
     tests["tests/ (integration)"]
   end
 
-  bin --> auth
+  bin --> host
   bin --> lm
+  lm --> host
   lm --> auth
   tests --> bin
   tests --> auth
@@ -27,11 +29,14 @@ flowchart TB
 
 | Crate | Role |
 |-------|------|
-| **`mikeyjay-server`** | HTTP server entrypoint; top-level routes (`/api/health`, `/api/version`, `/life-manager/...`) |
+| **`mikeyjay-server`** | HTTP server entrypoint; stateless top-level routes (`/api/health`, `/api/version`); mounts tenant routers |
+| **`server-host`** | Composition-only `AppBootstrap` and `TenantMount` trait — not Axum state |
 | **`auth`** | Authentication router and JWT helpers; mounted under `/life-manager/api/v1/auth` |
-| **`life-manager`** | Domain logic, Diesel/SQLite, document API; nests `/api/v1` feature routers |
+| **`life-manager`** | First tenant crate: domain logic, Diesel/SQLite, document API; owns `LifeManagerState` and DB pool |
 
-Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**) and **`backend/libs/auth/`** (see **`backend/libs/auth/diesel.toml`**). App startup runs both migration sets on the shared SQLite database.
+Each tenant crate implements `TenantMount`, builds its own state (including DB pool and migrations), and registers `.with_state()` on its nested router only. The parent router has no global Axum state.
+
+Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**) and **`backend/libs/auth/`** (see **`backend/libs/auth/diesel.toml`**). Life-manager startup runs life-manager migrations on its pool; auth migrations run when `AuthStateBuilder` builds auth state for that tenant.
 
 ## HTTP routing
 
@@ -50,9 +55,9 @@ flowchart LR
   end
 
   subgraph server["mikeyjay-server (Axum)"]
-    r1["/life-manager\nlife_manager_api_router()"]
-    r2["/api/v1\nauth + documents"]
-    r3["/api/health, /api/version\n(top-level)"]
+    r1["/life-manager\nLifeManagerTenant::mount()"]
+    r2["/api/v1\nauth + documents\n.with_state(LifeManagerState)"]
+    r3["/api/health, /api/version\n(stateless top-level)"]
   end
 
   fe -->|"same-origin /life-manager/api/v1/..."| loc1
