@@ -133,17 +133,27 @@ Image URLs are set in **`.prod.env`** at the repo root (`LIFE_MANAGER_*_IMAGE`).
 
 ## Dev, test, and prod profiles
 
-**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`.<profile>.env`** at the repo root.
+**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`.<profile>.env`** at the repo root (**`docker-dev`** loads **`.dev.env`**).
 
 ```mermaid
 flowchart TB
   subgraph dev["dev profile"]
     dev_be["Backend: cargo run on host\n:APP_PORT (3000)"]
     dev_fe["Frontend: npx expo start on host\n:8080"]
-    dev_compose["Compose: frontend_dev (optional)"]
     dev_url["API URL: http://localhost:3000"]
     dev_be --- dev_fe
     dev_fe --> dev_url
+  end
+
+  subgraph dockerDev["docker-dev profile"]
+    dd_compose["Compose: docker-dev profile"]
+    dd_be["life_manager_dev\ncargo run + baked source"]
+    dd_fe["frontend_dev\nExpo development target"]
+    dd_env[".dev.env"]
+    dd_compose --> dd_be
+    dd_compose --> dd_fe
+    dd_env --> dd_compose
+    dd_fe -->|"EXPO_PUBLIC_API_BASE_URL"| dd_be
   end
 
   subgraph test["test profile"]
@@ -165,7 +175,8 @@ flowchart TB
 
 | Profile | Backend | Frontend | Compose services | Typical API base |
 |---------|---------|----------|------------------|------------------|
-| **dev** | Host **`cargo run`** | Host Expo | `frontend_dev` (optional) | `http://localhost:3000` |
+| **dev** | Host **`cargo run`** | Host Expo | *(none)* | `http://localhost:3000` |
+| **docker-dev** | Container **`life_manager_dev`** | Container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` | `http://localhost:3000` |
 | **test** | **`cargo build`** only | Host Expo | *(none)* | N/A (integration tests spin up the app) |
 | **prod** | Container **`life-manager`** | Container **`frontend`** via **`gateway`** | `life-manager`, `frontend`, `gateway` | Same origin as gateway (empty **`EXPO_PUBLIC_API_BASE_URL`**) |
 

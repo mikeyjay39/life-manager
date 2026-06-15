@@ -11,7 +11,7 @@ ENV NODE_ENV=development
 ENV FRONTEND_PORT=8080
 EXPOSE 8080
 
-CMD ["sh", "-c", "npx expo start --web --host localhost --port \"$FRONTEND_PORT\""]
+CMD ["sh", "-c", "npx expo start --web --host lan --port \"$FRONTEND_PORT\""]
 
 # ---- Builder: static web export (profile prod) ----
 FROM node:22-bookworm AS builder

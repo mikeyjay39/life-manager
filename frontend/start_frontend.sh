@@ -5,14 +5,17 @@ set -euo pipefail
 PROFILE="$1"
 : "${PROFILE:?PROFILE not set}"
 
-if [[ "$PROFILE" == "prod" ]]; then
-  # In production mode, we assume the frontend is already built and served by a web server.
-  echo "running in production mode, skipping Expo frontend..."
+if [[ "$PROFILE" == "prod" || "$PROFILE" == "docker-dev" ]]; then
+  # In production / docker-dev, the frontend is served from Docker (not host Expo).
+  echo "running in ${PROFILE} mode, skipping Expo frontend..."
   exit 0
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ENV_PATH="$REPO_ROOT/.${PROFILE}.env"
+env_basename() {
+  [[ "$1" == "docker-dev" ]] && echo "dev" || echo "$1"
+}
+ENV_PATH="$REPO_ROOT/.$(env_basename "$PROFILE").env"
 if [[ -f "$ENV_PATH" ]]; then
   set -a
   # shellcheck disable=SC1090

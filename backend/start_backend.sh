@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+env_basename() {
+  [[ "$1" == "docker-dev" ]] && echo "dev" || echo "$1"
+}
+
 # ---- Check arguments ----
 BUILD_IMAGE=0
 WITH_TESSERACT=0
@@ -15,7 +19,7 @@ while [ "$#" -gt 0 ]; do
       WITH_TESSERACT=1
       shift
       ;;
-    dev|test|prod)
+    dev|docker-dev|test|prod)
       if [ -n "$PROFILE" ]; then
         echo "Error: profile specified more than once"
         exit 1
@@ -25,32 +29,38 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "Error: unknown argument '$1'"
-      echo "Usage: start_backend.sh <test | dev | prod> [--build-image] [--with-tesseract]"
+      echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
       exit 1
       ;;
   esac
 done
 
 if [ -z "$PROFILE" ]; then
-  echo "Usage: start_backend.sh <test | dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
   exit 1
 fi
 
 : "${PROFILE:?PROFILE not set}"
 
 # ---- Validate profile ----
-if [[ "$PROFILE" != "dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
+if [[ "$PROFILE" != "dev" && "$PROFILE" != "docker-dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
   echo "Error: invalid profile '$PROFILE'"
-  echo "Usage: start_backend.sh <test | dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
   exit 1
 fi
 
-echo "DEBUG: PROFILE='$PROFILE' WITH_TESSERACT='$WITH_TESSERACT'"
+# docker-dev bakes source into images; always rebuild so code changes apply.
+if [[ "$PROFILE" == "docker-dev" ]]; then
+  BUILD_IMAGE=1
+fi
+
+echo "DEBUG: PROFILE='$PROFILE' WITH_TESSERACT='$WITH_TESSERACT' BUILD_IMAGE='$BUILD_IMAGE'"
 
 BACKEND_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$BACKEND_DIR/.." && pwd)"
 COMPOSE_FILE="$REPO_ROOT/docker-compose.yml"
-ENV_PATH="$REPO_ROOT/.${PROFILE}.env"
+ENV_BASENAME="$(env_basename "$PROFILE")"
+ENV_PATH="$REPO_ROOT/.${ENV_BASENAME}.env"
 
 # ---- Load .env file into the shell ----
 if [[ ! -f "$ENV_PATH" ]]; then
@@ -66,8 +76,8 @@ if [[ "$WITH_TESSERACT" -eq 1 ]]; then
 fi
 
 echo "Loaded environment variables from $ENV_PATH"
-# Compose substitutes ${ENV_FILE} on the life-manager service; path is relative to repo root.
-export ENV_FILE=".${PROFILE}.env"
+# Compose substitutes ${ENV_FILE} on backend services; path is relative to repo root.
+export ENV_FILE=".${ENV_BASENAME}.env"
 export PROFILE
 
 
@@ -107,6 +117,16 @@ if [[ "$PROFILE" == "prod" && "$BUILD_IMAGE" -eq 1 ]]; then
   fi
 fi
 
+# --- Build docker-dev images (always — source is baked in, not bind-mounted)
+if [[ "$PROFILE" == "docker-dev" ]]; then
+  echo "Building Docker images for docker-dev..."
+  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract build life_manager_dev frontend_dev
+  else
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev build life_manager_dev frontend_dev
+  fi
+fi
+
 # ---- Docker Compose from repo root (compose file lives at root) ----
 cd "$REPO_ROOT"
 
@@ -114,6 +134,14 @@ if [[ "$PROFILE" == "test" ]]; then
   echo "Skipping docker compose for profile test (auxiliary stack only via explicit profiles)."
 elif [[ "$PROFILE" == "dev" ]]; then
   echo "Skipping docker compose for profile dev (backend on host; Expo via start_frontend.sh)."
+elif [[ "$PROFILE" == "docker-dev" ]]; then
+  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract down
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract up
+  else
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev down
+    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev up
+  fi
 else
   if [[ "$WITH_TESSERACT" -eq 1 ]]; then
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract down
