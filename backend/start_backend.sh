@@ -112,6 +112,8 @@ cd "$REPO_ROOT"
 
 if [[ "$PROFILE" == "test" ]]; then
   echo "Skipping docker compose for profile test (auxiliary stack only via explicit profiles)."
+elif [[ "$PROFILE" == "dev" ]]; then
+  echo "Skipping docker compose for profile dev (backend on host; Expo via start_frontend.sh)."
 else
   if [[ "$WITH_TESSERACT" -eq 1 ]]; then
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract down

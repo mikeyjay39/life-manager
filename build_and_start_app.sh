@@ -53,5 +53,13 @@ if [ "$WITH_TESSERACT" -eq 1 ]; then
   BACKEND_EXTRA+=(--with-tesseract)
 fi
 
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+# Dev uses host Expo (start_frontend.sh), not the frontend_dev container. Stop any
+# leftover container so it does not bind FRONTEND_PORT with a stale image.
+if [[ "$PROFILE" == "dev" ]]; then
+  docker compose -f "$REPO_ROOT/docker-compose.yml" --env-file "$REPO_ROOT/.dev.env" --profile dev down 2>/dev/null || true
+fi
+
 backend/start_backend.sh "$PROFILE" "${BACKEND_EXTRA[@]}" &
 frontend/start_frontend.sh "$PROFILE" &

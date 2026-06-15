@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import DocumentList from './document-list';
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedFetch, apiV1 } from '@/lib/api/client';
+import { authenticatedFetch } from '@/lib/api/client';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -60,7 +60,7 @@ describe('DocumentList', () => {
     });
     expect(screen.getByText('Beta')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
-      apiV1('/documents'),
+      '/documents',
       expect.objectContaining({ method: 'GET', token: 'tok' })
     );
   });

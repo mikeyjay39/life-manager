@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { Alert } from 'react-native';
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiFetch, apiV1 } from '@/lib/api/client';
+import { apiFetch } from '@/lib/api/client';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -74,7 +74,7 @@ describe('DocumentCreateForm', () => {
       expect(mockApiFetch).toHaveBeenCalled();
     });
     const call = mockApiFetch.mock.calls[0];
-    expect(call[0]).toContain(apiV1('/documents'));
+    expect(call[0]).toBe('/documents');
     expect(call[1]).toMatchObject({
       method: 'POST',
       headers: { Authorization: 'Bearer test-token' },
