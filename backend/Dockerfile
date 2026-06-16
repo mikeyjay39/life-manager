@@ -1,3 +1,20 @@
+# ---- Development: cargo run (profile docker-dev) ----
+FROM rust:bookworm AS development
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+# Bake workspace into the image. Full-tree bind mounts are not used at runtime
+# because they break when Docker resolves paths outside the real project checkout
+# (e.g. dev-container home volume). Rebuild with --build-image after code changes.
+COPY . .
+COPY docker-dev-entrypoint.sh /docker-dev-entrypoint.sh
+RUN chmod +x /docker-dev-entrypoint.sh
+ENV RUST_LOG=debug
+EXPOSE 3000
+ENTRYPOINT ["/docker-dev-entrypoint.sh"]
+CMD ["cargo", "run"]
+
 # ---- Build stage ----
 FROM rust:bookworm AS builder
 WORKDIR /app

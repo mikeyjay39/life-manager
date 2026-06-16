@@ -7,6 +7,7 @@
 # with a full origin if you must talk to the API on another host (non-gateway devices, etc.).
 #
 # Dev (frontend_dev) defaults EXPO_PUBLIC_API_BASE_URL to http://localhost:3000 for direct backend access.
+# docker-dev profile: life_manager_dev (cargo run + source mount) and frontend_dev in Docker; uses .dev.env.
 #
 # Deploy checklist (API path changes): API paths are baked into the static frontend bundle at
 # build time, so prod needs matching backend and frontend images. On merge to main, CI rebuilds
@@ -47,6 +48,25 @@ services:
       - ./backend/data:/app/data
     restart: on-failure
     profiles: ["prod"]
+
+  life_manager_dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: life_manager_dev
+    env_file:
+      - ${ENV_FILE}
+    environment:
+      APP_PORT: ${APP_PORT}
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    volumes:
+      # Compile cache only; source comes from the development image (see backend/Dockerfile).
+      - life_manager_dev_target:/app/target
+      - ./backend/data:/app/data
+    restart: on-failure
+    profiles: ["docker-dev"]
 
   frontend:
     image: ${LIFE_MANAGER_FRONTEND_IMAGE}
@@ -103,8 +123,11 @@ services:
       FRONTEND_PORT: ${FRONTEND_PORT:-8080}
     ports:
       - "${FRONTEND_PORT:-8080}:${FRONTEND_PORT:-8080}"
+    volumes:
+      # Preserve image-built node_modules; source comes from the development image.
+      - frontend_dev_node_modules:/app/node_modules
     restart: on-failure
-    profiles: ["dev"]
+    profiles: ["dev", "docker-dev"]
 
   # OCR sidecar — not started with dev/test/prod alone; use e.g.
   # docker compose --profile prod --profile tesseract up -d
@@ -120,3 +143,5 @@ services:
 
 volumes:
   ollama:
+  frontend_dev_node_modules:
+  life_manager_dev_target:

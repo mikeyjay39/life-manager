@@ -1,15 +1,13 @@
 use std::{env, sync::Arc};
 
+use auth::{AuthState, AuthStateBuilder};
 use deadpool_diesel::sqlite::Pool;
-
-use auth::AuthUseCases;
 
 use crate::{
     application::document_use_cases::DocumentUseCases,
     domain::document_text_reader::DocumentTextReader,
     infrastructure::{
-        db::{create_connection_pool, run_migrations},
-        superuser_only_login_service::SuperuserOnlyLoginService,
+        db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
         document::document_orm_collection::DocumentOrmCollection,
         noop_document_text_reader::NoOpDocumentTextReader,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
@@ -19,61 +17,65 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct AppState {
-    pub document_use_cases: Arc<DocumentUseCases>,
-    pub auth_use_cases: Arc<AuthUseCases>,
+pub struct LifeManagerState {
+    pub(crate) document_use_cases: Arc<DocumentUseCases>,
+    pub(crate) auth_state: AuthState,
 }
 
-/// Builder for AppState
-/// NOTE: If no DocumentUseCases are provided, default ones will be created using environment
-/// variables, including the DB connection pool.
-pub struct AppStateBuilder {
-    document_use_cases: Option<Arc<DocumentUseCases>>,
-    auth_use_cases: Option<Arc<AuthUseCases>>,
-    db_pool: Option<Arc<Pool>>,
+#[derive(Clone, Default)]
+pub struct LifeManagerDeps {
+    pub database_url: Option<String>,
+    pub db_pool: Option<Arc<Pool>>,
+    pub document_use_cases: Option<Arc<DocumentUseCases>>,
+    pub auth_state: Option<AuthState>,
 }
 
-impl AppStateBuilder {
+impl LifeManagerDeps {
+    pub fn from_env() -> Self {
+        Self::default()
+    }
+}
+
+pub struct LifeManagerStateBuilder;
+
+impl LifeManagerStateBuilder {
     pub fn new() -> Self {
-        Self {
-            document_use_cases: None,
-            auth_use_cases: None,
-            db_pool: None,
-        }
+        Self
     }
 
-    pub fn with_document_use_cases(mut self, document_use_cases: Arc<DocumentUseCases>) -> Self {
-        self.document_use_cases = Some(document_use_cases);
-        self
-    }
-
-    pub fn with_auth_use_cases(mut self, auth_use_cases: Arc<AuthUseCases>) -> Self {
-        self.auth_use_cases = Some(auth_use_cases);
-        self
-    }
-
-    pub fn with_db_pool(mut self, db_pool: Arc<Pool>) -> Self {
-        self.db_pool = Some(db_pool);
-        self
-    }
-
-    pub async fn build(self) -> AppState {
-        tracing::info!("Building AppState...");
-        let pool = match self.db_pool {
+    pub async fn build(self, deps: LifeManagerDeps) -> LifeManagerState {
+        tracing::info!("Building LifeManagerState...");
+        let pool = match deps.db_pool {
             Some(pool) => pool,
-            None => Arc::new(init_db().await),
+            None => {
+                let pool = match deps.database_url {
+                    Some(url) => create_connection_pool_from_url(&url),
+                    None => create_connection_pool(),
+                };
+                Arc::new(init_db(pool).await)
+            }
         };
-        tracing::info!("AppState DB pool initialized.");
-        AppState {
-            document_use_cases: self
+        tracing::info!("LifeManagerState DB pool initialized.");
+        let auth_state = match deps.auth_state {
+            Some(auth_state) => auth_state,
+            None => {
+                AuthStateBuilder::new()
+                    .build("life-manager".to_string(), pool.clone())
+                    .await
+            }
+        };
+        LifeManagerState {
+            document_use_cases: deps
                 .document_use_cases
                 .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
-            auth_use_cases: self.auth_use_cases.unwrap_or_else(|| {
-                Arc::new(AuthUseCases {
-                    login_service: Arc::new(SuperuserOnlyLoginService::default()),
-                })
-            }),
+            auth_state,
         }
+    }
+}
+
+impl Default for LifeManagerStateBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -105,15 +107,8 @@ fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
     }
 }
 
-impl Default for AppStateBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-async fn init_db() -> Pool {
-    let pool = create_connection_pool();
-    tracing::info!("Running migrations...");
+async fn init_db(pool: Pool) -> Pool {
+    tracing::info!("Running life-manager migrations...");
     run_migrations(&pool).await;
     pool
 }

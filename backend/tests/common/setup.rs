@@ -1,15 +1,17 @@
 use std::{env::set_var, path::Path, sync::Arc, thread::sleep, time::Duration};
 
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use time::{Duration as TimeDuration, OffsetDateTime};
+use uuid::Uuid;
+
 use axum_test::{TestServer, TestServerConfig, Transport};
-use deadpool_diesel::sqlite::Pool;
-use diesel_migrations::MigrationHarness;
-use auth::{LoginRequest, LoginResponse};
-use life_manager::infrastructure::{
-    app_state::{AppState, AppStateBuilder},
-    db::{MIGRATIONS, create_connection_pool_from_url},
+use life_manager::{
+    LifeManagerDeps, LifeManagerStateBuilder,
+    infrastructure::db::{create_connection_pool_from_url, run_migrations},
 };
-use mikeyjay_server::build_app;
+use mikeyjay_server::build_app_with_life_manager_state;
 use reqwest::{Client, ClientBuilder};
+use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 
 use serde_json::json;
@@ -21,6 +23,61 @@ use wiremock::{
 use crate::common::docker::{docker_compose_down, start_docker_compose_dev_profile};
 
 const AUTH_URL: &str = "/life-manager/api/v1/auth";
+
+#[derive(Serialize, Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub token: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct TestClaims {
+    sub: Uuid,
+    exp: usize,
+    tenant: String,
+}
+
+pub fn decode_token_tenant(token: &str) -> String {
+    decode_token_claims(token).tenant
+}
+
+pub fn decode_token_user_id(token: &str) -> Uuid {
+    decode_token_claims(token).sub
+}
+
+fn decode_token_claims(token: &str) -> TestClaims {
+    let token = token.strip_prefix("Bearer ").unwrap_or(token);
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    decode::<TestClaims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .expect("Failed to decode token")
+    .claims
+}
+
+pub fn build_bearer_token_with_tenant(user_id: Uuid, tenant: &str) -> String {
+    let secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+    let exp = OffsetDateTime::now_utc() + TimeDuration::hours(1);
+    let claims = TestClaims {
+        sub: user_id,
+        exp: exp.unix_timestamp() as usize,
+        tenant: tenant.to_string(),
+    };
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .expect("Failed to encode test token");
+    format!("Bearer {token}")
+}
 
 /// Run test with all docker containers started via the repository root `docker-compose.yml`.
 ///
@@ -61,6 +118,19 @@ where
     F: FnOnce(TestServer) -> Fut,
     Fut: std::future::Future<Output = ()>,
 {
+    run_test_with_test_profile_and_db_setup(|_pool| async {}, test).await;
+}
+
+pub async fn run_test_with_test_profile_and_db_setup<Setup, SetupFut, F, Fut>(
+    db_setup: Setup,
+    test: F,
+)
+where
+    Setup: FnOnce(Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
+    SetupFut: std::future::Future<Output = ()>,
+    F: FnOnce(TestServer) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
     tracing::info!("Starting beforeEach setup");
 
     // Create temp SQLite database file
@@ -79,7 +149,7 @@ where
         set_var("DATABASE_URL", &database_url);
     }
 
-    let server = build_app_server(&database_url).await;
+    let server = build_app_server_with_db_setup(&database_url, db_setup).await;
     let url = server
         .server_address()
         .expect("Failed to get server address");
@@ -117,18 +187,34 @@ async fn mock_ollama_response() -> MockServer {
 /// Build the application server with the given database URL
 /// and runs migrations.
 pub async fn build_app_server(url: &str) -> TestServer {
+    build_app_server_with_db_setup(url, |_pool| async {}).await
+}
+
+pub async fn build_app_server_with_db_setup<Setup, SetupFut>(
+    url: &str,
+    db_setup: Setup,
+) -> TestServer
+where
+    Setup: FnOnce(Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
+    SetupFut: std::future::Future<Output = ()>,
+{
     tracing::info!("Creating SQLite connection pool...");
 
     let pool = create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
+    auth::infrastructure::db::run_migrations(&pool).await;
+    let pool = Arc::new(pool);
+    db_setup(pool.clone()).await;
     tracing::info!("Building backend app...");
-    let state: AppState = AppStateBuilder::new()
-        .with_db_pool(Arc::new(pool))
-        .build()
+    let state = LifeManagerStateBuilder::new()
+        .build(LifeManagerDeps {
+            db_pool: Some(pool),
+            ..LifeManagerDeps::default()
+        })
         .await;
-    let app = build_app(Some(state)).await;
+    let app = build_app_with_life_manager_state(state).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
         ..TestServerConfig::default()
@@ -162,15 +248,6 @@ pub async fn wait_for_service_to_be_ready(url: &str, service_name: &str) {
     }
 
     panic!("{} did not become ready at {}", service_name, url);
-}
-
-async fn run_migrations(pool: &Pool) -> bool {
-    let conn = pool.get().await.expect("Failed to get DB connection");
-    let _ = conn
-        .interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
-        .await
-        .expect("Failed to run migrations");
-    true
 }
 
 pub async fn build_auth_header(server: &TestServer) -> String {

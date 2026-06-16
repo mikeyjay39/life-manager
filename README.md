@@ -23,24 +23,25 @@ Scripts live in [`dev-container/`](dev-container/). They resolve their own direc
 From the repository root (not inside the dev container if you rely on host Docker):
 
 ```bash
-./build_and_start_app.sh <test | dev | prod> [--build-image] [--with-tesseract]
+./build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]
 ```
 
-This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel. Each script receives the same profile. Compose and the backend load variables from `.<profile>.env` at the repo root (for example `.prod.env`).
+This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel (except **docker-dev**, which runs only the backend script and serves the frontend from Docker). Each script receives the same profile. Compose and the backend load variables from `.<profile>.env` at the repo root (for example `.prod.env`). The **docker-dev** profile uses the same **`.dev.env`** file as **dev**.
 
 | Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
 |--------|---------|----------|----------------------------------------|
 | **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway` |
-| **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | `frontend_dev` |
+| **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | *(none — `frontend_dev` is stopped on startup)* |
+| **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` |
 | **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
 **Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
 
 | Port / setting | What uses it |
 |----------------|----------------|
-| **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by container **`life-manager`** in **prod**. |
+| **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by **`life_manager_dev`** in **docker-dev**, published by container **`life-manager`** in **prod**. |
 | **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/life-manager/api` → v1 API, `/api` → health/version). Often the main browser URL. |
-| **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **dev**. |
+| **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **docker-dev**. Host Expo in **dev**. |
 | **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
 | **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
 
@@ -52,13 +53,13 @@ Sample env files default **`TESSERACT_ENABLED=false`**, so **`docker compose`** 
 docker compose -f docker-compose.yml --env-file .prod.env --profile prod --profile tesseract up -d
 ```
 
-Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod**) to start **`frontend_dev`** or **prod** stack **and** the sidecar in one step.
+Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod** / **docker-dev**) to start the stack **and** the sidecar in one step.
 
-The Compose file is **`docker-compose.yml`** at the repo root; its header comments describe gateway routing and **`EXPO_PUBLIC_API_BASE_URL`**. For **prod**, `start_backend.sh` runs `docker compose build` for `life-manager`, `gateway`, and `frontend` before `up` so nginx templates stay in sync with the repo.
+The Compose file is **`docker-compose.yml`** at the repo root; its header comments describe gateway routing and **`EXPO_PUBLIC_API_BASE_URL`**. For **prod**, `start_backend.sh` runs `docker compose build` for `life-manager`, `gateway`, and `frontend` before `up` when **`--build-image`** is passed so nginx templates stay in sync with the repo. **docker-dev** always rebuilds `life_manager_dev` and `frontend_dev` before `up`.
 
-**Dev note:** Expo on the host and the **`frontend_dev`** service both default to **`FRONTEND_PORT`** (**8080**). If both run, change **`FRONTEND_PORT`** for one side or run only one frontend workflow.
+**Dev note:** Use **dev** for host `cargo run` + host Expo, or **docker-dev** for both in Docker (same **`.dev.env`**). Switching profiles stops the other workflow’s containers and frees ports.
 
-**Prod note:** `frontend/start_frontend.sh` exits immediately in prod; the UI is served from Docker (`frontend` + `gateway`).
+**Prod note:** `frontend/start_frontend.sh` exits immediately in prod and docker-dev; the UI is served from Docker.
 
 Architecture diagrams (workspace layout, routing, deployment): [`docs/architecture.md`](docs/architecture.md).
 
@@ -107,7 +108,11 @@ cd backend
 export DATABASE_URL=./data/test.db
 diesel setup
 diesel migration run
+cd libs/auth
+diesel migration run --config-file diesel.toml
 ```
+
+The server and integration tests also apply both migration sets automatically on startup.
 
 ## Planned Features
 

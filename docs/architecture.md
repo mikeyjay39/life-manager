@@ -11,14 +11,16 @@ flowchart TB
   subgraph backend["backend/"]
     bin["mikeyjay-server (binary)\nsrc/lib.rs, src/main.rs"]
     subgraph libs["libs/"]
+      host["server-host\nAppBootstrap, TenantMount"]
       auth["auth\nJWT login, auth middleware"]
-      lm["life-manager\ndocuments, DB, app state"]
+      lm["life-manager tenant\nLifeManagerState, own DB pool"]
     end
     tests["tests/ (integration)"]
   end
 
-  bin --> auth
+  bin --> host
   bin --> lm
+  lm --> host
   lm --> auth
   tests --> bin
   tests --> auth
@@ -27,11 +29,14 @@ flowchart TB
 
 | Crate | Role |
 |-------|------|
-| **`mikeyjay-server`** | HTTP server entrypoint; top-level routes (`/api/health`, `/api/version`, `/life-manager/...`) |
+| **`mikeyjay-server`** | HTTP server entrypoint; stateless top-level routes (`/api/health`, `/api/version`); mounts tenant routers |
+| **`server-host`** | Composition-only `AppBootstrap` and `TenantMount` trait — not Axum state |
 | **`auth`** | Authentication router and JWT helpers; mounted under `/life-manager/api/v1/auth` |
-| **`life-manager`** | Domain logic, Diesel/SQLite, document API; nests `/api/v1` feature routers |
+| **`life-manager`** | First tenant crate: domain logic, Diesel/SQLite, document API; owns `LifeManagerState` and DB pool |
 
-Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**).
+Each tenant crate implements `TenantMount`, builds its own state (including DB pool and migrations), and registers `.with_state()` on its nested router only. The parent router has no global Axum state.
+
+Diesel migrations and schema live in **`backend/libs/life-manager/`** (see **`backend/diesel.toml`**) and **`backend/libs/auth/`** (see **`backend/libs/auth/diesel.toml`**). Life-manager startup runs life-manager migrations on its pool; auth migrations run when `AuthStateBuilder` builds auth state for that tenant.
 
 ## HTTP routing
 
@@ -50,9 +55,9 @@ flowchart LR
   end
 
   subgraph server["mikeyjay-server (Axum)"]
-    r1["/life-manager\nlife_manager_api_router()"]
-    r2["/api/v1\nauth + documents"]
-    r3["/api/health, /api/version\n(top-level)"]
+    r1["/life-manager\nLifeManagerTenant::mount()"]
+    r2["/api/v1\nauth + documents\n.with_state(LifeManagerState)"]
+    r3["/api/health, /api/version\n(stateless top-level)"]
   end
 
   fe -->|"same-origin /life-manager/api/v1/..."| loc1
@@ -128,17 +133,27 @@ Image URLs are set in **`.prod.env`** at the repo root (`LIFE_MANAGER_*_IMAGE`).
 
 ## Dev, test, and prod profiles
 
-**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`.<profile>.env`** at the repo root.
+**`build_and_start_app.sh`** and **`backend/start_backend.sh`** select a profile; each loads **`.<profile>.env`** at the repo root (**`docker-dev`** loads **`.dev.env`**).
 
 ```mermaid
 flowchart TB
   subgraph dev["dev profile"]
     dev_be["Backend: cargo run on host\n:APP_PORT (3000)"]
     dev_fe["Frontend: npx expo start on host\n:8080"]
-    dev_compose["Compose: frontend_dev (optional)"]
     dev_url["API URL: http://localhost:3000"]
     dev_be --- dev_fe
     dev_fe --> dev_url
+  end
+
+  subgraph dockerDev["docker-dev profile"]
+    dd_compose["Compose: docker-dev profile"]
+    dd_be["life_manager_dev\ncargo run + baked source"]
+    dd_fe["frontend_dev\nExpo development target"]
+    dd_env[".dev.env"]
+    dd_compose --> dd_be
+    dd_compose --> dd_fe
+    dd_env --> dd_compose
+    dd_fe -->|"EXPO_PUBLIC_API_BASE_URL"| dd_be
   end
 
   subgraph test["test profile"]
@@ -160,7 +175,8 @@ flowchart TB
 
 | Profile | Backend | Frontend | Compose services | Typical API base |
 |---------|---------|----------|------------------|------------------|
-| **dev** | Host **`cargo run`** | Host Expo | `frontend_dev` (optional) | `http://localhost:3000` |
+| **dev** | Host **`cargo run`** | Host Expo | *(none)* | `http://localhost:3000` |
+| **docker-dev** | Container **`life_manager_dev`** | Container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` | `http://localhost:3000` |
 | **test** | **`cargo build`** only | Host Expo | *(none)* | N/A (integration tests spin up the app) |
 | **prod** | Container **`life-manager`** | Container **`frontend`** via **`gateway`** | `life-manager`, `frontend`, `gateway` | Same origin as gateway (empty **`EXPO_PUBLIC_API_BASE_URL`**) |
 

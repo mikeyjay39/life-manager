@@ -7,5 +7,4 @@ pub mod http_client;
 pub mod noop_document_text_reader;
 pub mod ollama_document_summarizer_adapter;
 pub mod reqwest_http_client;
-pub mod superuser_only_login_service;
 pub mod tesseract_adapter;

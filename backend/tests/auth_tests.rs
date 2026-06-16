@@ -1,11 +1,15 @@
 mod common;
 
-use crate::common::setup::{build_auth_header, run_test_with_test_profile};
+use auth::infrastructure::auth_user_seeder::admin_user_uuid;
+use crate::common::setup::{
+    LoginRequest, build_auth_header, build_bearer_token_with_tenant, decode_token_tenant,
+    decode_token_user_id, run_test_with_test_profile, run_test_with_test_profile_and_db_setup,
+};
 use axum_test::TestServer;
-use auth::LoginRequest;
 use reqwest::{ClientBuilder, Error, Response};
 use serial_test::serial;
 use tracing_test::traced_test;
+use uuid::Uuid;
 
 const AUTH_URL: &str = "/life-manager/api/v1/auth";
 
@@ -27,6 +31,8 @@ async fn login_and_jwt_auth_good_credentials() {
             "Response status was not successful: {}",
             res.error_for_status().unwrap_err()
         );
+        let body = res.text().await.expect("Failed to read protected endpoint body");
+        assert_eq!(body, format!("Hello {}", admin_user_uuid()));
     })
     .await;
 }
@@ -58,6 +64,88 @@ async fn bad_credentials_fail_login() {
 #[tokio::test]
 #[serial]
 #[traced_test]
+async fn given_valid_login_when_decoding_token_then_tenant_is_life_manager() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given
+        let auth_header = build_auth_header(&server).await;
+
+        // When
+        let tenant = decode_token_tenant(&auth_header);
+
+        // Then
+        assert_eq!(tenant, "life-manager");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_valid_login_when_decoding_token_then_sub_is_admin_user_id() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given
+        let auth_header = build_auth_header(&server).await;
+
+        // When
+        let user_id = decode_token_user_id(&auth_header);
+
+        // Then
+        assert_eq!(user_id, admin_user_uuid());
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn unknown_username_fail_login() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let res = match do_login(&server, "nobody", "password").await {
+            Ok(response) => response,
+            Err(e) => panic!("Failed to send request: {}", e),
+        };
+        tracing::info!("Response: {:?}", res);
+        assert!(
+            res.status().is_client_error(),
+            "Response status was not a 4xx: {}",
+            res.error_for_status().unwrap_err()
+        );
+        let login_response: String = res.text().await.unwrap_or_else(|e| {
+            panic!("Failed to read response text: {}", e);
+        });
+        assert_eq!(login_response.len(), 0);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn protected_endpoint_mismatched_tenant_fails_auth() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given a valid JWT signed with the wrong tenant claim
+        let auth_header = build_bearer_token_with_tenant(Uuid::new_v4(), "wrong-tenant");
+
+        // When
+        let res = match call_protected_endpoint(&server, &auth_header).await {
+            Ok(response) => response,
+            Err(e) => panic!("Failed to send request: {}", e),
+        };
+
+        // Then
+        tracing::info!("Protected Endpoint Response: {:?}", res);
+        assert!(
+            res.status().is_client_error(),
+            "Response status was not a 4xx: {}",
+            res.error_for_status().unwrap_err()
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
 async fn protected_endpoint_bad_token_fails_auth() {
     run_test_with_test_profile(|server: TestServer| async move {
         let res = match call_protected_endpoint(&server, "badtoken").await {
@@ -71,6 +159,72 @@ async fn protected_endpoint_bad_token_fails_auth() {
             res.error_for_status().unwrap_err()
         );
     })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn inactive_user_fail_login() {
+    run_test_with_test_profile_and_db_setup(
+        |pool| async move {
+            auth::infrastructure::auth_user_seeder::ensure_default_admin_user(
+                &pool,
+                "life-manager",
+            )
+            .await;
+            auth::test_support::set_user_active(&pool, "admin", false).await;
+        },
+        |server: TestServer| async move {
+            let res = match do_login(&server, "admin", "password").await {
+                Ok(response) => response,
+                Err(e) => panic!("Failed to send request: {}", e),
+            };
+            assert!(
+                res.status().is_client_error(),
+                "Response status was not a 4xx: {}",
+                res.error_for_status().unwrap_err()
+            );
+            let login_response: String = res.text().await.unwrap_or_else(|e| {
+                panic!("Failed to read response text: {}", e);
+            });
+            assert_eq!(login_response.len(), 0);
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn wrong_tenant_principal_fail_login() {
+    run_test_with_test_profile_and_db_setup(
+        |pool| async move {
+            auth::test_support::insert_auth_user(
+                &pool,
+                "other-user",
+                "password",
+                "other-tenant",
+                true,
+            )
+            .await;
+        },
+        |server: TestServer| async move {
+            let res = match do_login(&server, "other-user", "password").await {
+                Ok(response) => response,
+                Err(e) => panic!("Failed to send request: {}", e),
+            };
+            assert!(
+                res.status().is_client_error(),
+                "Response status was not a 4xx: {}",
+                res.error_for_status().unwrap_err()
+            );
+            let login_response: String = res.text().await.unwrap_or_else(|e| {
+                panic!("Failed to read response text: {}", e);
+            });
+            assert_eq!(login_response.len(), 0);
+        },
+    )
     .await;
 }
 

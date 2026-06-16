@@ -1,11 +1,13 @@
 [workspace]
-members = [".", "libs/auth", "libs/life-manager"]
+members = [".", "libs/auth", "libs/common/server-host", "libs/life-manager"]
 resolver = "2"
 
 [workspace.dependencies]
+argon2 = "0.5.3"
 async-trait = "0.1.59"
 axum = { version = "0.8.6", features = ["multipart"] }
 jsonwebtoken = "9"
+rand = "0.10.1"
 serde = { version = "1.0", features = ["derive"] }
 time = "0.3"
 tracing = "0.1.41"
@@ -24,6 +26,7 @@ path = "src/main.rs"
 [dependencies]
 auth = { path = "libs/auth" }
 life-manager = { path = "libs/life-manager" }
+server-host = { path = "libs/common/server-host" }
 axum = { workspace = true }
 axum-server = "0.7.3"
 tokio = { version = "1.47.1", features = ["full"] }
@@ -36,6 +39,8 @@ uuid = { workspace = true }
 [dev-dependencies]
 axum-test = "18.1.0"
 auth = { path = "libs/auth" }
+jsonwebtoken = { workspace = true }
+time = { workspace = true }
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel_migrations = "2"
 dotenv = "0.15.0"
@@ -45,6 +50,7 @@ life-manager = { path = "libs/life-manager" }
 once_cell = "1"
 tempfile = "3"
 reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.68"
 serial_test = "3.2.0"
 testcontainers = { version = "0.25.0" }
