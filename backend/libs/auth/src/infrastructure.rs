@@ -8,3 +8,4 @@ pub mod login_handler;
 pub mod principal_orm_collection;
 pub mod superuser_only_login_service;
 pub mod test_protected_endpoint_handler;
+pub mod test_support;

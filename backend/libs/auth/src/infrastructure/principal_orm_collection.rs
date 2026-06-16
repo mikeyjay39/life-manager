@@ -37,6 +37,7 @@ impl PrincipalRepository for PrincipalOrmCollection {
             .interact(move |conn| {
                 auth_users::table
                     .filter(auth_users::username.eq(username_for_query))
+                    .filter(auth_users::active.eq(true))
                     .select(AuthUserEntity::as_select())
                     .get_result(conn)
             })
@@ -46,7 +47,7 @@ impl PrincipalRepository for PrincipalOrmCollection {
             Ok(r) => match r {
                 Ok(entity) => Some(Box::new(entity)),
                 Err(_) => {
-                    tracing::warn!("No user found with ID: {}", username);
+                    tracing::warn!("No active user found with username: {}", username);
                     None
                 }
             },
@@ -67,6 +68,7 @@ mod tests {
         infrastructure::{
             auth_user_seeder::ensure_default_admin_user,
             db::{fresh_test_pool, run_migrations},
+            test_support::{insert_auth_user, set_user_active},
         },
     };
 
@@ -111,6 +113,39 @@ mod tests {
 
         // When
         let principal = repository.get_principal("nobody").await;
+
+        // Then
+        assert!(principal.is_none());
+    }
+
+    #[tokio::test]
+    async fn given_inactive_user_when_getting_principal_then_returns_none() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref()).await;
+        insert_auth_user(&pool, "inactive", "password", "life-manager", false).await;
+        let repository = PrincipalOrmCollection::new(pool);
+
+        // When
+        let principal = repository.get_principal("inactive").await;
+
+        // Then
+        assert!(principal.is_none());
+    }
+
+    #[tokio::test]
+    async fn given_deactivated_admin_when_getting_principal_then_returns_none() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref()).await;
+        ensure_default_admin_user(&pool, "life-manager").await;
+        set_user_active(&pool, "admin", false).await;
+        let repository = PrincipalOrmCollection::new(pool);
+
+        // When
+        let principal = repository.get_principal("admin").await;
 
         // Then
         assert!(principal.is_none());

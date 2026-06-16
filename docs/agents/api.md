@@ -19,7 +19,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount(&AppBootstrap)` nests `/life-manager` with per-tenant state
-- `backend/libs/life-manager/src/life-manager-tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 
 ### Gateway (prod)
@@ -29,6 +29,7 @@ Nginx proxies `/life-manager/api` (v1 API) and `/api` (health/version) separatel
 ## Auth
 
 - Protected routes: `Authorization: Bearer <token>`
+- Login rejects unknown credentials, inactive users (`active = false`), and principals whose `tenant` does not match the tenant mount (e.g. `life-manager`)
 - Backend auth crate: `backend/libs/auth/` builds `AuthState` via `AuthStateBuilder`; life-manager composes it into `LifeManagerState` and wires `FromRef` via `libs/life-manager/src/infrastructure/auth_integration.rs`
 - Handlers receive `AuthUser` where required
 - Frontend: `useAuth()` + `authenticatedFetch` from `frontend/lib/api/client.ts` — do not hard-code origins in components

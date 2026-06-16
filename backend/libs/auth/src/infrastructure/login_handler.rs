@@ -7,6 +7,11 @@ use crate::domain::login_request::{Claims, LoginRequest, LoginResponse};
 
 use crate::domain::jwt_secret::JWT_SECRET;
 
+/// Authenticates credentials and issues a JWT for the tenant mount.
+/// +--------+     +----------------------+     +---------------------+     +--------+
+/// | Client |---->| PrincipalLoginService |---->| tenant == mount?    |---->| JWT    |
+/// |        |     | (active user only)    |     | (reject if mismatch)|     |        |
+/// +--------+     +----------------------+     +---------------------+     +--------+
 pub async fn login(
     State(auth_state): State<AuthState>,
     Json(req): Json<LoginRequest>,
@@ -19,6 +24,15 @@ pub async fn login(
         .login(&req)
         .await
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    if login_result.tenant != auth_state.use_cases.tenant {
+        tracing::warn!(
+            "Login rejected: principal tenant {} does not match mount tenant {}",
+            login_result.tenant,
+            auth_state.use_cases.tenant
+        );
+        return Err(StatusCode::UNAUTHORIZED);
+    }
 
     let exp = OffsetDateTime::now_utc() + Duration::hours(1);
 
@@ -50,7 +64,8 @@ mod tests {
         AuthStateBuilder,
         infrastructure::{
             auth_user_seeder::admin_user_uuid,
-            db::test_pool,
+            db::{fresh_test_pool, run_migrations, test_pool},
+            test_support::insert_auth_user,
         },
     };
 
@@ -105,6 +120,28 @@ mod tests {
         let req = LoginRequest {
             username: "admin".into(),
             password: "wrong-password".into(),
+        };
+
+        // When
+        let result = login(State(auth_state), Json(req)).await;
+
+        // Then
+        assert_eq!(result.err(), Some(StatusCode::UNAUTHORIZED));
+    }
+
+    #[tokio::test]
+    async fn given_principal_with_wrong_tenant_when_logging_in_then_returns_unauthorized() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref()).await;
+        insert_auth_user(&pool, "other-user", "password", "other-tenant", true).await;
+        let auth_state = AuthStateBuilder::new()
+            .build("life-manager".to_string(), pool)
+            .await;
+        let req = LoginRequest {
+            username: "other-user".into(),
+            password: "password".into(),
         };
 
         // When

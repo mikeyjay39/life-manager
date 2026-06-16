@@ -3,7 +3,7 @@ mod common;
 use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use crate::common::setup::{
     LoginRequest, build_auth_header, build_bearer_token_with_tenant, decode_token_tenant,
-    decode_token_user_id, run_test_with_test_profile,
+    decode_token_user_id, run_test_with_test_profile, run_test_with_test_profile_and_db_setup,
 };
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response};
@@ -159,6 +159,72 @@ async fn protected_endpoint_bad_token_fails_auth() {
             res.error_for_status().unwrap_err()
         );
     })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn inactive_user_fail_login() {
+    run_test_with_test_profile_and_db_setup(
+        |pool| async move {
+            auth::infrastructure::auth_user_seeder::ensure_default_admin_user(
+                &pool,
+                "life-manager",
+            )
+            .await;
+            auth::test_support::set_user_active(&pool, "admin", false).await;
+        },
+        |server: TestServer| async move {
+            let res = match do_login(&server, "admin", "password").await {
+                Ok(response) => response,
+                Err(e) => panic!("Failed to send request: {}", e),
+            };
+            assert!(
+                res.status().is_client_error(),
+                "Response status was not a 4xx: {}",
+                res.error_for_status().unwrap_err()
+            );
+            let login_response: String = res.text().await.unwrap_or_else(|e| {
+                panic!("Failed to read response text: {}", e);
+            });
+            assert_eq!(login_response.len(), 0);
+        },
+    )
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn wrong_tenant_principal_fail_login() {
+    run_test_with_test_profile_and_db_setup(
+        |pool| async move {
+            auth::test_support::insert_auth_user(
+                &pool,
+                "other-user",
+                "password",
+                "other-tenant",
+                true,
+            )
+            .await;
+        },
+        |server: TestServer| async move {
+            let res = match do_login(&server, "other-user", "password").await {
+                Ok(response) => response,
+                Err(e) => panic!("Failed to send request: {}", e),
+            };
+            assert!(
+                res.status().is_client_error(),
+                "Response status was not a 4xx: {}",
+                res.error_for_status().unwrap_err()
+            );
+            let login_response: String = res.text().await.unwrap_or_else(|e| {
+                panic!("Failed to read response text: {}", e);
+            });
+            assert_eq!(login_response.len(), 0);
+        },
+    )
     .await;
 }
 

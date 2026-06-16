@@ -118,6 +118,19 @@ where
     F: FnOnce(TestServer) -> Fut,
     Fut: std::future::Future<Output = ()>,
 {
+    run_test_with_test_profile_and_db_setup(|_pool| async {}, test).await;
+}
+
+pub async fn run_test_with_test_profile_and_db_setup<Setup, SetupFut, F, Fut>(
+    db_setup: Setup,
+    test: F,
+)
+where
+    Setup: FnOnce(Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
+    SetupFut: std::future::Future<Output = ()>,
+    F: FnOnce(TestServer) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
     tracing::info!("Starting beforeEach setup");
 
     // Create temp SQLite database file
@@ -136,7 +149,7 @@ where
         set_var("DATABASE_URL", &database_url);
     }
 
-    let server = build_app_server(&database_url).await;
+    let server = build_app_server_with_db_setup(&database_url, db_setup).await;
     let url = server
         .server_address()
         .expect("Failed to get server address");
@@ -174,16 +187,30 @@ async fn mock_ollama_response() -> MockServer {
 /// Build the application server with the given database URL
 /// and runs migrations.
 pub async fn build_app_server(url: &str) -> TestServer {
+    build_app_server_with_db_setup(url, |_pool| async {}).await
+}
+
+pub async fn build_app_server_with_db_setup<Setup, SetupFut>(
+    url: &str,
+    db_setup: Setup,
+) -> TestServer
+where
+    Setup: FnOnce(Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
+    SetupFut: std::future::Future<Output = ()>,
+{
     tracing::info!("Creating SQLite connection pool...");
 
     let pool = create_connection_pool_from_url(url);
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
     run_migrations(&pool).await;
+    auth::infrastructure::db::run_migrations(&pool).await;
+    let pool = Arc::new(pool);
+    db_setup(pool.clone()).await;
     tracing::info!("Building backend app...");
     let state = LifeManagerStateBuilder::new()
         .build(LifeManagerDeps {
-            db_pool: Some(Arc::new(pool)),
+            db_pool: Some(pool),
             ..LifeManagerDeps::default()
         })
         .await;
