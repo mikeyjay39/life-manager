@@ -32,6 +32,16 @@ describe('resolveTenantId', () => {
     ).toEqual({ tenantId: 'life-manager', source: 'query-param' });
   });
 
+  it('returns null for unknown ?tenant= on localhost', () => {
+    expect(
+      resolveTenantId({
+        platform: 'web',
+        hostname: 'localhost',
+        search: '?tenant=nothing',
+      })
+    ).toBeNull();
+  });
+
   it('uses EXPO_PUBLIC_DEFAULT_TENANT on localhost when query param is absent', () => {
     expect(
       resolveTenantId({

@@ -25,6 +25,8 @@ export type ResolveTenantInput = {
  * resolveTenantId -> Registry: lookup hostname
  * alt local dev host
  *   resolveTenantId -> resolveLocalDevTenantId: ?tenant=, env default, hard default
+ *   alt unknown ?tenant=
+ *     resolveLocalDevTenantId --> Client: null
  * else unknown
  *   resolveTenantId --> Client: null
  * Registry --> resolveTenantId: tenant id
@@ -58,10 +60,13 @@ function readTenantQueryParam(search: string): string | undefined {
   return tenant || undefined;
 }
 
-function resolveLocalDevTenantId(input: ResolveTenantInput): TenantResolution {
+function resolveLocalDevTenantId(input: ResolveTenantInput): TenantResolution | null {
   const queryTenant = readTenantQueryParam(input.search);
-  if (queryTenant && isRegisteredTenantId(queryTenant)) {
-    return { tenantId: queryTenant, source: 'query-param' };
+  if (queryTenant) {
+    if (isRegisteredTenantId(queryTenant)) {
+      return { tenantId: queryTenant, source: 'query-param' };
+    }
+    return null;
   }
 
   const envDefault = input.envDefaultTenant?.trim();
