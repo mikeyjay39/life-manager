@@ -1,5 +1,7 @@
 import type { ComponentType } from 'react';
 
+import type { TenantTheme } from '@/lib/tenant/theme/types';
+
 export type TenantScreens = {
   Home: ComponentType;
 };
@@ -10,6 +12,7 @@ export type TenantMeta = {
   apiV1Prefix: string;
   displayName: string;
   hostnames: readonly string[];
+  theme?: TenantTheme;
 };
 
 /** Frontend mirror of backend TenantMount — one module per tenant product. */

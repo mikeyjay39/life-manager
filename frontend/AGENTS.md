@@ -13,9 +13,10 @@ Update this file and the hub when frontend conventions change.
 | `components/auth/` | Shared auth UI (`login-form.tsx`) |
 | `contexts/` | `AuthContext` (tenant-scoped token + login) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
+| `lib/tenant/theme/` | Theme types, defaults, `mergeTenantTheme()`, `TenantThemeProvider` |
 | `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1` |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
-| `constants/` | `config.ts` — `API_BASE_URL` only |
+| `constants/` | `theme.ts` — `defaultColors` / `Fonts`; `config.ts` — `API_BASE_URL` |
 
 Use `@/` path alias (`tsconfig.json`).
 
@@ -28,6 +29,28 @@ Use `@/` path alias (`tsconfig.json`).
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
 - `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, and `tenant.apiV1Prefix`.
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
+
+## Tenant theme and branding
+
+Provider order: `TenantProvider` → `TenantThemeProvider` → `AuthProvider` (see `app/_layout.tsx`).
+
+Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspecified values use app defaults from `lib/tenant/theme/defaults.ts`:
+
+- **Colors:** `theme.light` / `theme.dark` partial overrides merged over `defaultColors`
+- **Copy:** `theme.copy.loginSubtitle`, `theme.copy.homeTitleSuffix`
+- **Assets:** `theme.assets.logo`, `theme.assets.headerImage` (`require()` tenant assets from `tenants/<id>/assets/` or shared `@/assets/images/`)
+- **Header:** `theme.headerBackground` for parallax screens
+
+**UI convention:** do not import `Colors` directly in components — use `useColorPalette()` or `useThemeColor()`. Use `useTenantBranding()` for copy and assets on tenant screens.
+
+| Hook | Use for |
+|------|---------|
+| `useColorPalette()` | Current scheme palette (`tint`, `background`, `text`, …) |
+| `useThemeColor(props, name)` | Themed text/view color with optional per-mode overrides |
+| `useTenantBranding()` | Resolved copy, assets, header background |
+| `useNavigationTheme()` | React Navigation theme (primary = tenant tint) |
+
+Tests: wrap UI under test with `TenantThemeTestProvider` + `defaultResolvedTheme` (or a merged theme from `mergeTenantTheme()`).
 
 ## API and auth
 
@@ -58,7 +81,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 
 | Task | Files |
 |------|--------|
-| Tenant config | `tenants/life-manager/meta.ts` (hostnames, API prefix), `config.ts` (screens) |
+| Tenant config | `tenants/life-manager/meta.ts` (hostnames, API prefix, optional `theme`) |
+| Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login | `components/auth/login-form.tsx`, `app/login.tsx` |
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | List + tests | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` |

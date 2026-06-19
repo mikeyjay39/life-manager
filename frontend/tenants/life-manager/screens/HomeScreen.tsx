@@ -10,13 +10,13 @@ import DocumentCreateForm from '@/tenants/life-manager/components/document-creat
 import DocumentList from '@/tenants/life-manager/components/document-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorPalette, useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 
 export default function HomeScreen() {
   const { logout } = useAuth();
   const { tenant } = useTenant();
-  const colorScheme = useColorScheme();
+  const palette = useColorPalette();
+  const { copy, assets, headerBackground } = useTenantBranding();
 
   const handleLogout = async () => {
     Alert.alert(
@@ -41,15 +41,15 @@ export default function HomeScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
+      headerBackgroundColor={headerBackground}
       headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
+        <Image source={assets.headerImage} style={styles.reactLogo} />
       }>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">{tenant.displayName}!</ThemedText>
+        <ThemedText type="title">
+          {tenant.displayName}
+          {copy.homeTitleSuffix}
+        </ThemedText>
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
@@ -57,7 +57,7 @@ export default function HomeScreen() {
           style={[
             styles.logoutButton,
             {
-              backgroundColor: Colors[colorScheme ?? 'light'].tint,
+              backgroundColor: palette.tint,
             },
           ]}
           onPress={handleLogout}

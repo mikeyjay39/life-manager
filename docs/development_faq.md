@@ -92,7 +92,9 @@ EXPO_PUBLIC_DEFAULT_TENANT=life-manager EXPO_PUBLIC_API_BASE_URL=http://localhos
 
 JWT storage is scoped per tenant (`auth_token:<tenant-id>`) so switching tenants in dev does not reuse the wrong session.
 
-See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code).
+**Tenant theme overrides:** add or edit the optional `theme` block in `tenants/<id>/meta.ts` (e.g. `light: { tint: '#336699' }`). Reload the web app or restart Expo to pick up meta changes. Combine with `?tenant=<id>` when testing multiple tenants on localhost.
+
+See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code) and theme hooks.
 
 ### TLS in production
 

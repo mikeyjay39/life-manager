@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { Image, StyleSheet, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { LoginForm } from '@/components/auth/login-form';
@@ -7,10 +7,12 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
+import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 
 export default function LoginScreen() {
   const { login, isAuthenticated } = useAuth();
   const { tenant } = useTenant();
+  const { copy, assets } = useTenantBranding();
 
   React.useEffect(() => {
     if (isAuthenticated) {
@@ -33,11 +35,12 @@ export default function LoginScreen() {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
+          <Image source={assets.logo} style={styles.logo} accessibilityIgnoresInvertColors />
           <ThemedText type="title" style={styles.title}>
             {tenant.displayName}
           </ThemedText>
           <ThemedText type="subtitle" style={styles.subtitle}>
-            Sign in to continue
+            {copy.loginSubtitle}
           </ThemedText>
 
           <LoginForm onSubmit={handleSubmit} />
@@ -58,6 +61,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  logo: {
+    width: 72,
+    height: 72,
+    alignSelf: 'center',
+    marginBottom: 16,
+    borderRadius: 12,
   },
   title: {
     textAlign: 'center',

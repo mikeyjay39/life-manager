@@ -9,8 +9,7 @@ import {
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 type LoginFormProps = {
   onSubmit: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -21,7 +20,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const colorScheme = useColorScheme();
+  const palette = useColorPalette();
   const isBusy = loading || externalLoading;
 
   const handleLogin = async () => {
@@ -48,15 +47,15 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         style={[
           styles.input,
           {
-            backgroundColor: Colors[colorScheme ?? 'light'].background,
-            borderColor: Colors[colorScheme ?? 'light'].icon,
-            color: Colors[colorScheme ?? 'light'].text,
+            backgroundColor: palette.background,
+            borderColor: palette.icon,
+            color: palette.text,
           },
         ]}
         value={username}
         onChangeText={setUsername}
         placeholder="Enter your username"
-        placeholderTextColor={Colors[colorScheme ?? 'light'].icon}
+        placeholderTextColor={palette.icon}
         autoCapitalize="none"
         autoCorrect={false}
         editable={!isBusy}
@@ -69,15 +68,15 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         style={[
           styles.input,
           {
-            backgroundColor: Colors[colorScheme ?? 'light'].background,
-            borderColor: Colors[colorScheme ?? 'light'].icon,
-            color: Colors[colorScheme ?? 'light'].text,
+            backgroundColor: palette.background,
+            borderColor: palette.icon,
+            color: palette.text,
           },
         ]}
         value={password}
         onChangeText={setPassword}
         placeholder="Enter your password"
-        placeholderTextColor={Colors[colorScheme ?? 'light'].icon}
+        placeholderTextColor={palette.icon}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -90,7 +89,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         style={[
           styles.button,
           {
-            backgroundColor: Colors[colorScheme ?? 'light'].tint,
+            backgroundColor: palette.tint,
             opacity: isBusy ? 0.6 : 1,
           },
         ]}
