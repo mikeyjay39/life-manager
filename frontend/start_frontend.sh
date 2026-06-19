@@ -25,11 +25,19 @@ fi
 
 : "${FRONTEND_PORT:=8080}"
 port="$FRONTEND_PORT"
-echo "Closing existing Expo instances on port ${port}..."
-pids=$(netstat -tulnp 2>/dev/null | grep ":${port} " | awk '{print $7}' | cut -d'/' -f1 | sort -u || true)
-if [ -n "${pids:-}" ]; then
-  # shellcheck disable=SC2086
-  kill -9 $pids 2>/dev/null || true
+if [[ "$PROFILE" == "dev" ]]; then
+  echo "Stopping any process listening on TCP port ${port}..."
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${port}/tcp" 2>/dev/null || true
+  elif command -v lsof >/dev/null 2>&1; then
+    pids=$(lsof -ti ":${port}" -sTCP:LISTEN 2>/dev/null || true)
+    if [ -n "${pids:-}" ]; then
+      # shellcheck disable=SC2086
+      kill $pids 2>/dev/null || true
+    fi
+  else
+    echo "Warning: neither fuser nor lsof found; cannot free port ${port}"
+  fi
 fi
 
 echo "Starting Expo frontend on http://localhost:${port}/ ..."
