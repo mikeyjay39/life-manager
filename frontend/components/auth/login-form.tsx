@@ -3,7 +3,6 @@ import {
   View,
   TextInput,
   StyleSheet,
-  Alert,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
@@ -38,6 +37,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const palette = useColorPalette();
   const isBusy = loading || externalLoading;
@@ -50,11 +50,12 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
     }
 
     setFieldErrors({});
+    setSubmitError(null);
     setLoading(true);
     try {
       const result = await onSubmit(username, password);
       if (!result.success) {
-        Alert.alert('Login Failed', result.error || 'Unknown error occurred.');
+        setSubmitError(result.error ?? 'Unknown error occurred.');
       }
     } finally {
       setLoading(false);
@@ -66,12 +67,18 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
     if (fieldErrors.username) {
       setFieldErrors((prev) => ({ ...prev, username: undefined }));
     }
+    if (submitError) {
+      setSubmitError(null);
+    }
   };
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
     if (fieldErrors.password) {
       setFieldErrors((prev) => ({ ...prev, password: undefined }));
+    }
+    if (submitError) {
+      setSubmitError(null);
     }
   };
 
@@ -140,6 +147,12 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         <ThemedText style={styles.errorText}>{fieldErrors.password}</ThemedText>
       ) : null}
 
+      {submitError ? (
+        <ThemedText accessibilityRole="alert" style={styles.submitErrorText}>
+          {submitError}
+        </ThemedText>
+      ) : null}
+
       <TouchableOpacity
         style={[
           styles.button,
@@ -190,6 +203,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: ERROR_COLOR,
     marginBottom: 14,
+  },
+  submitErrorText: {
+    fontSize: 14,
+    color: ERROR_COLOR,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   button: {
     borderRadius: 8,

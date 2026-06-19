@@ -75,4 +75,52 @@ describe('LoginForm', () => {
       expect(onSubmit).toHaveBeenCalledWith(' admin ', ' secret ');
     });
   });
+
+  it('shows inline error when credentials are rejected', async () => {
+    const onSubmit = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Invalid username or password',
+    });
+    renderLoginForm(onSubmit);
+
+    fireEvent.changeText(screen.getByLabelText('Username input'), 'admin');
+    fireEvent.changeText(screen.getByLabelText('Password input'), 'wrong');
+    fireEvent.press(screen.getByLabelText('Sign in button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid username or password')).toBeTruthy();
+    });
+  });
+
+  it('shows fallback error when rejection has no message', async () => {
+    const onSubmit = vi.fn().mockResolvedValue({ success: false });
+    renderLoginForm(onSubmit);
+
+    fireEvent.changeText(screen.getByLabelText('Username input'), 'admin');
+    fireEvent.changeText(screen.getByLabelText('Password input'), 'wrong');
+    fireEvent.press(screen.getByLabelText('Sign in button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Unknown error occurred.')).toBeTruthy();
+    });
+  });
+
+  it('clears submit error when the user edits a field', async () => {
+    const onSubmit = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'Invalid username or password',
+    });
+    renderLoginForm(onSubmit);
+
+    fireEvent.changeText(screen.getByLabelText('Username input'), 'admin');
+    fireEvent.changeText(screen.getByLabelText('Password input'), 'wrong');
+    fireEvent.press(screen.getByLabelText('Sign in button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Invalid username or password')).toBeTruthy();
+    });
+
+    fireEvent.changeText(screen.getByLabelText('Password input'), 'wrong2');
+    expect(screen.queryByText('Invalid username or password')).toBeNull();
+  });
 });
