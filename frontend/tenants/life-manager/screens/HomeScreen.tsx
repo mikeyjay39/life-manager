@@ -1,11 +1,13 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useState } from 'react';
+import { Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { router, Link } from 'expo-router';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentList from '@/tenants/life-manager/components/document-list';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,41 +19,20 @@ export default function HomeScreen() {
   const { tenant } = useTenant();
   const palette = useColorPalette();
   const { copy, assets, headerBackground } = useTenantBranding();
+  const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
   const performLogout = async () => {
     await logout();
     router.replace('/login');
   };
 
-  const handleLogout = () => {
-    // Alert.alert is iOS/Android only; on web it is a no-op.
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out?')) {
-        void performLogout();
-      }
-      return;
-    }
-
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: () => {
-            void performLogout();
-          },
-        },
-      ]
-    );
+  const handleConfirmLogout = () => {
+    setLogoutDialogVisible(false);
+    void performLogout();
   };
 
   return (
+    <>
     <ParallaxScrollView
       headerBackgroundColor={headerBackground}
       headerImage={
@@ -72,7 +53,7 @@ export default function HomeScreen() {
               backgroundColor: palette.tint,
             },
           ]}
-          onPress={handleLogout}
+          onPress={() => setLogoutDialogVisible(true)}
           accessibilityLabel="Log out button"
           accessibilityHint="Tap to log out of your account"
         >
@@ -140,6 +121,17 @@ export default function HomeScreen() {
         </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
+    <ConfirmDialog
+      visible={logoutDialogVisible}
+      title="Log Out"
+      message="Are you sure you want to log out?"
+      confirmLabel="Log Out"
+      cancelLabel="Cancel"
+      destructive
+      onCancel={() => setLogoutDialogVisible(false)}
+      onConfirm={handleConfirmLogout}
+    />
+    </>
   );
 }
 
