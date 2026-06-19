@@ -92,5 +92,6 @@ if [[ "$PROFILE" == "docker-dev" ]]; then
   backend/start_backend.sh "$PROFILE" "${BACKEND_EXTRA[@]}" &
 else
   backend/start_backend.sh "$PROFILE" "${BACKEND_EXTRA[@]}" &
-  frontend/start_frontend.sh "$PROFILE" &
+  # Expo's interactive keyboard UI needs a TTY; backgrounding stdin causes setRawMode EIO.
+  CI=1 frontend/start_frontend.sh "$PROFILE" &
 fi
