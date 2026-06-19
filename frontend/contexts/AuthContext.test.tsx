@@ -2,7 +2,7 @@ import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { apiFetch, resolveApiUrl, resetApiClientConfig, configureApiClient } from '@/lib/api/client';
-import { getStoredToken, setStoredToken } from '@/lib/auth/storage';
+import { clearStoredToken, getStoredToken, setStoredToken } from '@/lib/auth/storage';
 import { TenantTestProvider } from '@/lib/tenant/TenantContext';
 import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
 import type { TenantModule } from '@/lib/tenant/types';
@@ -24,6 +24,7 @@ vi.mock('@/lib/auth/storage', () => ({
 const mockApiFetch = vi.mocked(apiFetch);
 const mockGetStoredToken = vi.mocked(getStoredToken);
 const mockSetStoredToken = vi.mocked(setStoredToken);
+const mockClearStoredToken = vi.mocked(clearStoredToken);
 
 const testTenant: TenantModule = {
   ...lifeManagerTenantMeta,
@@ -40,6 +41,16 @@ function LoginProbe() {
   return null;
 }
 
+function LogoutProbe() {
+  const { logout } = useAuth();
+
+  React.useEffect(() => {
+    void logout();
+  }, [logout]);
+
+  return null;
+}
+
 describe('AuthContext login', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,6 +58,7 @@ describe('AuthContext login', () => {
     configureApiClient({ apiV1Prefix: testTenant.apiV1Prefix });
     mockGetStoredToken.mockResolvedValue(null);
     mockSetStoredToken.mockResolvedValue(undefined);
+    mockClearStoredToken.mockResolvedValue(undefined);
     mockApiFetch.mockResolvedValue(
       new Response(JSON.stringify({ token: 'jwt-token' }), { status: 200 })
     );
@@ -77,5 +89,21 @@ describe('AuthContext login', () => {
       'http://localhost:3000/life-manager/api/v1/auth/login'
     );
     expect(mockSetStoredToken).toHaveBeenCalledWith('life-manager', 'jwt-token');
+  });
+
+  it('clears the tenant-scoped stored token on logout', async () => {
+    mockGetStoredToken.mockResolvedValue('existing-token');
+
+    render(
+      <TenantTestProvider tenant={testTenant}>
+        <AuthProvider>
+          <LogoutProbe />
+        </AuthProvider>
+      </TenantTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockClearStoredToken).toHaveBeenCalledWith('life-manager');
+    });
   });
 });

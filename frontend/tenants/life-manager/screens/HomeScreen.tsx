@@ -18,7 +18,20 @@ export default function HomeScreen() {
   const palette = useColorPalette();
   const { copy, assets, headerBackground } = useTenantBranding();
 
-  const handleLogout = async () => {
+  const performLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
+  const handleLogout = () => {
+    // Alert.alert is iOS/Android only; on web it is a no-op.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out?')) {
+        void performLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Log Out',
       'Are you sure you want to log out?',
@@ -30,9 +43,8 @@ export default function HomeScreen() {
         {
           text: 'Log Out',
           style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/login');
+          onPress: () => {
+            void performLogout();
           },
         },
       ]
