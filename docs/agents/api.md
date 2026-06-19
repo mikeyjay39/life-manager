@@ -50,6 +50,8 @@ Override order (`frontend/constants/config.ts`, `app.config.ts`):
 
 ### Frontend path convention
 
-Import `apiV1` from `@/lib/api/client` (wraps `API_V1_PREFIX` from `@/constants/config`). Example: `apiV1('/documents')` — do not hard-code `/api/v1` in components.
+Import `apiV1` from `@/lib/api/client`. Example: `apiV1('/documents')` — do not hard-code `/api/v1` or `/life-manager` in components. The v1 prefix is set at runtime from the active tenant (`TenantProvider` → `configureApiClient`).
+
+**Tenant resolution (frontend):** hostname or env maps to a tenant module in `frontend/lib/tenant/registry.ts`, which supplies `apiV1Prefix` (e.g. `/life-manager/api/v1`). This is separate from nginx routing but must stay aligned with backend `TenantMount::MOUNT_PATH`. Dev options: [../development_faq.md](../development_faq.md#multi-tenant-frontend-dev).
 
 Device/emulator notes: [../development_faq.md](../development_faq.md).

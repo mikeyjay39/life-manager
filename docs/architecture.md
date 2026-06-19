@@ -45,7 +45,7 @@ In production, browsers hit the **gateway** (nginx). The gateway forwards API tr
 ```mermaid
 flowchart LR
   subgraph client["Client"]
-    fe["Expo frontend\nAPI_V1_PREFIX"]
+    fe["Expo frontend\ntenant apiV1Prefix"]
   end
 
   subgraph gateway["nginx gateway (prod)"]
@@ -75,7 +75,7 @@ flowchart LR
 | `/api/health` | Top-level — liveness |
 | `/api/version` | Top-level — git commit |
 
-The v1 API prefix is defined once in the frontend as **`API_V1_PREFIX`** (`frontend/constants/config.ts`). Ops endpoints stay at **`/api/*`** so health checks do not move when product APIs are namespaced.
+The v1 API prefix is resolved at runtime from the active tenant module (`frontend/lib/tenant/` → `configureApiClient`). Ops endpoints stay at **`/api/*`** so health checks do not move when product APIs are namespaced.
 
 ## Production deployment
 

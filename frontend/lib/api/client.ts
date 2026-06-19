@@ -1,4 +1,21 @@
-import { API_BASE_URL, API_V1_PREFIX } from '@/constants/config';
+import { API_BASE_URL } from '@/constants/config';
+
+const DEFAULT_API_V1_PREFIX = '/life-manager/api/v1';
+
+let apiV1Prefix = DEFAULT_API_V1_PREFIX;
+
+export function configureApiClient(config: { apiV1Prefix: string }): void {
+  apiV1Prefix = config.apiV1Prefix;
+}
+
+export function getApiV1Prefix(): string {
+  return apiV1Prefix;
+}
+
+/** Reset to default prefix — for tests. */
+export function resetApiClientConfig(): void {
+  apiV1Prefix = DEFAULT_API_V1_PREFIX;
+}
 
 const DEFAULT_AUTH_ERROR_STATUSES = [401, 403];
 
@@ -6,14 +23,14 @@ function normalizeV1Path(path: string): string {
   const suffix = path.startsWith('/') ? path : `/${path}`;
 
   if (suffix.startsWith('/api/v1/')) {
-    return `/life-manager${suffix}`;
+    return `${apiV1Prefix.replace(/\/api\/v1$/, '')}${suffix}`;
   }
 
-  if (suffix.startsWith(API_V1_PREFIX)) {
+  if (suffix.startsWith(apiV1Prefix)) {
     return suffix;
   }
 
-  return `${API_V1_PREFIX}${suffix}`;
+  return `${apiV1Prefix}${suffix}`;
 }
 
 /** Build a root-relative v1 API path (e.g. `/life-manager/api/v1/documents`). */

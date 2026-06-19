@@ -68,6 +68,32 @@ curl -v --max-time 8 'http://localhost:3000/life-manager/api/v1/documents'
 
 See `frontend/constants/config.ts` for resolution order (`EXPO_PUBLIC_API_BASE_URL` → `extra.apiUrl` → default).
 
+### Multi-tenant frontend (dev)
+
+The web bundle resolves the active tenant at runtime. Production uses the page hostname (subdomain or custom domain) mapped in `frontend/lib/tenant/registry.ts`. Native builds use `EXPO_PUBLIC_TENANT`.
+
+**Localhost options (use any or combine):**
+
+1. **Default tenant (simplest):** no extra setup — plain `http://localhost:8080` resolves to `life-manager`.
+2. **Env override:** `EXPO_PUBLIC_DEFAULT_TENANT=life-manager` (web localhost / `127.0.0.1`) or `EXPO_PUBLIC_TENANT=life-manager` (native).
+3. **Query param (web):** `http://localhost:8080?tenant=life-manager`
+4. **Fake subdomain:** add to `/etc/hosts` then browse the subdomain:
+   ```text
+   127.0.0.1 life-manager.localhost
+   ```
+   `life-manager.localhost` is registered for the life-manager tenant in `tenants/life-manager/config.ts`.
+
+Example with host Expo + direct backend:
+
+```bash
+cd frontend
+EXPO_PUBLIC_DEFAULT_TENANT=life-manager EXPO_PUBLIC_API_BASE_URL=http://localhost:3000 npm run web
+```
+
+JWT storage is scoped per tenant (`auth_token:<tenant-id>`) so switching tenants in dev does not reuse the wrong session.
+
+See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code).
+
 ### TLS in production
 
 HTTPS is not terminated inside the Rust server. Put Nginx, Caddy, or another reverse proxy in front if you need TLS; point the frontend’s API URL at the HTTPS origin clients use.

@@ -1,11 +1,20 @@
-import { apiV1, resolveApiUrl } from '@/lib/api/client';
+import {
+  configureApiClient,
+  resetApiClientConfig,
+  apiV1,
+  resolveApiUrl,
+} from '@/lib/api/client';
 
 vi.mock('@/constants/config', () => ({
   API_BASE_URL: 'http://localhost:3000',
-  API_V1_PREFIX: '/life-manager/api/v1',
 }));
 
 describe('api client URL helpers', () => {
+  beforeEach(() => {
+    resetApiClientConfig();
+    configureApiClient({ apiV1Prefix: '/life-manager/api/v1' });
+  });
+
   it('builds tenant-scoped v1 paths', () => {
     expect(apiV1('/auth/login')).toBe('/life-manager/api/v1/auth/login');
     expect(apiV1('documents')).toBe('/life-manager/api/v1/documents');
@@ -19,5 +28,10 @@ describe('api client URL helpers', () => {
     expect(resolveApiUrl('/auth/login')).toBe(
       'http://localhost:3000/life-manager/api/v1/auth/login'
     );
+  });
+
+  it('uses the configured tenant api prefix', () => {
+    configureApiClient({ apiV1Prefix: '/other-tenant/api/v1' });
+    expect(apiV1('/documents')).toBe('/other-tenant/api/v1/documents');
   });
 });
