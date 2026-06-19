@@ -81,6 +81,12 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         autoCapitalize="none"
         autoCorrect={false}
         editable={!isBusy}
+        returnKeyType="go"
+        onSubmitEditing={() => {
+          if (!isBusy) {
+            void handleLogin();
+          }
+        }}
         accessibilityLabel="Password input"
         accessibilityHint="Enter your password to log in"
       />
