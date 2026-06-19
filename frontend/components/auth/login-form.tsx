@@ -99,9 +99,9 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         accessibilityHint="Tap to sign in with your credentials"
       >
         {isBusy ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={palette.onTint} />
         ) : (
-          <ThemedText style={styles.buttonText} lightColor="#fff" darkColor="#fff">
+          <ThemedText style={[styles.buttonText, { color: palette.onTint }]}>
             Sign In
           </ThemedText>
         )}

@@ -88,7 +88,7 @@ export default function DocumentCreateForm() {
           marginTop: 8,
         },
         submitButtonText: {
-          color: '#fff',
+          color: palette.onTint,
           fontSize: 16,
           fontWeight: '600',
         },

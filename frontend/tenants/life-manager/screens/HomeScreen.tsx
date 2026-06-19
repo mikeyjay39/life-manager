@@ -64,11 +64,7 @@ export default function HomeScreen() {
           accessibilityLabel="Log out button"
           accessibilityHint="Tap to log out of your account"
         >
-          <ThemedText
-            style={styles.logoutButtonText}
-            lightColor="#fff"
-            darkColor="#fff"
-          >
+          <ThemedText style={[styles.logoutButtonText, { color: palette.onTint }]}>
             Log Out
           </ThemedText>
         </TouchableOpacity>

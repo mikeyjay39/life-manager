@@ -35,4 +35,18 @@ describe('mergeTenantTheme', () => {
     expect(merged.assets.logo).toBe(defaultResolvedTheme.assets.logo);
     expect(merged.assets.headerImage).toBe(defaultResolvedTheme.assets.headerImage);
   });
+
+  it('includes default onTint for light and dark palettes', () => {
+    const merged = mergeTenantTheme(undefined);
+    expect(merged.colors.light.onTint).toBe('#fff');
+    expect(merged.colors.dark.onTint).toBe('#151718');
+  });
+
+  it('merges partial dark onTint override', () => {
+    const merged = mergeTenantTheme({
+      dark: { onTint: '#000000' },
+    });
+    expect(merged.colors.dark.onTint).toBe('#000000');
+    expect(merged.colors.dark.tint).toBe(defaultResolvedTheme.colors.dark.tint);
+  });
 });

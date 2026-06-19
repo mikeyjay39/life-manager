@@ -41,11 +41,13 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 - **Assets:** `theme.assets.logo`, `theme.assets.headerImage` (`require()` tenant assets from `tenants/<id>/assets/` or shared `@/assets/images/`)
 - **Header:** `theme.headerBackground` for parallax screens
 
-**UI convention:** do not import `Colors` directly in components — use `useColorPalette()` or `useThemeColor()`. Use `useTenantBranding()` for copy and assets on tenant screens.
+**UI convention:** do not import `Colors` directly in components — use `useColorPalette()` or `useThemeColor()`. Use `useTenantBranding()` for copy and assets on tenant screens. For filled buttons using `palette.tint` as background, use `palette.onTint` for label text and spinners.
+
+Light/dark **mode** is resolved by `useColorScheme()` (`hooks/use-color-scheme.ts` / `.web.ts`). On web, browser `prefers-color-scheme` wins; React Native/OS is the fallback when the browser reports no preference. Native uses OS `Appearance` only.
 
 | Hook | Use for |
 |------|---------|
-| `useColorPalette()` | Current scheme palette (`tint`, `background`, `text`, …) |
+| `useColorPalette()` | Current scheme palette (`tint`, `onTint`, `background`, `text`, …) |
 | `useThemeColor(props, name)` | Themed text/view color with optional per-mode overrides |
 | `useTenantBranding()` | Resolved copy, assets, header background |
 | `useNavigationTheme()` | React Navigation theme (primary = tenant tint) |

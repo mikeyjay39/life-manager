@@ -4,6 +4,7 @@ export type ColorPalette = {
   text: string;
   background: string;
   tint: string;
+  onTint: string;
   icon: string;
   tabIconDefault: string;
   tabIconSelected: string;
