@@ -11,24 +11,45 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
+const ERROR_COLOR = '#c00';
+
+type FieldErrors = {
+  username?: string;
+  password?: string;
+};
+
 type LoginFormProps = {
   onSubmit: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loading?: boolean;
 };
 
+function validateFields(username: string, password: string): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!username.trim()) {
+    errors.username = 'Username is required.';
+  }
+  if (!password.trim()) {
+    errors.password = 'Password is required.';
+  }
+  return errors;
+}
+
 export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginFormProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const palette = useColorPalette();
   const isBusy = loading || externalLoading;
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both username and password.');
+    const errors = validateFields(username, password);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
+    setFieldErrors({});
     setLoading(true);
     try {
       const result = await onSubmit(username, password);
@@ -40,41 +61,63 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
     }
   };
 
+  const handleUsernameChange = (text: string) => {
+    setUsername(text);
+    if (fieldErrors.username) {
+      setFieldErrors((prev) => ({ ...prev, username: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (fieldErrors.password) {
+      setFieldErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
+
   return (
     <View style={styles.formContainer}>
       <ThemedText style={styles.label}>Username</ThemedText>
       <TextInput
         style={[
           styles.input,
+          fieldErrors.username ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: palette.icon,
+            borderColor: fieldErrors.username ? ERROR_COLOR : palette.icon,
             color: palette.text,
           },
         ]}
         value={username}
-        onChangeText={setUsername}
+        onChangeText={handleUsernameChange}
         placeholder="Enter your username"
         placeholderTextColor={palette.icon}
         autoCapitalize="none"
         autoCorrect={false}
         editable={!isBusy}
         accessibilityLabel="Username input"
-        accessibilityHint="Enter your username to log in"
+        accessibilityHint={
+          fieldErrors.username ?? 'Enter your username to log in'
+        }
+        accessibilityState={{ invalid: !!fieldErrors.username }}
       />
+      {fieldErrors.username ? (
+        <ThemedText style={styles.errorText}>{fieldErrors.username}</ThemedText>
+      ) : null}
 
       <ThemedText style={styles.label}>Password</ThemedText>
       <TextInput
         style={[
           styles.input,
+          fieldErrors.password ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: palette.icon,
+            borderColor: fieldErrors.password ? ERROR_COLOR : palette.icon,
             color: palette.text,
           },
         ]}
         value={password}
-        onChangeText={setPassword}
+        onChangeText={handlePasswordChange}
         placeholder="Enter your password"
         placeholderTextColor={palette.icon}
         secureTextEntry
@@ -88,8 +131,14 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
           }
         }}
         accessibilityLabel="Password input"
-        accessibilityHint="Enter your password to log in"
+        accessibilityHint={
+          fieldErrors.password ?? 'Enter your password to log in'
+        }
+        accessibilityState={{ invalid: !!fieldErrors.password }}
       />
+      {fieldErrors.password ? (
+        <ThemedText style={styles.errorText}>{fieldErrors.password}</ThemedText>
+      ) : null}
 
       <TouchableOpacity
         style={[
@@ -129,8 +178,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
-    marginBottom: 20,
     fontSize: 16,
+  },
+  inputDefaultSpacing: {
+    marginBottom: 20,
+  },
+  inputWithError: {
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 14,
+    color: ERROR_COLOR,
+    marginBottom: 14,
   },
   button: {
     borderRadius: 8,
