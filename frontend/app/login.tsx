@@ -61,6 +61,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
   },
   logo: {
     width: 72,
