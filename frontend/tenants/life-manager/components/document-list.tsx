@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
+import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 type DocumentRow = {
   id: string;
@@ -19,10 +20,103 @@ type DocumentRow = {
 
 export default function DocumentList() {
   const { token, handleUnauthorized } = useAuth();
+  const palette = useColorPalette();
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<DocumentRow | null>(null);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          gap: 8,
+          marginTop: 16,
+        },
+        headerRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        },
+        sectionTitle: {
+          fontSize: 18,
+          fontWeight: '600',
+          flex: 1,
+          color: palette.text,
+        },
+        refreshButton: {
+          backgroundColor: palette.icon,
+          opacity: 0.2,
+          borderRadius: 8,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+        },
+        refreshButtonText: {
+          fontSize: 14,
+          fontWeight: '600',
+          color: palette.text,
+        },
+        row: {
+          borderWidth: 1,
+          borderColor: palette.icon,
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 4,
+        },
+        rowTitle: {
+          fontSize: 16,
+          color: palette.text,
+        },
+        hint: {
+          fontSize: 14,
+          color: palette.icon,
+        },
+        errorText: {
+          fontSize: 14,
+          color: '#c00',
+        },
+        modalBackdrop: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.45)',
+          justifyContent: 'center',
+          padding: 24,
+        },
+        modalCard: {
+          backgroundColor: palette.background,
+          borderRadius: 12,
+          maxHeight: '80%',
+          overflow: 'hidden',
+        },
+        modalScroll: {
+          padding: 16,
+        },
+        modalTitle: {
+          fontSize: 20,
+          fontWeight: '700',
+          marginBottom: 12,
+          color: palette.text,
+        },
+        modalContent: {
+          fontSize: 16,
+          lineHeight: 22,
+          color: palette.text,
+        },
+        modalClose: {
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: palette.icon,
+          padding: 14,
+          alignItems: 'center',
+          backgroundColor: palette.background,
+        },
+        modalCloseText: {
+          fontSize: 16,
+          fontWeight: '600',
+          color: palette.tint,
+        },
+      }),
+    [palette]
+  );
 
   const load = useCallback(async () => {
     if (!token) {
@@ -87,7 +181,7 @@ export default function DocumentList() {
       {!token ? (
         <Text style={styles.hint}>Sign in to see your documents.</Text>
       ) : loading && documents.length === 0 ? (
-        <ActivityIndicator size="small" />
+        <ActivityIndicator size="small" color={palette.tint} />
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : documents.length === 0 ? (
@@ -129,89 +223,3 @@ export default function DocumentList() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-    marginTop: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    flex: 1,
-  },
-  refreshButton: {
-    backgroundColor: '#e8e8e8',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  refreshButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  row: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 4,
-  },
-  rowTitle: {
-    fontSize: 16,
-    color: '#111',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#888',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#c00',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    maxHeight: '80%',
-    overflow: 'hidden',
-  },
-  modalScroll: {
-    padding: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-    color: '#111',
-  },
-  modalContent: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#333',
-  },
-  modalClose: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#ccc',
-    padding: 14,
-    alignItems: 'center',
-    backgroundColor: '#f8f8f8',
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#0a7ea4',
-  },
-});

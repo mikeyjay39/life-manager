@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getStoredToken, setStoredToken, clearStoredToken } from '@/lib/auth/storage';
 import { apiFetch } from '@/lib/api/client';
+import { useTenant } from '@/lib/tenant/TenantContext';
 
 type AuthContextType = {
   token: string | null;
@@ -19,30 +20,42 @@ type LoginResult = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { tenant } = useTenant();
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const restoreToken = async () => {
+      setIsLoading(true);
       try {
-        const storedToken = await getStoredToken();
-        if (storedToken) {
+        const storedToken = await getStoredToken(tenant.id);
+        if (!cancelled && storedToken) {
           setToken(storedToken);
+        } else if (!cancelled) {
+          setToken(null);
         }
       } catch (error) {
         console.error('Failed to restore token:', error);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
-    restoreToken();
-  }, []);
+    void restoreToken();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tenant.id]);
 
   const clearAuthState = useCallback(async () => {
-    await clearStoredToken();
+    await clearStoredToken(tenant.id);
     setToken(null);
-  }, []);
+  }, [tenant.id]);
 
   const handleUnauthorized = useCallback(async () => {
     try {
@@ -79,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       const newToken = data.token;
 
-      await setStoredToken(newToken);
+      await setStoredToken(tenant.id, newToken);
       setToken(newToken);
 
       return { success: true };

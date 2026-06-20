@@ -4,6 +4,8 @@ import { Alert } from 'react-native';
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
+import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
+import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -23,6 +25,14 @@ vi.mock('expo-document-picker', () => ({
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockApiFetch = vi.mocked(apiFetch);
+
+function renderDocumentCreateForm() {
+  return render(
+    <TenantThemeTestProvider theme={defaultResolvedTheme}>
+      <DocumentCreateForm />
+    </TenantThemeTestProvider>
+  );
+}
 
 function defaultAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}) {
   return {
@@ -50,7 +60,7 @@ describe('DocumentCreateForm', () => {
   it('shows error alert when there is no token', () => {
     const alertSpy = vi.spyOn(Alert, 'alert');
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
-    render(<DocumentCreateForm />);
+    renderDocumentCreateForm();
     fireEvent.press(screen.getByText('Create document'));
     expect(alertSpy).toHaveBeenCalledWith('Error', 'No authentication token available.');
     expect(mockApiFetch).not.toHaveBeenCalled();
@@ -58,7 +68,7 @@ describe('DocumentCreateForm', () => {
 
   it('shows validation alert when title or content is missing', () => {
     const alertSpy = vi.spyOn(Alert, 'alert');
-    render(<DocumentCreateForm />);
+    renderDocumentCreateForm();
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     fireEvent.press(screen.getByText('Create document'));
     expect(alertSpy).toHaveBeenCalledWith('Error', 'Please enter a title and content.');
@@ -66,7 +76,7 @@ describe('DocumentCreateForm', () => {
   });
 
   it('submits document with POST and bearer token when valid', async () => {
-    render(<DocumentCreateForm />);
+    renderDocumentCreateForm();
     fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
     fireEvent.press(screen.getByText('Create document'));
@@ -84,7 +94,7 @@ describe('DocumentCreateForm', () => {
   it('shows error alert when response is not ok', async () => {
     const alertSpy = vi.spyOn(Alert, 'alert');
     mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
-    render(<DocumentCreateForm />);
+    renderDocumentCreateForm();
     fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
     fireEvent.press(screen.getByText('Create document'));
@@ -95,7 +105,7 @@ describe('DocumentCreateForm', () => {
 
   it('shows success alert with id when response contains id', async () => {
     const alertSpy = vi.spyOn(Alert, 'alert');
-    render(<DocumentCreateForm />);
+    renderDocumentCreateForm();
     fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'World');
     fireEvent.press(screen.getByText('Create document'));

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, TextInput, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
+import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 function parseTags(input: string): string[] {
   return input
@@ -19,6 +20,84 @@ export default function DocumentCreateForm() {
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const { token, handleUnauthorized } = useAuth();
+  const palette = useColorPalette();
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          gap: 8,
+          marginTop: 8,
+        },
+        label: {
+          fontSize: 16,
+          marginBottom: 4,
+          color: palette.text,
+        },
+        input: {
+          borderWidth: 1,
+          borderColor: palette.icon,
+          borderRadius: 8,
+          padding: 10,
+          marginBottom: 8,
+          color: palette.text,
+          backgroundColor: palette.background,
+        },
+        inputMultiline: {
+          minHeight: 100,
+        },
+        fileRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginBottom: 8,
+        },
+        secondaryButton: {
+          backgroundColor: palette.icon,
+          opacity: 0.2,
+          borderRadius: 8,
+          paddingVertical: 10,
+          paddingHorizontal: 14,
+        },
+        secondaryButtonText: {
+          fontSize: 15,
+          fontWeight: '600',
+          color: palette.text,
+        },
+        fileName: {
+          flex: 1,
+          minWidth: 80,
+          fontSize: 14,
+          color: palette.text,
+        },
+        hint: {
+          fontSize: 14,
+          color: palette.icon,
+        },
+        clearLink: {
+          fontSize: 14,
+          color: palette.tint,
+          fontWeight: '600',
+        },
+        submitButton: {
+          backgroundColor: palette.tint,
+          borderRadius: 8,
+          padding: 14,
+          alignItems: 'center',
+          marginTop: 8,
+        },
+        submitButtonText: {
+          color: palette.onTint,
+          fontSize: 16,
+          fontWeight: '600',
+        },
+        buttonDisabled: {
+          opacity: 0.6,
+        },
+      }),
+    [palette]
+  );
 
   const pickFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -114,6 +193,7 @@ export default function DocumentCreateForm() {
         value={title}
         onChangeText={setTitle}
         placeholder="Document title"
+        placeholderTextColor={palette.icon}
       />
 
       <Text style={styles.label}>Content</Text>
@@ -122,6 +202,7 @@ export default function DocumentCreateForm() {
         value={content}
         onChangeText={setContent}
         placeholder="Document content"
+        placeholderTextColor={palette.icon}
         multiline
         textAlignVertical="top"
       />
@@ -132,6 +213,7 @@ export default function DocumentCreateForm() {
         value={tagsInput}
         onChangeText={setTagsInput}
         placeholder="e.g. work, notes"
+        placeholderTextColor={palette.icon}
       />
 
       <Text style={styles.label}>File (optional)</Text>
@@ -163,72 +245,3 @@ export default function DocumentCreateForm() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-    marginTop: 8,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  inputMultiline: {
-    minHeight: 100,
-  },
-  fileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-  },
-  secondaryButton: {
-    backgroundColor: '#e8e8e8',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-  },
-  fileName: {
-    flex: 1,
-    minWidth: 80,
-    fontSize: 14,
-    color: '#444',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#888',
-  },
-  clearLink: {
-    fontSize: 14,
-    color: '#0a7ea4',
-    fontWeight: '600',
-  },
-  submitButton: {
-    backgroundColor: '#0a7ea4',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-});

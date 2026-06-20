@@ -27,6 +27,10 @@ impl LoginService for PrincipalLoginService {
             .password_hasher
             .verify_password(&login_req.password, principal.password_hash()))
         {
+            tracing::warn!(
+                "Failed login attempt for user '{}': password mismatch",
+                login_req.username
+            );
             return Err("Password does not match".to_string());
         }
 
@@ -129,7 +133,10 @@ mod tests {
         };
 
         // When
-        let result = service.login(&login_req).await.expect("Login should succeed");
+        let result = service
+            .login(&login_req)
+            .await
+            .expect("Login should succeed");
 
         // Then
         assert_eq!(result.user_id, user_id);

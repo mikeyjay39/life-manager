@@ -13,6 +13,7 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.{test,spec}.{ts,tsx}'],
     pool: 'forks',
+    setupFiles: ['./vitest.setup.ts'],
   },
   resolve: {
     alias: {

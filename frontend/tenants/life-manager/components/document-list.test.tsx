@@ -3,6 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import DocumentList from './document-list';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
+import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
+import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -18,6 +20,14 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
+
+function renderDocumentList() {
+  return render(
+    <TenantThemeTestProvider theme={defaultResolvedTheme}>
+      <DocumentList />
+    </TenantThemeTestProvider>
+  );
+}
 
 function defaultAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}) {
   return {
@@ -40,7 +50,7 @@ describe('DocumentList', () => {
 
   it('shows sign in message when there is no token', () => {
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
-    render(<DocumentList />);
+    renderDocumentList();
     expect(screen.getByText('Sign in to see your documents.')).toBeTruthy();
   });
 
@@ -54,7 +64,7 @@ describe('DocumentList', () => {
         { status: 200 }
       )
     );
-    render(<DocumentList />);
+    renderDocumentList();
     await waitFor(() => {
       expect(screen.getByText('Alpha')).toBeTruthy();
     });
@@ -67,7 +77,7 @@ describe('DocumentList', () => {
 
   it('shows error when fetch fails', async () => {
     mockAuthenticatedFetch.mockResolvedValue(new Response('oops', { status: 500 }));
-    render(<DocumentList />);
+    renderDocumentList();
     await waitFor(() => {
       expect(screen.getByText(/500/)).toBeTruthy();
     });
@@ -75,7 +85,7 @@ describe('DocumentList', () => {
 
   it('shows empty state when array is empty', async () => {
     mockAuthenticatedFetch.mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
-    render(<DocumentList />);
+    renderDocumentList();
     await waitFor(() => {
       expect(screen.getByText('No documents yet.')).toBeTruthy();
     });
@@ -85,7 +95,7 @@ describe('DocumentList', () => {
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(JSON.stringify([{ id: '1', title: 'Doc A', content: 'Body text' }]), { status: 200 })
     );
-    render(<DocumentList />);
+    renderDocumentList();
     await waitFor(() => {
       expect(screen.getByText('Doc A')).toBeTruthy();
     });

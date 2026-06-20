@@ -10,16 +10,24 @@ export default (): ExpoConfig => {
       : ({} as Record<string, unknown>);
   const rawPublic = process.env.EXPO_PUBLIC_API_BASE_URL;
   const hasExplicitPublicApiUrl = rawPublic !== undefined;
+  const extra: Record<string, unknown> = { ...existingExtra };
 
   if (hasExplicitPublicApiUrl) {
-    return {
-      ...base,
-      extra: { ...existingExtra, apiUrl: (rawPublic ?? '').trim() },
-    };
+    extra.apiUrl = (rawPublic ?? '').trim();
+  }
+
+  const rawTenant = process.env.EXPO_PUBLIC_TENANT;
+  if (rawTenant !== undefined) {
+    extra.tenant = rawTenant.trim();
+  }
+
+  const rawDefaultTenant = process.env.EXPO_PUBLIC_DEFAULT_TENANT;
+  if (rawDefaultTenant !== undefined) {
+    extra.defaultTenant = rawDefaultTenant.trim();
   }
 
   return {
     ...base,
-    extra: Object.keys(existingExtra).length > 0 ? existingExtra : base.extra,
+    extra: Object.keys(extra).length > 0 ? extra : base.extra,
   };
 };
