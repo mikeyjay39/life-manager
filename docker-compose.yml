@@ -1,8 +1,8 @@
 # Compose file lives at the repository root (paths below are relative to this directory).
 #
 # Prod profile: the `gateway` service is the main entry (HTTP NGINX_PORT defaults to 80; HTTPS 443).
-# It proxies / to the static frontend, /life-manager/api to the life-manager v1 API, and /api to
-# health/version endpoints. The prod frontend build defaults to an empty EXPO_PUBLIC_API_BASE_URL
+# It proxies / to the static frontend, /life-manager/api to the life-manager v1 API, /api to
+# health/version endpoints, and /logs/ to Grafana. The prod frontend build defaults to an empty EXPO_PUBLIC_API_BASE_URL
 # so the browser uses same-origin /life-manager/api paths. Override
 # with a full origin if you must talk to the API on another host (non-gateway devices, etc.).
 #
@@ -123,6 +123,7 @@ services:
     depends_on:
       - life-manager
       - frontend
+      - grafana
     restart: on-failure
     logging: *loki-logging
 
@@ -184,6 +185,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/container-logs.json
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-}
+      GF_SERVER_SERVE_FROM_SUB_PATH: ${GRAFANA_SERVE_FROM_SUB_PATH:-false}
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:

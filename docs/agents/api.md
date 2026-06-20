@@ -24,7 +24,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 
 ### Gateway (prod)
 
-Nginx proxies `/life-manager/api` (v1 API) and `/api` (health/version) separately to the backend. See `nginx/templates/default.conf.template`.
+Nginx proxies `/life-manager/api` (v1 API) and `/api` (health/version) separately to the backend, and `/logs/` to Grafana (subpath serving via `GRAFANA_ROOT_URL` / `GRAFANA_SERVE_FROM_SUB_PATH` in `.prod.env`). See `nginx/templates/default.conf.template`.
 
 ## Auth
 

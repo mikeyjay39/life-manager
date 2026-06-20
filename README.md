@@ -40,12 +40,12 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | Port / setting | What uses it |
 |----------------|----------------|
 | **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by **`life_manager_dev`** in **docker-dev**, published by container **`life-manager`** in **prod**. |
-| **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/life-manager/api` → v1 API, `/api` → health/version). Often the main browser URL. |
+| **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/life-manager/api` → v1 API, `/api` → health/version, `/logs/` → Grafana). Often the main browser URL. |
 | **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **docker-dev**. Host Expo in **dev**. |
 | **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
 | **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
 | **`LOKI_PORT`** (default **3100**) | Loki HTTP API on **localhost only** (`127.0.0.1`); used by the Docker Loki logging driver to ship container logs. |
-| **`GRAFANA_PORT`** (default **3001**) | Grafana UI for querying logs (avoids clashing with **`APP_PORT`** **3000**). Login with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`**. |
+| **`GRAFANA_PORT`** (default **3001**) | Grafana UI for querying logs (avoids clashing with **`APP_PORT`** **3000**). In **prod**, use **`https://<domain>/logs/`** via the gateway (set **`GRAFANA_ROOT_URL`** in `.prod.env` to match). In **docker-dev**, open `http://localhost:${GRAFANA_PORT:-3001}` directly. Login with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`**. |
 
 ### Observability (Loki + Grafana)
 
@@ -53,11 +53,12 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 
 Grafana is provisioned from [`observability/grafana/provisioning/`](observability/grafana/provisioning/): a **Loki** datasource and a **Container Logs** dashboard (set as the default home view).
 
-- Open Grafana at `http://localhost:${GRAFANA_PORT:-3001}` (or your host’s address in prod).
+- **Prod:** open `https://<domain>/logs/` (via the gateway). **`GRAFANA_ROOT_URL`** in `.prod.env` must match that URL (scheme + host + trailing `/logs/`). Direct access on **`GRAFANA_PORT`** is still published if needed.
+- **docker-dev:** open Grafana at `http://localhost:${GRAFANA_PORT:-3001}`.
 - Sign in with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`** from `.<profile>.env`.
 - After login, the **Container Logs** dashboard shows live streams for `{compose_project="life-manager"}`. Use the **Service** dropdown to filter (e.g. `life_manager_dev`).
 - **Connections → Data sources** lists **Loki** (provisioned; not editable in the UI).
-- **Prod:** open **`GRAFANA_PORT`** in Lightsail networking if you want remote Grafana access. Loki stays bound to localhost on the host.
+- Loki stays bound to localhost on the host (`127.0.0.1:${LOKI_PORT:-3100}`).
 - **Disk:** Loki and Grafana use named Docker volumes (`loki_data`, `grafana_data`); monitor disk use on long-running hosts.
 
 Host-only processes (**dev** profile `cargo run`, host Expo) are not shipped to Loki unless you add a separate collector (e.g. Promtail).

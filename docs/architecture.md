@@ -51,7 +51,8 @@ flowchart LR
   subgraph gateway["nginx gateway (prod)"]
     loc1["/life-manager/api/*"]
     loc2["/api/health, /api/version"]
-    loc3["/ → static frontend"]
+    loc3["/logs/ → Grafana"]
+    loc4["/ → static frontend"]
   end
 
   subgraph server["mikeyjay-server (Axum)"]
@@ -74,6 +75,7 @@ flowchart LR
 | `/life-manager/api/v1/documents/{id}` | `life-manager` — get document by UUID |
 | `/api/health` | Top-level — liveness |
 | `/api/version` | Top-level — git commit |
+| `/logs/` | Gateway (prod) — Grafana UI for container logs |
 
 The v1 API prefix is resolved at runtime from the active tenant module (`frontend/lib/tenant/` → `configureApiClient`). Ops endpoints stay at **`/api/*`** so health checks do not move when product APIs are namespaced.
 
@@ -87,12 +89,14 @@ flowchart TB
   gateway["gateway (nginx)\n:NGINX_PORT"]
   frontend["frontend (static Expo web)\n:FRONTEND_PORT"]
   api["life-manager (Rust API)\n:APP_PORT"]
+  grafana["grafana\n:3000"]
   db[("SQLite\nbackend/data")]
   ocr["tesseract (optional OCR)"]
 
   browser --> gateway
   gateway -->|"/"| frontend
   gateway -->|"/life-manager/api, /api"| api
+  gateway -->|"/logs/"| grafana
   api --> db
   api -.->|"TESSERACT_ENABLED"| ocr
 ```
