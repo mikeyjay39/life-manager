@@ -7,11 +7,14 @@ RUN npm ci
 
 COPY . .
 
+COPY docker-dev-entrypoint.sh /docker-dev-entrypoint.sh
+RUN chmod +x /docker-dev-entrypoint.sh
+
 ENV NODE_ENV=development
 ENV FRONTEND_PORT=8080
 EXPOSE 8080
 
-CMD ["sh", "-c", "npx expo start --web --host lan --port \"$FRONTEND_PORT\""]
+ENTRYPOINT ["/docker-dev-entrypoint.sh"]
 
 # ---- Builder: static web export (profile prod) ----
 FROM node:22-bookworm AS builder
