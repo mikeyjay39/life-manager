@@ -51,13 +51,40 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 
 **prod** and **docker-dev** start **Loki** and **Grafana** automatically. Application containers use the [Loki Docker logging driver](https://grafana.com/docs/loki/latest/send-data/docker-driver/) (installed by `backend/start_backend.sh` and `scripts/deploy-prod-lightsail.sh`) to push stdout/stderr to Loki. `docker logs` still works (the driver keeps local JSON log files by default).
 
+Grafana is provisioned from [`observability/grafana/provisioning/`](observability/grafana/provisioning/): a **Loki** datasource and a **Container Logs** dashboard (set as the default home view).
+
 - Open Grafana at `http://localhost:${GRAFANA_PORT:-3001}` (or your host’s address in prod).
 - Sign in with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`** from `.<profile>.env`.
-- Go to **Explore → Loki** and query by container, e.g. `{compose_project="life-manager"}` or `{compose_service="life_manager_dev"}`.
+- After login, the **Container Logs** dashboard shows live streams for `{compose_project="life-manager"}`. Use the **Service** dropdown to filter (e.g. `life_manager_dev`).
+- **Connections → Data sources** lists **Loki** (provisioned; not editable in the UI).
 - **Prod:** open **`GRAFANA_PORT`** in Lightsail networking if you want remote Grafana access. Loki stays bound to localhost on the host.
 - **Disk:** Loki and Grafana use named Docker volumes (`loki_data`, `grafana_data`); monitor disk use on long-running hosts.
 
 Host-only processes (**dev** profile `cargo run`, host Expo) are not shipped to Loki unless you add a separate collector (e.g. Promtail).
+
+**If Loki does not appear as a datasource** (often after Grafana ran once before provisioning was in place), restart or reset the Grafana volume:
+
+```bash
+docker compose -f docker-compose.yml --env-file .dev.env --profile docker-dev restart grafana
+```
+
+If the datasource is still missing:
+
+```bash
+docker compose -f docker-compose.yml --env-file .dev.env --profile docker-dev stop grafana
+docker compose -f docker-compose.yml --env-file .dev.env --profile docker-dev rm -f grafana
+docker volume rm life-manager_grafana_data
+docker compose -f docker-compose.yml --env-file .dev.env --profile docker-dev up -d --build loki grafana
+```
+
+`docker volume rm` fails while a container still references the volume — stop and remove the Grafana container first (`rm -f grafana` above).
+
+Verify provisioning inside the container:
+
+```bash
+docker exec life_manager_grafana ls /etc/grafana/provisioning/datasources/
+docker logs life_manager_grafana 2>&1 | grep -i provision
+```
 
 ### Optional Tesseract (OCR sidecar)
 

@@ -38,3 +38,11 @@ ruler:
 
 analytics:
   reporting_enabled: false
+
+limits_config:
+  volume_enabled: true
+  volume_max_series: 1000
+  discover_service_name:
+    - compose_service
+    - container_name
+    - service_name

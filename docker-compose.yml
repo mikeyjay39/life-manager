@@ -158,19 +158,24 @@ services:
     profiles: ["tesseract"]
 
   loki:
-    image: grafana/loki:3.0.0
+    build:
+      context: ./observability/loki
+      dockerfile: Dockerfile
+    image: life-manager-loki:local
     container_name: life_manager_loki
     command: -config.file=/etc/loki/loki-config.yaml
     ports:
       - "127.0.0.1:${LOKI_PORT:-3100}:3100"
     volumes:
-      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki_data:/loki
     restart: on-failure
     profiles: ["prod", "docker-dev"]
 
   grafana:
-    image: grafana/grafana:11.4.0
+    build:
+      context: ./observability/grafana
+      dockerfile: Dockerfile
+    image: life-manager-grafana:local
     container_name: life_manager_grafana
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
@@ -178,9 +183,9 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/json/container-logs.json
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
     depends_on:
       - loki
     restart: on-failure

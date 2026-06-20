@@ -5,10 +5,10 @@ env_basename() {
   [[ "$1" == "docker-dev" ]] && echo "dev" || echo "$1"
 }
 
-compose_up() {
-  # shellcheck source=../scripts/loki-docker-plugin-setup.sh
-  source "$(cd "$(dirname "$0")/.." && pwd)/scripts/loki-docker-plugin-setup.sh"
+# shellcheck source=../scripts/loki-docker-plugin-setup.sh
+source "$(cd "$(dirname "$0")/.." && pwd)/scripts/loki-docker-plugin-setup.sh"
 
+compose_up() {
   local -a profile_args=()
   while [ "$#" -gt 0 ]; do
     profile_args+=(--profile "$1")
