@@ -30,9 +30,9 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 
 | Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
 |--------|---------|----------|----------------------------------------|
-| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway` |
+| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway`, `loki`, `grafana` |
 | **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | *(none — `frontend_dev` is stopped on startup)* |
-| **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` |
+| **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev`, `loki`, `grafana` |
 | **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
 **Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
@@ -44,6 +44,20 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **docker-dev**. Host Expo in **dev**. |
 | **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
 | **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
+| **`LOKI_PORT`** (default **3100**) | Loki HTTP API on **localhost only** (`127.0.0.1`); used by the Docker Loki logging driver to ship container logs. |
+| **`GRAFANA_PORT`** (default **3001**) | Grafana UI for querying logs (avoids clashing with **`APP_PORT`** **3000**). Login with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`**. |
+
+### Observability (Loki + Grafana)
+
+**prod** and **docker-dev** start **Loki** and **Grafana** automatically. Application containers use the [Loki Docker logging driver](https://grafana.com/docs/loki/latest/send-data/docker-driver/) (installed by `backend/start_backend.sh` and `scripts/deploy-prod-lightsail.sh`) to push stdout/stderr to Loki. `docker logs` still works (the driver keeps local JSON log files by default).
+
+- Open Grafana at `http://localhost:${GRAFANA_PORT:-3001}` (or your host’s address in prod).
+- Sign in with **`GRAFANA_ADMIN_USER`** / **`GRAFANA_ADMIN_PASSWORD`** from `.<profile>.env`.
+- Go to **Explore → Loki** and query by container, e.g. `{compose_project="life-manager"}` or `{compose_service="life_manager_dev"}`.
+- **Prod:** open **`GRAFANA_PORT`** in Lightsail networking if you want remote Grafana access. Loki stays bound to localhost on the host.
+- **Disk:** Loki and Grafana use named Docker volumes (`loki_data`, `grafana_data`); monitor disk use on long-running hosts.
+
+Host-only processes (**dev** profile `cargo run`, host Expo) are not shipped to Loki unless you add a separate collector (e.g. Promtail).
 
 ### Optional Tesseract (OCR sidecar)
 

@@ -25,12 +25,17 @@ compose() {
   "${COMPOSE[@]}" -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" --profile "${COMPOSE_PROFILE}" "$@"
 }
 
+# shellcheck source=loki-docker-plugin-setup.sh
+source "$(cd "$(dirname "$0")" && pwd)/loki-docker-plugin-setup.sh"
+
 echo "${ECR_PASSWORD}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
 
 cd "${DEPLOY_PATH}"
 
 echo "Deploying prod stack (:latest images) for commit ${GITHUB_SHA}"
 
+loki_docker_plugin_setup
 compose pull
+compose up -d loki grafana
 compose up -d
 compose ps

@@ -16,6 +16,16 @@
 
 name: life-manager
 
+x-logging: &loki-logging
+  driver: loki
+  options:
+    loki-url: "http://127.0.0.1:${LOKI_PORT:-3100}/loki/api/v1/push"
+    loki-retries: "5"
+    loki-batch-size: "400"
+    mode: non-blocking
+    max-buffer-size: 4m
+    loki-external-labels: "compose_project=life-manager,compose_service={{.Name}}"
+
 services:
   # ollama:
   #   image: ollama/ollama:latest
@@ -47,6 +57,7 @@ services:
     volumes:
       - ./backend/data:/app/data
     restart: on-failure
+    logging: *loki-logging
     profiles: ["prod"]
 
   life_manager_dev:
@@ -66,6 +77,7 @@ services:
       - life_manager_dev_target:/app/target
       - ./backend/data:/app/data
     restart: on-failure
+    logging: *loki-logging
     profiles: ["docker-dev"]
 
   frontend:
@@ -83,6 +95,7 @@ services:
       # Same host path as gateway: if ACME hits the frontend (e.g. old gateway image), tokens exist and are not served as SPA index.html.
       - ./nginx/certbot/webroot:/var/www/certbot:ro
     restart: on-failure
+    logging: *loki-logging
     profiles: ["prod"]
 
   gateway:
@@ -111,6 +124,7 @@ services:
       - life-manager
       - frontend
     restart: on-failure
+    logging: *loki-logging
 
   frontend_dev:
     build:
@@ -127,6 +141,7 @@ services:
       # Preserve image-built node_modules; source comes from the development image.
       - frontend_dev_node_modules:/app/node_modules
     restart: on-failure
+    logging: *loki-logging
     profiles: ["dev", "docker-dev"]
 
   # OCR sidecar — not started with dev/test/prod alone; use e.g.
@@ -139,9 +154,41 @@ services:
     environment:
       - TESSERACT_LANGUAGE=eng
     restart: unless-stopped
+    logging: *loki-logging
     profiles: ["tesseract"]
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: life_manager_loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    restart: on-failure
+    profiles: ["prod", "docker-dev"]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: life_manager_grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+    restart: on-failure
+    profiles: ["prod", "docker-dev"]
 
 volumes:
   ollama:
   frontend_dev_node_modules:
   life_manager_dev_target:
+  loki_data:
+  grafana_data:

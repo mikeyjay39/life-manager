@@ -5,6 +5,20 @@ env_basename() {
   [[ "$1" == "docker-dev" ]] && echo "dev" || echo "$1"
 }
 
+compose_up() {
+  # shellcheck source=../scripts/loki-docker-plugin-setup.sh
+  source "$(cd "$(dirname "$0")/.." && pwd)/scripts/loki-docker-plugin-setup.sh"
+
+  local -a profile_args=()
+  while [ "$#" -gt 0 ]; do
+    profile_args+=(--profile "$1")
+    shift
+  done
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" "${profile_args[@]}" down
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" "${profile_args[@]}" up -d loki grafana
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" "${profile_args[@]}" up
+}
+
 # ---- Check arguments ----
 BUILD_IMAGE=0
 WITH_TESSERACT=0
@@ -135,20 +149,18 @@ if [[ "$PROFILE" == "test" ]]; then
 elif [[ "$PROFILE" == "dev" ]]; then
   echo "Skipping docker compose for profile dev (backend on host; Expo via start_frontend.sh)."
 elif [[ "$PROFILE" == "docker-dev" ]]; then
+  loki_docker_plugin_setup
   if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract up
+    compose_up docker-dev tesseract
   else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev up
+    compose_up docker-dev
   fi
 else
+  loki_docker_plugin_setup
   if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract up
+    compose_up "$PROFILE" tesseract
   else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" up
+    compose_up "$PROFILE"
   fi
 fi
 
