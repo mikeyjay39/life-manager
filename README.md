@@ -30,9 +30,9 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 
 | Profile | Backend | Frontend | Docker Compose (`docker-compose.yml`) |
 |--------|---------|----------|----------------------------------------|
-| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway` |
+| **prod** | Rust server in container `life-manager` | Static app in container `frontend`; users normally hit **`gateway`** | `life-manager`, `frontend`, `gateway`, `alloy` |
 | **dev** | **`cargo run`** on the host (see `APP_PORT`) | **`npx expo start`** on the host (default Expo port **8080**) | *(none — `frontend_dev` is stopped on startup)* |
-| **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` |
+| **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev`, `alloy` |
 | **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
 **Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
@@ -54,6 +54,63 @@ docker compose -f docker-compose.yml --env-file .prod.env --profile prod --profi
 ```
 
 Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod** / **docker-dev**) to start the stack **and** the sidecar in one step.
+
+### Grafana Cloud logs (prod and docker-dev)
+
+The **`alloy`** service (**prod** and **docker-dev** profiles) ships Docker logs from the **`life-manager`** Compose project to [Grafana Cloud Loki](https://grafana.com/products/cloud/logs/). Query logs in your Grafana Cloud stack (**Explore** → Loki); there is no log UI on the gateway.
+
+Add these to **`.prod.env`** and/or **`.dev.env`** (both git-crypt):
+
+```bash
+GRAFANA_LOKI_URL=https://logs-prod-XXX.grafana.net/loki/api/v1/push
+GRAFANA_LOKI_USERNAME=<instance-id>
+GRAFANA_CLOUD_API_KEY=<access-policy-token>
+GRAFANA_LOKI_ENVIRONMENT=production   # use local in .dev.env for docker-dev
+```
+
+Obtain Loki credentials from Grafana Cloud → **Connections** → **Loki** (or the Docker integration wizard). Set **`GRAFANA_LOKI_ENVIRONMENT`** to **`production`** in **`.prod.env`** and **`local`** in **`.dev.env`** so local and prod logs are easy to filter. Example Explore queries (use the same value you set in **`GRAFANA_LOKI_ENVIRONMENT`**):
+
+- `{environment="production", service="life-manager"}`
+- `{environment="production", service="gateway"} |= "error"`
+- `{environment="local", service="life_manager_dev"}`
+
+Config: [`observability/loki-ship.alloy`](observability/loki-ship.alloy) (baked into the **`alloy`** image via [`observability/Dockerfile`](observability/Dockerfile); rebuild after editing: `docker compose --env-file .dev.env --profile docker-dev build alloy`).
+
+**Verify Alloy is shipping logs**
+
+1. **Config loaded** — Alloy logs should mention `loki.source.docker` / `loki.write` on startup (not only `http` / `cluster`):
+
+   ```bash
+   docker compose --env-file .dev.env --profile docker-dev logs alloy | rg 'loki\\.|error|level=error'
+   ```
+
+2. **Config file is a file inside the container** (not a directory left from an old bind mount):
+
+   ```bash
+   docker exec life_manager_alloy head -3 /etc/alloy/config.alloy
+   ```
+
+3. **Metrics** — with the stack running, check counters ( **`loki_write_sent_entries_total`** should increase after app containers log):
+
+   ```bash
+   curl -s http://127.0.0.1:12345/metrics | rg 'loki_write_(sent|dropped)_entries_total'
+   ```
+
+   If **`loki_write_dropped_entries_total`** increases or **`sent`** stays at 0, check Alloy logs for 401/403 (bad token) or URL errors.
+
+4. **Grafana Explore** — pick the **Loki** data source for your Cloud stack, set time range to **Last 15 minutes**, and query using your **`GRAFANA_LOKI_ENVIRONMENT`** value, e.g. `{environment="local", service="life_manager_dev"}`.
+
+5. **Common failures in Alloy logs** — `docker compose ... logs alloy`:
+   - **`timestamp too old`** — Alloy replayed old Docker log files; rebuild **`alloy`** after pulling (config drops lines older than 14d). One-time fix: `docker volume rm life-manager_alloy_data` then recreate **`alloy`** so positions reset after the drop stage is in place.
+   - **`401` / `403`** — wrong **`GRAFANA_LOKI_USERNAME`** or **`GRAFANA_CLOUD_API_KEY`**.
+   - **`max entry size '262144' bytes exceeded`** — a log line exceeded Grafana Cloud's 256 KiB limit (common with **`RUST_BACKTRACE=full`** or huge debug output). Config drops lines over 240 KiB before push. Rebuild **`alloy`**: `docker compose --env-file .dev.env --profile docker-dev build alloy && docker compose --env-file .dev.env --profile docker-dev up -d --force-recreate alloy`.
+
+If an old bind mount left **`observability/config.alloy`** as a **directory** on the host, remove it before recreating Alloy:
+
+```bash
+rm -rf observability/config.alloy observability/grafana observability/loki-config.yaml
+docker compose --env-file .dev.env --profile docker-dev up -d --force-recreate alloy
+```
 
 The Compose file is **`docker-compose.yml`** at the repo root; its header comments describe gateway routing and **`EXPO_PUBLIC_API_BASE_URL`**. For **prod**, `start_backend.sh` runs `docker compose build` for `life-manager`, `gateway`, and `frontend` before `up` when **`--build-image`** is passed so nginx templates stay in sync with the repo. **docker-dev** always rebuilds `life_manager_dev` and `frontend_dev` before `up`.
 

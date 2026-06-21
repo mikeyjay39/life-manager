@@ -13,6 +13,10 @@
 # build time, so prod needs matching backend and frontend images. On merge to main, CI rebuilds
 # and pushes only changed prod images (backend/, frontend/, nginx/) to ECR; Lightsail always pulls
 # :latest for the full stack via scripts/deploy-prod-lightsail.sh.
+#
+# Logs: the `alloy` service (prod and docker-dev profiles) ships Compose project logs to Grafana Cloud Loki.
+# Config is baked into observability/Dockerfile. Set GRAFANA_LOKI_URL, GRAFANA_LOKI_USERNAME,
+# GRAFANA_CLOUD_API_KEY, and GRAFANA_LOKI_ENVIRONMENT in .prod.env and/or .dev.env.
 
 name: life-manager
 
@@ -129,6 +133,28 @@ services:
     restart: on-failure
     profiles: ["dev", "docker-dev"]
 
+  alloy:
+    build:
+      context: ./observability
+      dockerfile: Dockerfile
+    image: life-manager-alloy:local
+    container_name: life_manager_alloy
+    profiles: ["prod", "docker-dev"]
+    env_file:
+      - ${ENV_FILE}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    ports:
+      - "127.0.0.1:12345:12345"
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    mem_limit: 128m
+    restart: on-failure
+
   # OCR sidecar — not started with dev/test/prod alone; use e.g.
   # docker compose --profile prod --profile tesseract up -d
   tesseract:
@@ -143,5 +169,6 @@ services:
 
 volumes:
   ollama:
+  alloy_data:
   frontend_dev_node_modules:
   life_manager_dev_target:

@@ -38,14 +38,14 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 
 | Profile | Compose services | Typical host ports (see env / Compose defaults) |
 |---------|------------------|--------------------------------------------------|
-| **prod** | `life-manager`, `frontend`, `gateway` | **`NGINX_PORT`** → **`gateway`** (default **80**); **`APP_PORT`** → API container (default **3000**); **`FRONTEND_PORT`** → static **`frontend`** container (default **8080**) |
+| **prod** | `life-manager`, `frontend`, `gateway`, `alloy` | **`NGINX_PORT`** → **`gateway`** (default **80**); **`APP_PORT`** → API container (default **3000**); **`FRONTEND_PORT`** → static **`frontend`** container (default **8080**) |
 | **dev** | *(none via `build_and_start_app.sh`)* | Backend on host **`APP_PORT`** (**3000**) via **`cargo run`**; host Expo on **`FRONTEND_PORT`** (default **8080**) |
-| **docker-dev** | `life_manager_dev`, `frontend_dev` | **`APP_PORT`** → **`life_manager_dev`** (default **3000**); **`FRONTEND_PORT`** → **`frontend_dev`** / Expo (default **8080**) |
+| **docker-dev** | `life_manager_dev`, `frontend_dev`, `alloy` | **`APP_PORT`** → **`life_manager_dev`** (default **3000**); **`FRONTEND_PORT`** → **`frontend_dev`** / Expo (default **8080**) |
 | **test** | *(none)* | **`start_backend.sh`** skips **`docker compose`** for this profile |
 
 **Optional OCR:** add **`--profile tesseract`** so the **`tesseract`** service runs; set **`TESSERACT_ENABLED=true`** (sample env files default **`false`**, which selects **`NoOpDocumentTextReader`** in the backend—embedded PDF text still works; remote OCR does not). Example: **`docker compose --env-file .prod.env --profile prod --profile tesseract up -d`**.
 
-Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry). Architecture diagrams: **[`architecture.md`](architecture.md)**.
+Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app.sh`, containers vs host processes, and **prod** gateway entry). Grafana Cloud log shipping (**`alloy`**): **[`README.md` — Grafana Cloud logs](../README.md#grafana-cloud-logs-prod-and-docker-dev)**. Architecture diagrams: **[`architecture.md`](architecture.md)**.
 
 ## Local HTTP (API URL)
 
