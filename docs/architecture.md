@@ -79,7 +79,7 @@ The v1 API prefix is resolved at runtime from the active tenant module (`fronten
 
 ## Production deployment
 
-Compose **prod** profile runs three main services plus an optional OCR sidecar.
+Compose **prod** profile runs three main app services, an **`alloy`** log shipper, and an optional OCR sidecar.
 
 ```mermaid
 flowchart TB
@@ -89,13 +89,23 @@ flowchart TB
   api["life-manager (Rust API)\n:APP_PORT"]
   db[("SQLite\nbackend/data")]
   ocr["tesseract (optional OCR)"]
+  alloy["alloy (log shipper)"]
+  grafanaCloud["Grafana Cloud Loki"]
 
   browser --> gateway
   gateway -->|"/"| frontend
   gateway -->|"/life-manager/api, /api"| api
   api --> db
   api -.->|"TESSERACT_ENABLED"| ocr
+  gateway -->|"stdout"| alloy
+  frontend -->|"stdout"| alloy
+  api -->|"stdout"| alloy
+  alloy -->|"HTTPS push"| grafanaCloud
 ```
+
+Log UI is hosted by Grafana Cloud (14-day retention on free tier), not proxied through the gateway. Set **`GRAFANA_LOKI_URL`**, **`GRAFANA_LOKI_USERNAME`**, **`GRAFANA_CLOUD_API_KEY`**, and **`GRAFANA_LOKI_ENVIRONMENT`** in **`.prod.env`** (and **`.dev.env`** for local **docker-dev** testing). See [`README.md`](../README.md#grafana-cloud-logs-prod-and-docker-dev).
+
+The **`alloy`** log shipper also runs under the **docker-dev** profile (same config; **`GRAFANA_LOKI_ENVIRONMENT=local`** in **`.dev.env`**).
 
 The prod frontend build defaults to an empty **`EXPO_PUBLIC_API_BASE_URL`**, so the browser uses same-origin paths (via the gateway). Override with a full origin when the API is on another host (e.g. physical devices on the LAN).
 
@@ -176,8 +186,8 @@ flowchart TB
 | Profile | Backend | Frontend | Compose services | Typical API base |
 |---------|---------|----------|------------------|------------------|
 | **dev** | Host **`cargo run`** | Host Expo | *(none)* | `http://localhost:3000` |
-| **docker-dev** | Container **`life_manager_dev`** | Container **`frontend_dev`** | `life_manager_dev`, `frontend_dev` | `http://localhost:3000` |
+| **docker-dev** | Container **`life_manager_dev`** | Container **`frontend_dev`** | `life_manager_dev`, `frontend_dev`, `alloy` | `http://localhost:3000` |
 | **test** | **`cargo build`** only | Host Expo | *(none)* | N/A (integration tests spin up the app) |
-| **prod** | Container **`life-manager`** | Container **`frontend`** via **`gateway`** | `life-manager`, `frontend`, `gateway` | Same origin as gateway (empty **`EXPO_PUBLIC_API_BASE_URL`**) |
+| **prod** | Container **`life-manager`** | Container **`frontend`** via **`gateway`** | `life-manager`, `frontend`, `gateway`, `alloy` | Same origin as gateway (empty **`EXPO_PUBLIC_API_BASE_URL`**) |
 
 More detail: [`README.md`](../README.md) (how to run), [`development_faq.md`](development_faq.md) (API URLs, mobile, TLS).

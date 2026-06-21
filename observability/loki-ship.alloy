@@ -1,0 +1,71 @@
+// Log shipper: Docker containers in the life-manager Compose project → Grafana Cloud Loki.
+//
+// Sequence:
+//   prod: life-manager / gateway / frontend
+//   docker-dev: life_manager_dev / frontend_dev
+//   → Docker json-file logs → discovery.docker → discovery.relabel (keep project)
+//   → loki.source.docker → loki.write.grafana_cloud (HTTPS + basic auth + environment label)
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "life-manager"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "default" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+
+  stage.docker {}
+
+  // Grafana Cloud free tier retains 14d; skip older docker log backlog on first tail.
+  stage.drop {
+    older_than          = "336h"
+    drop_counter_reason = "older_than_grafana_cloud_retention"
+  }
+
+  // Grafana Cloud Loki max line size is 256 KiB (262144 bytes).
+  stage.drop {
+    longer_than         = "240KB"
+    drop_counter_reason = "line_exceeds_loki_max_size"
+  }
+}
+
+loki.write "grafana_cloud" {
+  external_labels = {
+    environment = sys.env("GRAFANA_LOKI_ENVIRONMENT"),
+  }
+
+  endpoint {
+    url = sys.env("GRAFANA_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_LOKI_USERNAME")
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+  }
+}
