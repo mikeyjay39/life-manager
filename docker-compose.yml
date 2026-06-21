@@ -11,7 +11,7 @@
 #
 # Deploy checklist (API path changes): API paths are baked into the static frontend bundle at
 # build time, so prod needs matching backend and frontend images. On merge to main, CI rebuilds
-# and pushes only changed prod images (backend/, frontend/, nginx/) to ECR; Lightsail always pulls
+# and pushes only changed prod images (backend/, frontend/, nginx/, observability/) to ECR; Lightsail always pulls
 # :latest for the full stack via scripts/deploy-prod-lightsail.sh.
 #
 # Logs: the `alloy` service (prod and docker-dev profiles) ships Compose project logs to Grafana Cloud Loki.
@@ -137,7 +137,7 @@ services:
     build:
       context: ./observability
       dockerfile: Dockerfile
-    image: life-manager-alloy:local
+    image: ${LIFE_MANAGER_ALLOY_IMAGE:-life-manager-alloy:local}
     container_name: life_manager_alloy
     profiles: ["prod", "docker-dev"]
     env_file:
