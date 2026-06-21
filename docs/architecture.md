@@ -113,7 +113,7 @@ See **`docker-compose.yml`** header comments and **`nginx/templates/default.conf
 
 ### CI deploy to AWS (merge to `main`)
 
-Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Pull requests run tests only. A push to **`main`** runs tests, then builds and pushes each prod image to ECR only when its source tree changed (`backend/**`, `frontend/**`, `nginx/**`); Lightsail deploy always runs after that job.
+Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Pull requests run tests only. A push to **`main`** runs tests, then builds and pushes each prod image to ECR only when its source tree changed (`backend/**`, `frontend/**`, `nginx/**`, `observability/**`); Lightsail deploy always runs after that job.
 
 ```mermaid
 sequenceDiagram
@@ -124,7 +124,7 @@ sequenceDiagram
 
   Dev->>GH: merge to main
   GH->>GH: frontend, backend, integration tests
-  GH->>GH: paths-filter backend frontend nginx
+  GH->>GH: paths-filter backend frontend nginx observability
   opt backend changed
     GH->>ECR: push life-manager-backend latest and sha
   end
@@ -133,6 +133,9 @@ sequenceDiagram
   end
   opt gateway changed
     GH->>ECR: push life-manager-gateway latest and sha
+  end
+  opt alloy changed
+    GH->>ECR: push alloy latest and sha
   end
   GH->>LS: SSH git pull and deploy-prod-lightsail.sh
   LS->>ECR: docker compose pull prod images
