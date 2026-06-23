@@ -1,29 +1,20 @@
 use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
 use crate::domain::document::Document;
 use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::infrastructure::document::document_api_types::{
+    CreateDocumentCommand, GetDocumentsQueryParams,
+};
 use crate::infrastructure::document::document_state::DocumentState;
 use auth::AuthUser;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
 use super::document_dto::DocumentDto;
 
 const PAGE_LIMIT: u32 = 100;
-
-#[derive(Deserialize, Serialize)]
-pub struct CreateDocumentCommand {
-    pub title: String,
-    pub content: String,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct GetDocumentsQueryParams {
-    pub title: Option<String>,
-}
 
 /// Creates a new document by processing multipart form data.
 /// +---------+     +-----------+     +--------+     +--------+
@@ -62,7 +53,7 @@ pub async fn create_document(
         }
     }
 
-    if let Some(_payload) = json_data {
+    if let Some(payload) = json_data {
         let document_opt = match !file_data.is_empty() {
             true => {
                 let reader = document_use_cases.reader.clone();
@@ -71,7 +62,7 @@ pub async fn create_document(
                     UploadedDocumentInput::new(file_name, file_data, user_id);
                 Document::from_file(&uploaded_document_input, reader, summarizer).await
             }
-            false => Some(Document::new(&_payload.title, &_payload.content, user_id)),
+            false => Some(Document::new(&payload.title, &payload.content, user_id)),
         };
 
         let document = match document_opt {
@@ -116,7 +107,10 @@ pub async fn get_document(
     tracing::info!("Fetching document with ID: {}", id);
     let repo = document_use_cases.document_repository.clone();
     match repo.get_document(id).await {
-        Some(document) => (StatusCode::OK, Json(json!(document.clone()))),
+        Some(document) => (
+            StatusCode::OK,
+            Json(json!(DocumentDto::from_document(&document))),
+        ),
         None => (StatusCode::NOT_FOUND, Json(json!({}))),
     }
 }
@@ -136,7 +130,11 @@ pub async fn get_documents(
     let repo = document_use_cases.document_repository.clone();
     let query = GetDocumentsQuery::new(repo, user_id, PAGE_LIMIT);
     let documents = query.execute().await;
-    (StatusCode::OK, Json(json!(documents)))
+    let document_dtos: Vec<DocumentDto> = documents
+        .iter()
+        .map(DocumentDto::from_document)
+        .collect();
+    (StatusCode::OK, Json(json!(document_dtos)))
 }
 
 pub async fn get_documents_by_title(
@@ -156,7 +154,11 @@ pub async fn get_documents_by_title(
     let repo = document_use_cases.document_repository.clone();
     let query = GetDocumentsTitleCursorQuery::new(repo, user_id, title, PAGE_LIMIT);
     let documents = query.execute().await;
-    (StatusCode::OK, Json(json!(documents)))
+    let document_dtos: Vec<DocumentDto> = documents
+        .iter()
+        .map(DocumentDto::from_document)
+        .collect();
+    (StatusCode::OK, Json(json!(document_dtos)))
 }
 
 fn return_500() -> (StatusCode, Json<serde_json::Value>) {
@@ -237,6 +239,7 @@ mod tests {
         let payload = CreateDocumentCommand {
             title: String::from("Test Document"),
             content: String::from("This is test content."),
+            tags: vec![],
         };
 
         let document_use_cases = Arc::new(DocumentUseCases {
@@ -316,7 +319,7 @@ mod tests {
         let ProcessedResponse {
             status_code,
             response_payload: response_document,
-        } = process_response::<Document>(response).await;
+        } = process_response::<DocumentDto>(response).await;
         // Assert
         assert_eq!(status_code, StatusCode::OK);
 
@@ -362,7 +365,7 @@ mod tests {
         let ProcessedResponse {
             status_code,
             response_payload: response_documents,
-        } = process_response::<Vec<Document>>(response).await;
+        } = process_response::<Vec<DocumentDto>>(response).await;
 
         // Assert
         assert_eq!(status_code, StatusCode::OK);
@@ -390,7 +393,7 @@ mod tests {
         let ProcessedResponse {
             status_code,
             response_payload: response_documents,
-        } = process_response::<Vec<Document>>(response).await;
+        } = process_response::<Vec<DocumentDto>>(response).await;
 
         // Assert
         assert_eq!(status_code, StatusCode::OK);
@@ -419,7 +422,7 @@ mod tests {
         let ProcessedResponse {
             status_code,
             response_payload: response_documents,
-        } = process_response::<Vec<Document>>(response).await;
+        } = process_response::<Vec<DocumentDto>>(response).await;
 
         // Assert
         assert_eq!(status_code, StatusCode::OK);

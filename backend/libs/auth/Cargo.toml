@@ -17,6 +17,7 @@ jsonwebtoken = { workspace = true }
 serde = { workspace = true }
 time = { workspace = true }
 tracing = { workspace = true }
+ts-rs = { workspace = true }
 uuid = { workspace = true }
 zeroize = { workspace = true }
 

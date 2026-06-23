@@ -4,7 +4,7 @@ use std::fs;
 
 use axum_test::TestServer;
 use life_manager::infrastructure::document::{
-    document_dto::DocumentDto, document_handler::CreateDocumentCommand,
+    document_api_types::CreateDocumentCommand, document_dto::DocumentDto,
 };
 use reqwest::multipart::{Form, Part};
 use serial_test::serial;
@@ -30,6 +30,7 @@ async fn create_and_get_document_docker_compose() {
         let payload = CreateDocumentCommand {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
+            tags: vec![],
         };
 
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -120,6 +121,7 @@ async fn create_and_get_document() {
         let payload = CreateDocumentCommand {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
+            tags: vec![],
         };
 
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -210,6 +212,7 @@ async fn create_and_get_document_no_file() {
         let payload = CreateDocumentCommand {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
+            tags: vec![],
         };
         // Make REST API call to create a document
         let json_string = serde_json::to_string(&payload).unwrap();
@@ -259,6 +262,7 @@ async fn create_and_get_document_no_file() {
         let document: DocumentDto = get_response.json().await.unwrap();
         assert_eq!(document.title, payload.title);
         assert_eq!(document.content, payload.content);
+        assert!(document.tags.is_empty());
     })
     .await;
 }
@@ -275,14 +279,17 @@ async fn get_all_documents() {
             CreateDocumentCommand {
                 title: String::from("First Document"),
                 content: String::from("Content of first document"),
+                tags: vec![],
             },
             CreateDocumentCommand {
                 title: String::from("Second Document"),
                 content: String::from("Content of second document"),
+                tags: vec![],
             },
             CreateDocumentCommand {
                 title: String::from("Third Document"),
                 content: String::from("Content of third document"),
+                tags: vec![],
             },
         ];
 
