@@ -54,6 +54,7 @@ impl Document {
     }
 
     /// Creates a document with a known ID (for loading from database)
+    #[allow(clippy::too_many_arguments)]
     pub fn with_id(
         id: Uuid,
         title: &str,
@@ -186,7 +187,7 @@ impl Document {
     ) {
         self.title = title.to_string();
         self.content = content.to_string();
-        self.tags = normalize_tag_names(tags);
+        self.tags = normalize_tag_names(&tags);
         self.issued_date = issued_date;
         self.expire_date = expire_date;
     }
@@ -195,7 +196,7 @@ impl Document {
         &self.tags
     }
 
-    pub fn set_tags(&mut self, tags: &Vec<String>) {
+    pub fn set_tags(&mut self, tags: &[String]) {
         self.tags = normalize_tag_names(tags);
     }
 }
@@ -203,6 +204,8 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::document_summarizer::DocumentSummarizer;
+    use crate::domain::document_text_reader::DocumentTextReader;
     use async_trait::async_trait;
 
     #[test]
@@ -453,18 +456,18 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_success() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
+        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::success(
+        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(
             "Extracted text from document".to_string(),
         ));
 
-        let summarizer = Arc::new(MockSummarizer::success(
+        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
             "This is a summary".to_string(),
             "Generated Title".to_string(),
         ));
 
-        let doc = Document::from_file(input, reader, summarizer)
+        let doc = Document::from_file(input, &reader, &summarizer)
             .await
             .expect("Should create document");
 
@@ -478,42 +481,46 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_reader_error() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
+        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::error("Failed to read document".to_string()));
+        let reader: Arc<dyn DocumentTextReader> =
+            Arc::new(MockTextReader::error("Failed to read document".to_string()));
 
-        let summarizer = Arc::new(MockSummarizer::success(
+        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
             "Summary".to_string(),
             "Title".to_string(),
         ));
 
-        let result = Document::from_file(input, reader, summarizer).await;
+        let result = Document::from_file(input, &reader, &summarizer).await;
         assert!(result.is_none());
     }
 
     #[tokio::test]
     async fn test_from_file_summarizer_error() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("test.pdf".to_string(), vec![1, 2, 3], user_id);
+        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::success("Extracted text".to_string()));
+        let reader: Arc<dyn DocumentTextReader> =
+            Arc::new(MockTextReader::success("Extracted text".to_string()));
 
-        let summarizer = Arc::new(MockSummarizer::error("Failed to summarize".to_string()));
+        let summarizer: Arc<dyn DocumentSummarizer> =
+            Arc::new(MockSummarizer::error("Failed to summarize".to_string()));
 
-        let result = Document::from_file(input, reader, summarizer).await;
+        let result = Document::from_file(input, &reader, &summarizer).await;
         assert!(result.is_none());
     }
 
     #[tokio::test]
     async fn test_from_file_with_empty_text() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("empty.pdf".to_string(), vec![], user_id);
+        let input = UploadedDocumentInput::for_test_file("empty.pdf", vec![], user_id);
 
-        let reader = Arc::new(MockTextReader::success(String::new()));
+        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(String::new()));
 
-        let summarizer = Arc::new(MockSummarizer::success(String::new(), String::new()));
+        let summarizer: Arc<dyn DocumentSummarizer> =
+            Arc::new(MockSummarizer::success(String::new(), String::new()));
 
-        let doc = Document::from_file(input, reader, summarizer)
+        let doc = Document::from_file(input, &reader, &summarizer)
             .await
             .expect("Should create document even with empty strings");
 
@@ -524,20 +531,20 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_with_very_long_text() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("large.pdf".to_string(), vec![1; 10000], user_id);
+        let input = UploadedDocumentInput::for_test_file("large.pdf", vec![1; 10000], user_id);
 
         let long_text = "A".repeat(1_000_000);
         let long_summary = "B".repeat(500_000);
         let long_title = "C".repeat(10_000);
 
-        let reader = Arc::new(MockTextReader::success(long_text));
+        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(long_text));
 
-        let summarizer = Arc::new(MockSummarizer::success(
+        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
             long_summary.clone(),
             long_title.clone(),
         ));
 
-        let doc = Document::from_file(input, reader, summarizer)
+        let doc = Document::from_file(input, &reader, &summarizer)
             .await
             .expect("Should handle very long text");
 
@@ -548,18 +555,18 @@ mod tests {
     #[tokio::test]
     async fn test_from_file_with_unicode() {
         let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::new("unicode.pdf".to_string(), vec![1, 2, 3], user_id);
+        let input = UploadedDocumentInput::for_test_file("unicode.pdf", vec![1, 2, 3], user_id);
 
-        let reader = Arc::new(MockTextReader::success(
+        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(
             "Text with émojis 🚀 and 中文字符".to_string(),
         ));
 
-        let summarizer = Arc::new(MockSummarizer::success(
+        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
             "Summary with émojis 😀".to_string(),
             "Título con ñ".to_string(),
         ));
 
-        let doc = Document::from_file(input, reader, summarizer)
+        let doc = Document::from_file(input, &reader, &summarizer)
             .await
             .expect("Should handle unicode");
 

@@ -82,15 +82,15 @@ pub fn storage_ref_from_columns(
     })
 }
 
-pub fn storage_columns_from_ref(
-    storage: &Option<DocumentStorageRef>,
-) -> (
+pub type StorageColumns = (
     Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
     Option<String>,
-) {
+);
+
+pub fn storage_columns_from_ref(storage: &Option<DocumentStorageRef>) -> StorageColumns {
     match storage {
         Some(storage) => (
             Some(storage.provider.clone()),

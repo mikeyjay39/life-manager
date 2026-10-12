@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::application::create_document_command::CreateDocumentCommand;
 use crate::application::delete_document_command::DeleteDocumentCommand;
 use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
@@ -29,23 +27,6 @@ struct ParsedUpdateDocumentMultipart<T> {
     json_data: Option<T>,
     file_data: Vec<u8>,
     file_name: String,
-}
-
-/**
-* Loads a document by ID and checks if it belongs to the specified user.
-* Returns Some(Document) if the document exists and belongs to the user, otherwise returns None.
-*/
-async fn load_owned_document(
-    repo: &Arc<dyn crate::application::document_repository::DocumentRepository>,
-    id: Uuid,
-    user_id: Uuid,
-) -> Option<Document> {
-    let document = repo.get_document(&id).await?;
-    if document.user_id == user_id {
-        Some(document)
-    } else {
-        None
-    }
 }
 
 /// Creates a new document by processing multipart form data.
@@ -80,7 +61,7 @@ pub async fn create_document(
         )
         .execute()
         .await?;
-        AppResponse::ok(DocumentDto::from_document(&document))
+        AppResponse::created(DocumentDto::from_document(&document))
     } else {
         let err_msg = "No valid JSON data found in the multipart form";
         tracing::warn!(err_msg);
@@ -103,6 +84,12 @@ pub async fn create_document_json(
     Json(payload): Json<CreateDocumentCommandDto>,
 ) -> ApiResult<DocumentDto> {
     tracing::info!("Creating document from JSON with title: {}", payload.title);
+
+    if payload.storage.is_none() {
+        return AppResponse::validation_error(
+            "JSON document create requires storage metadata; use multipart POST /documents for file uploads",
+        );
+    }
 
     let document = Document::from_uploaded_input(from_create_to_uploaded_document_input(
         payload,
@@ -135,13 +122,12 @@ pub async fn get_document(
 ) -> ApiResult<DocumentDto> {
     tracing::info!("Fetching document with ID: {}", id);
     let repo = document_use_cases.document_repository.clone();
-    repo.load_owned_document(&id, &user_id).await.map_or_else(
-        || AppResponse::not_found(),
-        |doc| {
+    repo.load_owned_document(&id, &user_id)
+        .await
+        .map_or_else(AppResponse::not_found, |doc| {
             tracing::info!("Document found: {:?}", doc.title);
             AppResponse::ok(DocumentDto::from_document(&doc))
-        },
-    )
+        })
 }
 
 /// Deletes an owned document from Life Manager (hard delete).
@@ -233,7 +219,7 @@ pub async fn update_document(
     if let Some(payload) = json_data {
         let uploaded_document_input = UploadedDocumentInput::new(
             payload.title.clone(),
-            if file_name.len() > 0 {
+            if !file_name.is_empty() {
                 Some(file_name)
             } else {
                 None
@@ -437,7 +423,7 @@ mod tests {
             Err(Box::new(std::io::Error::other("delete failed")))
         }
 
-        async fn load_owned_document(&self, id: &Uuid, _user_id: Uuid) -> Option<Document> {
+        async fn load_owned_document(&self, id: &Uuid, _user_id: &Uuid) -> Option<Document> {
             self.get_document(id).await
         }
     }

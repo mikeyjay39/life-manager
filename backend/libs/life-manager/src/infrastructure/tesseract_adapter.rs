@@ -50,7 +50,10 @@ impl DocumentTextReader for TesseractAdapter {
     ) -> Result<String, Box<dyn Error>> {
         // If it's a PDF, try to extract text without OCR first
         if uploaded_document_input.is_pdf() {
-            tracing::info!("File '{}' is a PDF.", uploaded_document_input.file_name);
+            tracing::info!(
+                "File '{}' is a PDF.",
+                uploaded_document_input.file_name.as_deref().unwrap_or("")
+            );
             match get_text_from_pdf(uploaded_document_input)? {
                 Some(text) => {
                     tracing::info!("Extracted text from PDF without OCR.");
@@ -59,7 +62,7 @@ impl DocumentTextReader for TesseractAdapter {
                 None => {
                     tracing::info!(
                         "No text extracted from PDF, proceeding with OCR for file '{}'.",
-                        uploaded_document_input.file_name
+                        uploaded_document_input.file_name.as_deref().unwrap_or("")
                     );
                 }
             }
@@ -68,7 +71,7 @@ impl DocumentTextReader for TesseractAdapter {
         if !needs_ocr(uploaded_document_input) {
             tracing::info!(
                 "File '{}' does not need OCR.",
-                uploaded_document_input.file_name
+                uploaded_document_input.file_name.as_deref().unwrap_or("")
             );
             return Ok(String::new());
         }
@@ -85,7 +88,12 @@ impl DocumentTextReader for TesseractAdapter {
             .part(
                 "file",
                 Part::bytes(bytes.to_vec())
-                    .file_name(uploaded_document_input.file_name.clone())
+                    .file_name(
+                        uploaded_document_input
+                            .file_name
+                            .clone()
+                            .unwrap_or_else(|| "upload.bin".to_string()),
+                    )
                     .mime_str("image/jpeg")?, // TODO: clean this up
             );
 
@@ -177,7 +185,7 @@ mod tests {
             Arc::new(MockHttpClient::new()),
         );
         let uploaded_document_input =
-            UploadedDocumentInput::new(file_name.to_string(), buffer, Uuid::new_v4());
+            UploadedDocumentInput::for_test_file(file_name, buffer, Uuid::new_v4());
         let result = adapter.read_image(&uploaded_document_input).await;
         let text = match result {
             Ok(text) => {

@@ -10,11 +10,11 @@ pub struct DocumentCollection {
 
 #[async_trait]
 impl DocumentRepository for DocumentCollection {
-    async fn get_document(&self, id: Uuid) -> Option<Document> {
+    async fn get_document(&self, id: &Uuid) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
         let documents = self.documents.lock().await;
         tracing::info!("Total documents in collection: {}", documents.len());
-        documents.iter().find(|doc| doc.id == id).cloned()
+        documents.iter().find(|doc| doc.id == *id).cloned()
     }
 
     async fn get_documents(&self, user_id: &Uuid, limit: &u32) -> Vec<Document> {
@@ -85,12 +85,12 @@ impl DocumentRepository for DocumentCollection {
         Ok(documents.len() < before)
     }
 
-    async fn load_owned_document(&self, id: Uuid, user_id: Uuid) -> Option<Document> {
+    async fn load_owned_document(&self, id: &Uuid, user_id: &Uuid) -> Option<Document> {
         self.documents
             .lock()
             .await
             .iter()
-            .find(|doc| doc.id == id && doc.user_id == user_id)
+            .find(|doc| doc.id == *id && doc.user_id == *user_id)
             .cloned()
     }
 }
@@ -143,7 +143,7 @@ mod tests {
             .await
             .expect("Failed to save document");
 
-        let retrieved_doc = collection.get_document(doc_id).await.unwrap();
+        let retrieved_doc = collection.get_document(&doc_id).await.unwrap();
         assert_eq!(retrieved_doc.id, doc.id);
         assert_eq!(retrieved_doc.title, doc.title);
         assert_eq!(retrieved_doc.content, doc.content);
@@ -164,7 +164,7 @@ mod tests {
             .await
             .expect("delete should succeed");
         assert!(deleted);
-        assert!(collection.get_document(doc_id).await.is_none());
+        assert!(collection.get_document(&doc_id).await.is_none());
 
         let deleted_again = collection
             .delete_document(doc_id)

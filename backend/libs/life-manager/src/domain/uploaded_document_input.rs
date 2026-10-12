@@ -36,6 +36,7 @@ impl UploadedDocumentInput {
      *
      * A new instance of `UploadedDocumentInput`.
      */
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         title: String,
         file_name: Option<String>,
@@ -48,7 +49,7 @@ impl UploadedDocumentInput {
         storage: Option<DocumentStorageRef>,
     ) -> Self {
         let extension = match &file_name {
-            Some(name) => name.split('.').last().map(|s| s.to_string()),
+            Some(name) => name.split('.').next_back().map(|s| s.to_string()),
             None => None,
         };
         UploadedDocumentInput {
@@ -70,6 +71,22 @@ impl UploadedDocumentInput {
             Some(name) => name.to_lowercase().ends_with(".pdf"),
             None => false,
         }
+    }
+
+    /// Builds an input for unit tests that only supply a file name and bytes.
+    #[cfg(test)]
+    pub fn for_test_file(file_name: &str, file_data: Vec<u8>, user_id: Uuid) -> Self {
+        Self::new(
+            file_name.to_string(),
+            Some(file_name.to_string()),
+            file_data,
+            user_id,
+            Vec::new(),
+            None,
+            None,
+            None,
+            None,
+        )
     }
 }
 
@@ -99,9 +116,12 @@ mod tests {
             .expect("Failed to read the file");
         let buffer_length = buffer.len();
         let uploaded_document_input =
-            UploadedDocumentInput::new(file_name.to_string(), buffer, Uuid::new_v4());
-        assert_eq!(uploaded_document_input.extension, "png");
-        assert_eq!(uploaded_document_input.file_name, file_name);
+            UploadedDocumentInput::for_test_file(file_name, buffer, Uuid::new_v4());
+        assert_eq!(uploaded_document_input.extension.as_deref(), Some("png"));
+        assert_eq!(
+            uploaded_document_input.file_name.as_deref(),
+            Some(file_name)
+        );
         assert_eq!(uploaded_document_input.file_data.len(), buffer_length);
     }
 }

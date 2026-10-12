@@ -28,7 +28,7 @@ impl DeleteDocumentCommand {
         tracing::info!("Deleting document with ID: {}", self.document_id);
         let Some(_document) = self
             .document_repository
-            .load_owned_document(self.document_id, self.user_id)
+            .load_owned_document(&self.document_id, &self.user_id)
             .await
         else {
             tracing::warn!(

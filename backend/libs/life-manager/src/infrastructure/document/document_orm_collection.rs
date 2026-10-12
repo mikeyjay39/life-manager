@@ -241,7 +241,7 @@ impl DocumentRepository for DocumentOrmCollection {
             storage_filename,
             storage_mime_type,
         };
-        let tag_names = document.tags.clone();
+        let tag_names = document.get_tags().clone();
         let tag_names_for_return = tag_names.clone();
         let doc_id = document.id;
         let title = document.title.clone();
@@ -310,7 +310,7 @@ impl DocumentRepository for DocumentOrmCollection {
             storage_filename,
             storage_mime_type,
         };
-        let tag_names = document.tags.clone();
+        let tag_names = document.get_tags().clone();
         let tag_names_for_return = tag_names.clone();
         let doc_id = document.id;
         let doc_id_str = document.id.to_string();

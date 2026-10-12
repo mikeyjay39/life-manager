@@ -54,6 +54,7 @@ impl DocumentStorageRefDto {
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
     export,
+    rename = "CreateDocumentCommand",
     export_to = "../../../../frontend/lib/api/generated/life-manager/CreateDocumentCommand.ts"
 )]
 pub struct CreateDocumentCommandDto {
@@ -72,6 +73,7 @@ pub struct CreateDocumentCommandDto {
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
     export,
+    rename = "UpdateDocumentCommand",
     export_to = "../../../../frontend/lib/api/generated/life-manager/UpdateDocumentCommand.ts"
 )]
 pub struct UpdateDocumentCommandDto {

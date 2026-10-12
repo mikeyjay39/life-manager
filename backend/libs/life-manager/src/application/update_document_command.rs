@@ -49,7 +49,7 @@ impl UpdateDocumentCommand {
             return Err(AppError::NotFound);
         };
 
-        let document_opt: Option<Document> = if self.uploaded_document_input.file_data.len() > 0 {
+        let document_opt: Option<Document> = if !self.uploaded_document_input.file_data.is_empty() {
             Document::from_file(
                 self.uploaded_document_input.clone(),
                 &self.reader,
@@ -61,8 +61,7 @@ impl UpdateDocumentCommand {
             let mut document: Document = existing.clone();
             document.apply_metadata_update(
                 &self.uploaded_document_input.title,
-                &self
-                    .uploaded_document_input
+                self.uploaded_document_input
                     .content
                     .as_deref()
                     .unwrap_or(""),
@@ -70,6 +69,9 @@ impl UpdateDocumentCommand {
                 self.uploaded_document_input.issued_date,
                 self.uploaded_document_input.expire_date,
             );
+            if let Some(storage) = self.uploaded_document_input.storage.clone() {
+                document.storage = Some(storage);
+            }
             Some(document)
         };
 

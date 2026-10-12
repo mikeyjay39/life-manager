@@ -27,7 +27,10 @@ impl DocumentTextReader for NoOpDocumentTextReader {
         uploaded_document_input: &UploadedDocumentInput,
     ) -> Result<String, Box<dyn Error>> {
         if uploaded_document_input.is_pdf() {
-            tracing::info!("File '{}' is a PDF.", uploaded_document_input.file_name);
+            tracing::info!(
+                "File '{}' is a PDF.",
+                uploaded_document_input.file_name.as_deref().unwrap_or("")
+            );
             match get_text_from_pdf(uploaded_document_input)? {
                 Some(text) => {
                     tracing::info!("Extracted text from PDF without OCR.");
@@ -36,7 +39,7 @@ impl DocumentTextReader for NoOpDocumentTextReader {
                 None => {
                     tracing::info!(
                         "No text extracted from PDF; OCR is disabled for file '{}'.",
-                        uploaded_document_input.file_name
+                        uploaded_document_input.file_name.as_deref().unwrap_or("")
                     );
                 }
             }
@@ -45,7 +48,7 @@ impl DocumentTextReader for NoOpDocumentTextReader {
         if !needs_ocr(uploaded_document_input) {
             tracing::info!(
                 "File '{}' does not need OCR.",
-                uploaded_document_input.file_name
+                uploaded_document_input.file_name.as_deref().unwrap_or("")
             );
             return Ok(String::new());
         }
@@ -75,8 +78,7 @@ mod tests {
         let mut file = File::open(&path).expect("open pdf");
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
-        let input =
-            UploadedDocumentInput::new("hello_world.pdf".to_string(), buffer, Uuid::new_v4());
+        let input = UploadedDocumentInput::for_test_file("hello_world.pdf", buffer, Uuid::new_v4());
         let reader = NoOpDocumentTextReader::new();
         let text = reader.read_image(&input).await.expect("pdf text");
         assert!(
@@ -88,7 +90,7 @@ mod tests {
     #[tokio::test]
     async fn png_requires_ocr_errors() {
         let input =
-            UploadedDocumentInput::new("scan.png".to_string(), vec![0_u8, 1, 2], Uuid::new_v4());
+            UploadedDocumentInput::for_test_file("scan.png", vec![0_u8, 1, 2], Uuid::new_v4());
         let reader = NoOpDocumentTextReader::new();
         let err = reader
             .read_image(&input)
