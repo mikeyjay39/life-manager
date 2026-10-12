@@ -49,7 +49,7 @@ impl UploadedDocumentInput {
         storage: Option<DocumentStorageRef>,
     ) -> Self {
         let extension = match &file_name {
-            Some(name) => name.split('.').next_back().map(|s| s.to_string()),
+            Some(name) => name.split('.').next_back().map(|s| s.to_lowercase()),
             None => None,
         };
         UploadedDocumentInput {
@@ -123,5 +123,16 @@ mod tests {
             Some(file_name)
         );
         assert_eq!(uploaded_document_input.file_data.len(), buffer_length);
+    }
+
+    #[test]
+    pub fn stores_uppercase_extension_in_lowercase() {
+        let uploaded_document_input =
+            UploadedDocumentInput::for_test_file("scan.PNG", Vec::new(), Uuid::new_v4());
+        assert_eq!(uploaded_document_input.extension.as_deref(), Some("png"));
+        assert_eq!(
+            uploaded_document_input.file_name.as_deref(),
+            Some("scan.PNG")
+        );
     }
 }
