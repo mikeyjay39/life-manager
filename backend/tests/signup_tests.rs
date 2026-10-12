@@ -1,11 +1,13 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod common;
 
 use std::sync::{Arc, Mutex};
 
-use auth::test_support;
 use crate::common::setup::{
     LoginRequest, run_test_with_test_profile, run_test_with_test_profile_and_db_setup,
 };
+use auth::test_support;
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response, StatusCode};
 use serial_test::serial;
@@ -32,10 +34,7 @@ async fn given_valid_signup_when_creating_user_then_login_fails_until_activated(
             .expect("Failed to send signup request");
         assert_eq!(signup_res.status(), StatusCode::CREATED);
         let body: serde_json::Value = signup_res.json().await.expect("signup JSON");
-        assert!(body["message"]
-            .as_str()
-            .unwrap()
-            .contains("activate"));
+        assert!(body["message"].as_str().unwrap().contains("activate"));
 
         let login_res = do_login(&server, email, password)
             .await
@@ -65,8 +64,14 @@ async fn given_inactive_signup_when_activated_then_login_succeeds() {
                 .expect("Failed to send signup request");
             assert_eq!(signup_res.status(), StatusCode::CREATED);
 
-            let pool = pool_holder.lock().unwrap().clone().expect("pool should be set");
-            test_support::set_user_active(&pool, email, true).await;
+            let pool = pool_holder
+                .lock()
+                .unwrap()
+                .clone()
+                .expect("pool should be set");
+            test_support::set_user_active(&pool, email, true)
+                .await
+                .expect("activate user");
 
             let login_res = do_login(&server, email, password)
                 .await

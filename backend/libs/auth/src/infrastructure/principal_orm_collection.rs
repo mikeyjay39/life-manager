@@ -135,8 +135,12 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        ensure_default_admin_user(&pool, "life-manager").await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
         let repository = PrincipalOrmCollection::new(pool);
 
         // When
@@ -155,8 +159,12 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        ensure_default_admin_user(&pool, "life-manager").await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
         let repository = PrincipalOrmCollection::new(pool);
 
         // When
@@ -171,8 +179,12 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        insert_auth_user(&pool, "inactive", "password", "life-manager", false).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        insert_auth_user(&pool, "inactive", "password", "life-manager", false)
+            .await
+            .expect("insert user");
         let repository = PrincipalOrmCollection::new(pool);
 
         // When
@@ -187,9 +199,15 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        ensure_default_admin_user(&pool, "life-manager").await;
-        set_user_active(&pool, "admin", false).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
+        set_user_active(&pool, "admin", false)
+            .await
+            .expect("deactivate admin");
         let repository = PrincipalOrmCollection::new(pool);
 
         // When
@@ -204,7 +222,9 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
         let repository = PrincipalOrmCollection::new(pool.clone());
 
         // When
@@ -222,7 +242,9 @@ mod tests {
         let principal = repository.get_principal("signup@example.com").await;
         assert!(principal.is_none());
 
-        set_user_active(&pool, "signup@example.com", true).await;
+        set_user_active(&pool, "signup@example.com", true)
+            .await
+            .expect("activate user");
         let principal = repository
             .get_principal("signup@example.com")
             .await
@@ -235,8 +257,12 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        insert_auth_user(&pool, "dup@example.com", "password", "life-manager", false).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        insert_auth_user(&pool, "dup@example.com", "password", "life-manager", false)
+            .await
+            .expect("insert user");
         let repository = PrincipalOrmCollection::new(pool);
 
         // When

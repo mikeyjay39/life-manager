@@ -1,3 +1,3 @@
-fn main() {
-    mikeyjay_server::start_server();
+fn main() -> anyhow::Result<()> {
+    mikeyjay_server::start_server()
 }

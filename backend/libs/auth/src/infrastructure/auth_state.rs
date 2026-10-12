@@ -11,6 +11,7 @@ use crate::{
         db::run_migrations, principal_orm_collection::PrincipalOrmCollection,
     },
 };
+use crate::domain::jwt_secret::jwt_secret;
 
 #[derive(Clone)]
 pub struct AuthState {
@@ -25,12 +26,13 @@ impl AuthStateBuilder {
         Self
     }
 
-    pub async fn build(self, tenant: String, pool: Arc<Pool>) -> AuthState {
-        run_migrations(pool.as_ref()).await;
-        ensure_default_admin_user(&pool, &tenant).await;
+    pub async fn build(self, tenant: String, pool: Arc<Pool>) -> anyhow::Result<AuthState> {
+        jwt_secret()?;
+        run_migrations(pool.as_ref()).await?;
+        ensure_default_admin_user(&pool, &tenant).await?;
         let principal_repository = Arc::new(PrincipalOrmCollection::new(pool.clone()));
         let password_hasher = Arc::new(ArgonPasswordHasher);
-        AuthState {
+        Ok(AuthState {
             use_cases: Arc::new(AuthUseCases::new(
                 Arc::new(PrincipalLoginService {
                     principal_repository: principal_repository.clone(),
@@ -44,7 +46,7 @@ impl AuthStateBuilder {
                 tenant,
             )),
             pool,
-        }
+        })
     }
 }
 

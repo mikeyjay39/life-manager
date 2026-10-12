@@ -30,14 +30,14 @@ impl TestTenantStateBuilder {
         Self
     }
 
-    pub async fn build(self, deps: TestTenantDeps) -> TestTenantState {
+    pub async fn build(self, deps: TestTenantDeps) -> anyhow::Result<TestTenantState> {
         tracing::info!("Building TestTenantState...");
         let pool = match deps.db_pool {
             Some(pool) => pool,
             None => {
                 let pool = match deps.database_url {
-                    Some(url) => create_connection_pool_from_url(&url),
-                    None => create_connection_pool(),
+                    Some(url) => create_connection_pool_from_url(&url)?,
+                    None => create_connection_pool()?,
                 };
                 Arc::new(pool)
             }
@@ -48,10 +48,10 @@ impl TestTenantStateBuilder {
             None => {
                 AuthStateBuilder::new()
                     .build("test-tenant".to_string(), pool)
-                    .await
+                    .await?
             }
         };
-        TestTenantState { auth_state }
+        Ok(TestTenantState { auth_state })
     }
 }
 

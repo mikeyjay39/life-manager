@@ -4,19 +4,19 @@ use argon2::{
 };
 use async_trait::async_trait;
 
-use crate::domain::auth_password_hasher::AuthPasswordHasher;
+use crate::domain::auth_password_hasher::{AuthPasswordHasher, PasswordHashError};
 
 pub struct ArgonPasswordHasher;
 
 #[async_trait]
 impl AuthPasswordHasher for ArgonPasswordHasher {
-    fn hash_password(&self, password: &str) -> String {
+    fn hash_password(&self, password: &str) -> Result<String, PasswordHashError> {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         argon2
             .hash_password(password.as_bytes(), &salt)
-            .unwrap()
-            .to_string()
+            .map(|hash| hash.to_string())
+            .map_err(|_| PasswordHashError)
     }
 
     fn verify_password(&self, password: &str, hash: &str) -> bool {
@@ -41,7 +41,7 @@ mod tests {
         let password = "s3cret-password";
 
         // When
-        let hash = hasher.hash_password(password);
+        let hash = hasher.hash_password(password).expect("hash password");
 
         // Then
         assert!(hasher.verify_password(password, &hash));
@@ -51,7 +51,9 @@ mod tests {
     fn given_wrong_password_when_verifying_then_fails() {
         // Given
         let hasher = ArgonPasswordHasher;
-        let hash = hasher.hash_password("correct-password");
+        let hash = hasher
+            .hash_password("correct-password")
+            .expect("hash password");
 
         // When / Then
         assert!(!hasher.verify_password("wrong-password", &hash));
@@ -73,8 +75,8 @@ mod tests {
         let password = "same-password";
 
         // When
-        let hash1 = hasher.hash_password(password);
-        let hash2 = hasher.hash_password(password);
+        let hash1 = hasher.hash_password(password).expect("hash password");
+        let hash2 = hasher.hash_password(password).expect("hash password");
 
         // Then — salts differ so hashes differ, but both verify
         assert_ne!(hash1, hash2);

@@ -20,8 +20,10 @@ impl TenantMount for TestTenant {
         TestTenantDeps::from_env()
     }
 
-    async fn build_state(deps: Self::Deps) -> Self::State {
-        TestTenantStateBuilder::new().build(deps).await
+    async fn build_state(
+        deps: Self::Deps,
+    ) -> Result<Self::State, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(TestTenantStateBuilder::new().build(deps).await?)
     }
 
     fn router() -> Router<Self::State> {

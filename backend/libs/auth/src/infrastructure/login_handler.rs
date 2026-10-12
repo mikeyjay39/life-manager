@@ -7,7 +7,7 @@ use time::{Duration, OffsetDateTime};
 use crate::AuthState;
 use crate::domain::login_request::{Claims, LoginRequest, LoginResponse};
 
-use crate::domain::jwt_secret::JWT_SECRET;
+use crate::domain::jwt_secret::jwt_secret;
 
 /// Authenticates credentials and issues a JWT for the tenant mount.
 /// +--------+     +----------------------+     +---------------------+     +--------+
@@ -44,10 +44,14 @@ pub async fn login(
         tenant: login_result.tenant,
     };
 
+    let secret = jwt_secret().map_err(|err| {
+        tracing::error!("JWT secret is not available: {err}");
+        AppError::internal_err_from_msg("JWT secret is not available")
+    })?;
     let token = encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(&JWT_SECRET),
+        &EncodingKey::from_secret(secret),
     )
     .map_err(|e| AppError::Internal(e.into()))?;
 
@@ -84,6 +88,7 @@ mod tests {
         AuthStateBuilder::new()
             .build(tenant.to_string(), test_pool())
             .await
+            .expect("build auth state")
     }
 
     #[tokio::test]
@@ -103,7 +108,7 @@ mod tests {
 
         let claims = decode::<Claims>(
             &response.data.token,
-            &DecodingKey::from_secret(&JWT_SECRET),
+            &DecodingKey::from_secret(jwt_secret().expect("JWT secret")),
             &Validation::default(),
         )
         .expect("Token should decode")
@@ -136,11 +141,16 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        insert_auth_user(&pool, "other-user", "password", "other-tenant", true).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        insert_auth_user(&pool, "other-user", "password", "other-tenant", true)
+            .await
+            .expect("insert user");
         let auth_state = AuthStateBuilder::new()
             .build("life-manager".to_string(), pool)
-            .await;
+            .await
+            .expect("build auth state");
         let req = LoginRequest {
             username: "other-user".into(),
             password: "password".into(),

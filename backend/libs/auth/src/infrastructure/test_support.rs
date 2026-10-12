@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
@@ -21,13 +22,13 @@ pub async fn insert_auth_user(
     password: &str,
     tenant: &str,
     active: bool,
-) -> Uuid {
+) -> anyhow::Result<Uuid> {
     let user_id = Uuid::new_v4();
     let hasher = ArgonPasswordHasher;
     let new_user = NewAuthUserEntity {
         id: user_id.to_string(),
         username: username.to_string(),
-        password_hash: hasher.hash_password(password),
+        password_hash: hasher.hash_password(password)?,
         tenant: tenant.to_string(),
         active,
         created_at: Utc::now().naive_utc(),
@@ -36,27 +37,32 @@ pub async fn insert_auth_user(
     let conn = pool
         .get()
         .await
-        .expect("Failed to get database connection from pool");
+        .context("Failed to get database connection from pool")?;
     conn.interact(move |conn| diesel::insert_into(auth_users::table).values(&new_user).execute(conn))
         .await
-        .expect("Failed to insert auth user")
-        .expect("Database error inserting auth user");
+        .map_err(|err| anyhow::anyhow!("Failed to insert auth user: {err:?}"))?
+        .context("Database error inserting auth user")?;
 
-    user_id
+    Ok(user_id)
 }
 
-pub async fn set_user_active(pool: &Arc<Pool>, username: &str, active: bool) {
+pub async fn set_user_active(
+    pool: &Arc<Pool>,
+    username: &str,
+    active: bool,
+) -> anyhow::Result<()> {
     let username = username.to_string();
     let conn = pool
         .get()
         .await
-        .expect("Failed to get database connection from pool");
+        .context("Failed to get database connection from pool")?;
     conn.interact(move |conn| {
         diesel::update(auth_users::table.filter(auth_users::username.eq(username)))
             .set(auth_users::active.eq(active))
             .execute(conn)
     })
     .await
-    .expect("Failed to update auth user active flag")
-    .expect("Database error updating auth user active flag");
+    .map_err(|err| anyhow::anyhow!("Failed to update auth user active flag: {err:?}"))?
+    .context("Database error updating auth user active flag")?;
+    Ok(())
 }

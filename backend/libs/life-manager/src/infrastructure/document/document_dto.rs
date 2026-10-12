@@ -29,7 +29,7 @@ impl DocumentDto {
             id: document.id,
             title: document.title.clone(),
             content: document.content.clone(),
-            tags: document.tags.clone(),
+            tags: document.get_tags().clone(),
             created_at: document.created_at,
             issued_date: document.issued_date,
             expire_date: document.expire_date,

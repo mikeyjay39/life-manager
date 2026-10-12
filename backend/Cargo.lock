@@ -172,6 +172,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "auth"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "argon2",
  "async-trait",
  "axum",
@@ -1883,6 +1884,7 @@ dependencies = [
 name = "life-manager"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "auth",
  "axum",
@@ -2046,6 +2048,7 @@ dependencies = [
 name = "mikeyjay-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "auth",
  "axum",
  "axum-server",
@@ -3704,6 +3707,7 @@ dependencies = [
 name = "test-tenant"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "auth",
  "axum",

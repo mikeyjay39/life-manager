@@ -21,8 +21,10 @@ impl TenantMount for LifeManagerTenant {
         LifeManagerDeps::from_env()
     }
 
-    async fn build_state(deps: Self::Deps) -> Self::State {
-        LifeManagerStateBuilder::new().build(deps).await
+    async fn build_state(
+        deps: Self::Deps,
+    ) -> Result<Self::State, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(LifeManagerStateBuilder::new().build(deps).await?)
     }
 
     fn router() -> Router<Self::State> {

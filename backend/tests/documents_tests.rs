@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod common;
 
 use std::fs;
@@ -5,7 +7,8 @@ use std::fs;
 use axum_test::TestServer;
 use chrono::NaiveDate;
 use life_manager::infrastructure::document::{
-    document_api_types::{CreateDocumentCommand, UpdateDocumentCommand}, document_dto::DocumentDto,
+    document_api_types::{CreateDocumentCommandDto, UpdateDocumentCommandDto},
+    document_dto::DocumentDto,
 };
 use reqwest::multipart::{Form, Part};
 use serial_test::serial;
@@ -30,7 +33,7 @@ async fn create_and_get_document_docker_compose() {
         let auth_header = build_auth_header(&server).await;
 
         // Make REST API call to create a document
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
             tags: vec![],
@@ -124,7 +127,7 @@ async fn create_and_get_document() {
         let auth_header = build_auth_header(&server).await;
 
         // Make REST API call to create a document
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
             tags: vec![],
@@ -218,7 +221,7 @@ async fn create_and_get_document_no_file() {
         let auth_header = build_auth_header(&server).await;
 
         // Seed 1 document into the database
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
             tags: vec![],
@@ -295,7 +298,7 @@ async fn create_and_get_document_with_dates() {
             .and_hms_opt(0, 0, 0)
             .unwrap();
 
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Dated Integration Test Document"),
             content: String::from("This is a test content with dates."),
             tags: vec![],
@@ -362,7 +365,7 @@ async fn create_and_get_document_with_tags() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
 
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Tagged Integration Test Document"),
             content: String::from("This is a test content."),
             tags: vec!["finance".to_string(), "Tax".to_string()],
@@ -467,7 +470,7 @@ async fn get_all_documents() {
 
         // Create multiple documents
         let documents_to_create = vec![
-            CreateDocumentCommand {
+            CreateDocumentCommandDto {
                 title: String::from("First Document"),
                 content: String::from("Content of first document"),
                 tags: vec![],
@@ -475,7 +478,7 @@ async fn get_all_documents() {
                 expire_date: None,
                 storage: None,
             },
-            CreateDocumentCommand {
+            CreateDocumentCommandDto {
                 title: String::from("Second Document"),
                 content: String::from("Content of second document"),
                 tags: vec![],
@@ -483,7 +486,7 @@ async fn get_all_documents() {
                 expire_date: None,
                 storage: None,
             },
-            CreateDocumentCommand {
+            CreateDocumentCommandDto {
                 title: String::from("Third Document"),
                 content: String::from("Content of third document"),
                 tags: vec![],
@@ -621,7 +624,7 @@ async fn create_and_get_document_json_with_proton_storage() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
 
-        let payload = CreateDocumentCommand {
+        let payload = CreateDocumentCommandDto {
             title: String::from("Proton-backed document"),
             content: String::from("Manual summary text."),
             tags: vec!["proton".to_string()],
@@ -692,7 +695,7 @@ async fn create_and_update_document_json() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
 
-        let create_payload = CreateDocumentCommand {
+        let create_payload = CreateDocumentCommandDto {
             title: String::from("Before Update"),
             content: String::from("Original content."),
             tags: vec!["old".to_string()],
@@ -726,7 +729,7 @@ async fn create_and_update_document_json() {
         assert!(res.status().is_success());
         let created = res.json::<DocumentDto>().await.unwrap();
 
-        let update_payload = UpdateDocumentCommand {
+        let update_payload = UpdateDocumentCommandDto {
             title: String::from("After Update"),
             content: String::from("Updated content."),
             tags: vec!["new".to_string()],
@@ -779,7 +782,7 @@ async fn given_other_users_document_when_getting_then_returns_not_found() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
 
-        let create_payload = CreateDocumentCommand {
+        let create_payload = CreateDocumentCommandDto {
             title: String::from("Owned Document"),
             content: String::from("Private content."),
             tags: vec![],
@@ -826,6 +829,136 @@ async fn given_other_users_document_when_getting_then_returns_not_found() {
             .await
             .expect("Failed to send get request");
         assert_eq!(get_res.status(), StatusCode::NOT_FOUND);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_document_when_deleting_then_returns_no_content_and_gone() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+
+        let create_payload = CreateDocumentCommandDto {
+            title: String::from("Delete Me"),
+            content: String::from("Temporary content."),
+            tags: vec!["temp".to_string()],
+            issued_date: None,
+            expire_date: None,
+            storage: None,
+        };
+        let json_string = serde_json::to_string(&create_payload).unwrap();
+        let multipart_body = format!(
+            "--boundary\r\n\
+        Content-Disposition: form-data; name=\"json\"\r\n\
+        Content-Type: application/json\r\n\r\n\
+        {}\r\n\
+        --boundary--",
+            json_string
+        );
+
+        let url = server
+            .server_url(DOCUMENTS_URL)
+            .expect("Failed to get server URL")
+            .to_string();
+
+        let res = reqwest::Client::new()
+            .post(&url)
+            .body(multipart_body)
+            .header("Content-Type", "multipart/form-data; boundary=boundary")
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send request");
+        assert!(res.status().is_success());
+        let created = res.json::<DocumentDto>().await.unwrap();
+
+        let delete_url = server
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, created.id))
+            .expect("Failed to get server URL")
+            .to_string();
+        let delete_res = reqwest::Client::new()
+            .delete(&delete_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send delete request");
+        assert_eq!(delete_res.status(), StatusCode::NO_CONTENT);
+
+        let get_res = reqwest::Client::new()
+            .get(&delete_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send get request");
+        assert_eq!(get_res.status(), StatusCode::NOT_FOUND);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_other_users_document_when_deleting_then_returns_not_found() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+
+        let create_payload = CreateDocumentCommandDto {
+            title: String::from("Owned Document"),
+            content: String::from("Private content."),
+            tags: vec![],
+            issued_date: None,
+            expire_date: None,
+            storage: None,
+        };
+        let json_string = serde_json::to_string(&create_payload).unwrap();
+        let multipart_body = format!(
+            "--boundary\r\n\
+        Content-Disposition: form-data; name=\"json\"\r\n\
+        Content-Type: application/json\r\n\r\n\
+        {}\r\n\
+        --boundary--",
+            json_string
+        );
+
+        let url = server
+            .server_url(DOCUMENTS_URL)
+            .expect("Failed to get server URL")
+            .to_string();
+
+        let res = reqwest::Client::new()
+            .post(&url)
+            .body(multipart_body)
+            .header("Content-Type", "multipart/form-data; boundary=boundary")
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send request");
+        assert!(res.status().is_success());
+        let created = res.json::<DocumentDto>().await.unwrap();
+
+        let other_user_header =
+            build_bearer_token_with_tenant(uuid::Uuid::new_v4(), "life-manager");
+        let delete_url = server
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, created.id))
+            .expect("Failed to get server URL")
+            .to_string();
+        let delete_res = reqwest::Client::new()
+            .delete(&delete_url)
+            .header("Authorization", other_user_header)
+            .send()
+            .await
+            .expect("Failed to send delete request");
+        assert_eq!(delete_res.status(), StatusCode::NOT_FOUND);
+
+        let get_res = reqwest::Client::new()
+            .get(&delete_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send get request");
+        assert_eq!(get_res.status(), StatusCode::OK);
     })
     .await;
 }

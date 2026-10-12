@@ -9,9 +9,7 @@ use life_manager::{
     LifeManagerDeps, LifeManagerStateBuilder,
     infrastructure::db::{create_connection_pool_from_url, run_migrations},
 };
-use mikeyjay_server::{
-    build_app_with_life_manager_state, build_app_with_tenant_states,
-};
+use mikeyjay_server::{build_app_with_life_manager_state, build_app_with_tenant_states};
 use reqwest::{Client, ClientBuilder};
 use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
@@ -128,12 +126,9 @@ where
 pub async fn run_test_with_both_tenants_and_db_setup<Setup, SetupFut, F, Fut>(
     db_setup: Setup,
     test: F,
-)
-where
-    Setup: FnOnce(
-        Arc<deadpool_diesel::sqlite::Pool>,
-        Arc<deadpool_diesel::sqlite::Pool>,
-    ) -> SetupFut,
+) where
+    Setup:
+        FnOnce(Arc<deadpool_diesel::sqlite::Pool>, Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
     SetupFut: std::future::Future<Output = ()>,
     F: FnOnce(TestServer) -> Fut,
     Fut: std::future::Future<Output = ()>,
@@ -186,8 +181,7 @@ where
 pub async fn run_test_with_test_profile_and_db_setup<Setup, SetupFut, F, Fut>(
     db_setup: Setup,
     test: F,
-)
-where
+) where
     Setup: FnOnce(Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
     SetupFut: std::future::Future<Output = ()>,
     F: FnOnce(TestServer) -> Fut,
@@ -262,11 +256,13 @@ where
 {
     tracing::info!("Creating SQLite connection pool...");
 
-    let pool = create_connection_pool_from_url(url);
+    let pool = create_connection_pool_from_url(url).expect("create pool");
     let _conn = pool.get().await.expect("Failed to get DB connection");
     tracing::info!("Running migrations...");
-    run_migrations(&pool).await;
-    auth::infrastructure::db::run_migrations(&pool).await;
+    run_migrations(&pool).await.expect("run migrations");
+    auth::infrastructure::db::run_migrations(&pool)
+        .await
+        .expect("run auth migrations");
     let pool = Arc::new(pool);
     db_setup(pool.clone()).await;
     tracing::info!("Building backend app...");
@@ -275,7 +271,8 @@ where
             db_pool: Some(pool),
             ..LifeManagerDeps::default()
         })
-        .await;
+        .await
+        .expect("build life-manager state");
     let app = build_app_with_life_manager_state(state).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),
@@ -297,30 +294,36 @@ pub async fn build_both_tenants_app_server_with_db_setup<Setup, SetupFut>(
     db_setup: Setup,
 ) -> TestServer
 where
-    Setup: FnOnce(
-        Arc<deadpool_diesel::sqlite::Pool>,
-        Arc<deadpool_diesel::sqlite::Pool>,
-    ) -> SetupFut,
+    Setup:
+        FnOnce(Arc<deadpool_diesel::sqlite::Pool>, Arc<deadpool_diesel::sqlite::Pool>) -> SetupFut,
     SetupFut: std::future::Future<Output = ()>,
 {
     tracing::info!("Creating SQLite connection pools for both tenants...");
 
-    let life_manager_pool = create_connection_pool_from_url(life_manager_url);
+    let life_manager_pool =
+        create_connection_pool_from_url(life_manager_url).expect("create life-manager pool");
     let _conn = life_manager_pool
         .get()
         .await
         .expect("Failed to get life-manager DB connection");
-    run_migrations(&life_manager_pool).await;
-    auth::infrastructure::db::run_migrations(&life_manager_pool).await;
+    run_migrations(&life_manager_pool)
+        .await
+        .expect("run life-manager migrations");
+    auth::infrastructure::db::run_migrations(&life_manager_pool)
+        .await
+        .expect("run auth migrations");
     let life_manager_pool = Arc::new(life_manager_pool);
 
     let test_tenant_pool =
-        test_tenant::infrastructure::db::create_connection_pool_from_url(test_tenant_url);
+        test_tenant::infrastructure::db::create_connection_pool_from_url(test_tenant_url)
+            .expect("create test-tenant pool");
     let _conn = test_tenant_pool
         .get()
         .await
         .expect("Failed to get test-tenant DB connection");
-    auth::infrastructure::db::run_migrations(&test_tenant_pool).await;
+    auth::infrastructure::db::run_migrations(&test_tenant_pool)
+        .await
+        .expect("run test-tenant auth migrations");
     let test_tenant_pool = Arc::new(test_tenant_pool);
 
     db_setup(life_manager_pool.clone(), test_tenant_pool.clone()).await;
@@ -331,13 +334,15 @@ where
             db_pool: Some(life_manager_pool),
             ..LifeManagerDeps::default()
         })
-        .await;
+        .await
+        .expect("build life-manager state");
     let test_tenant_state = TestTenantStateBuilder::new()
         .build(TestTenantDeps {
             db_pool: Some(test_tenant_pool),
             ..TestTenantDeps::default()
         })
-        .await;
+        .await
+        .expect("build test-tenant state");
     let app = build_app_with_tenant_states(life_manager_state, test_tenant_state).await;
     let config = TestServerConfig {
         transport: Some(Transport::HttpRandomPort),

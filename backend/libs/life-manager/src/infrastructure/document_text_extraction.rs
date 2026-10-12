@@ -23,13 +23,13 @@ pub fn get_text_from_pdf(
     if text.trim().is_empty() {
         tracing::info!(
             "No text extracted from PDF. {}",
-            uploaded_document_input.file_name
+            uploaded_document_input.file_name.as_deref().unwrap_or("")
         );
         Ok(None)
     } else {
         tracing::info!(
             "Extracted text from PDF: {}\n, {}",
-            uploaded_document_input.file_name,
+            uploaded_document_input.file_name.as_deref().unwrap_or(""),
             text
         );
         Ok(Some(text))
@@ -38,5 +38,8 @@ pub fn get_text_from_pdf(
 
 /// Whether the upload likely needs remote OCR based on its file extension.
 pub fn needs_ocr(uploaded_document_input: &UploadedDocumentInput) -> bool {
-    OCR_EXTENSIONS.contains(uploaded_document_input.extension.as_str())
+    match uploaded_document_input.extension.as_deref() {
+        Some(extension) => OCR_EXTENSIONS.contains(extension),
+        None => false,
+    }
 }

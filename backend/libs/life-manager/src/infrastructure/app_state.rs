@@ -1,5 +1,6 @@
 use std::{env, sync::Arc};
 
+use anyhow::Context;
 use auth::{AuthState, AuthStateBuilder};
 use deadpool_diesel::sqlite::Pool;
 
@@ -43,16 +44,16 @@ impl LifeManagerStateBuilder {
         Self
     }
 
-    pub async fn build(self, deps: LifeManagerDeps) -> LifeManagerState {
+    pub async fn build(self, deps: LifeManagerDeps) -> anyhow::Result<LifeManagerState> {
         tracing::info!("Building LifeManagerState...");
         let pool = match deps.db_pool {
             Some(pool) => pool,
             None => {
                 let pool = match deps.database_url {
-                    Some(url) => create_connection_pool_from_url(&url),
-                    None => create_connection_pool(),
+                    Some(url) => create_connection_pool_from_url(&url)?,
+                    None => create_connection_pool()?,
                 };
-                Arc::new(init_db(pool).await)
+                Arc::new(init_db(pool).await?)
             }
         };
         tracing::info!("LifeManagerState DB pool initialized.");
@@ -61,15 +62,17 @@ impl LifeManagerStateBuilder {
             None => {
                 AuthStateBuilder::new()
                     .build("life-manager".to_string(), pool.clone())
-                    .await
+                    .await?
             }
         };
-        LifeManagerState {
-            document_use_cases: deps
-                .document_use_cases
-                .unwrap_or_else(|| Arc::new(default_document_use_cases(pool))),
+        let document_use_cases = match deps.document_use_cases {
+            Some(use_cases) => use_cases,
+            None => Arc::new(default_document_use_cases(pool)?),
+        };
+        Ok(LifeManagerState {
+            document_use_cases,
             auth_state,
-        }
+        })
     }
 }
 
@@ -85,18 +88,19 @@ fn tesseract_enabled_from_env() -> bool {
         .unwrap_or(false)
 }
 
-fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
+fn default_document_use_cases(pool: Arc<Pool>) -> anyhow::Result<DocumentUseCases> {
     tracing::info!("Creating default DocumentUseCases...");
     let reader: Arc<dyn DocumentTextReader> = if tesseract_enabled_from_env() {
+        let tesseract_url = env::var("TESSERACT_URL")
+            .context("TESSERACT_URL must be set when TESSERACT_ENABLED is true")?;
         Arc::new(TesseractAdapter::new(
-            env::var("TESSERACT_URL")
-                .expect("TESSERACT_URL must be set when TESSERACT_ENABLED is true"),
+            tesseract_url,
             Arc::new(ReqwestHttpClient::new()),
         ))
     } else {
         Arc::new(NoOpDocumentTextReader::new())
     };
-    DocumentUseCases {
+    Ok(DocumentUseCases {
         document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
         reader,
         summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
@@ -104,11 +108,11 @@ fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
                 .ok()
                 .and_then(|url_str| url_str.parse().ok()),
         )),
-    }
+    })
 }
 
-async fn init_db(pool: Pool) -> Pool {
+async fn init_db(pool: Pool) -> anyhow::Result<Pool> {
     tracing::info!("Running life-manager migrations...");
-    run_migrations(&pool).await;
-    pool
+    run_migrations(&pool).await?;
+    Ok(pool)
 }

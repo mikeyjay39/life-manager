@@ -54,9 +54,10 @@ impl DocumentStorageRefDto {
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
     export,
+    rename = "CreateDocumentCommand",
     export_to = "../../../../frontend/lib/api/generated/life-manager/CreateDocumentCommand.ts"
 )]
-pub struct CreateDocumentCommand {
+pub struct CreateDocumentCommandDto {
     pub title: String,
     pub content: String,
     #[serde(default)]
@@ -72,9 +73,10 @@ pub struct CreateDocumentCommand {
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
     export,
+    rename = "UpdateDocumentCommand",
     export_to = "../../../../frontend/lib/api/generated/life-manager/UpdateDocumentCommand.ts"
 )]
-pub struct UpdateDocumentCommand {
+pub struct UpdateDocumentCommandDto {
     pub title: String,
     pub content: String,
     #[serde(default)]
@@ -103,8 +105,8 @@ mod export_ts_bindings {
     #[test]
     fn export_typescript_bindings() {
         DocumentStorageRefDto::export().unwrap();
-        CreateDocumentCommand::export().unwrap();
-        UpdateDocumentCommand::export().unwrap();
+        CreateDocumentCommandDto::export().unwrap();
+        UpdateDocumentCommandDto::export().unwrap();
         GetDocumentsQueryParams::export().unwrap();
     }
 }

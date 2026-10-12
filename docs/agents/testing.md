@@ -40,7 +40,7 @@ cd backend && cargo test --test '*'
 
 ```bash
 cargo fmt --manifest-path backend/Cargo.toml -- --check
-cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+cargo clippy --workspace --manifest-path backend/Cargo.toml --all-targets -- -D warnings
 ```
 
 ## Layout

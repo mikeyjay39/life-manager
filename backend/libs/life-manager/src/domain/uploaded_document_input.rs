@@ -1,15 +1,25 @@
+use chrono::NaiveDateTime;
 use uuid::Uuid;
 
+use crate::domain::document_storage_ref::DocumentStorageRef;
+
+#[derive(Clone, Debug)]
 /**
 * Structure representing an uploaded document input.
 */
 pub struct UploadedDocumentInput {
     /** Name of the uploaded file. */
-    pub file_name: String,
+    pub file_name: Option<String>,
     /** Raw binary data of the uploaded file. */
     pub file_data: Vec<u8>,
-    pub extension: String,
+    pub extension: Option<String>,
     pub user_id: Uuid,
+    pub title: String,
+    pub content: Option<String>,
+    pub tags: Vec<String>,
+    pub issued_date: Option<NaiveDateTime>,
+    pub expire_date: Option<NaiveDateTime>,
+    pub storage: Option<DocumentStorageRef>,
 }
 
 impl UploadedDocumentInput {
@@ -26,18 +36,57 @@ impl UploadedDocumentInput {
      *
      * A new instance of `UploadedDocumentInput`.
      */
-    pub fn new(file_name: String, file_data: Vec<u8>, user_id: Uuid) -> Self {
-        let extension = file_name.rsplit('.').next().unwrap_or("").to_lowercase();
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        title: String,
+        file_name: Option<String>,
+        file_data: Vec<u8>,
+        user_id: Uuid,
+        tags: Vec<String>,
+        content: Option<String>,
+        issued_date: Option<NaiveDateTime>,
+        expire_date: Option<NaiveDateTime>,
+        storage: Option<DocumentStorageRef>,
+    ) -> Self {
+        let extension = match &file_name {
+            Some(name) => name.split('.').next_back().map(|s| s.to_lowercase()),
+            None => None,
+        };
         UploadedDocumentInput {
+            title,
             file_name,
             file_data,
             extension,
             user_id,
+            tags,
+            content,
+            issued_date,
+            expire_date,
+            storage,
         }
     }
 
     pub fn is_pdf(&self) -> bool {
-        self.file_name.to_lowercase().ends_with(".pdf")
+        match &self.file_name {
+            Some(name) => name.to_lowercase().ends_with(".pdf"),
+            None => false,
+        }
+    }
+
+    /// Builds an input for unit tests that only supply a file name and bytes.
+    #[cfg(test)]
+    pub fn for_test_file(file_name: &str, file_data: Vec<u8>, user_id: Uuid) -> Self {
+        Self::new(
+            file_name.to_string(),
+            Some(file_name.to_string()),
+            file_data,
+            user_id,
+            Vec::new(),
+            None,
+            None,
+            None,
+            None,
+        )
     }
 }
 
@@ -67,9 +116,23 @@ mod tests {
             .expect("Failed to read the file");
         let buffer_length = buffer.len();
         let uploaded_document_input =
-            UploadedDocumentInput::new(file_name.to_string(), buffer, Uuid::new_v4());
-        assert_eq!(uploaded_document_input.extension, "png");
-        assert_eq!(uploaded_document_input.file_name, file_name);
+            UploadedDocumentInput::for_test_file(file_name, buffer, Uuid::new_v4());
+        assert_eq!(uploaded_document_input.extension.as_deref(), Some("png"));
+        assert_eq!(
+            uploaded_document_input.file_name.as_deref(),
+            Some(file_name)
+        );
         assert_eq!(uploaded_document_input.file_data.len(), buffer_length);
+    }
+
+    #[test]
+    pub fn stores_uppercase_extension_in_lowercase() {
+        let uploaded_document_input =
+            UploadedDocumentInput::for_test_file("scan.PNG", Vec::new(), Uuid::new_v4());
+        assert_eq!(uploaded_document_input.extension.as_deref(), Some("png"));
+        assert_eq!(
+            uploaded_document_input.file_name.as_deref(),
+            Some("scan.PNG")
+        );
     }
 }
