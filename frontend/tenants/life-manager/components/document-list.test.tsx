@@ -761,7 +761,7 @@ describe('DocumentList Proton preview and download', () => {
     fireEvent.press(screen.getByLabelText('Delete document'));
     fireEvent.press(screen.getByLabelText('Cancel'));
 
-    expect(mockApiFetch).not.toHaveBeenCalledWith(
+    expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
       expect.stringContaining('/documents/'),
       expect.objectContaining({ method: 'DELETE' })
     );
@@ -778,8 +778,8 @@ describe('DocumentList Proton preview and download', () => {
           { status: 200 }
         )
       )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
-    mockApiFetch.mockResolvedValue(new Response(null, { status: 204 }));
 
     renderDocumentList();
     await waitFor(() => {
@@ -790,7 +790,7 @@ describe('DocumentList Proton preview and download', () => {
     fireEvent.press(screen.getByLabelText('Delete'));
 
     await waitFor(() => {
-      expect(mockApiFetch).toHaveBeenCalledWith(
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
         '/documents/doc-1',
         expect.objectContaining({ method: 'DELETE', token: 'tok' })
       );
@@ -828,7 +828,7 @@ describe('DocumentList Proton preview and download', () => {
       );
     });
     expect(mockTrashProtonFile).not.toHaveBeenCalled();
-    expect(mockApiFetch).not.toHaveBeenCalledWith(
+    expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
       expect.stringContaining('/documents/'),
       expect.objectContaining({ method: 'DELETE' })
     );
@@ -852,8 +852,8 @@ describe('DocumentList Proton preview and download', () => {
     mockTrashProtonFile.mockResolvedValue(undefined);
     mockAuthenticatedFetch
       .mockResolvedValueOnce(new Response(JSON.stringify([protonDoc]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }));
-    mockApiFetch.mockResolvedValue(new Response(null, { status: 204 }));
 
     renderDocumentList();
     await waitFor(() => {
@@ -869,7 +869,7 @@ describe('DocumentList Proton preview and download', () => {
     await waitFor(() => {
       expect(mockTrashProtonFile).toHaveBeenCalledWith('share-1', 'node-1');
     });
-    expect(mockApiFetch).toHaveBeenCalledWith(
+    expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/documents/doc-proton',
       expect.objectContaining({ method: 'DELETE', token: 'tok' })
     );

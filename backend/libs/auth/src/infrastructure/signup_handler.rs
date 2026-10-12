@@ -21,7 +21,7 @@ pub async fn signup(
         .signup_service
         .signup(&req)
         .await
-        .map_err(|msg| AppError::Validation(msg))?;
+        .map_err(AppError::Validation)?;
 
     AppResponse::created(response)
 }
@@ -60,6 +60,7 @@ mod tests {
         AuthStateBuilder::new()
             .build(tenant.to_string(), test_pool())
             .await
+            .expect("build auth state")
     }
 
     #[tokio::test]

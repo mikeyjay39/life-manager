@@ -49,7 +49,10 @@ impl SignupService for PrincipalSignupService {
         let email = validate_email(&signup_req.email)?;
         validate_password(&signup_req.password)?;
 
-        let password_hash = self.password_hasher.hash_password(&signup_req.password);
+        let password_hash = self
+            .password_hasher
+            .hash_password(&signup_req.password)
+            .map_err(|_| "Could not create account. Please try again later.".to_string())?;
 
         self.principal_repository
             .create_user(&email, &password_hash, &self.tenant, false)
@@ -76,7 +79,7 @@ mod tests {
     use async_trait::async_trait;
 
     use crate::domain::{
-        auth_password_hasher::AuthPasswordHasher,
+        auth_password_hasher::{AuthPasswordHasher, PasswordHashError},
         principal::{CreateUserError, Principal, PrincipalRepository},
     };
 
@@ -113,8 +116,8 @@ mod tests {
     struct StubHasher;
 
     impl AuthPasswordHasher for StubHasher {
-        fn hash_password(&self, _password: &str) -> String {
-            "hashed".to_string()
+        fn hash_password(&self, _password: &str) -> Result<String, PasswordHashError> {
+            Ok("hashed".to_string())
         }
 
         fn verify_password(&self, _password: &str, _hashed_password: &str) -> bool {
@@ -182,7 +185,10 @@ mod tests {
         let result = service.signup(&req).await;
 
         // Then
-        assert_eq!(result.err(), Some("Enter a valid email address.".to_string()));
+        assert_eq!(
+            result.err(),
+            Some("Enter a valid email address.".to_string())
+        );
     }
 
     #[tokio::test]

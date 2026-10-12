@@ -13,6 +13,7 @@ use auth::AuthUser;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
 use axum::{Json, http::StatusCode};
+use backend_utils::AppError;
 use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use serde::de::DeserializeOwned;
@@ -48,7 +49,7 @@ pub async fn create_document(
         json_data,
         file_data,
         file_name,
-    } = parse_document_multipart::<CreateDocumentCommandDto>(multipart).await;
+    } = parse_document_multipart::<CreateDocumentCommandDto>(multipart).await?;
 
     if let Some(payload) = json_data {
         let uploaded_document_input =
@@ -214,7 +215,7 @@ pub async fn update_document(
         json_data,
         file_data,
         file_name,
-    } = parse_document_multipart::<UpdateDocumentCommandDto>(multipart).await;
+    } = parse_document_multipart::<UpdateDocumentCommandDto>(multipart).await?;
 
     if let Some(payload) = json_data {
         let uploaded_document_input = UploadedDocumentInput::new(
@@ -255,7 +256,7 @@ pub async fn update_document(
 
 async fn parse_document_multipart<T: DeserializeOwned>(
     mut multipart: Multipart,
-) -> ParsedUpdateDocumentMultipart<T> {
+) -> Result<ParsedUpdateDocumentMultipart<T>, AppError> {
     let mut json_data: Option<T> = None;
     let mut file_data = Vec::new();
     let mut file_name = String::new();
@@ -263,7 +264,10 @@ async fn parse_document_multipart<T: DeserializeOwned>(
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         match field.name() {
             Some("json") => {
-                let text = field.text().await.unwrap();
+                let text = field.text().await.map_err(|err| {
+                    tracing::warn!("Failed to read multipart json field: {err}");
+                    AppError::Validation("Could not read the form data.".to_string())
+                })?;
                 json_data = serde_json::from_str(&text).ok();
             }
             Some("file") => {
@@ -271,17 +275,21 @@ async fn parse_document_multipart<T: DeserializeOwned>(
                 if let Some(name) = field.file_name() {
                     file_name = name.to_string();
                 }
-                file_data = field.bytes().await.unwrap().to_vec();
+                file_data = field.bytes().await.map_err(|err| {
+                    tracing::warn!("Failed to read multipart file field: {err}");
+                    AppError::Validation("Could not read the uploaded file.".to_string())
+                })?
+                .to_vec();
                 tracing::info!("Received file for update: {}", file_name);
             }
             _ => {}
         }
     }
-    ParsedUpdateDocumentMultipart {
+    Ok(ParsedUpdateDocumentMultipart {
         json_data,
         file_data,
         file_name,
-    }
+    })
 }
 
 /**

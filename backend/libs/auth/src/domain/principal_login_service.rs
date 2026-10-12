@@ -48,7 +48,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::domain::{
-        auth_password_hasher::AuthPasswordHasher,
+        auth_password_hasher::{AuthPasswordHasher, PasswordHashError},
         login_request::LoginRequest,
         principal::{Principal, PrincipalRepository},
     };
@@ -104,8 +104,8 @@ mod tests {
     }
 
     impl AuthPasswordHasher for StubHasher {
-        fn hash_password(&self, _password: &str) -> String {
-            "stored-hash".to_string()
+        fn hash_password(&self, _password: &str) -> Result<String, PasswordHashError> {
+            Ok("stored-hash".to_string())
         }
 
         fn verify_password(&self, _password: &str, _hashed_password: &str) -> bool {

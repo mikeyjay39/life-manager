@@ -1,10 +1,12 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod common;
 
-use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use crate::common::setup::{
     LoginRequest, build_auth_header, build_bearer_token_with_tenant, decode_token_tenant,
     decode_token_user_id, run_test_with_test_profile, run_test_with_test_profile_and_db_setup,
 };
+use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response, StatusCode};
 use serial_test::serial;
@@ -31,7 +33,10 @@ async fn login_and_jwt_auth_good_credentials() {
             "Response status was not successful: {}",
             res.error_for_status().unwrap_err()
         );
-        let body = res.text().await.expect("Failed to read protected endpoint body");
+        let body = res
+            .text()
+            .await
+            .expect("Failed to read protected endpoint body");
         assert_eq!(body, format!("Hello {}", admin_user_uuid()));
     })
     .await;
@@ -155,8 +160,11 @@ async fn inactive_user_fail_login() {
                 &pool,
                 "life-manager",
             )
-            .await;
-            auth::test_support::set_user_active(&pool, "admin", false).await;
+            .await
+            .expect("seed admin");
+            auth::test_support::set_user_active(&pool, "admin", false)
+                .await
+                .expect("deactivate admin");
         },
         |server: TestServer| async move {
             let res = match do_login(&server, "admin", "password").await {
@@ -182,7 +190,8 @@ async fn wrong_tenant_principal_fail_login() {
                 "other-tenant",
                 true,
             )
-            .await;
+            .await
+            .expect("insert user");
         },
         |server: TestServer| async move {
             let res = match do_login(&server, "other-user", "password").await {

@@ -1,5 +1,6 @@
 use std::{env, sync::Arc};
 
+use anyhow::Context;
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
 use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl};
@@ -13,20 +14,18 @@ use crate::{
     schema::auth_users,
 };
 
-const ADMIN_USER_ID: &str = "00000000-0000-0000-0000-000000000001";
-
 pub fn admin_user_uuid() -> Uuid {
-    Uuid::parse_str(ADMIN_USER_ID).expect("Invalid ADMIN_USER_ID format")
+    uuid::uuid!("00000000-0000-0000-0000-000000000001")
 }
 
-pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) {
-    let username = env::var("ADMIN_USERNAME").expect("ADMIN_USERNAME must be set");
-    let password = env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set");
+pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) -> anyhow::Result<()> {
+    let username = env::var("ADMIN_USERNAME").context("ADMIN_USERNAME must be set")?;
+    let password = env::var("ADMIN_PASSWORD").context("ADMIN_PASSWORD must be set")?;
 
     let conn = pool
         .get()
         .await
-        .expect("Failed to get database connection from pool");
+        .context("Failed to get database connection from pool")?;
 
     let username_check = username.clone();
     let already_exists = conn
@@ -38,19 +37,19 @@ pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) {
                 .optional()
         })
         .await
-        .expect("Failed to check for default admin user")
-        .expect("Database error checking for default admin user")
+        .map_err(|err| anyhow::anyhow!("Failed to check for default admin user: {err:?}"))?
+        .context("Database error checking for default admin user")?
         .is_some();
 
     if already_exists {
-        return;
+        return Ok(());
     }
 
     let hasher = ArgonPasswordHasher;
     let new_user = NewAuthUserEntity {
         id: admin_user_uuid().to_string(),
         username,
-        password_hash: hasher.hash_password(&password),
+        password_hash: hasher.hash_password(&password)?,
         tenant: tenant.to_string(),
         active: true,
         created_at: Utc::now().naive_utc(),
@@ -58,8 +57,9 @@ pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) {
 
     conn.interact(move |conn| diesel::insert_into(auth_users::table).values(&new_user).execute(conn))
         .await
-        .expect("Failed to seed default admin user")
-        .expect("Failed to insert default admin user");
+        .map_err(|err| anyhow::anyhow!("Failed to seed default admin user: {err:?}"))?
+        .context("Failed to insert default admin user")?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -114,10 +114,14 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
 
         // When
-        ensure_default_admin_user(&pool, "life-manager").await;
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
 
         // Then
         let user = find_user_by_username(&pool, "admin").await;
@@ -132,11 +136,17 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref()).await;
-        ensure_default_admin_user(&pool, "life-manager").await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
 
         // When
-        ensure_default_admin_user(&pool, "life-manager").await;
+        ensure_default_admin_user(&pool, "life-manager")
+            .await
+            .expect("seed admin");
 
         // Then
         assert_eq!(count_users(&pool).await, 1);

@@ -492,7 +492,7 @@ export default function DocumentList({
         await proton.trashProtonFile(doc.storage.share_id, doc.storage.node_id);
       }
 
-      const response = await apiFetch(`/documents/${doc.id}`, {
+      const response = await authenticatedFetch(`/documents/${doc.id}`, {
         method: 'DELETE',
         token,
         onUnauthorized: handleUnauthorized,

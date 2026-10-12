@@ -1,4 +1,5 @@
 mod build_info;
+use anyhow::Context;
 use axum::{
     Router,
     body::Body,
@@ -7,35 +8,42 @@ use axum::{
 };
 use life_manager::{LifeManagerState, LifeManagerTenant};
 use server_host::{AppBootstrap, TenantMount};
-use test_tenant::{TestTenant, TestTenantState};
 use std::env;
 use std::net::SocketAddr;
+use test_tenant::{TestTenant, TestTenantState};
 use tower::ServiceBuilder;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
+/// Starts the HTTP server.
+///
+/// ```text
+/// main -> start_server -> build_app -> TenantMount::mount
+///      -> build_state -> pool + migrations + admin seed
+///      -> bind APP_PORT
+/// ```
+///
+/// A failed step returns the error. The process exits.
 #[tokio::main]
-pub async fn start_server() {
+pub async fn start_server() -> anyhow::Result<()> {
     tracing::info!("Starting server");
     build_info::init();
-    let app = build_app().await;
+    let app = build_app().await?;
 
-    // Define the address to run the server on
-    let app_port = env::var("APP_PORT").expect("APP_PORT must be set");
-    let addr = SocketAddr::from((
-        [0, 0, 0, 0],
-        app_port.parse().expect("Could not parse app_port"),
-    ));
+    let app_port = env::var("APP_PORT").context("APP_PORT must be set")?;
+    let port: u16 = app_port.parse().context("Could not parse APP_PORT")?;
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Tracing Listening on http://{}", addr);
 
     axum_server::bind(addr)
         .serve(app.into_make_service())
         .await
-        .expect("Could not start axum_server")
+        .context("Could not start axum_server")?;
+    Ok(())
 }
 
-pub async fn build_app() -> Router {
+pub async fn build_app() -> anyhow::Result<Router> {
     let bootstrap = AppBootstrap::from_env();
     build_app_with_bootstrap(bootstrap).await
 }
@@ -61,10 +69,14 @@ pub async fn build_app_with_tenant_states(
     build_app_with_tenants(Some(life_manager), Some(test_tenant)).await
 }
 
-async fn build_app_with_bootstrap(bootstrap: AppBootstrap) -> Router {
-    let life_manager = LifeManagerTenant::mount(&bootstrap).await;
-    let test_tenant = TestTenant::mount(&bootstrap).await;
-    build_app_with_tenants(Some(life_manager), Some(test_tenant)).await
+async fn build_app_with_bootstrap(bootstrap: AppBootstrap) -> anyhow::Result<Router> {
+    let life_manager = LifeManagerTenant::mount(&bootstrap)
+        .await
+        .map_err(|err| anyhow::anyhow!("{err}"))?;
+    let test_tenant = TestTenant::mount(&bootstrap)
+        .await
+        .map_err(|err| anyhow::anyhow!("{err}"))?;
+    Ok(build_app_with_tenants(Some(life_manager), Some(test_tenant)).await)
 }
 
 async fn build_app_with_tenants(
@@ -96,45 +108,45 @@ async fn build_app_with_tenants(
     }
 
     app.layer(
-            CorsLayer::new()
-                .allow_methods([
-                    Method::GET,
-                    Method::POST,
-                    Method::PUT,
-                    Method::DELETE,
-                    Method::OPTIONS,
-                ])
-                .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
-                .allow_origin(tower_http::cors::Any),
-        )
-        .layer(
-            ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
-                |request: &Request<Body>| {
-                    let trace_id = uuid::Uuid::new_v4();
-                    let host = request
-                        .headers()
-                        .get(header::HOST)
-                        .and_then(|v| v.to_str().ok())
-                        .unwrap_or("-");
-                    // Prefer gateway-set headers; fall back if the backend is hit directly.
-                    let client_ip = request
-                        .headers()
-                        .get("x-real-ip")
-                        .or_else(|| request.headers().get("x-forwarded-for"))
-                        .and_then(|v| v.to_str().ok())
-                        .map(|s| s.split(',').next().unwrap_or(s).trim())
-                        .unwrap_or("-");
-                    tracing::span!(
-                        Level::DEBUG,
-                        "request",
-                        method = tracing::field::display(request.method()),
-                        uri = tracing::field::display(request.uri()),
-                        version = tracing::field::debug(request.version()),
-                        trace_id = tracing::field::display(trace_id),
-                        host = tracing::field::display(host),
-                        client_ip = tracing::field::display(client_ip),
-                    )
-                },
-            )),
-        )
+        CorsLayer::new()
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+            .allow_origin(tower_http::cors::Any),
+    )
+    .layer(
+        ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
+            |request: &Request<Body>| {
+                let trace_id = uuid::Uuid::new_v4();
+                let host = request
+                    .headers()
+                    .get(header::HOST)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("-");
+                // Prefer gateway-set headers; fall back if the backend is hit directly.
+                let client_ip = request
+                    .headers()
+                    .get("x-real-ip")
+                    .or_else(|| request.headers().get("x-forwarded-for"))
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.split(',').next().unwrap_or(s).trim())
+                    .unwrap_or("-");
+                tracing::span!(
+                    Level::DEBUG,
+                    "request",
+                    method = tracing::field::display(request.method()),
+                    uri = tracing::field::display(request.uri()),
+                    version = tracing::field::debug(request.version()),
+                    trace_id = tracing::field::display(trace_id),
+                    host = tracing::field::display(host),
+                    client_ip = tracing::field::display(client_ip),
+                )
+            },
+        )),
+    )
 }

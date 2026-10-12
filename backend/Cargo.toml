@@ -2,6 +2,11 @@
 members = [".", "libs/auth", "libs/common/server-host", "libs/common/backend-utils", "libs/life-manager", "libs/test-tenant"]
 resolver = "2"
 
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
 [workspace.dependencies]
 anyhow = "1.0"
 argon2 = "0.5.3"
@@ -27,7 +32,11 @@ license-file = "../LICENSE"
 name = "life-manager"
 path = "src/main.rs"
 
+[lints]
+workspace = true
+
 [dependencies]
+anyhow = { workspace = true }
 auth = { path = "libs/auth" }
 backend-utils = { path = "libs/common/backend-utils" }
 life-manager = { path = "libs/life-manager" }

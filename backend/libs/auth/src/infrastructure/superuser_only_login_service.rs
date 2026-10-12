@@ -1,5 +1,6 @@
 use std::env;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -33,18 +34,12 @@ impl SuperuserOnlyLoginService {
         }
     }
 
-    pub fn from_env_with_tenant(tenant: String) -> Self {
-        Self::new(
-            env::var("ADMIN_USERNAME").expect("ADMIN_USERNAME must be set"),
-            env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD must be set"),
+    pub fn from_env_with_tenant(tenant: String) -> anyhow::Result<Self> {
+        Ok(Self::new(
+            env::var("ADMIN_USERNAME").context("ADMIN_USERNAME must be set")?,
+            env::var("ADMIN_PASSWORD").context("ADMIN_PASSWORD must be set")?,
             tenant,
-        )
-    }
-}
-
-impl Default for SuperuserOnlyLoginService {
-    fn default() -> Self {
-        Self::from_env_with_tenant("default_tenant".to_string())
+        ))
     }
 }
 

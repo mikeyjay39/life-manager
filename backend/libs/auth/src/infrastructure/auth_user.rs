@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     AuthState,
-    domain::{jwt_secret::JWT_SECRET, login_request::Claims},
+    domain::{jwt_secret::jwt_secret, login_request::Claims},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -35,31 +35,32 @@ where
             .strip_prefix("Bearer ")
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
+        let secret = jwt_secret().map_err(|err| {
+            tracing::error!("JWT secret is not available: {err}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
         let claims = decode::<Claims>(
             token,
-            &DecodingKey::from_secret(&JWT_SECRET),
+            &DecodingKey::from_secret(secret),
             &Validation::default(),
         )
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .claims;
 
-        match claims.tenant == auth_state.use_cases.tenant {
-            true => {
-                return Ok(AuthUser {
-                    user_id: claims.sub,
-                    tenant: claims.tenant,
-                });
-            }
-            false => {
-                tracing::warn!(
-                    "Tenant claim {} did not match for tenant {} for user_id {}",
-                    claims.tenant,
-                    auth_state.use_cases.tenant,
-                    claims.sub
-                );
-                return Err(StatusCode::UNAUTHORIZED);
-            }
+        if claims.tenant == auth_state.use_cases.tenant {
+            return Ok(AuthUser {
+                user_id: claims.sub,
+                tenant: claims.tenant,
+            });
         }
+
+        tracing::warn!(
+            "Tenant claim {} did not match for tenant {} for user_id {}",
+            claims.tenant,
+            auth_state.use_cases.tenant,
+            claims.sub
+        );
+        Err(StatusCode::UNAUTHORIZED)
     }
 }
 
@@ -96,7 +97,8 @@ mod tests {
         TestState(
             AuthStateBuilder::new()
                 .build(tenant.to_string(), test_pool())
-                .await,
+                .await
+                .expect("build auth state"),
         )
     }
 
@@ -110,7 +112,7 @@ mod tests {
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(&JWT_SECRET),
+            &EncodingKey::from_secret(jwt_secret().expect("JWT secret")),
         )
         .expect("Failed to encode test token");
         format!("Bearer {token}")

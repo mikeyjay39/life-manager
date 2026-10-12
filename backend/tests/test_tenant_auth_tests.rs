@@ -1,10 +1,12 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 mod common;
 
-use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use crate::common::setup::{
     LoginRequest, TEST_TENANT_AUTH_URL, build_auth_header_at, decode_token_tenant,
     run_test_with_both_tenants, run_test_with_both_tenants_and_db_setup,
 };
+use auth::infrastructure::auth_user_seeder::admin_user_uuid;
 use axum_test::TestServer;
 use reqwest::{ClientBuilder, Error, Response, StatusCode};
 use serial_test::serial;
@@ -33,7 +35,10 @@ async fn given_test_tenant_token_when_calling_protected_endpoint_then_succeeds()
             .await
             .expect("Failed to send request");
         assert!(res.status().is_success());
-        let body = res.text().await.expect("Failed to read protected endpoint body");
+        let body = res
+            .text()
+            .await
+            .expect("Failed to read protected endpoint body");
         assert_eq!(body, format!("Hello {}", admin_user_uuid()));
     })
     .await;
@@ -80,7 +85,8 @@ async fn given_user_only_in_test_tenant_db_when_logging_in_then_tenant_isolation
                 "test-tenant",
                 true,
             )
-            .await;
+            .await
+            .expect("insert user");
         },
         |server: TestServer| async move {
             let test_tenant_login =

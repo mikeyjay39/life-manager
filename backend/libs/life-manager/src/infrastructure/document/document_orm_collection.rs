@@ -33,11 +33,13 @@ impl DocumentOrmCollection {
 impl DocumentRepository for DocumentOrmCollection {
     async fn get_document(&self, id: &Uuid) -> Option<Document> {
         tracing::info!("Retrieving document with ID: {}", id);
-        let conn = self
-            .pool
-            .get()
-            .await
-            .expect("Failed to get DB connection from pool");
+        let conn = match self.pool.get().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::error!("Could not get db connection for get_document: {}", e);
+                return None;
+            }
+        };
 
         let id_str = id.to_string();
         let result = conn

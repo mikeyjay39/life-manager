@@ -1,30 +1,31 @@
 use std::{env, fs, path::Path};
 
+use anyhow::Context;
 use deadpool_diesel::sqlite::{Manager, Pool, Runtime};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
-pub fn create_connection_pool() -> Pool {
+pub fn create_connection_pool() -> anyhow::Result<Pool> {
     dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
     tracing::info!("Creating connection pool to database at {}", database_url);
     create_connection_pool_from_url(&database_url)
 }
 
-pub fn create_connection_pool_from_url(database_url: &str) -> Pool {
-    ensure_sqlite_parent_dir_exists(database_url);
+pub fn create_connection_pool_from_url(database_url: &str) -> anyhow::Result<Pool> {
+    ensure_sqlite_parent_dir_exists(database_url)?;
     let mgr = Manager::new(database_url.to_string(), Runtime::Tokio1);
     Pool::builder(mgr)
         .max_size(16)
         .build()
-        .expect("Failed to create pool.")
+        .context("Failed to create pool")
 }
 
-fn ensure_sqlite_parent_dir_exists(database_url: &str) {
+fn ensure_sqlite_parent_dir_exists(database_url: &str) -> std::io::Result<()> {
     if is_in_memory_sqlite(database_url) {
-        return;
+        return Ok(());
     }
 
     let path_str = if let Some(file_uri_path) = database_url.strip_prefix("file:") {
@@ -35,19 +36,18 @@ fn ensure_sqlite_parent_dir_exists(database_url: &str) {
 
     let path = Path::new(path_str);
     let Some(parent) = path.parent() else {
-        return;
+        return Ok(());
     };
     if parent.as_os_str().is_empty() {
-        return;
+        return Ok(());
     }
 
-    fs::create_dir_all(parent).unwrap_or_else(|err| {
-        panic!(
-            "Failed to create SQLite parent directory '{}': {}",
-            parent.display(),
-            err
-        )
-    });
+    fs::create_dir_all(parent).map_err(|err| {
+        std::io::Error::other(format!(
+            "Failed to create SQLite parent directory '{}': {err}",
+            parent.display()
+        ))
+    })
 }
 
 fn is_in_memory_sqlite(database_url: &str) -> bool {
@@ -57,12 +57,16 @@ fn is_in_memory_sqlite(database_url: &str) -> bool {
         || database_url.starts_with("file:") && database_url.contains("mode=memory")
 }
 
-pub async fn run_migrations(pool: &Pool) {
-    let conn = pool.get().await.expect("Failed to get DB connection");
+pub async fn run_migrations(pool: &Pool) -> anyhow::Result<()> {
+    let conn = pool
+        .get()
+        .await
+        .context("Failed to get DB connection")?;
     conn.interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await
-        .expect("Failed to run life-manager migrations interact")
-        .expect("Failed to run pending life-manager migrations");
+        .map_err(|err| anyhow::anyhow!("Failed to run life-manager migrations interact: {err:?}"))?
+        .map_err(|err| anyhow::anyhow!("Failed to run pending life-manager migrations: {err}"))?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -81,9 +85,11 @@ mod migration_tests {
     async fn run_migrations_applies_created_at_to_legacy_schema() {
         let dir = tempfile::tempdir().unwrap();
         let db_url = format!("file:{}/legacy.db", dir.path().display());
-        let pool = Arc::new(create_connection_pool_from_url(&db_url));
+        let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
 
-        run_migrations(pool.as_ref()).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
 
         let conn = pool.get().await.expect("pool connection");
         conn.interact(|conn| -> Result<(), diesel::result::Error> {
@@ -111,7 +117,9 @@ mod migration_tests {
             "legacy schema should return no documents before migration"
         );
 
-        run_migrations(pool.as_ref()).await;
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
 
         let docs = repo.get_documents(&user_id, &100).await;
         assert_eq!(docs.len(), 1, "documents should load after migration");

@@ -20,13 +20,17 @@ pub trait TenantMount {
     type State: Clone + Send + Sync + 'static;
 
     fn deps_from_bootstrap(bootstrap: &AppBootstrap) -> Self::Deps;
-    async fn build_state(deps: Self::Deps) -> Self::State;
+    async fn build_state(
+        deps: Self::Deps,
+    ) -> Result<Self::State, Box<dyn std::error::Error + Send + Sync>>;
     fn router() -> Router<Self::State>;
 
-    async fn mount(bootstrap: &AppBootstrap) -> Router {
+    async fn mount(
+        bootstrap: &AppBootstrap,
+    ) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
         let deps = Self::deps_from_bootstrap(bootstrap);
-        let state = Self::build_state(deps).await;
-        Self::router().with_state(state)
+        let state = Self::build_state(deps).await?;
+        Ok(Self::router().with_state(state))
     }
 
     fn mount_with_state(state: Self::State) -> Router {
