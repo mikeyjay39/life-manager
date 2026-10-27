@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { FieldLabel } from '@/components/ui/field-label';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const ERROR_COLOR = '#c00';
@@ -79,7 +80,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
 
   return (
     <View style={styles.formContainer}>
-      <ThemedText style={styles.label}>Username</ThemedText>
+      <FieldLabel label="Username" required style={styles.label} />
       <TextInput
         style={[
           styles.input,
@@ -98,6 +99,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         autoCorrect={false}
         editable={!isBusy}
         accessibilityLabel="Username input"
+        aria-required
         accessibilityHint={
           fieldErrors.username ?? 'Enter your username to log in'
         }
@@ -107,7 +109,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         <ThemedText style={styles.errorText}>{fieldErrors.username}</ThemedText>
       ) : null}
 
-      <ThemedText style={styles.label}>Password</ThemedText>
+      <FieldLabel label="Password" required style={styles.label} />
       <TextInput
         style={[
           styles.input,
@@ -133,6 +135,7 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
           }
         }}
         accessibilityLabel="Password input"
+        aria-required
         accessibilityHint={
           fieldErrors.password ?? 'Enter your password to log in'
         }

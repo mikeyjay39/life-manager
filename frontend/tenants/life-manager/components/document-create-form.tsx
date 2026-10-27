@@ -13,6 +13,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
+import { FieldLabel } from '@/components/ui/field-label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
@@ -344,16 +345,17 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
             <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Create document</Text>
 
-              <Text style={styles.label}>Title</Text>
+              <FieldLabel label="Title" required style={styles.label} />
               <TextInput
                 style={styles.input}
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Document title"
                 placeholderTextColor={palette.icon}
+                aria-required
               />
 
-              <Text style={styles.label}>Content</Text>
+              <FieldLabel label="Content" required style={styles.label} />
               <TextInput
                 style={[styles.input, styles.inputMultiline]}
                 value={content}
@@ -362,6 +364,7 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
                 placeholderTextColor={palette.icon}
                 multiline
                 textAlignVertical="top"
+                aria-required
               />
 
               <Text style={styles.label}>Tags (optional, comma-separated)</Text>
