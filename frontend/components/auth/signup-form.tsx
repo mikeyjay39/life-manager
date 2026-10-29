@@ -3,6 +3,7 @@ import { View, TextInput, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { FieldLabel } from '@/components/ui/field-label';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const ERROR_COLOR = '#c00';
@@ -110,7 +111,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
 
   return (
     <View style={styles.formContainer}>
-      <ThemedText style={styles.label}>Email</ThemedText>
+      <FieldLabel label="Email" required style={styles.label} />
       <TextInput
         style={[
           styles.input,
@@ -130,6 +131,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         keyboardType="email-address"
         editable={!isBusy}
         accessibilityLabel="Email input"
+        aria-required
         accessibilityHint={fieldErrors.email ?? 'Enter your email address'}
         accessibilityState={{ invalid: !!fieldErrors.email }}
       />
@@ -137,7 +139,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         <ThemedText style={styles.errorText}>{fieldErrors.email}</ThemedText>
       ) : null}
 
-      <ThemedText style={styles.label}>Password</ThemedText>
+      <FieldLabel label="Password" required style={styles.label} />
       <TextInput
         style={[
           styles.input,
@@ -157,6 +159,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         autoCorrect={false}
         editable={!isBusy}
         accessibilityLabel="Password input"
+        aria-required
         accessibilityHint={fieldErrors.password ?? 'Choose a password'}
         accessibilityState={{ invalid: !!fieldErrors.password }}
       />
@@ -164,7 +167,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         <ThemedText style={styles.errorText}>{fieldErrors.password}</ThemedText>
       ) : null}
 
-      <ThemedText style={styles.label}>Confirm password</ThemedText>
+      <FieldLabel label="Confirm password" required style={styles.label} />
       <TextInput
         style={[
           styles.input,
@@ -190,6 +193,7 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
           }
         }}
         accessibilityLabel="Confirm password input"
+        aria-required
         accessibilityHint={fieldErrors.confirmPassword ?? 'Re-enter your password'}
         accessibilityState={{ invalid: !!fieldErrors.confirmPassword }}
       />

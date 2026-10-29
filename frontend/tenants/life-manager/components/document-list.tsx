@@ -14,6 +14,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
+import { FieldLabel } from '@/components/ui/field-label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
@@ -736,16 +737,17 @@ export default function DocumentList({
                 <>
                   <Text style={styles.modalTitle}>Edit document</Text>
 
-                  <Text style={styles.label}>Title</Text>
+                  <FieldLabel label="Title" required style={styles.label} />
                   <TextInput
                     style={styles.input}
                     value={editTitle}
                     onChangeText={setEditTitle}
                     placeholder="Document title"
                     placeholderTextColor={palette.icon}
+                    aria-required
                   />
 
-                  <Text style={styles.label}>Content</Text>
+                  <FieldLabel label="Content" required style={styles.label} />
                   <TextInput
                     style={[styles.input, styles.inputMultiline]}
                     value={editContent}
@@ -754,6 +756,7 @@ export default function DocumentList({
                     placeholderTextColor={palette.icon}
                     multiline
                     textAlignVertical="top"
+                    aria-required
                   />
 
                   <Text style={styles.label}>Tags (optional, comma-separated)</Text>

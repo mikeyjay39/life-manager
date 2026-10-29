@@ -47,7 +47,7 @@ describe('ProtonConnectPanel', () => {
     renderProtonConnectPanel();
 
     expect(screen.getByLabelText('Connect Proton Drive')).toBeTruthy();
-    expect(screen.queryByText('Proton email')).toBeNull();
+    expect(screen.queryByLabelText('Proton email, required')).toBeNull();
     expect(screen.queryByLabelText('Login to Proton Drive')).toBeNull();
     expect(screen.queryByLabelText('Cancel Proton Drive login')).toBeNull();
   });
@@ -57,7 +57,7 @@ describe('ProtonConnectPanel', () => {
 
     openConnectModal();
 
-    expect(screen.getByText('Proton email')).toBeTruthy();
+    expect(screen.getByLabelText('Proton email, required')).toBeTruthy();
     expect(screen.getByLabelText('Login to Proton Drive')).toBeTruthy();
     expect(screen.getByLabelText('Cancel Proton Drive login')).toBeTruthy();
   });
@@ -69,7 +69,7 @@ describe('ProtonConnectPanel', () => {
     fireEvent.press(screen.getByLabelText('Cancel Proton Drive login'));
 
     expect(screen.getByLabelText('Connect Proton Drive')).toBeTruthy();
-    expect(screen.queryByText('Proton email')).toBeNull();
+    expect(screen.queryByLabelText('Proton email, required')).toBeNull();
     expect(screen.queryByLabelText('Login to Proton Drive')).toBeNull();
   });
 
@@ -87,7 +87,7 @@ describe('ProtonConnectPanel', () => {
     await waitFor(() => {
       expect(connect).toHaveBeenCalled();
     });
-    expect(screen.queryByText('Proton email')).toBeNull();
+    expect(screen.queryByLabelText('Proton email, required')).toBeNull();
   });
 
   it('shows connected status and Disconnect when a session exists', () => {

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { FieldLabel } from '@/components/ui/field-label';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
@@ -194,7 +195,7 @@ export default function ProtonConnectPanel() {
             <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>Proton Drive (experimental)</Text>
               <Text style={styles.disclosure}>{THIRD_PARTY_DISCLOSURE}</Text>
-              <Text style={styles.label}>Proton email</Text>
+              <FieldLabel label="Proton email" required style={styles.label} />
               <TextInput
                 style={styles.input}
                 value={email}
@@ -203,8 +204,9 @@ export default function ProtonConnectPanel() {
                 keyboardType="email-address"
                 placeholder="you@proton.me"
                 placeholderTextColor={palette.icon}
+                aria-required
               />
-              <Text style={styles.label}>Password</Text>
+              <FieldLabel label="Password" required style={styles.label} />
               <TextInput
                 style={styles.input}
                 value={password}
@@ -212,6 +214,7 @@ export default function ProtonConnectPanel() {
                 secureTextEntry
                 placeholder="Proton login password"
                 placeholderTextColor={palette.icon}
+                aria-required
               />
               <Text style={styles.label}>Mailbox password (if different)</Text>
               <TextInput
