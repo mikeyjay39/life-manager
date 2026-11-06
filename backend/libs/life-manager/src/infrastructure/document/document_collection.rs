@@ -37,6 +37,7 @@ impl DocumentRepository for DocumentCollection {
         user_id: &Uuid,
         limit: &u32,
         title: &str,
+        title_contains: Option<&str>,
     ) -> Vec<Document> {
         let mut documents: Vec<Document> = {
             let guard = self.documents.lock().await;
@@ -45,10 +46,19 @@ impl DocumentRepository for DocumentCollection {
 
         documents.sort_by_key(|d| (d.title.clone(), d.id));
 
+        let needle = title_contains
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_lowercase());
+
         documents
             .into_iter()
             .filter(|doc| doc.user_id == *user_id)
             .filter(|doc| *doc.title > *title)
+            .filter(|doc| match &needle {
+                Some(n) => doc.title.to_lowercase().contains(n),
+                None => true,
+            })
             .take(*limit as usize)
             .collect()
     }
@@ -147,6 +157,31 @@ mod tests {
         assert_eq!(retrieved_doc.id, doc.id);
         assert_eq!(retrieved_doc.title, doc.title);
         assert_eq!(retrieved_doc.content, doc.content);
+    }
+
+    #[tokio::test]
+    async fn given_titles_when_title_contains_then_filters_case_insensitive_substring() {
+        let user_id = Uuid::new_v4();
+        let collection = DocumentCollection::new();
+        collection
+            .save_document(Document::new("Alpha Report", "a", user_id))
+            .await
+            .expect("save");
+        collection
+            .save_document(Document::new("Beta Notes", "b", user_id))
+            .await
+            .expect("save");
+        collection
+            .save_document(Document::new("Other User Doc", "c", Uuid::new_v4()))
+            .await
+            .expect("save");
+
+        let matches = collection
+            .get_documents_title_cursor(&user_id, &10, "", Some("alpha"))
+            .await;
+
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].title, "Alpha Report");
     }
 
     #[tokio::test]

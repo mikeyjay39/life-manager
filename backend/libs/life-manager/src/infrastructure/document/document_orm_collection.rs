@@ -15,8 +15,22 @@ use crate::{
 };
 use async_trait::async_trait;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{Connection, ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper};
+use diesel::sqlite::Sqlite;
+use diesel::{
+    Connection, EscapeExpressionMethods, ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl,
+    SelectableHelper, TextExpressionMethods,
+};
 use uuid::Uuid;
+
+/// Builds a SQL LIKE pattern for case-insensitive substring match.
+/// Escapes `\`, `%`, and `_` so user input is literal.
+fn title_contains_like_pattern(raw: &str) -> String {
+    let escaped = raw
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
+}
 
 #[derive(Clone)]
 pub struct DocumentOrmCollection {
@@ -156,6 +170,7 @@ impl DocumentRepository for DocumentOrmCollection {
         user_id: &Uuid,
         limit: &u32,
         title: &str,
+        title_contains: Option<&str>,
     ) -> Vec<Document> {
         let conn = match self.pool.get().await {
             Ok(conn) => conn,
@@ -168,13 +183,26 @@ impl DocumentRepository for DocumentOrmCollection {
         let user_id_str = user_id.to_string();
         let limit = *limit as i64;
         let title = title.to_owned();
+        let title_contains = title_contains
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_owned());
 
         let result = conn
             .interact(
                 move |conn| -> QueryResult<(Vec<DocumentEntity>, HashMap<String, Vec<String>>)> {
-                    let entities = documents::table
+                    // SQLite LIKE is case-insensitive for ASCII by default.
+                    let mut query = documents::table
                         .filter(documents::user_id.eq(user_id_str))
                         .filter(documents::title.gt(title))
+                        .into_boxed::<Sqlite>();
+
+                    if let Some(contains) = title_contains {
+                        let pattern = title_contains_like_pattern(&contains);
+                        query = query.filter(documents::title.like(pattern).escape('\\'));
+                    }
+
+                    let entities = query
                         .order_by(documents::title.asc())
                         .limit(limit)
                         .select(DocumentEntity::as_select())

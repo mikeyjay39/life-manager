@@ -86,6 +86,8 @@ type DocumentListProps = {
   onDocumentUpdated?: () => void;
 };
 
+const TITLE_SEARCH_DEBOUNCE_MS = 300;
+
 export default function DocumentList({
   refreshKey = 0,
   onDocumentUpdated,
@@ -97,6 +99,8 @@ export default function DocumentList({
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [titleSearchInput, setTitleSearchInput] = useState('');
+  const [debouncedTitleContains, setDebouncedTitleContains] = useState('');
   const [selected, setSelected] = useState<DocumentDto | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -168,6 +172,15 @@ export default function DocumentList({
             : {}),
         },
         refreshButtonText: {
+          fontSize: 14,
+        },
+        searchInput: {
+          borderWidth: 1,
+          borderColor: palette.icon,
+          borderRadius: 8,
+          padding: 10,
+          color: palette.text,
+          backgroundColor: palette.background,
           fontSize: 14,
         },
         hint: {
@@ -263,6 +276,17 @@ export default function DocumentList({
     [palette]
   );
 
+  /**
+   * Loads the document list. Debounced `title_contains` drives typeahead search.
+   *
+   * ```text
+   * User -> DocumentList : type in search field
+   * DocumentList -> DocumentList : debounce 300ms
+   * DocumentList -> API : GET /documents?title_contains=
+   * API --> DocumentList : DocumentDto[]
+   * DocumentList --> User : update grid
+   * ```
+   */
   const load = useCallback(async () => {
     if (!token) {
       setDocuments([]);
@@ -271,7 +295,12 @@ export default function DocumentList({
     setLoading(true);
     setError(null);
     try {
-      const response = await authenticatedFetch('/documents', {
+      const params = new URLSearchParams();
+      if (debouncedTitleContains) {
+        params.set('title_contains', debouncedTitleContains);
+      }
+      const path = params.toString() ? `/documents?${params.toString()}` : '/documents';
+      const response = await authenticatedFetch(path, {
         method: 'GET',
         token,
         onUnauthorized: handleUnauthorized,
@@ -297,7 +326,14 @@ export default function DocumentList({
     } finally {
       setLoading(false);
     }
-  }, [token, handleUnauthorized]);
+  }, [token, handleUnauthorized, debouncedTitleContains]);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedTitleContains(titleSearchInput.trim());
+    }, TITLE_SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [titleSearchInput]);
 
   useEffect(() => {
     void load();
@@ -688,6 +724,24 @@ export default function DocumentList({
     </View>
   );
 
+  const searchField = token ? (
+    <TextInput
+      style={styles.searchInput}
+      value={titleSearchInput}
+      onChangeText={setTitleSearchInput}
+      placeholder="Search by title"
+      placeholderTextColor={palette.icon}
+      accessibilityLabel="Search documents by title"
+      autoCorrect={false}
+      autoCapitalize="none"
+      clearButtonMode="while-editing"
+    />
+  ) : null;
+
+  const emptyHint = debouncedTitleContains
+    ? 'No matching documents.'
+    : 'No documents yet.';
+
   const hasTable = token && !error && documents.length > 0;
 
   return (
@@ -702,12 +756,14 @@ export default function DocumentList({
         >
           <View style={styles.tableBlock} testID="documents-table-block">
             {toolbar}
+            {searchField}
             <DocumentGrid documents={documents} onRowPress={setSelected} />
           </View>
         </ScrollView>
       ) : (
         <>
           {toolbar}
+          {searchField}
 
           {!token ? (
             <Text style={styles.hint}>Sign in to see your documents.</Text>
@@ -716,7 +772,7 @@ export default function DocumentList({
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : (
-            <Text style={styles.hint}>No documents yet.</Text>
+            <Text style={styles.hint}>{emptyHint}</Text>
           )}
         </>
       )}

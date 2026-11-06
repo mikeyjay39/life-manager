@@ -148,9 +148,93 @@ describe('DocumentList', () => {
     expect(screen.getByText('Created')).toBeTruthy();
     expect(screen.getByText('Issued')).toBeTruthy();
     expect(screen.getByText('Expires')).toBeTruthy();
+    expect(screen.getByLabelText('Search documents by title')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/documents',
       expect.objectContaining({ method: 'GET', token: 'tok' })
+    );
+  });
+
+  it('given typed search when debounce elapses then fetches with title_contains', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: '1', title: 'Alpha', content: 'c1', created_at: '2026-07-11T00:00:00' },
+        ]),
+        { status: 200 }
+      )
+    );
+    renderDocumentList();
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/documents',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    mockAuthenticatedFetch.mockClear();
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: '1', title: 'Alpha', content: 'c1', created_at: '2026-07-11T00:00:00' },
+        ]),
+        { status: 200 }
+      )
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Search documents by title'), 'alp');
+
+    await waitFor(
+      () => {
+        expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+          '/documents?title_contains=alp',
+          expect.objectContaining({ method: 'GET', token: 'tok' })
+        );
+      },
+      { timeout: 2000 }
+    );
+  });
+
+  it('given cleared search when debounce elapses then fetches full list again', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 })
+    );
+    renderDocumentList();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Search documents by title')).toBeTruthy();
+    });
+
+    fireEvent.changeText(screen.getByLabelText('Search documents by title'), 'zzz');
+    await waitFor(
+      () => {
+        expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+          '/documents?title_contains=zzz',
+          expect.objectContaining({ method: 'GET' })
+        );
+      },
+      { timeout: 2000 }
+    );
+
+    mockAuthenticatedFetch.mockClear();
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: '1', title: 'Alpha', content: 'c1', created_at: '2026-07-11T00:00:00' },
+        ]),
+        { status: 200 }
+      )
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Search documents by title'), '');
+
+    await waitFor(
+      () => {
+        expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+          '/documents',
+          expect.objectContaining({ method: 'GET', token: 'tok' })
+        );
+      },
+      { timeout: 2000 }
     );
   });
 

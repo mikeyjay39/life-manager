@@ -606,8 +606,38 @@ async fn get_all_documents() {
         // Verify we got at least the documents we created
         assert!(
             documents.len() >= 2,
-            "Expected at least 3 documents, got {}",
+            "Expected at least 2 documents after title cursor, got {}",
             documents.len()
+        );
+
+        // title_contains: case-insensitive substring (not the cursor)
+        let search_url = server
+            .server_url("/life-manager/api/v1/documents?title_contains=second")
+            .expect("Failed to get server URL");
+        let search_response = reqwest::Client::new()
+            .get(search_url.as_str())
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send title_contains GET");
+        assert!(
+            search_response.status().is_success(),
+            "title_contains search failed: {}",
+            search_response.status()
+        );
+        let matched: Vec<DocumentDto> = search_response
+            .json()
+            .await
+            .expect("Failed to parse title_contains response");
+        assert!(
+            matched.iter().any(|d| d.title == "Second Document"),
+            "Expected Second Document in title_contains results"
+        );
+        assert!(
+            matched
+                .iter()
+                .all(|d| d.title.to_lowercase().contains("second")),
+            "All title_contains results must match substring"
         );
     })
     .await;
