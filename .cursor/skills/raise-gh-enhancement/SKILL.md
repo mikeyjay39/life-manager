@@ -33,7 +33,7 @@ Human: high-level feature (text and/or existing issue URL)
 ## Guardrails
 
 - Do **not** implement product code in this skill run.
-- Do **not** run state-changing git. See [AGENTS.md](../../../AGENTS.md).
+- Do **not** commit or push unless the user asks. See [AGENTS.md](../../../AGENTS.md).
 - Creating and editing GitHub issues with `gh` is allowed.
 - Prefer stacked, mergeable story slices that match repo layers:
   domain/DB → API → UI skeleton → UI features → docs

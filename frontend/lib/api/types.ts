@@ -1,9 +1,13 @@
 export type {
   CreateDocumentCommand,
+  CreateHealthMemberCommand,
   DocumentDto,
   DocumentStorageRefDto,
   GetDocumentsQueryParams,
+  GetHealthMembersQueryParams,
+  HealthMemberDto,
   UpdateDocumentCommand,
+  UpdateHealthMemberCommand,
   LoginRequest,
   LoginResponse,
   SignupRequest,

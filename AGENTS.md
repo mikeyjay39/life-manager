@@ -33,15 +33,15 @@ Personal/family life-management app. **Documents** are implemented today; more d
 
 These override everything else in agent docs.
 
-### Git (read-only for agents)
+### Git
 
-**Agents never run state-changing git** — even when asked. The user runs `git commit`, `git push`, `git merge`, etc.
+Agents **may** stage, commit, and push when the user asks, or when a skill such as [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) requires a push.
 
-**Never run:** `git add`, `git commit`, `git push`, `git pull`, `git merge`, `git rebase`, `git cherry-pick`, `git revert`, `git reset`, `git checkout`, `git switch`, `git restore`, `git clean`, `git stash`, `git rm`, `git mv`, `git tag`, `git branch` (delete/rename), `git push --force`, `git config` (set/unset).
+**OK (when needed for the task):** `git add`, `git commit`, `git push -u origin HEAD`, `git fetch`, create/switch branches for the task (`git checkout -b`, `git switch -c`), `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`.
 
-**OK:** `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`.
+**Never run unless the user explicitly asks in the current message:** `git push --force`, `git reset --hard`, `git clean -fd`, `git rebase` / `git cherry-pick` onto shared history, `git commit --amend` of a commit you did not just create, `git config` (set/unset), delete or rename a published branch, merge to `main`.
 
-**Exception:** when the user invokes [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/), that run may execute `git push -u origin HEAD` only. No other state-changing git.
+Humans never force-push `main`. Prefer a PR over committing directly on `main`.
 
 ### Database (read-only for agents)
 
@@ -80,7 +80,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 - [ ] Tests per [docs/agents/testing.md](docs/agents/testing.md) when behavior changed
 - [ ] **ASCII workflow diagrams** — new multi-step workflows (orchestration across layers, services, or non-trivial branching) include an ASCII UML diagram as a code comment on the entry point (handler, use case, screen/hook). Use a **sequence** diagram for call/message order; **activity** for branches/steps; both only when both help. Example: [`create_document` in `document_handler.rs`](backend/libs/life-manager/src/infrastructure/document/document_handler.rs). When changing existing workflows: update an existing diagram if the flow changed materially; add one if missing and non-trivial; skip trivial one-step CRUD.
 - [ ] Agent docs updated if workflows changed
-- [ ] User told if they must apply migrations, change env, or run git
+- [ ] User told if they must apply migrations or change env
 
 ## When unsure
 

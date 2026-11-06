@@ -36,7 +36,7 @@ Agent
 - Do not copy the long procedures from other skills into this file. **Read** them and follow them in place.
 - Leave the manual-test stack running after the run.
 - If `gh` attach fails, keep the text body and tell the user that images did not upload.
-- **Git:** this skill alone may run `git push -u origin HEAD`. Do not run other state-changing git (`commit`, `merge`, `reset`, force-push, etc.). See [AGENTS.md](../../../AGENTS.md).
+- **Git:** commit first if the tree is dirty (user asks to open-pr with uncommitted work). This skill may run `git push -u origin HEAD`. Do not force-push, reset hard, or merge to `main`. See [AGENTS.md](../../../AGENTS.md).
 
 ## Checklist
 
