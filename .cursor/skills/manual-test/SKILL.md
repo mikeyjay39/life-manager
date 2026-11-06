@@ -92,7 +92,7 @@ Skip docs-only or formatting churn unless it affects runtime.
 1. Ensure frontend deps: `cd frontend && npm ci` (or `npm install` if already local).
 2. Ensure Chromium: `npm run playwright:install` if launch fails or cache is empty.
 3. Load admin creds from `.dev.env` into the environment. Do not print them.
-4. Run the smoke helper from `frontend/` (resolves `playwright` from `node_modules`):
+4. Run the smoke helper from `frontend/` (script loads `playwright` from `frontend/node_modules` via `createRequire`):
 
 ```bash
 cd frontend
@@ -102,7 +102,7 @@ export PLAYWRIGHT_ARTIFACTS_DIR="${PLAYWRIGHT_ARTIFACTS_DIR:-/tmp/lm-playwright-
 node ../.cursor/skills/manual-test/scripts/ui-smoke.mjs
 ```
 
-5. For flows the smoke script does not cover, write a short one-off script that imports `playwright` the same way. Use **`:visible`** locators (Expo web mounts hidden duplicates).
+5. For flows the smoke script does not cover, write a short one-off under `frontend/` (so bare `import 'playwright'` works), or use `createRequire` on `frontend/package.json` like `ui-smoke.mjs`. Use **`:visible`** locators (Expo web mounts hidden duplicates).
 
 6. **Show UI screenshots** (after smoke success or failure, if PNGs exist):
 

@@ -27,8 +27,8 @@ Live **dev** stack check on this branch. Screenshots from Playwright smoke.
 ![01-home](<ART>/01-home.png)
 ![02-after-login](<ART>/02-after-login.png)
 ![03-documents](<ART>/03-documents.png)
-![04-edit-open](<ART>/04-edit-open.png)
-![05-edit-filled](<ART>/05-edit-filled.png)
+![04-doc-modal](<ART>/04-doc-modal.png)
+![05-editing](<ART>/05-editing.png)
 ![06-after-save](<ART>/06-after-save.png)
 
 Artifact dir: `<ART>`

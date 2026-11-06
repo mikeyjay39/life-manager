@@ -1,17 +1,27 @@
 /**
  * Headless UI smoke for the manual-test skill.
  *
- * Run from frontend/ so `playwright` resolves from node_modules:
+ * Run from frontend/ (env + cwd convention):
  *
  *   set -a && source ../.dev.env && set +a
  *   export FRONTEND_URL="${FRONTEND_URL:-http://localhost:8080}"
  *   node ../.cursor/skills/manual-test/scripts/ui-smoke.mjs
  *
+ * Node ESM resolves bare imports from this file's directory, not cwd.
+ * Load `playwright` via createRequire on frontend/package.json instead.
+ *
  * Requires ADMIN_USERNAME and ADMIN_PASSWORD. Do not print them.
  * Expo web can mount hidden duplicate controls — use :visible locators.
  */
-import { chromium } from 'playwright';
-import fs from 'fs';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs';
+
+const require = createRequire(
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../frontend/package.json'),
+);
+const { chromium } = require('playwright');
 
 const BASE = process.env.FRONTEND_URL || 'http://localhost:8080';
 const USER = process.env.ADMIN_USERNAME;

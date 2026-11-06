@@ -107,7 +107,7 @@ npm ci   # or npm install
 npm run playwright:install
 ```
 
-Smoke script (login → list → edit one document). Run from `frontend/` so `import 'playwright'` resolves:
+Smoke script (login → list → edit one document). Run from `frontend/`. The script uses `createRequire` on `frontend/package.json` so `playwright` loads from `frontend/node_modules` (bare ESM import from `.cursor/skills/` cannot see that tree):
 
 ```bash
 cd frontend
