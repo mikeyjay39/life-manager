@@ -30,7 +30,8 @@ Use `@/` path alias (`tsconfig.json`).
 - Each tenant exports a `TenantModule` from `tenants/<id>/config.ts` (mirrors backend `TenantMount`).
 - Register hostnames and mount metadata in `lib/tenant/registry.ts`.
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
-- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, and `tenant.apiV1Prefix`.
+- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Health`, and `tenant.apiV1Prefix`.
+- Optional `screens.Health` registers the Health Manager route and menu item (life-manager only; test-tenant omits it).
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
 
 ## Tenant theme and branding
@@ -99,6 +100,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
+| Health Manager skeleton | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set) |
 | List + tests | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog) |
 | Proton preview in modal | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
 | Form + tests | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx` |

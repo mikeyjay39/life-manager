@@ -5,26 +5,52 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTenant } from '@/lib/tenant/TenantContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { withAlpha } from '@/lib/tenant/theme/color-utils';
+
+type MenuIcon = 'house.fill' | 'heart.fill' | 'rectangle.portrait.and.arrow.right';
 
 type MenuItem = {
   key: string;
   label: string;
-  icon: 'house.fill' | 'rectangle.portrait.and.arrow.right';
+  icon: MenuIcon;
   accessibilityLabel: string;
   onPress: () => void;
   isActive?: boolean;
 };
 
+/**
+ * Top app menu. Shows Health only when the tenant registers screens.Health.
+ *
+ * sequenceDiagram
+ *   participant User
+ *   participant Menu as AppMenuBar
+ *   participant Router as expo-router
+ *   User->>Menu: press Home / Health / Log Out
+ *   alt Home
+ *     Menu->>Router: replace /(tabs)
+ *   else Health (when registered)
+ *     Menu->>Router: replace /(tabs)/health
+ *   else Log Out
+ *     Menu->>Menu: confirm then logout
+ *   end
+ */
 export default function AppMenuBar() {
   const palette = useColorPalette();
   const pathname = usePathname();
   const { logout } = useAuth();
+  const { tenant } = useTenant();
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+
+  const hasHealth = Boolean(tenant.screens.Health);
 
   const isHomeActive =
     pathname === '/' || pathname === '/(tabs)' || pathname.endsWith('/index');
+  const isHealthActive =
+    pathname === '/health' ||
+    pathname === '/(tabs)/health' ||
+    pathname.endsWith('/health');
 
   const styles = useMemo(
     () =>
@@ -76,14 +102,28 @@ export default function AppMenuBar() {
         router.replace('/(tabs)');
       },
     },
-    {
-      key: 'logout',
-      label: 'Log Out',
-      icon: 'rectangle.portrait.and.arrow.right',
-      accessibilityLabel: 'Log out',
-      onPress: () => setLogoutDialogVisible(true),
-    },
   ];
+
+  if (hasHealth) {
+    items.push({
+      key: 'health',
+      label: 'Health',
+      icon: 'heart.fill',
+      accessibilityLabel: 'Health',
+      isActive: isHealthActive,
+      onPress: () => {
+        router.replace('/(tabs)/health');
+      },
+    });
+  }
+
+  items.push({
+    key: 'logout',
+    label: 'Log Out',
+    icon: 'rectangle.portrait.and.arrow.right',
+    accessibilityLabel: 'Log out',
+    onPress: () => setLogoutDialogVisible(true),
+  });
 
   return (
     <>
@@ -96,6 +136,7 @@ export default function AppMenuBar() {
               onPress={item.onPress}
               accessibilityRole="button"
               accessibilityLabel={item.accessibilityLabel}
+              accessibilityState={{ selected: item.isActive === true }}
               style={styles.item}>
               <IconSymbol name={item.icon} size={24} color={color} />
               <Text style={[styles.label, { color }]}>{item.label}</Text>
