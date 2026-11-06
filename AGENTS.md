@@ -13,7 +13,7 @@ Personal/family life-management app. **Documents** are implemented today; more d
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)
 
-**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant)
+**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant)
 
 **Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`
 
@@ -40,6 +40,8 @@ These override everything else in agent docs.
 **Never run:** `git add`, `git commit`, `git push`, `git pull`, `git merge`, `git rebase`, `git cherry-pick`, `git revert`, `git reset`, `git checkout`, `git switch`, `git restore`, `git clean`, `git stash`, `git rm`, `git mv`, `git tag`, `git branch` (delete/rename), `git push --force`, `git config` (set/unset).
 
 **OK:** `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`.
+
+**Exception:** when the user invokes [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/), that run may execute `git push -u origin HEAD` only. No other state-changing git.
 
 ### Database (read-only for agents)
 
