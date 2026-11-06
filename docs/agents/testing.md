@@ -15,6 +15,8 @@ cd frontend && npm ci && npm run test:run
 npm run lint   # if frontend changed
 ```
 
+**Playwright (manual-test skill only):** `playwright` is a frontend devDependency. Chromium is not in CI — fetch it with `cd frontend && npm run playwright:install`. Live UI smoke: [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/).
+
 **Backend unit:**
 
 ```bash

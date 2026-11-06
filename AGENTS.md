@@ -13,6 +13,8 @@ Personal/family life-management app. **Documents** are implemented today; more d
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)
 
+**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant)
+
 **Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`
 
 ## Docs to read first
