@@ -27,7 +27,9 @@ pub struct DocumentEntity {
 pub struct UpdateDocumentEntity {
     pub title: String,
     pub content: String,
+    #[diesel(treat_none_as_null = true)]
     pub issued_date: Option<NaiveDateTime>,
+    #[diesel(treat_none_as_null = true)]
     pub expire_date: Option<NaiveDateTime>,
     pub storage_provider: Option<String>,
     pub storage_share_id: Option<String>,

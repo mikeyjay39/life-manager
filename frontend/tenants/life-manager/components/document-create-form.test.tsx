@@ -7,6 +7,31 @@ import { apiFetch } from '@/lib/api/client';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
+vi.mock('@react-native-community/datetimepicker', async () => {
+  const ReactLib = await import('react');
+  const { View, Pressable, Text } = await import('react-native');
+  return {
+    __esModule: true,
+    default: ({
+      onChange,
+    }: {
+      onChange: (event: { type: string }, date?: Date) => void;
+    }) =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(
+          Pressable,
+          {
+            accessibilityLabel: 'Confirm picked date',
+            onPress: () => onChange({ type: 'set' }, new Date(2024, 5, 1)),
+          },
+          ReactLib.createElement(Text, null, 'Confirm')
+        )
+      ),
+  };
+});
+
 vi.mock('@/contexts/ProtonConnectContext', () => ({
   useProtonConnect: vi.fn(() => ({
     isSupported: false,
@@ -311,43 +336,42 @@ describe('DocumentCreateForm', () => {
     expect(payload.expire_date).toBeNull();
   });
 
-  it('submits parsed issue and expire dates in API format', async () => {
+  it('given picked issue and expire dates when submitted then sends API datetime format', async () => {
+    // Given
     renderDocumentCreateForm();
     openCreateModal();
     fillRequiredFields();
-    const dateInputs = screen.getAllByPlaceholderText('YYYY-MM-DD');
-    fireEvent.changeText(dateInputs[0], '2024-06-01');
-    fireEvent.changeText(dateInputs[1], '2026-12-31');
+    // When — pick via DatePicker (mocked community picker confirms 2024-06-01)
+    fireEvent.press(screen.getByLabelText('Issue date'));
+    fireEvent.press(screen.getByLabelText('Confirm picked date'));
+    fireEvent.press(screen.getByLabelText('Expire date'));
+    fireEvent.press(screen.getByLabelText('Confirm picked date'));
     submitForm();
+    // Then
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalled();
     });
     const payload = getSubmittedPayloadJson();
     expect(payload.issued_date).toBe('2024-06-01T00:00:00');
-    expect(payload.expire_date).toBe('2026-12-31T00:00:00');
+    expect(payload.expire_date).toBe('2024-06-01T00:00:00');
   });
 
-  it('shows validation alert for invalid issue date and does not submit', () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
+  it('given a picked issue date when cleared then submits null issued_date', async () => {
+    // Given
     renderDocumentCreateForm();
     openCreateModal();
     fillRequiredFields();
-    const dateInputs = screen.getAllByPlaceholderText('YYYY-MM-DD');
-    fireEvent.changeText(dateInputs[0], 'not-a-date');
+    fireEvent.press(screen.getByLabelText('Issue date'));
+    fireEvent.press(screen.getByLabelText('Confirm picked date'));
+    // When
+    fireEvent.press(screen.getByLabelText('Clear Issue date'));
     submitForm();
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'Issue date must be in YYYY-MM-DD format.');
-    expect(mockApiFetch).not.toHaveBeenCalled();
-  });
-
-  it('shows validation alert for invalid expire date and does not submit', () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
-    renderDocumentCreateForm();
-    openCreateModal();
-    fillRequiredFields();
-    const dateInputs = screen.getAllByPlaceholderText('YYYY-MM-DD');
-    fireEvent.changeText(dateInputs[1], '2024-02-30');
-    submitForm();
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'Expire date must be in YYYY-MM-DD format.');
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    // Then
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+    const payload = getSubmittedPayloadJson();
+    expect(payload.issued_date).toBeNull();
+    expect(payload.expire_date).toBeNull();
   });
 });

@@ -26,8 +26,14 @@ export default (): ExpoConfig => {
     extra.defaultTenant = rawDefaultTenant.trim();
   }
 
+  const plugins = [...(base.plugins ?? [])];
+  if (!plugins.includes('@react-native-community/datetimepicker')) {
+    plugins.push('@react-native-community/datetimepicker');
+  }
+
   return {
     ...base,
+    plugins,
     extra: Object.keys(extra).length > 0 ? extra : base.extra,
   };
 };
