@@ -13,7 +13,7 @@ Personal/family life-management app. **Documents** are implemented today; more d
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)
 
-**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant)
+**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant) · [`.cursor/skills/raise-gh-enhancement/`](.cursor/skills/raise-gh-enhancement/) (epic + story sub-issues from a feature idea)
 
 **Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`
 
