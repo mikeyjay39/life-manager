@@ -58,6 +58,7 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
   const [expireDateInput, setExpireDateInput] = useState('');
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const { token, handleUnauthorized } = useAuth();
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
   const palette = useColorPalette();
@@ -115,6 +116,18 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
           color: palette.tint,
           fontWeight: '600',
         },
+        errorBanner: {
+          paddingHorizontal: 14,
+          paddingTop: 10,
+          paddingBottom: 4,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: palette.icon,
+          gap: 6,
+        },
+        errorText: {
+          fontSize: 14,
+          color: '#c62828',
+        },
         modalBackdrop: {
           flex: 1,
           backgroundColor: 'rgba(0,0,0,0.45)',
@@ -158,6 +171,12 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
     setIssuedDateInput('');
     setExpireDateInput('');
     setPickedFile(null);
+    setSubmitError(null);
+  };
+
+  const showSubmitError = (title: string, message: string) => {
+    setSubmitError(message);
+    Alert.alert(title, message);
   };
 
   const closeModal = () => {
@@ -179,18 +198,31 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
 
   const clearFile = () => setPickedFile(null);
 
+  /*
+   * Submit create document — activity (error visibility):
+   *
+   * [*] --> clear submitError
+   *     --> validate fields
+   *         | invalid --> showSubmitError (inline + Alert) --> [*]
+   *         | valid --> POST (multipart or Proton JSON)
+   *             | fail --> showSubmitError; keep modal open --> [*]
+   *             | ok --> clear error; close modal; success Alert --> [*]
+   * User may dismiss inline error without submitting again.
+   */
   const handleSubmit = async () => {
+    setSubmitError(null);
+
     if (!token) {
-      Alert.alert('Error', 'No authentication token available.');
+      showSubmitError('Error', 'No authentication token available.');
       return;
     }
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Error', 'Please enter a title and content.');
+      showSubmitError('Error', 'Please enter a title and content.');
       return;
     }
 
     if (isWeb && pickedFile && !protonSession) {
-      Alert.alert('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
+      showSubmitError('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
       return;
     }
 
@@ -198,13 +230,13 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
 
     const issuedDate = parseOptionalDateInput(issuedDateInput);
     if (!issuedDate.ok) {
-      Alert.alert('Error', 'Issue date must be in YYYY-MM-DD format.');
+      showSubmitError('Error', 'Issue date must be in YYYY-MM-DD format.');
       return;
     }
 
     const expireDate = parseOptionalDateInput(expireDateInput);
     if (!expireDate.ok) {
-      Alert.alert('Error', 'Expire date must be in YYYY-MM-DD format.');
+      showSubmitError('Error', 'Expire date must be in YYYY-MM-DD format.');
       return;
     }
 
@@ -319,7 +351,7 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', msg);
+      showSubmitError('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -428,6 +460,19 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
               </View>
             </ScrollView>
 
+            {submitError ? (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <Text style={styles.errorText}>{submitError}</Text>
+                <TouchableOpacity
+                  onPress={() => setSubmitError(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss error"
+                >
+                  <Text style={styles.clearLink}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             <View style={styles.modalActions}>
               <Button
                 label={loading ? 'Submitting…' : 'Submit'}
@@ -445,7 +490,6 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
                 accessibilityLabel="Cancel"
                 style={styles.modalActionButton}
               />
-              
             </View>
           </View>
         </View>

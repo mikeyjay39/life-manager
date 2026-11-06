@@ -127,6 +127,7 @@ describe('DocumentCreateForm', () => {
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     submitForm();
     expect(alertSpy).toHaveBeenCalledWith('Error', 'Please enter a title and content.');
+    expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
@@ -156,6 +157,85 @@ describe('DocumentCreateForm', () => {
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith('Error', expect.stringContaining('400'));
     });
+  });
+
+  it('given API failure when submitting then shows inline error in the form', async () => {
+    // Given
+    mockApiFetch.mockResolvedValue(new Response('upload rejected', { status: 500 }));
+    renderDocumentCreateForm();
+    openCreateModal();
+    fillRequiredFields();
+
+    // When
+    submitForm();
+
+    // Then
+    await waitFor(() => {
+      expect(screen.getByText(/Request failed \(500\).*upload rejected/)).toBeTruthy();
+    });
+    expect(screen.getByLabelText('Dismiss error')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
+  });
+
+  it('given network failure when submitting then shows inline error in the form', async () => {
+    // Given
+    mockApiFetch.mockRejectedValue(new Error('Network request failed'));
+    renderDocumentCreateForm();
+    openCreateModal();
+    fillRequiredFields();
+
+    // When
+    submitForm();
+
+    // Then
+    await waitFor(() => {
+      expect(screen.getByText('Network request failed')).toBeTruthy();
+    });
+  });
+
+  it('given inline error when user dismisses then error is hidden', async () => {
+    // Given
+    mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
+    renderDocumentCreateForm();
+    openCreateModal();
+    fillRequiredFields();
+    submitForm();
+    await waitFor(() => {
+      expect(screen.getByText(/Request failed \(400\)/)).toBeTruthy();
+    });
+
+    // When
+    fireEvent.press(screen.getByLabelText('Dismiss error'));
+
+    // Then
+    expect(screen.queryByText(/Request failed \(400\)/)).toBeNull();
+    expect(screen.queryByLabelText('Dismiss error')).toBeNull();
+  });
+
+  it('given inline error when user submits again then previous error clears before result', async () => {
+    // Given
+    mockApiFetch.mockResolvedValueOnce(new Response('first fail', { status: 400 }));
+    renderDocumentCreateForm();
+    openCreateModal();
+    fillRequiredFields();
+    submitForm();
+    await waitFor(() => {
+      expect(screen.getByText(/first fail/)).toBeTruthy();
+    });
+
+    // When — second submit succeeds
+    mockApiFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: '550e8400-e29b-41d4-a716-446655440000', title: 'Hello' }), {
+        status: 201,
+      })
+    );
+    submitForm();
+
+    // Then — modal closes (success clears error)
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText('Document title')).toBeNull();
+    });
+    expect(screen.queryByText(/first fail/)).toBeNull();
   });
 
   it('shows success alert with id when response contains id', async () => {
