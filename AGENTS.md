@@ -35,9 +35,11 @@ These override everything else in agent docs.
 
 ### Git
 
-Agents **may** stage, commit, and push when the user asks, or when a skill such as [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) requires a push.
+**Default: read-only.** Agents do not stage, commit, or push in ordinary coding work.
 
-**OK (when needed for the task):** `git add`, `git commit`, `git push -u origin HEAD`, `git fetch`, create/switch branches for the task (`git checkout -b`, `git switch -c`), `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`.
+**OK always:** `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`, `git fetch`.
+
+**Skill exception:** when the user invokes a Cursor skill that needs git write (for example [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/)), that skill run may use `git add`, `git commit`, and `git push -u origin HEAD` as the skill states. Follow the skill’s own git guardrails.
 
 **Never run unless the user explicitly asks in the current message:** `git push --force`, `git reset --hard`, `git clean -fd`, `git rebase` / `git cherry-pick` onto shared history, `git commit --amend` of a commit you did not just create, `git config` (set/unset), delete or rename a published branch, merge to `main`.
 
