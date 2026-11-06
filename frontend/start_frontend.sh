@@ -23,7 +23,14 @@ if [[ -f "$ENV_PATH" ]]; then
   set +a
 fi
 
+# Per-worktree port overrides (parallel manual-test / multiple worktrees)
+# shellcheck source=../scripts/load-dev-ports.sh
+. "$REPO_ROOT/scripts/load-dev-ports.sh"
+
 : "${FRONTEND_PORT:=8080}"
+: "${APP_PORT:=3000}"
+: "${EXPO_PUBLIC_API_BASE_URL:=http://localhost:${APP_PORT}}"
+export EXPO_PUBLIC_API_BASE_URL
 port="$FRONTEND_PORT"
 if [[ "$PROFILE" == "dev" ]]; then
   echo "Stopping any process listening on TCP port ${port}..."

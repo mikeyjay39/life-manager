@@ -49,7 +49,7 @@ Root-level **`docker-compose.yml`** groups services under Compose **profiles** (
 | Profile | Compose services | Typical host ports (see env / Compose defaults) |
 |---------|------------------|--------------------------------------------------|
 | **prod** | `life-manager`, `frontend`, `gateway`, `alloy` | **`NGINX_PORT`** → **`gateway`** (default **80**); **`APP_PORT`** → API container (default **3000**); **`FRONTEND_PORT`** → static **`frontend`** container (default **8080**) |
-| **dev** | *(none via `build_and_start_app.sh`)* | Backend on host **`APP_PORT`** (**3000**) via **`cargo run`**; host Expo on **`FRONTEND_PORT`** (default **8080**) |
+| **dev** | *(none via `build_and_start_app.sh`)* | Backend on host **`APP_PORT`** via **`cargo run`**; host Expo on **`FRONTEND_PORT`**. Defaults **3000** / **8080**. Parallel worktrees: **`scripts/allocate-dev-ports.sh`** writes **`.env.tilt.ports`** (`3000+N` / `8080+N`) so stacks do not collide. |
 | **docker-dev** | `life_manager_dev`, `frontend_dev`, `alloy` | **`APP_PORT`** → **`life_manager_dev`** (default **3000**); **`FRONTEND_PORT`** → **`frontend_dev`** / Expo (default **8080**) |
 | **test** | *(none)* | **`start_backend.sh`** skips **`docker compose`** for this profile |
 
@@ -59,7 +59,19 @@ Orchestration summary: see **[`README.md`](../README.md)** (`build_and_start_app
 
 ## Local HTTP (API URL)
 
-The backend listens on plain HTTP (see **`APP_PORT`**, default **`3000`**). For **dev**, local Expo on the host usually talks to **`http://localhost:3000`**. For **prod**, browsers should use the **`gateway`** origin (default **`http://localhost`** if **`NGINX_PORT`** is **80**) — set **`EXPO_PUBLIC_API_BASE_URL`** to that same origin when building the prod frontend, or `http://localhost:<NGINX_PORT>` if you changed **`NGINX_PORT`**. Override with **`EXPO_PUBLIC_API_BASE_URL`** or Expo **`extra.apiUrl`** whenever the API is on another host or port.
+The backend listens on plain HTTP (see **`APP_PORT`**, default **`3000`**). For **dev**, local Expo on the host talks to **`EXPO_PUBLIC_API_BASE_URL`** (set in **`.env.tilt.ports`** for parallel slots, else usually **`http://localhost:3000`**). For **prod**, browsers should use the **`gateway`** origin (default **`http://localhost`** if **`NGINX_PORT`** is **80**) — set **`EXPO_PUBLIC_API_BASE_URL`** to that same origin when building the prod frontend, or `http://localhost:<NGINX_PORT>` if you changed **`NGINX_PORT`**. Override with **`EXPO_PUBLIC_API_BASE_URL`** or Expo **`extra.apiUrl`** whenever the API is on another host or port.
+
+### Parallel worktrees (manual-test)
+
+Two **`dev`** stacks on one machine need different host ports. From each worktree root:
+
+```bash
+./scripts/allocate-dev-ports.sh   # or let build_and_start_app.sh dev do it
+./build_and_start_app.sh dev
+grep -E '^(APP_PORT|FRONTEND_PORT)=' .env.tilt.ports
+```
+
+Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**.
 
 - **Android Emulator:** run `adb reverse tcp:3000 tcp:3000` so the emulator’s `localhost:3000` reaches your machine. Use `http://localhost:3000` for the API URL when reversed.
 - **Physical devices** on the LAN should set `extra.apiUrl` / env to an origin the device can reach (for example `http://192.168.1.10:3000`).

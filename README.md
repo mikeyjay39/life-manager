@@ -35,7 +35,7 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | **docker-dev** | **`cargo run`** in container `life_manager_dev` (source baked into image; images rebuilt on every start) | Expo in container **`frontend_dev`** | `life_manager_dev`, `frontend_dev`, `alloy` |
 | **test** | `cargo build` only; the API is **not** started by these scripts; **no** Compose services are started | Expo on the host (same as dev) | *(none)* |
 
-**Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose.
+**Ports (defaults)** — override `APP_PORT` / service ports in `.<profile>.env`, or set Compose variables (for example `NGINX_PORT`) when invoking Docker Compose. For **parallel worktrees** on **dev**, `./build_and_start_app.sh dev` writes gitignored **`.env.tilt.ports`** (`APP_PORT=3000+N`, `FRONTEND_PORT=8080+N`) so stacks do not share **3000** / **8080** — see [docs/development_faq.md](docs/development_faq.md#parallel-worktrees-manual-test).
 
 | Port / setting | What uses it |
 |----------------|----------------|

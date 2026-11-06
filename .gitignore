@@ -10,3 +10,6 @@ data/*.db
 data/*.db-journal
 data/*.db-wal
 data/*.db-shm
+
+# Per-worktree host ports for parallel dev / manual-test (see scripts/allocate-dev-ports.sh)
+.env.tilt.ports
