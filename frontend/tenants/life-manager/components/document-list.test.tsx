@@ -9,6 +9,31 @@ import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 import * as loadProton from '@/lib/proton-drive/load-proton.web';
 
+vi.mock('@react-native-community/datetimepicker', async () => {
+  const ReactLib = await import('react');
+  const { View, Pressable, Text } = await import('react-native');
+  return {
+    __esModule: true,
+    default: ({
+      onChange,
+    }: {
+      onChange: (event: { type: string }, date?: Date) => void;
+    }) =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(
+          Pressable,
+          {
+            accessibilityLabel: 'Confirm picked date',
+            onPress: () => onChange({ type: 'set' }, new Date(2024, 5, 1)),
+          },
+          ReactLib.createElement(Text, null, 'Confirm')
+        )
+      ),
+  };
+});
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
@@ -320,6 +345,61 @@ describe('DocumentList', () => {
       expect(screen.getByLabelText('Edit document')).toBeTruthy();
     });
     expect(screen.getAllByText('Doc Updated').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('given edit mode when issue date is cleared and expire date is picked then PUT sends those dates', async () => {
+    // Given
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: 'doc-1',
+            title: 'Doc A',
+            content: 'Body text',
+            tags: [],
+            created_at: '2026-07-11T00:00:00',
+            issued_date: '2024-01-15T00:00:00',
+            expire_date: null,
+          },
+        ]),
+        { status: 200 }
+      )
+    );
+    mockApiFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'doc-1',
+          title: 'Doc A',
+          content: 'Body text',
+          tags: [],
+          created_at: '2026-07-11T00:00:00',
+          issued_date: null,
+          expire_date: '2024-06-01T00:00:00',
+        }),
+        { status: 200 }
+      )
+    );
+
+    renderDocumentList();
+    await waitFor(() => {
+      expect(screen.getByText('Doc A')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Open document Doc A'));
+    fireEvent.press(screen.getByLabelText('Edit document'));
+
+    // When
+    fireEvent.press(screen.getByLabelText('Clear Issue date'));
+    fireEvent.press(screen.getByLabelText('Expire date'));
+    fireEvent.press(screen.getByLabelText('Confirm picked date'));
+    fireEvent.press(screen.getByLabelText('Save document'));
+
+    // Then
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalledTimes(1);
+    });
+    const body = JSON.parse(String(mockApiFetch.mock.calls[0][1]?.body));
+    expect(body.issued_date).toBeNull();
+    expect(body.expire_date).toBe('2024-06-01T00:00:00');
   });
 
   it('given edit mode when cancel is pressed then reverts to view mode without PUT', async () => {

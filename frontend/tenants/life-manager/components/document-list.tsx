@@ -14,8 +14,9 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
-import { FieldLabel } from '@/components/ui/field-label';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { DatePicker } from '@/components/ui/date-picker';
+import { FieldLabel } from '@/components/ui/field-label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
@@ -769,21 +770,19 @@ export default function DocumentList({
                   />
 
                   <Text style={styles.label}>Issue date (optional)</Text>
-                  <TextInput
-                    style={styles.input}
+                  <DatePicker
                     value={editIssuedDateInput}
-                    onChangeText={setEditIssuedDateInput}
+                    onChange={setEditIssuedDateInput}
+                    accessibilityLabel="Issue date"
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={palette.icon}
                   />
 
                   <Text style={styles.label}>Expire date (optional)</Text>
-                  <TextInput
-                    style={styles.input}
+                  <DatePicker
                     value={editExpireDateInput}
-                    onChangeText={setEditExpireDateInput}
+                    onChange={setEditExpireDateInput}
+                    accessibilityLabel="Expire date"
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={palette.icon}
                   />
 
                   <Text style={styles.label}>File (optional)</Text>
