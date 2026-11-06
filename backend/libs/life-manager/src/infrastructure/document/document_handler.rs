@@ -312,6 +312,15 @@ pub async fn get_documents(
     (StatusCode::OK, Json(json!(document_dtos)))
 }
 
+/// Lists owned documents with optional title cursor and title substring search.
+///
+/// ```text
+/// Client -> Handler : GET /documents?title=&title_contains=
+/// Handler -> GetDocumentsTitleCursorQuery : execute
+/// GetDocumentsTitleCursorQuery -> DocumentRepository : get_documents_title_cursor
+/// DocumentRepository --> Handler : Vec<Document>
+/// Handler --> Client : 200 DocumentDto[]
+/// ```
 pub async fn get_documents_by_title(
     AuthUser {
         user_id,
@@ -321,13 +330,21 @@ pub async fn get_documents_by_title(
     Query(params): Query<GetDocumentsQueryParams>,
 ) -> ApiResult<Vec<DocumentDto>> {
     let title = params.title.unwrap_or_else(|| "".to_string());
+    let title_contains = params
+        .title_contains
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     tracing::info!(
-        "Fetching documents for user: {} with title cursor: {}",
+        "Fetching documents for user: {} with title cursor: {:?} title_contains: {:?}",
         user_id.to_string(),
-        title
+        title,
+        title_contains
     );
     let repo = document_use_cases.document_repository.clone();
-    let query = GetDocumentsTitleCursorQuery::new(repo, user_id, title, PAGE_LIMIT);
+    let query =
+        GetDocumentsTitleCursorQuery::new(repo, user_id, title, title_contains, PAGE_LIMIT);
     let documents = query.execute().await;
     let document_dtos: Vec<DocumentDto> =
         documents.iter().map(DocumentDto::from_document).collect();
@@ -409,6 +426,7 @@ mod tests {
             _user_id: &Uuid,
             _limit: &u32,
             _title: &str,
+            _title_contains: Option<&str>,
         ) -> Vec<Document> {
             Vec::new()
         }
@@ -1069,7 +1087,10 @@ mod tests {
         let response = get_documents_by_title(
             auth_user,
             State(DocumentState(document_use_cases.clone())),
-            Query(GetDocumentsQueryParams { title: None }),
+            Query(GetDocumentsQueryParams {
+                title: None,
+                title_contains: None,
+            }),
         )
         .await;
         let ProcessedResponse {
@@ -1097,6 +1118,7 @@ mod tests {
             State(DocumentState(document_use_cases.clone())),
             Query(GetDocumentsQueryParams {
                 title: Some("Second Document".to_string()),
+                title_contains: None,
             }),
         )
         .await;
@@ -1125,6 +1147,7 @@ mod tests {
             State(DocumentState(document_use_cases.clone())),
             Query(GetDocumentsQueryParams {
                 title: Some("Test Document".to_string()),
+                title_contains: None,
             }), // NOTE: Check given_user_and_documents function for
                 // name of last document.
         )
@@ -1137,6 +1160,65 @@ mod tests {
         // Assert
         assert_eq!(status_code, StatusCode::OK);
         assert_eq!(response_documents.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn given_title_contains_when_listing_then_returns_case_insensitive_substring_matches() {
+        // Given
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+            ..
+        } = given_user_and_documents().await;
+
+        // When
+        let response = get_documents_by_title(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Query(GetDocumentsQueryParams {
+                title: None,
+                title_contains: Some("second".to_string()),
+            }),
+        )
+        .await;
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_documents,
+        } = process_response::<Vec<DocumentDto>>(response).await;
+
+        // Then
+        assert_eq!(status_code, StatusCode::OK);
+        assert_eq!(response_documents.len(), 1);
+        assert_eq!(response_documents[0].title, "Second Document");
+    }
+
+    #[tokio::test]
+    async fn given_empty_title_contains_when_listing_then_returns_full_page() {
+        // Given
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+            ..
+        } = given_user_and_documents().await;
+
+        // When
+        let response = get_documents_by_title(
+            auth_user,
+            State(DocumentState(document_use_cases.clone())),
+            Query(GetDocumentsQueryParams {
+                title: None,
+                title_contains: Some("   ".to_string()),
+            }),
+        )
+        .await;
+        let ProcessedResponse {
+            status_code,
+            response_payload: response_documents,
+        } = process_response::<Vec<DocumentDto>>(response).await;
+
+        // Then
+        assert_eq!(status_code, StatusCode::OK);
+        assert_eq!(response_documents.len(), 2);
     }
 
     async fn given_user_and_documents() -> GivenUserAndDocuments {

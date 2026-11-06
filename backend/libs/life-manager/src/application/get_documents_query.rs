@@ -29,6 +29,7 @@ impl GetDocumentsQuery {
 pub struct GetDocumentsTitleCursorQuery {
     query: GetDocumentsQuery,
     title: String,
+    title_contains: Option<String>,
 }
 
 impl GetDocumentsTitleCursorQuery {
@@ -36,18 +37,25 @@ impl GetDocumentsTitleCursorQuery {
         doc_repo: Arc<dyn DocumentRepository>,
         user_id: Uuid,
         title: String,
+        title_contains: Option<String>,
         limit: u32,
     ) -> Self {
         GetDocumentsTitleCursorQuery {
             query: GetDocumentsQuery::new(doc_repo, user_id, limit),
             title,
+            title_contains,
         }
     }
 
     pub async fn execute(&self) -> Vec<Document> {
         self.query
             .doc_repo
-            .get_documents_title_cursor(&self.query.user_id, &self.query.limit, &self.title)
+            .get_documents_title_cursor(
+                &self.query.user_id,
+                &self.query.limit,
+                &self.title,
+                self.title_contains.as_deref(),
+            )
             .await
     }
 }

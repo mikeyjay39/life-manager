@@ -95,7 +95,10 @@ pub struct UpdateDocumentCommandDto {
     export_to = "../../../../frontend/lib/api/generated/life-manager/GetDocumentsQueryParams.ts"
 )]
 pub struct GetDocumentsQueryParams {
+    /// Keyset pagination cursor: return titles strictly after this value.
     pub title: Option<String>,
+    /// Case-insensitive substring match on title (contains). Not the cursor.
+    pub title_contains: Option<String>,
 }
 
 #[cfg(test)]
