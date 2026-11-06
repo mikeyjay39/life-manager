@@ -83,6 +83,8 @@ cd frontend && npm ci && npm run test:run
 npm run lint
 ```
 
+**Playwright** (devDependency for the [manual-test](../.cursor/skills/manual-test/) skill): `npm run playwright:install` downloads Chromium. Not part of Vitest/CI unit runs.
+
 ## Workflow diagrams
 
 Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.) follow the hub [**Definition of done**](../AGENTS.md#definition-of-done): add an ASCII UML sequence or activity diagram as a comment on the orchestrating component or hook. Canonical backend example: [`document_handler.rs`](../backend/libs/life-manager/src/infrastructure/document/document_handler.rs) (`create_document`).
