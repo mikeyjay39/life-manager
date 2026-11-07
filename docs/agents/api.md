@@ -35,6 +35,18 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /life-manager/api/v1/doctor-visits/{id}` | Single owned visit. Missing / other user's id → 404. JWT. |
 | `PUT /life-manager/api/v1/doctor-visits/{id}` | JSON: UpdateDoctorVisitCommand — replace `visited_on` (required, not future) and optional text fields. Same validation as create. `health_member_id` is immutable. Inactive member → 400 (update checks the member, unlike health-readings). Missing / other user's id → 404. JWT. |
 | `DELETE /life-manager/api/v1/doctor-visits/{id}` | Hard-delete owned visit (204). Allowed when the member is inactive. Missing / other user's id → 404. Delete twice → second 404. JWT. |
+| `POST /life-manager/api/v1/cars` | JSON: CreateCarCommand (`make`, `model`, `year` required; optional `display_name`, `vin`, `license_plate`, `notes`, `insurance_document_id`, `registration_document_id`). Creates `active=true`. VIN when set: 17 chars A-HJ-NPR-Z0-9 (uppercased). License plate trimmed/uppercased. Year 1900–current+1. Duplicate VIN or plate for same user → 400. Document ids must be owned Documents. JWT. |
+| `GET /life-manager/api/v1/cars` | List owned Cars. Query `include_inactive=true` to include deactivated (default false = active only). |
+| `GET /life-manager/api/v1/cars/{id}` | Single Car (owner only; other users / missing → 404). Inactive still returned for owner. |
+| `PUT /life-manager/api/v1/cars/{id}` | JSON: UpdateCarCommand — `make`, `model`, `year` required. Optional fields (`display_name`, `vin`, `license_plate`, `notes`, document ids): omit = keep, `null` = clear, value = set. Optional `active` for reactivate (`true`) or deactivate (`false`). Prefer POST deactivate for deactivate. Same VIN/plate uniqueness and Document ownership rules as create. |
+| `POST /life-manager/api/v1/cars/{id}/deactivate` | Soft-deactivate (idempotent). Sets `active=false` and `deactivated_at`. Row remains; GET by id still works for owner. |
+| `DELETE /life-manager/api/v1/cars/{id}` | Hard-delete owned Car (204). Missing / other user's id → 404. Delete twice → second 404. JWT. |
+
+**Car ownership**
+
+- Auth user owns `Car` (`user_id`). Document links store UUID refs only; application verifies owned Documents when set.
+- VIN and license_plate uniqueness are per user when non-empty. Different users may share the same VIN or plate.
+- Inactive cars stay queryable by id for the owner. List excludes inactive by default.
 
 **Health ownership and units**
 
@@ -50,7 +62,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount()` and `TestTenant::mount()` nest `/life-manager` and `/test-tenant` with per-tenant state
-- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`, `cars`
 - `backend/libs/test-tenant/src/test_tenant.rs`: `TestTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth` only (pilot)
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 
