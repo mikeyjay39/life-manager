@@ -66,6 +66,11 @@ REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 ENV_BASENAME="$(env_basename "$PROFILE")"
 DEV_ENV_FILE="$REPO_ROOT/.${ENV_BASENAME}.env"
 
+# Dev: assign unique host ports per worktree so parallel manual-test stacks do not collide.
+if [[ "$PROFILE" == "dev" ]]; then
+  "$REPO_ROOT/scripts/allocate-dev-ports.sh"
+fi
+
 # Dev uses host Expo (start_frontend.sh), not the frontend_dev container. Stop any
 # leftover containers so they do not bind FRONTEND_PORT or APP_PORT with stale images.
 if [[ "$PROFILE" == "dev" ]]; then

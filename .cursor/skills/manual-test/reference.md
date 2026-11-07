@@ -1,29 +1,45 @@
 # Manual test — reference
 
-## Ports (dev defaults)
+## Ports (dev defaults + parallel worktrees)
 
-Load from repo-root `.dev.env` when present. Defaults:
+Load from repo-root `.dev.env` when present. For **parallel** worktrees, `./build_and_start_app.sh dev` runs `scripts/allocate-dev-ports.sh`, which writes **`.env.tilt.ports`** (gitignored):
 
-| Variable | Default | Use |
-|----------|---------|-----|
-| `APP_PORT` | `3000` | Backend HTTP on the host |
-| `FRONTEND_PORT` | `8080` | Expo web on the host |
+| Variable | Slot 0 | Slot N | Use |
+|----------|--------|--------|-----|
+| `APP_PORT` | `3000` | `3000+N` | Backend HTTP on the host |
+| `FRONTEND_PORT` | `8080` | `8080+N` | Expo web on the host |
+| `EXPO_PUBLIC_API_BASE_URL` | `http://localhost:3000` | `http://localhost:3000+N` | Frontend → API |
+
+Always source the worktree file before curls or Playwright:
+
+```bash
+REPO_ROOT="$(pwd)"   # worktree root
+# shellcheck disable=SC1091
+[[ -f "$REPO_ROOT/.env.tilt.ports" ]] && set -a && . "$REPO_ROOT/.env.tilt.ports" && set +a
+APP_PORT="${APP_PORT:-3000}"
+FRONTEND_PORT="${FRONTEND_PORT:-8080}"
+```
 
 - API origin: `http://127.0.0.1:${APP_PORT}`
 - Expo web: `http://localhost:${FRONTEND_PORT}`
+- Slot line for control-agent: `grep -oP 'for slot \K[0-9]+' .env.tilt.ports`
 
 Do not print secrets from `.dev.env`.
+
+**Do not** start a second stack without `.env.tilt.ports`: both would fight for **3000** / **8080**, and `start_*.sh` kills listeners on those ports.
 
 ## Health poll
 
 After `./build_and_start_app.sh dev`, wait for the backend (compile can take 2–3 minutes):
 
 ```bash
+REPO_ROOT="$(pwd)"
+[[ -f "$REPO_ROOT/.env.tilt.ports" ]] && set -a && . "$REPO_ROOT/.env.tilt.ports" && set +a
 APP_PORT="${APP_PORT:-3000}"
 for i in $(seq 1 60); do
   body=$(curl -sf "http://127.0.0.1:${APP_PORT}/api/health" || true)
   if [ "$body" = '"up"' ]; then
-    echo "backend ready"
+    echo "backend ready on ${APP_PORT}"
     break
   fi
   sleep 5

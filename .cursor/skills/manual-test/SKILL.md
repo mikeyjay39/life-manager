@@ -56,18 +56,22 @@ Base branch is **`main`**. Include uncommitted changes. Summarize user-visible a
 ### 2. Start full stack (dev)
 
 ```bash
+# Allocates or reuses .env.tilt.ports (unique APP_PORT / FRONTEND_PORT per worktree).
 ./build_and_start_app.sh dev
 ```
 
 Run it in the background as a **persistent** shell job (so `cargo run` and Expo stay up). Do not pass **prod** unless the user asks.
 
+Several worktrees may run **dev** at once. Each gets its own ports via [scripts/allocate-dev-ports.sh](../../../scripts/allocate-dev-ports.sh). Always read ports from `.env.tilt.ports` after start (see [reference.md](reference.md)).
+
 ### 3. Wait until ready
 
 Read ports and the health poll in [reference.md](reference.md).
 
-1. Poll `GET /api/health` until the body is `"up"`.
-2. Confirm Expo listens on `FRONTEND_PORT` (default **8080**).
-3. If health never comes up, stop. Report the failure. Do not claim success.
+1. Load `APP_PORT` / `FRONTEND_PORT` from `.env.tilt.ports` (or defaults).
+2. Poll `GET /api/health` until the body is `"up"`.
+3. Confirm Expo listens on `FRONTEND_PORT`.
+4. If health never comes up, stop. Report the failure. Do not claim success.
 
 ### 4. Build a verification plan
 
@@ -97,8 +101,10 @@ Skip docs-only or formatting churn unless it affects runtime.
 ```bash
 cd frontend
 set -a && source ../.dev.env && set +a
+[[ -f ../.env.tilt.ports ]] && set -a && source ../.env.tilt.ports && set +a
 export FRONTEND_URL="http://localhost:${FRONTEND_PORT:-8080}"
-export PLAYWRIGHT_ARTIFACTS_DIR="${PLAYWRIGHT_ARTIFACTS_DIR:-/tmp/lm-playwright-artifacts}"
+# Prefer a per-worktree artifact dir when stacks run in parallel:
+export PLAYWRIGHT_ARTIFACTS_DIR="${PLAYWRIGHT_ARTIFACTS_DIR:-/tmp/lm-playwright-artifacts-${FRONTEND_PORT:-8080}}"
 node ../.cursor/skills/manual-test/scripts/ui-smoke.mjs
 ```
 
