@@ -102,6 +102,7 @@ export default function HealthReadingPanel({
   const loadGenerationRef = useRef(0);
   const selectedMemberIdRef = useRef<string | null>(null);
   selectedMemberIdRef.current = selectedMember?.id ?? null;
+  const prevUnitSystemRef = useRef(unitSystem);
 
   const styles = useMemo(
     () =>
@@ -180,12 +181,27 @@ export default function HealthReadingPanel({
     [palette]
   );
 
+  // Convert height/weight whenever shared unitSystem changes (vitals or charts).
+  useEffect(() => {
+    const previous = prevUnitSystemRef.current;
+    if (previous === unitSystem) {
+      return;
+    }
+    setForm((prev) => convertFormHeightWeight(prev, previous, unitSystem));
+    prevUnitSystemRef.current = unitSystem;
+  }, [unitSystem]);
+
+  // Clear vitals when the selected member changes so values do not carry over.
+  useEffect(() => {
+    setForm((prev) => emptyForm(prev.recordedOn));
+    setFormError(null);
+  }, [selectedMember?.id]);
+
   const setUnit = useCallback(
     async (next: UnitSystem) => {
       if (next === unitSystem) {
         return;
       }
-      setForm((prev) => convertFormHeightWeight(prev, unitSystem, next));
       await onUnitSystemChange(next);
     },
     [unitSystem, onUnitSystemChange]

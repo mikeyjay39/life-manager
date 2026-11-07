@@ -312,6 +312,65 @@ describe('HealthReadingPanel', () => {
     });
   });
 
+  it('given filled fields when selected member changes then clears vitals', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
+    const { rerender } = renderPanel(
+      member({ id: 'm1', display_name: 'Alex' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+    });
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={member({ id: 'm2', display_name: 'Sam' })}
+          unitSystem="metric"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
+    });
+  });
+
+  it('given filled metric fields when unitSystem prop flips then converts form values', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
+    const { rerender } = renderPanel(
+      member({ id: 'm1', display_name: 'Alex' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+    });
+    fireEvent.changeText(screen.getByLabelText('Height in centimetres'), '180');
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={member({ id: 'm1', display_name: 'Alex' })}
+          unitSystem="imperial"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Height feet').props.value).toBe('5');
+      expect(screen.getByLabelText('Height inches').props.value).toBe('10.9');
+      expect(screen.getByLabelText('Weight in pounds').props.value).toBe(
+        '154.3'
+      );
+    });
+  });
+
 
   it('given empty vitals when submitting then shows validation and does not POST create', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
