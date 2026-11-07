@@ -19,8 +19,8 @@ use crate::infrastructure::health::health_reading_state::HealthReadingState;
 /// ```text
 /// +--------+     +-----------------------+     +--------------------+     +------------------+
 /// |        |     | Handler               |     | Create command     |     | SQLite           |
-/// | Client |---->| create_health_reading |---->| load member,       |---->| health_readings  |
-/// |        |     | (JWT user_id)         |     | validate, save     |     |                  |
+/// | Client |---->| create_health_reading |---->| load member,       |---->| health_members + |
+/// |        |     | (JWT user_id)         |     | validate, save     |     | health_readings  |
 /// +--------+     +-----------------------+     +--------------------+     +------------------+
 ///      |                    |                            |                         |
 ///      |  POST /health-readings                          |                         |
@@ -30,7 +30,8 @@ use crate::infrastructure::health::health_reading_state::HealthReadingState;
 ///      |                    |--------------------------->|  (via member repo)      |
 ///      |                    |  find duplicate date       |                         |
 ///      |                    |  HealthReading::create     |                         |
-///      |                    |  save                      |------------------------>|
+///      |                    |  save (tx: active check +  |------------------------>|
+///      |                    |       INSERT; UNIQUE→400)  |                         |
 ///      |  201 HealthReadingDto                           |                         |
 ///      |<-------------------|                            |                         |
 /// ```
