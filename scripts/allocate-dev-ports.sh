@@ -17,9 +17,6 @@ CLAIM_UID="${UID:-$(id -u)}"
 DEFAULT_CLAIM_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/life-manager/dev-port-claims"
 CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-$DEFAULT_CLAIM_DIR}"
 LOCK_FILE="${CLAIM_DIR}/allocate.lock"
-# Optional age reclaim for abandoned claims whose worktree dir still exists.
-# Default 0 = never age-out; reclaim only when WORKTREE_ROOT is missing.
-STALE_SECONDS="${DEV_PORT_CLAIM_STALE_SECONDS:-0}"
 
 ensure_claim_dir() {
   mkdir -p -m 700 "$CLAIM_DIR"
@@ -66,25 +63,13 @@ read_claim_field() {
   echo "${line#${key}=}"
 }
 
-# Reclaim when the claiming worktree is gone. Age reclaim only if STALE_SECONDS > 0.
+# Reclaim only when the claiming worktree directory is gone (or claim is empty).
 claim_is_releasable() {
   local slot="$1"
-  local root claimed_at now age
+  local root
   root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
   [[ -n "$root" ]] || return 0
   if [[ ! -d "$root" ]]; then
-    return 0
-  fi
-  if (( STALE_SECONDS <= 0 )); then
-    return 1
-  fi
-  claimed_at="$(read_claim_field "$slot" CLAIMED_AT 2>/dev/null || true)"
-  if [[ ! "$claimed_at" =~ ^[0-9]+$ ]]; then
-    return 0
-  fi
-  now="$(date +%s)"
-  age=$((now - claimed_at))
-  if (( age >= STALE_SECONDS )); then
     return 0
   fi
   return 1
@@ -125,6 +110,14 @@ FRONTEND_PORT=${fe}
 EXPO_PUBLIC_API_BASE_URL=http://localhost:${app}
 EOF
   echo "Wrote $OUT (slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe})"
+}
+
+reuse_existing_slot() {
+  local slot="$1"
+  local app=$((3000 + slot))
+  local fe=$((8080 + slot))
+  write_claim "$slot"
+  echo "Using existing $OUT (slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe})"
 }
 
 slot_available() {
@@ -170,15 +163,23 @@ if [[ -f "$OUT" && "$FORCE" != "--force" ]]; then
     root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
     app=$((3000 + slot))
     fe=$((8080 + slot))
-    if [[ "$root" == "$REPO_ROOT" ]]; then
-      write_claim "$slot"
-      echo "Using existing $OUT (slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe})"
+    ports_busy=0
+    if ! port_free "$app" || ! port_free "$fe"; then
+      ports_busy=1
+    fi
+
+    # Own claim, or no claim: keep this file (rewrite claim). Busy ports usually
+    # mean this worktree's stack is still up after a claim-dir move or cache clear.
+    if [[ -z "$root" || "$root" == "$REPO_ROOT" ]]; then
+      reuse_existing_slot "$slot"
       exit 0
     fi
-    if port_free "$app" && port_free "$fe" && { [[ -z "$root" ]] || claim_is_releasable "$slot"; }; then
+
+    if (( ports_busy == 0 )) && claim_is_releasable "$slot"; then
       write_ports "$slot"
       exit 0
     fi
+
     echo "Existing $OUT slot ${slot} is reserved or in use; allocating a new slot..."
   fi
 fi
