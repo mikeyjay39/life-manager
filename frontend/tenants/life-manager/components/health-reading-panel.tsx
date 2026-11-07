@@ -192,15 +192,16 @@ export default function HealthReadingPanel({
     prevUnitSystemRef.current = unitSystem;
   }, [unitSystem]);
 
-  // Clear vitals only when switching between two concrete members.
+  // Clear vitals when leaving a concrete member (A→B or A→null→B).
+  // Do not clear on the first select (null→A).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
     const nextId = selectedMember?.id ?? null;
-    prevMemberIdRef.current = nextId;
-    if (previousId != null && nextId != null && previousId !== nextId) {
+    if (previousId !== nextId && previousId != null) {
       setForm((prev) => emptyForm(prev.recordedOn));
       setFormError(null);
     }
+    prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
 
   const setUnit = useCallback(

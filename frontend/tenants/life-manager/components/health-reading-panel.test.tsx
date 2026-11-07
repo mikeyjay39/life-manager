@@ -368,6 +368,44 @@ describe('HealthReadingPanel', () => {
     });
   });
 
+  it('given member A then null then B clears vitals from A', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
+    const { rerender } = renderPanel(
+      member({ id: 'm1', display_name: 'Alex' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+    });
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={null}
+          unitSystem="metric"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={member({ id: 'm2', display_name: 'Sam' })}
+          unitSystem="metric"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
+    });
+  });
+
   it('given filled metric fields when unitSystem prop flips then converts form values', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
     const { rerender } = renderPanel(
