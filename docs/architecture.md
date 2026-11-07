@@ -37,7 +37,7 @@ flowchart TB
 | **`mikeyjay-server`** | HTTP server entrypoint; stateless top-level routes (`/api/health`, `/api/version`); mounts tenant routers |
 | **`server-host`** | Composition-only `AppBootstrap` and `TenantMount` trait — not Axum state |
 | **`auth`** | Authentication router and JWT helpers; mounted under each tenant's `/api/v1/auth` |
-| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, document API; owns `LifeManagerState` and `DATABASE_URL` pool |
+| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health APIs; owns `LifeManagerState` and `DATABASE_URL` pool |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; owns `TestTenantState` and `TEST_TENANT_DATABASE_URL` pool |
 
 Each tenant crate implements `TenantMount`, builds its own state (including DB pool and migrations), and registers `.with_state()` on its nested router only. The parent router has no global Axum state.
@@ -51,8 +51,8 @@ Multitenancy is **composition-based**: each product tenant is a separate Rust cr
 | Layer | Shared? | Where |
 |-------|---------|-------|
 | Auth (login, JWT, `auth_users`) | Yes | `backend/libs/auth/` — mounted per tenant |
-| Domain aggregates (Document, etc.) | No (today) | `backend/libs/life-manager/` only |
-| Tenant UI (document list/form) | No (today) | `frontend/tenants/life-manager/` only |
+| Domain aggregates (Document, HealthMember, HealthReading, DoctorVisit) | No (today) | `backend/libs/life-manager/` only |
+| Tenant UI (documents + Health Manager) | No (today) | `frontend/tenants/life-manager/` only |
 
 ```mermaid
 flowchart LR
@@ -60,12 +60,24 @@ flowchart LR
     authCrate["auth"]
   end
   subgraph tenants["Tenant crates"]
-    lm["life-manager\nauth + documents"]
+    lm["life-manager\nauth + documents + health"]
     tt["test-tenant\nauth only"]
   end
   authCrate --> lm
   authCrate --> tt
 ```
+
+### Health domain (life-manager)
+
+| Aggregate | Owner | Notes |
+|-----------|-------|--------|
+| **HealthMember** | Auth `user_id` | Create / update / soft-deactivate (no hard-delete MVP). Inactive members stay readable by owner. |
+| **HealthReading** | Same user; refs `HealthMemberId` | Metric vitals only on the API. Reject **create** when the member is inactive (updates do not require active). Separate from Document. |
+| **DoctorVisit** | Same user; refs `HealthMemberId` | Reject **create and update** when the member is inactive. Same Health Manager screen; no Document link. |
+
+**Units policy:** the backend stores metric fields only. Imperial display and conversion live in the frontend (`frontend/lib/health/units.ts` and the Health reading form). Do not add imperial fields to the HTTP API.
+
+**UI:** manage HealthMembers, readings, charts, and doctor visits on `HealthScreen` (life-manager only).
 
 **Rules:**
 
@@ -93,7 +105,7 @@ flowchart LR
   subgraph server["mikeyjay-server (Axum)"]
     r1["/life-manager\nLifeManagerTenant::mount()"]
     r1b["/test-tenant\nTestTenant::mount()"]
-    r2["/api/v1\nauth + documents\n.with_state(LifeManagerState)"]
+    r2["/api/v1\nauth + documents + health\n.with_state(LifeManagerState)"]
     r2b["/api/v1\nauth only\n.with_state(TestTenantState)"]
     r3["/api/health, /api/version\n(stateless top-level)"]
   end
@@ -112,12 +124,19 @@ flowchart LR
 | `/life-manager/api/v1/auth/login` | `auth` crate — login |
 | `/life-manager/api/v1/documents` | `life-manager` — list / create documents |
 | `/life-manager/api/v1/documents/{id}` | `life-manager` — get document by UUID |
+| `/life-manager/api/v1/health-members` | `life-manager` — list / create HealthMembers |
+| `/life-manager/api/v1/health-members/{id}` | `life-manager` — get / update HealthMember |
+| `/life-manager/api/v1/health-members/{id}/deactivate` | `life-manager` — soft-deactivate |
+| `/life-manager/api/v1/health-readings` | `life-manager` — list / create HealthReadings (metric) |
+| `/life-manager/api/v1/health-readings/{id}` | `life-manager` — update / delete HealthReading |
+| `/life-manager/api/v1/doctor-visits` | `life-manager` — list / create DoctorVisits |
+| `/life-manager/api/v1/doctor-visits/{id}` | `life-manager` — get / update / delete DoctorVisit |
 | `/test-tenant/api/v1/auth/login` | `auth` crate — login (test-tenant pilot) |
 | `/test-tenant/api/v1/auth/protected` | `auth` crate — auth smoke test (test-tenant pilot) |
 | `/api/health` | Top-level — liveness |
 | `/api/version` | Top-level — git commit |
 
-The v1 API prefix is resolved at runtime from the active tenant module (`frontend/lib/tenant/` → `configureApiClient`). Ops endpoints stay at **`/api/*`** so health checks do not move when product APIs are namespaced.
+Full request/response notes: [agents/api.md](agents/api.md). The v1 API prefix is resolved at runtime from the active tenant module (`frontend/lib/tenant/` → `configureApiClient`). Ops endpoints stay at **`/api/*`** so health checks do not move when product APIs are namespaced.
 
 **Proton document upload (web):** file bytes go to Proton Drive from the browser; the backend stores metadata only via `POST /documents/json`. Sequence and trust-boundary diagrams: [development_faq.md — Proton upload workflow](development_faq.md#upload-workflow).
 

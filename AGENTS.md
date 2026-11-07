@@ -1,6 +1,6 @@
 # life-manager — agent instructions
 
-Personal/family life-management app. **Documents** are implemented today; more domains are planned (see [README.md](README.md)).
+Personal/family life-management app. **Documents** and partial **Health Manager** ship today; more domains are planned (see [README.md](README.md)).
 
 ## Monorepo
 
@@ -77,7 +77,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 ## Scope
 
 - Do not implement [docs/todos.md](docs/todos.md) unless asked.
-- Respect domain aggregates in [README.md](README.md) (Member, Document, Alert, etc.).
+- Respect domain aggregates in [README.md](README.md) (Document, HealthMember, HealthReading, DoctorVisit, etc.).
 
 ## Before changing code
 
