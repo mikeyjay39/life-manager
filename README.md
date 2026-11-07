@@ -171,43 +171,44 @@ diesel migration run --config-file diesel.toml
 
 The server and integration tests also apply both migration sets automatically on startup.
 
-## Planned Features
+## Domain status
 
-#### Document Manager
-* Store documents and associate them with family members
-* Automate reminders to alert users before documents expire
+#### Document Manager (shipped)
+* Store documents owned by the auth user (Proton Drive file refs on web)
+* Reminders before document expiry remain planned
 
-### Medical Manager
-* Diary of doctor visits
-* Track personal health data (height, weight, etc) over time and visualize with charts
+### Health Manager (partial — epic #104)
+* **Shipped on main:** `HealthMember` create / update / soft-deactivate (no hard-delete MVP); `HealthReading` create / list / update / delete; Health Manager screen with member management, vitals form, and charts
+* **Units:** backend and API store **metric only** (`height_cm`, `weight_kg`, …). The UI may show imperial; conversion is **client-side** before POST/PUT. Do not send imperial fields to the API.
+* **Ownership:** the auth user owns `HealthMember` rows (`user_id`). `HealthReading` and `DoctorVisit` store `HealthMemberId` (and denormalized `user_id` for auth). They do **not** share Document storage or Proton refs.
+* **UI:** HealthMembers, vitals, charts, and doctor visits are managed on the **Health Manager** screen (`HealthScreen`), not on Home/Documents.
+* **Landing with #114 (not yet merged):** doctor visit diary API + UI section (`DoctorVisit`). Routes below match issue #114 / branch `mikeyjay39/gh-114-doctor-visit-diary`.
 
-### Location Manager
+### Location Manager (planned)
 * Integrate with Google's "find my device" feature to show location of everyone on a map
 
-### Car Manager
+### Car Manager (planned)
 * Diary of mechanic visits and history
 
-### Receipt Manager
+### Receipt Manager (planned)
 * Upload and store receipts. Possibly parsing info such as vendor name, date, and amount from
 the receipt image
 
 ```mermaid
 ---
-title: Aggregates, Entities and Value Objects
+title: Aggregates (life-manager)
 ---
 
 flowchart TD
-
-  M-->Did
-  D-->Mid
-  D-->A
-
-    M[Member]
-    D[Document]
-    Mid[MemberId]
-    Did[DocumentId]
-    A[Alert]
+  U[auth user_id]
+  U --> D["Document\n(metadata + optional Proton)"]
+  U --> HM[HealthMember]
+  HM --> HMid[HealthMemberId]
+  HMid --> HR["HealthReading\n(metric vitals, SQLite)"]
+  HMid --> DV["DoctorVisit\n(lands with #114)"]
 ```
+
+Document and Health do **not** share storage. Health rows live in SQLite only.
 
 ## License
 
