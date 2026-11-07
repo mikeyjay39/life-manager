@@ -113,6 +113,8 @@ pub struct CarMaintenanceEventInput<'a> {
 /// # Ownership rules
 /// - `user_id` and `car_id` copy from the parent Car on create.
 /// - Inactive Cars reject new events via [`Car::ensure_active_for_write`].
+/// - Updates and deletes stay allowed on inactive Cars (history correction).
+/// - `car_id` is immutable after create.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct CarMaintenanceEvent {
     pub id: CarMaintenanceEventId,
@@ -188,6 +190,22 @@ impl CarMaintenanceEvent {
 
     pub fn is_owned_by(&self, user_id: &Uuid) -> bool {
         self.user_id == *user_id
+    }
+
+    /// Replaces mutable fields after the same validation as create.
+    ///
+    /// Does not check Car active. `car_id` and `user_id` stay fixed.
+    pub fn update(&mut self, input: CarMaintenanceEventInput<'_>) -> Result<(), AppError> {
+        let normalized = Self::normalize_input(input)?;
+        self.occurred_on = normalized.occurred_on;
+        self.event_type = normalized.event_type;
+        self.odometer_miles = normalized.odometer_miles;
+        self.cost_cents = normalized.cost_cents;
+        self.title = normalized.title;
+        self.notes = normalized.notes;
+        self.document_id = normalized.document_id;
+        self.updated_at = Utc::now().naive_utc();
+        Ok(())
     }
 
     fn normalize_input(
@@ -602,5 +620,67 @@ mod tests {
         )
         .unwrap();
         assert_eq!(event.document_id, Some(doc_id));
+    }
+
+    #[test]
+    fn given_owned_event_when_update_odometer_and_cost_then_fields_change() {
+        let car = given_active_car();
+        let mut event = CarMaintenanceEvent::create(&car, base_input()).unwrap();
+        let car_id = event.car_id;
+        let updated_at_before = event.updated_at;
+
+        event
+            .update(CarMaintenanceEventInput {
+                occurred_on: Utc::now().date_naive(),
+                event_type: CarMaintenanceEventType::OilChange,
+                odometer_miles: Some(60_000),
+                cost_cents: Some(7_500),
+                title: None,
+                notes: None,
+                document_id: None,
+            })
+            .unwrap();
+
+        assert_eq!(event.car_id, car_id);
+        assert_eq!(event.odometer_miles, Some(60_000));
+        assert_eq!(event.cost_cents, Some(7_500));
+        assert_eq!(event.event_type, CarMaintenanceEventType::OilChange);
+        assert!(event.updated_at >= updated_at_before);
+    }
+
+    #[test]
+    fn given_inactive_car_when_update_event_then_accepted() {
+        let mut car = given_active_car();
+        let mut event = CarMaintenanceEvent::create(&car, base_input()).unwrap();
+        car.deactivate();
+
+        event
+            .update(CarMaintenanceEventInput {
+                odometer_miles: Some(55_000),
+                title: None,
+                ..base_input()
+            })
+            .unwrap();
+
+        assert_eq!(event.odometer_miles, Some(55_000));
+    }
+
+    #[test]
+    fn given_empty_fields_when_update_then_validation_fails() {
+        let car = given_active_car();
+        let mut event = CarMaintenanceEvent::create(&car, base_input()).unwrap();
+        let err = event
+            .update(CarMaintenanceEventInput {
+                title: None,
+                notes: None,
+                odometer_miles: None,
+                cost_cents: None,
+                ..base_input()
+            })
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            AppError::Validation(msg) if msg.contains("at least one of")
+        ));
     }
 }

@@ -4,7 +4,9 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::car_maintenance_event_repository::CarMaintenanceEventRepository,
+    application::car_maintenance_event_repository::{
+        CarMaintenanceEventRepository, MissingCarMaintenanceEvent,
+    },
     domain::{
         car::CarId,
         car_maintenance_event::{
@@ -77,6 +79,33 @@ impl CarMaintenanceEventRepository for CarMaintenanceEventCollection {
     ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
         self.events.lock().await.push(event.clone());
         Ok(event)
+    }
+
+    async fn update(
+        &self,
+        event: CarMaintenanceEvent,
+    ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+        let mut events = self.events.lock().await;
+        let index = events
+            .iter()
+            .position(|e| e.id == event.id)
+            .ok_or(MissingCarMaintenanceEvent)?;
+        events[index] = event.clone();
+        Ok(event)
+    }
+
+    async fn delete(
+        &self,
+        id: &CarMaintenanceEventId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut events = self.events.lock().await;
+        let index = events
+            .iter()
+            .position(|e| e.id == *id && e.user_id == *user_id)
+            .ok_or(MissingCarMaintenanceEvent)?;
+        events.remove(index);
+        Ok(())
     }
 
     async fn load_owned(

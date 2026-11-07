@@ -44,6 +44,25 @@ pub struct NewCarMaintenanceEventEntity {
     pub updated_at: NaiveDateTime,
 }
 
+/// Mutable columns only. `car_id` and `user_id` stay fixed.
+#[derive(AsChangeset, Debug, Clone)]
+#[diesel(table_name = crate::schema::car_maintenance_events)]
+pub struct UpdateCarMaintenanceEventEntity {
+    pub occurred_on: NaiveDate,
+    pub event_type: String,
+    #[diesel(treat_none_as_null = true)]
+    pub odometer_miles: Option<i32>,
+    #[diesel(treat_none_as_null = true)]
+    pub cost_cents: Option<i64>,
+    #[diesel(treat_none_as_null = true)]
+    pub title: Option<String>,
+    #[diesel(treat_none_as_null = true)]
+    pub notes: Option<String>,
+    #[diesel(treat_none_as_null = true)]
+    pub document_id: Option<String>,
+    pub updated_at: NaiveDateTime,
+}
+
 impl CarMaintenanceEventEntity {
     pub fn into_domain(self) -> Option<CarMaintenanceEvent> {
         let id = uuid::Uuid::parse_str(&self.id).ok()?;
@@ -85,6 +104,21 @@ impl From<&CarMaintenanceEvent> for NewCarMaintenanceEventEntity {
             notes: event.notes.clone(),
             document_id: event.document_id.map(|id| id.to_string()),
             created_at: event.created_at,
+            updated_at: event.updated_at,
+        }
+    }
+}
+
+impl From<&CarMaintenanceEvent> for UpdateCarMaintenanceEventEntity {
+    fn from(event: &CarMaintenanceEvent) -> Self {
+        Self {
+            occurred_on: event.occurred_on,
+            event_type: event.event_type.as_str().to_string(),
+            odometer_miles: event.odometer_miles,
+            cost_cents: event.cost_cents,
+            title: event.title.clone(),
+            notes: event.notes.clone(),
+            document_id: event.document_id.map(|id| id.to_string()),
             updated_at: event.updated_at,
         }
     }

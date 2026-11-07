@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     application::car_maintenance_event_repository::{
         CarMaintenanceEventRepository, InactiveCarForMaintenanceEvent,
-        MissingCarForMaintenanceEvent,
+        MissingCarForMaintenanceEvent, MissingCarMaintenanceEvent,
     },
     domain::{
         car::CarId,
@@ -21,7 +21,7 @@ use crate::{
         },
     },
     infrastructure::car_maintenance_event::car_maintenance_event_entity::{
-        CarMaintenanceEventEntity, NewCarMaintenanceEventEntity,
+        CarMaintenanceEventEntity, NewCarMaintenanceEventEntity, UpdateCarMaintenanceEventEntity,
     },
     schema::{car_maintenance_events, cars},
 };
@@ -216,6 +216,78 @@ impl CarMaintenanceEventRepository for CarMaintenanceEventOrmCollection {
             Ok(Err(e)) => Err(map_write_error("saving", event_id, e)),
             Err(e) => {
                 tracing::error!("Error saving CarMaintenanceEvent {}: {}", event_id, e);
+                Err(Box::new(e))
+            }
+        }
+    }
+
+    async fn update(
+        &self,
+        event: CarMaintenanceEvent,
+    ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+        let conn = self.pool.get().await?;
+        let id_str = event.id.to_string();
+        let user_id_str = event.user_id.to_string();
+        let update_entity = UpdateCarMaintenanceEventEntity::from(&event);
+        let event_for_return = event.clone();
+
+        // No active-car check: history correction on inactive Cars is allowed.
+        // Map 0 rows (removed after load) to MissingCarMaintenanceEvent.
+        let result = conn
+            .interact(move |conn| -> QueryResult<usize> {
+                diesel::update(
+                    car_maintenance_events::table
+                        .filter(car_maintenance_events::id.eq(id_str))
+                        .filter(car_maintenance_events::user_id.eq(user_id_str)),
+                )
+                .set(&update_entity)
+                .execute(conn)
+            })
+            .await;
+
+        match result {
+            Ok(Ok(rows)) if rows > 0 => Ok(event_for_return),
+            Ok(Ok(_)) => Err(Box::new(MissingCarMaintenanceEvent)),
+            Ok(Err(e)) => {
+                tracing::error!("Error updating CarMaintenanceEvent: {}", e);
+                Err(Box::new(e))
+            }
+            Err(e) => {
+                tracing::error!("Error updating CarMaintenanceEvent: {}", e);
+                Err(Box::new(e))
+            }
+        }
+    }
+
+    async fn delete(
+        &self,
+        id: &CarMaintenanceEventId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let conn = self.pool.get().await?;
+        let id_str = id.to_string();
+        let user_id_str = user_id.to_string();
+
+        let result = conn
+            .interact(move |conn| -> QueryResult<usize> {
+                diesel::delete(
+                    car_maintenance_events::table
+                        .filter(car_maintenance_events::id.eq(id_str))
+                        .filter(car_maintenance_events::user_id.eq(user_id_str)),
+                )
+                .execute(conn)
+            })
+            .await;
+
+        match result {
+            Ok(Ok(rows)) if rows > 0 => Ok(()),
+            Ok(Ok(_)) => Err(Box::new(MissingCarMaintenanceEvent)),
+            Ok(Err(e)) => {
+                tracing::error!("Error deleting CarMaintenanceEvent: {}", e);
+                Err(Box::new(e))
+            }
+            Err(e) => {
+                tracing::error!("Error deleting CarMaintenanceEvent: {}", e);
                 Err(Box::new(e))
             }
         }
