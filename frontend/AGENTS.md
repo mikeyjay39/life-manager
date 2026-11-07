@@ -103,8 +103,9 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
-| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + empty maintenance/charts shells (not Home/Documents). |
-| Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected active Car for later sections) |
+| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + maintenance panel + empty charts shell (not Home/Documents). |
+| Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
+| Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
 | Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (create / edit / delete + ConfirmDialog; selected active HealthMember) |
