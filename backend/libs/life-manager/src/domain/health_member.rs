@@ -184,7 +184,7 @@ impl HealthMember {
                 "display_name must not be empty".to_string(),
             ));
         }
-        if trimmed.len() > DISPLAY_NAME_MAX_LEN {
+        if trimmed.chars().count() > DISPLAY_NAME_MAX_LEN {
             return Err(AppError::Validation(format!(
                 "display_name must be at most {DISPLAY_NAME_MAX_LEN} characters"
             )));
@@ -212,7 +212,7 @@ impl HealthMember {
                 if trimmed.is_empty() {
                     return Ok(None);
                 }
-                if trimmed.len() > NOTES_MAX_LEN {
+                if trimmed.chars().count() > NOTES_MAX_LEN {
                     return Err(AppError::Validation(format!(
                         "notes must be at most {NOTES_MAX_LEN} characters"
                     )));
@@ -284,5 +284,33 @@ mod tests {
     fn given_blank_notes_when_create_then_stores_none() {
         let member = HealthMember::create(Uuid::new_v4(), "Alex", None, Some("  ")).unwrap();
         assert!(member.notes.is_none());
+    }
+
+    #[test]
+    fn given_unicode_name_within_char_limit_when_create_then_ok() {
+        // 50 multi-byte chars (150 UTF-8 bytes) must pass a 100-character limit.
+        let name: String = "あ".repeat(50);
+        let member = HealthMember::create(Uuid::new_v4(), &name, None, None).unwrap();
+        assert_eq!(member.display_name.chars().count(), 50);
+    }
+
+    #[test]
+    fn given_unicode_name_over_char_limit_when_create_then_validation_error() {
+        let name: String = "あ".repeat(DISPLAY_NAME_MAX_LEN + 1);
+        let err = HealthMember::create(Uuid::new_v4(), &name, None, None).unwrap_err();
+        assert!(matches!(err, AppError::Validation(msg) if msg.contains("display_name")));
+    }
+
+    #[test]
+    fn given_notes_when_update_profile_keep_then_notes_unchanged() {
+        let mut member =
+            HealthMember::create(Uuid::new_v4(), "Alex", None, Some("keep me")).unwrap();
+        let birth = member.birth_date;
+        let notes = member.notes.clone();
+        member
+            .update_profile("Alexandra", birth, notes.as_deref())
+            .unwrap();
+        assert_eq!(member.display_name, "Alexandra");
+        assert_eq!(member.notes.as_deref(), Some("keep me"));
     }
 }

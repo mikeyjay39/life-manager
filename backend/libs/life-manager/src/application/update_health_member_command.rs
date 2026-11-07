@@ -13,8 +13,10 @@ pub struct UpdateHealthMemberCommand {
     member_id: HealthMemberId,
     user_id: Uuid,
     display_name: String,
-    birth_date: Option<NaiveDate>,
-    notes: Option<String>,
+    /// `None` = keep; `Some(None)` = clear; `Some(Some(v))` = set.
+    birth_date: Option<Option<NaiveDate>>,
+    /// `None` = keep; `Some(None)` = clear; `Some(Some(v))` = set.
+    notes: Option<Option<String>>,
     /// When set, reactivate (`true`) or deactivate (`false`). When `None`, leave active state.
     active: Option<bool>,
     health_member_repository: Arc<dyn HealthMemberRepository>,
@@ -25,8 +27,8 @@ impl UpdateHealthMemberCommand {
         member_id: HealthMemberId,
         user_id: Uuid,
         display_name: String,
-        birth_date: Option<NaiveDate>,
-        notes: Option<String>,
+        birth_date: Option<Option<NaiveDate>>,
+        notes: Option<Option<String>>,
         active: Option<bool>,
         health_member_repository: Arc<dyn HealthMemberRepository>,
     ) -> Self {
@@ -50,11 +52,16 @@ impl UpdateHealthMemberCommand {
             return Err(AppError::NotFound);
         };
 
-        member.update_profile(
-            &self.display_name,
-            self.birth_date,
-            self.notes.as_deref(),
-        )?;
+        let birth_date = match self.birth_date {
+            None => member.birth_date,
+            Some(v) => v,
+        };
+        let notes = match &self.notes {
+            None => member.notes.clone(),
+            Some(v) => v.clone(),
+        };
+
+        member.update_profile(&self.display_name, birth_date, notes.as_deref())?;
 
         match self.active {
             Some(true) => member.reactivate(),

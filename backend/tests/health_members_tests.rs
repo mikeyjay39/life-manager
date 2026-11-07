@@ -77,7 +77,7 @@ async fn given_owned_member_when_put_new_display_name_then_200_updated() {
         let update = UpdateHealthMemberCommandDto {
             display_name: "Alexandra".to_string(),
             birth_date: None,
-            notes: Some("note".to_string()),
+            notes: Some(Some("note".to_string())),
             active: None,
         };
         let res = reqwest::Client::new()
