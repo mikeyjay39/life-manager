@@ -127,6 +127,22 @@ function normalizeVin(value: string): OptionalTextResult {
   return { ok: true, value: trimmed };
 }
 
+/** Uppercase before length check (matches API: ß → SS can expand). */
+function normalizeLicensePlate(value: string): OptionalTextResult {
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return { ok: true, value: null };
+  }
+  const upper = trimmed.toUpperCase();
+  if (unicodeScalarLength(upper) > LICENSE_PLATE_MAX_LEN) {
+    return {
+      ok: false,
+      message: `License plate must be at most ${LICENSE_PLATE_MAX_LEN} characters.`,
+    };
+  }
+  return { ok: true, value: upper };
+}
+
 type YearResult =
   | { ok: true; value: number }
   | { ok: false; message: string };
@@ -238,11 +254,7 @@ function validateCarForm(fields: CarFormFields):
   if (!vin.ok) {
     return vin;
   }
-  const licensePlate = normalizeOptionalText(
-    fields.licensePlate,
-    LICENSE_PLATE_MAX_LEN,
-    'License plate'
-  );
+  const licensePlate = normalizeLicensePlate(fields.licensePlate);
   if (!licensePlate.ok) {
     return licensePlate;
   }
@@ -276,12 +288,14 @@ type DocumentLinkPickerProps = {
   selectedId: string | null;
   documents: DocumentDto[];
   documentsLoading: boolean;
+  documentsError: string | null;
   onChange: (id: string | null) => void;
   chipStyle: object;
   chipSelectedStyle: object;
   chipTextStyle: object;
   chipTextSelectedStyle: object;
   hintStyle: object;
+  errorTextStyle: object;
   pickerStyle: object;
 };
 
@@ -291,12 +305,14 @@ function DocumentLinkPicker({
   selectedId,
   documents,
   documentsLoading,
+  documentsError,
   onChange,
   chipStyle,
   chipSelectedStyle,
   chipTextStyle,
   chipTextSelectedStyle,
   hintStyle,
+  errorTextStyle,
   pickerStyle,
 }: DocumentLinkPickerProps) {
   return (
@@ -304,6 +320,13 @@ function DocumentLinkPicker({
       <FieldLabel label={label} />
       {documentsLoading ? (
         <ActivityIndicator accessibilityLabel={`Loading documents for ${label}`} />
+      ) : documentsError ? (
+        <Text
+          style={errorTextStyle}
+          accessibilityRole="alert"
+          accessibilityLabel={`${label} documents error`}>
+          {documentsError}
+        </Text>
       ) : documents.length === 0 ? (
         <Text style={hintStyle} accessibilityLabel={`${label} empty documents`}>
           No documents yet. Link stays empty.
@@ -387,11 +410,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   const loadGenerationRef = useRef(0);
+  const docsLoadGenerationRef = useRef(0);
   selectedIdRef.current = selectedId;
 
   const [createVisible, setCreateVisible] = useState(false);
@@ -621,11 +646,17 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   }, []);
 
   const loadDocuments = useCallback(async () => {
+    const generation = ++docsLoadGenerationRef.current;
     if (!token) {
+      if (generation !== docsLoadGenerationRef.current) {
+        return;
+      }
       setDocuments([]);
+      setDocumentsError(null);
       return;
     }
     setDocumentsLoading(true);
+    setDocumentsError(null);
     try {
       const response = await authenticatedFetch('/documents', {
         method: 'GET',
@@ -642,12 +673,23 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       }
       const raw = (await response.json()) as unknown;
       const list = Array.isArray(raw) ? raw.map(parseOwnedDocumentDto) : [];
+      if (generation !== docsLoadGenerationRef.current) {
+        return;
+      }
       setDocuments(list);
     } catch (err: unknown) {
+      if (generation !== docsLoadGenerationRef.current) {
+        return;
+      }
       console.error(err);
+      const msg =
+        err instanceof Error ? err.message : 'Failed to load documents';
+      setDocumentsError(msg);
       setDocuments([]);
     } finally {
-      setDocumentsLoading(false);
+      if (generation === docsLoadGenerationRef.current) {
+        setDocumentsLoading(false);
+      }
     }
   }, [token, handleUnauthorized]);
 
@@ -739,6 +781,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const handleCreate = async () => {
+    if (creating) {
+      return;
+    }
     setCreateError(null);
     if (!token) {
       setCreateError('No authentication token available.');
@@ -794,6 +839,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const handleSaveEdit = async () => {
+    if (saving) {
+      return;
+    }
     setEditError(null);
     if (!token || !selected) {
       setEditError('No authentication token available.');
@@ -1072,6 +1120,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           selectedId={form.insuranceDocumentId}
           documents={documents}
           documentsLoading={documentsLoading}
+          documentsError={documentsError}
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
@@ -1080,6 +1129,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           chipTextStyle={styles.pickerChipText}
           chipTextSelectedStyle={styles.pickerChipTextSelected}
           hintStyle={styles.hint}
+          errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
         />
         <DocumentLinkPicker
@@ -1088,6 +1138,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           selectedId={form.registrationDocumentId}
           documents={documents}
           documentsLoading={documentsLoading}
+          documentsError={documentsError}
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
@@ -1096,6 +1147,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           chipTextStyle={styles.pickerChipText}
           chipTextSelectedStyle={styles.pickerChipTextSelected}
           hintStyle={styles.hint}
+          errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
         />
       </View>

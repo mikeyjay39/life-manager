@@ -111,8 +111,9 @@ function mockInitialLoads(cars: CarDto[] = [], docs: DocumentDto[] = []) {
 describe('unicodeScalarLength', () => {
   it('counts Unicode scalars like Rust chars().count()', () => {
     expect(unicodeScalarLength('Toyota')).toBe(6);
-    expect(unicodeScalarLength('😀'.repeat(100)).length).not.toBe(100);
-    expect(unicodeScalarLength('😀'.repeat(100))).toBe(100);
+    const hundredEmoji = '😀'.repeat(100);
+    expect(hundredEmoji.length).toBe(200);
+    expect(unicodeScalarLength(hundredEmoji)).toBe(100);
   });
 });
 
