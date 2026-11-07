@@ -59,6 +59,11 @@ vi.mock('expo-blur', () => ({
   BlurView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@/lib/health/unit-preference', () => ({
+  getUnitSystemPreference: vi.fn(async () => 'metric'),
+  setUnitSystemPreference: vi.fn(async () => undefined),
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
 
@@ -97,15 +102,16 @@ describe('HealthScreen', () => {
     );
   });
 
-  it('shows Health Manager with HealthMembers panel and section placeholders', () => {
+  it('shows Health Manager with HealthMembers panel, vitals form, and doctor visits placeholder', () => {
     // Given the Health Manager screen
     // When the screen renders
     renderHealthScreen();
-    // Then the title, members panel, and other section placeholders are visible
+    // Then the title, members panel, vitals panel, and doctor visits placeholder are visible
     expect(screen.getByText('Health Manager')).toBeTruthy();
     expect(screen.getByLabelText('HealthMembers section')).toBeTruthy();
     expect(screen.getByLabelText('Create HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Vitals section')).toBeTruthy();
+    expect(screen.getByLabelText('Health readings panel')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits section')).toBeTruthy();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();

@@ -1,26 +1,32 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import type { HealthMemberDto } from '@/lib/api/types';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
+import HealthReadingPanel from '@/tenants/life-manager/components/health-reading-panel';
 
 /**
  * Health Manager shell. Child stories fill each section.
  *
- * activityDiagram
- *   [*] --> ShowShell
- *   ShowShell --> HealthMembersPanel : #115
- *   ShowShell --> VitalsPlaceholder : #109-#111
- *   ShowShell --> DoctorVisitsPlaceholder : #114
- *   HealthMembersPanel --> [*]
- *   VitalsPlaceholder --> [*]
- *   DoctorVisitsPlaceholder --> [*]
+ * ```
+ * User -> HealthScreen : open Health
+ * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
+ * HealthMemberPanel -> HealthScreen : selected member | null
+ * HealthScreen -> HealthReadingPanel : selectedMember
+ * HealthReadingPanel -> API : list / create readings for member
+ * HealthScreen -> DoctorVisitsPlaceholder : #114
+ * ```
  */
 export default function HealthScreen() {
   const { assets, headerBackground } = useTenantBranding();
+  const [selectedMember, setSelectedMember] = useState<HealthMemberDto | null>(
+    null
+  );
 
   return (
     <ParallaxScrollView
@@ -42,14 +48,12 @@ export default function HealthScreen() {
         style={styles.section}
         accessibilityLabel="HealthMembers section">
         <ThemedText type="subtitle">HealthMembers</ThemedText>
-        <HealthMemberPanel />
+        <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
       </ThemedView>
 
       <ThemedView style={styles.section} accessibilityLabel="Vitals section">
         <ThemedText type="subtitle">Vitals</ThemedText>
-        <ThemedText>
-          Placeholder: vitals form, history, and charts (#109–#111).
-        </ThemedText>
+        <HealthReadingPanel selectedMember={selectedMember} />
       </ThemedView>
 
       <ThemedView
