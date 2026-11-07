@@ -73,7 +73,7 @@ pub async fn run_migrations(pool: &Pool) -> anyhow::Result<()> {
 mod migration_tests {
     use std::sync::Arc;
 
-    use diesel::RunQueryDsl;
+    use diesel::{QueryableByName, RunQueryDsl};
     use uuid::Uuid;
 
     use crate::application::document_repository::DocumentRepository;
@@ -124,5 +124,52 @@ mod migration_tests {
         let docs = repo.get_documents(&user_id, &100).await;
         assert_eq!(docs.len(), 1, "documents should load after migration");
         assert_eq!(docs[0].title, "legacy");
+    }
+
+    #[tokio::test]
+    async fn run_migrations_creates_health_readings_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_url = format!("file:{}/health_readings.db", dir.path().display());
+        let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
+
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+
+        let conn = pool.get().await.expect("pool connection");
+        let column_names = conn
+            .interact(|conn| -> Result<Vec<String>, diesel::result::Error> {
+                #[derive(QueryableByName)]
+                struct ColumnName {
+                    #[diesel(sql_type = diesel::sql_types::Text)]
+                    name: String,
+                }
+                let rows: Vec<ColumnName> =
+                    diesel::sql_query("PRAGMA table_info(health_readings)").load(conn)?;
+                Ok(rows.into_iter().map(|r| r.name).collect())
+            })
+            .await
+            .expect("interact")
+            .expect("pragma");
+
+        for required in [
+            "id",
+            "user_id",
+            "health_member_id",
+            "recorded_on",
+            "height_cm",
+            "weight_kg",
+            "systolic_mm_hg",
+            "diastolic_mm_hg",
+            "heart_rate_bpm",
+            "notes",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                column_names.iter().any(|n| n == required),
+                "missing column {required}; have {column_names:?}"
+            );
+        }
     }
 }
