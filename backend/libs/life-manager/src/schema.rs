@@ -30,6 +30,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    doctor_visits (id) {
+        id -> Text,
+        user_id -> Text,
+        health_member_id -> Text,
+        visited_on -> Date,
+        provider_name -> Nullable<Text>,
+        reason -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     health_readings (id) {
         id -> Text,
         user_id -> Text,
@@ -64,6 +78,7 @@ diesel::joinable!(document_tags -> documents (document_id));
 diesel::joinable!(document_tags -> tags (tag_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    doctor_visits,
     documents,
     health_members,
     health_readings,

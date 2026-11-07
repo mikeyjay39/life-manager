@@ -1,3 +1,4 @@
+pub mod doctor_visit;
 pub mod document;
 pub mod document_storage_ref;
 pub mod document_summarizer;

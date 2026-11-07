@@ -1,0 +1,82 @@
+use std::sync::Arc;
+
+use backend_utils::{AppError, AppResult};
+use chrono::NaiveDate;
+use uuid::Uuid;
+
+use crate::{
+    application::{
+        doctor_visit_repository::{
+            DoctorVisitRepository, InactiveHealthMemberForVisit, MissingHealthMemberForVisit,
+        },
+        health_member_repository::HealthMemberRepository,
+    },
+    domain::{doctor_visit::DoctorVisit, health_member::HealthMemberId},
+};
+
+/// Text fields for a DoctorVisit create or update.
+#[derive(Debug, Clone, Default)]
+pub struct DoctorVisitText {
+    pub provider_name: Option<String>,
+    pub reason: Option<String>,
+    pub notes: Option<String>,
+}
+
+pub struct CreateDoctorVisitCommand {
+    user_id: Uuid,
+    health_member_id: HealthMemberId,
+    visited_on: NaiveDate,
+    text: DoctorVisitText,
+    health_member_repository: Arc<dyn HealthMemberRepository>,
+    doctor_visit_repository: Arc<dyn DoctorVisitRepository>,
+}
+
+impl CreateDoctorVisitCommand {
+    pub fn new(
+        user_id: Uuid,
+        health_member_id: HealthMemberId,
+        visited_on: NaiveDate,
+        text: DoctorVisitText,
+        health_member_repository: Arc<dyn HealthMemberRepository>,
+        doctor_visit_repository: Arc<dyn DoctorVisitRepository>,
+    ) -> Self {
+        Self {
+            user_id,
+            health_member_id,
+            visited_on,
+            text,
+            health_member_repository,
+            doctor_visit_repository,
+        }
+    }
+
+    pub async fn execute(self) -> AppResult<DoctorVisit> {
+        let member = self
+            .health_member_repository
+            .load_owned(&self.health_member_id, &self.user_id)
+            .await
+            .ok_or(AppError::NotFound)?;
+
+        let visit = DoctorVisit::create(
+            &member,
+            self.visited_on,
+            self.text.provider_name.as_deref(),
+            self.text.reason.as_deref(),
+            self.text.notes.as_deref(),
+        )?;
+
+        match self.doctor_visit_repository.save(visit).await {
+            Ok(saved) => Ok(saved),
+            Err(e) => {
+                if e.downcast_ref::<InactiveHealthMemberForVisit>().is_some() {
+                    return Err(AppError::Validation(e.to_string()));
+                }
+                if e.downcast_ref::<MissingHealthMemberForVisit>().is_some() {
+                    return Err(AppError::NotFound);
+                }
+                tracing::error!("Error saving DoctorVisit: {}", e);
+                Err(AppError::from(e))
+            }
+        }
+    }
+}

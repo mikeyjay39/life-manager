@@ -30,8 +30,13 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /life-manager/api/v1/health-readings` | List readings for one owned HealthMember. Query `health_member_id` required. Optional inclusive `from` / `to` (YYYY-MM-DD); `from` > `to` → 400. Newest `recorded_on` first. MVP returns all matching rows (unbounded). |
 | `PUT /life-manager/api/v1/health-readings/{id}` | JSON: UpdateHealthReadingCommand — replace mutable metric fields (`recorded_on` required; optional vitals same as create). `health_member_id` is immutable. At least one metric or notes. Changing `recorded_on` onto another reading's date for that member → 400. Missing / other user's id → 404. JWT. |
 | `DELETE /life-manager/api/v1/health-readings/{id}` | Hard-delete owned reading (204). Missing / other user's id → 404. Delete twice → second 404. JWT. |
+| `POST /life-manager/api/v1/doctor-visits` | JSON: CreateDoctorVisitCommand (`health_member_id`, `visited_on` YYYY-MM-DD required, not future; optional `provider_name` max 100, `reason` max 2000, `notes` max 2000). Text is trimmed. Blank becomes null. At least one of `provider_name`, `reason`, `notes` is required. Many visits on the same day are allowed. Inactive member → 400. Other user's member → 404. JWT. |
+| `GET /life-manager/api/v1/doctor-visits` | List visits for one owned HealthMember. Query `health_member_id` required (missing → 400). Optional inclusive `from` / `to` (YYYY-MM-DD) on `visited_on`; `from` > `to` → 400. Newest `visited_on` first. MVP returns all matching rows (unbounded). |
+| `GET /life-manager/api/v1/doctor-visits/{id}` | Single owned visit. Missing / other user's id → 404. JWT. |
+| `PUT /life-manager/api/v1/doctor-visits/{id}` | JSON: UpdateDoctorVisitCommand — replace `visited_on` (required) and optional text fields. Same validation as create. `health_member_id` is immutable. Inactive member → 400 (update checks the member, unlike health-readings). Missing / other user's id → 404. JWT. |
+| `DELETE /life-manager/api/v1/doctor-visits/{id}` | Hard-delete owned visit (204). Allowed when the member is inactive. Missing / other user's id → 404. Delete twice → second 404. JWT. |
 
-**HealthMember ownership (for HealthReading / other aggregates):** store `HealthMemberId` only; enforce owner via `user_id`; reject new readings/visits on inactive members (`HealthMember::ensure_active_for_write`). Separate from Document.
+**HealthMember ownership (for HealthReading, DoctorVisit, and other aggregates):** store `HealthMemberId` only; enforce owner via `user_id`; reject new readings/visits on inactive members (`HealthMember::ensure_active_for_write`). Separate from Document.
 
 Proton-backed file **preview, download, and trash** are client → Proton Drive only (web). There is no `GET .../documents/{id}/file` (or similar) on this API; see [Proton preview/download](../development_faq.md#preview-and-download-workflow) and [delete workflow](../development_faq.md#delete-workflow).
 
@@ -40,7 +45,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount()` and `TestTenant::mount()` nest `/life-manager` and `/test-tenant` with per-tenant state
-- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`
 - `backend/libs/test-tenant/src/test_tenant.rs`: `TestTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth` only (pilot)
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 
