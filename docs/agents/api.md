@@ -33,7 +33,7 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `POST /life-manager/api/v1/doctor-visits` | **Lands with #114** (not on `main` yet). JSON: CreateDoctorVisitCommand (`health_member_id`, `visited_on` required, not future; optional `provider_name` max 100, `reason` / `notes` max 2000). At least one of provider/reason/notes after trim. Inactive member → 400. Other user's member → 404. Multiple visits same day allowed. JWT. |
 | `GET /life-manager/api/v1/doctor-visits` | **#114.** List visits for one owned HealthMember. Query `health_member_id` required. Optional inclusive `from` / `to`; `from` > `to` → 400. Newest `visited_on` first. |
 | `GET /life-manager/api/v1/doctor-visits/{id}` | **#114.** Single visit (owner only; other users / missing → 404). |
-| `PUT /life-manager/api/v1/doctor-visits/{id}` | **#114.** JSON: UpdateDoctorVisitCommand — replace `visited_on` and text fields. `health_member_id` immutable. Member must be active. |
+| `PUT /life-manager/api/v1/doctor-visits/{id}` | **#114.** JSON: UpdateDoctorVisitCommand — replace `visited_on` (not future) and text fields. `health_member_id` immutable. At least one of provider/reason/notes after trim. Member must be active. |
 | `DELETE /life-manager/api/v1/doctor-visits/{id}` | **#114.** Hard-delete owned visit (204). Missing / other user's id → 404. |
 
 **Health ownership and units**

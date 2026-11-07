@@ -103,7 +103,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
-| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST/PUT **metric-only**; history list). Edit/delete UI: PR #148 (#111) when not yet merged. |
+| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST **metric-only**; history list). Edit/delete (PUT/DELETE) UI: PR #148 (#111) when not yet merged. |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`) — never send imperial fields to the API |
 | Doctor visits on Health | Lands with **#114**: section on `HealthScreen` (placeholder on `main` until merge); API under `/doctor-visits` |

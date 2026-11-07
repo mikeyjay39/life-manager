@@ -182,7 +182,7 @@ The server and integration tests also apply both migration sets automatically on
 * **Units:** backend and API store **metric only** (`height_cm`, `weight_kg`, …). The UI may show imperial; conversion is **client-side** before POST/PUT. Do not send imperial fields to the API.
 * **Ownership:** the auth user owns `HealthMember` rows (`user_id`). `HealthReading` and `DoctorVisit` store `HealthMemberId` (and denormalized `user_id` for auth). They do **not** share Document storage or Proton refs.
 * **UI:** HealthMembers, vitals, charts, and doctor visits are managed on the **Health Manager** screen (`HealthScreen`), not on Home/Documents.
-* **Landing with #114 (not yet merged):** doctor visit diary API + UI section (`DoctorVisit`). Routes below match issue #114 / branch `mikeyjay39/gh-114-doctor-visit-diary`.
+* **Landing with #114 (not yet merged):** doctor visit diary API + UI section (`DoctorVisit`). Routes match issue #114 / branch `mikeyjay39/gh-114-doctor-visit-diary` — see [docs/agents/api.md](docs/agents/api.md).
 
 ### Location Manager (planned)
 * Integrate with Google's "find my device" feature to show location of everyone on a map

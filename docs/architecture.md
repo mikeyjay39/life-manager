@@ -72,7 +72,7 @@ flowchart LR
 | Aggregate | Owner | Notes |
 |-----------|-------|--------|
 | **HealthMember** | Auth `user_id` | Create / update / soft-deactivate (no hard-delete MVP). Inactive members stay readable by owner. |
-| **HealthReading** | Same user; refs `HealthMemberId` | Metric vitals only on the API. Reject create/update when the member is inactive. Separate from Document. |
+| **HealthReading** | Same user; refs `HealthMemberId` | Metric vitals only on the API. Reject **create** when the member is inactive. Separate from Document. |
 | **DoctorVisit** | Same user; refs `HealthMemberId` | Lands with **#114** (not on `main` yet). Same Health Manager screen; no Document link. |
 
 **Units policy:** the backend stores metric fields only. Imperial display and conversion live in the frontend (`frontend/lib/health/units.ts` and the Health reading form). Do not add imperial fields to the HTTP API.
