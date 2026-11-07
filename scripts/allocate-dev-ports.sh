@@ -15,6 +15,9 @@ MAX_SLOT="${DEV_PORT_MAX_SLOT:-31}"
 FORCE="${1:-}"
 CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-/tmp/life-manager-dev-port-claims}"
 LOCK_FILE="${CLAIM_DIR}/allocate.lock"
+# Keep foreign claims during long cargo builds; reclaim after this many seconds
+# or when the claiming worktree directory is gone.
+STALE_SECONDS="${DEV_PORT_CLAIM_STALE_SECONDS:-1800}"
 
 mkdir -p "$CLAIM_DIR"
 
@@ -33,31 +36,50 @@ claim_path() {
   echo "${CLAIM_DIR}/slot-$1.claim"
 }
 
-# Read WORKTREE_ROOT as plain text. Do not source claim files (they are under /tmp).
-read_claim_root() {
-  local f line root
-  f="$(claim_path "$1")"
+# Read claim as plain KEY=value lines. Do not source (files live under /tmp).
+read_claim_field() {
+  local slot="$1" key="$2" f line
+  f="$(claim_path "$slot")"
   [[ -f "$f" ]] || return 1
-  line="$(grep -E '^WORKTREE_ROOT=' "$f" | head -n1 || true)"
+  line="$(grep -E "^${key}=" "$f" | head -n1 || true)"
   [[ -n "$line" ]] || return 1
-  root="${line#WORKTREE_ROOT=}"
-  # Reject empty or shell metacharacters.
-  if [[ -z "$root" || "$root" == *$'\n'* || "$root" == *'$'* || "$root" == *'`'* ]]; then
-    return 1
+  echo "${line#${key}=}"
+}
+
+claim_is_stale_or_missing_worktree() {
+  local slot="$1"
+  local root claimed_at now age
+  root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
+  [[ -n "$root" ]] || return 0
+  if [[ ! -d "$root" ]]; then
+    return 0
   fi
-  echo "$root"
+  claimed_at="$(read_claim_field "$slot" CLAIMED_AT 2>/dev/null || true)"
+  if [[ ! "$claimed_at" =~ ^[0-9]+$ ]]; then
+    return 0
+  fi
+  now="$(date +%s)"
+  age=$((now - claimed_at))
+  if (( age >= STALE_SECONDS )); then
+    return 0
+  fi
+  return 1
 }
 
 write_claim() {
   local slot="$1"
-  # Absolute path only; no shell syntax.
-  printf 'WORKTREE_ROOT=%s\n' "$REPO_ROOT" >"$(claim_path "$slot")"
+  local now
+  now="$(date +%s)"
+  {
+    printf 'WORKTREE_ROOT=%s\n' "$REPO_ROOT"
+    printf 'CLAIMED_AT=%s\n' "$now"
+  } >"$(claim_path "$slot")"
 }
 
 clear_claim_if_ours() {
   local slot="$1"
   local root
-  root="$(read_claim_root "$slot" 2>/dev/null || true)"
+  root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
   if [[ -n "$root" && "$root" == "$REPO_ROOT" ]]; then
     rm -f "$(claim_path "$slot")"
   fi
@@ -83,18 +105,22 @@ slot_available() {
   local app=$((3000 + slot))
   local fe=$((8080 + slot))
   local root
-  root="$(read_claim_root "$slot" 2>/dev/null || true)"
 
   if ! port_free "$app" || ! port_free "$fe"; then
     return 1
   fi
 
-  # Ports free: reclaim stale foreign claims (stopped / deleted worktrees).
-  # Active race protection is the flock around allocate + claim write.
-  if [[ -n "$root" && "$root" != "$REPO_ROOT" ]]; then
-    rm -f "$(claim_path "$slot")"
+  root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
+  if [[ -z "$root" || "$root" == "$REPO_ROOT" ]]; then
+    return 0
   fi
-  return 0
+
+  # Foreign claim: hold during cargo build unless stale or worktree gone.
+  if claim_is_stale_or_missing_worktree "$slot"; then
+    rm -f "$(claim_path "$slot")"
+    return 0
+  fi
+  return 1
 }
 
 read_slot_from_ports_file() {
@@ -114,19 +140,19 @@ fi
 if [[ -f "$OUT" && "$FORCE" != "--force" ]]; then
   slot="$(read_slot_from_ports_file || true)"
   if [[ -n "${slot:-}" ]]; then
-    root="$(read_claim_root "$slot" 2>/dev/null || true)"
+    root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
     app=$((3000 + slot))
     fe=$((8080 + slot))
-    # Reuse when claim is ours, or when ports are free (reclaim).
-    if [[ "$root" == "$REPO_ROOT" ]] || { [[ -z "$root" || "$root" != "$REPO_ROOT" ]] && port_free "$app" && port_free "$fe"; }; then
-      # If foreign claim but ports free, take the slot back.
+    if [[ "$root" == "$REPO_ROOT" ]]; then
       write_claim "$slot"
-      # Refresh file contents in case APP_PORT math drifted.
-      write_ports "$slot"
-      echo "Using existing slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe}"
+      echo "Using existing $OUT (slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe})"
       exit 0
     fi
-    echo "Existing $OUT slot ${slot} is in use by another stack; allocating a new slot..."
+    if port_free "$app" && port_free "$fe" && { [[ -z "$root" ]] || claim_is_stale_or_missing_worktree "$slot"; }; then
+      write_ports "$slot"
+      exit 0
+    fi
+    echo "Existing $OUT slot ${slot} is reserved or in use; allocating a new slot..."
   fi
 fi
 
