@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     application::health_reading_repository::{
-        DuplicateHealthReadingDate, HealthReadingRepository,
+        DuplicateHealthReadingDate, HealthReadingRepository, MissingHealthReading,
     },
     domain::{
         health_member::HealthMemberId,
@@ -99,10 +99,17 @@ impl HealthReadingRepository for HealthReadingCollection {
         reading: HealthReading,
     ) -> Result<HealthReading, Box<dyn std::error::Error>> {
         let mut readings = self.readings.lock().await;
+        if readings.iter().any(|r| {
+            r.id != reading.id
+                && r.health_member_id == reading.health_member_id
+                && r.recorded_on == reading.recorded_on
+        }) {
+            return Err(Box::new(DuplicateHealthReadingDate));
+        }
         let index = readings
             .iter()
             .position(|r| r.id == reading.id)
-            .ok_or("HealthReading not found")?;
+            .ok_or(MissingHealthReading)?;
         readings[index] = reading.clone();
         Ok(reading)
     }
@@ -112,7 +119,7 @@ impl HealthReadingRepository for HealthReadingCollection {
         let index = readings
             .iter()
             .position(|r| r.id == *id)
-            .ok_or("HealthReading not found")?;
+            .ok_or(MissingHealthReading)?;
         readings.remove(index);
         Ok(())
     }

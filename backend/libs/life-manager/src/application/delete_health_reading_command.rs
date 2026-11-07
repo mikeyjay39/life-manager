@@ -4,7 +4,7 @@ use backend_utils::{AppError, AppResult};
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::HealthReadingRepository,
+    application::health_reading_repository::{HealthReadingRepository, MissingHealthReading},
     domain::health_reading::HealthReadingId,
 };
 
@@ -44,6 +44,9 @@ impl DeleteHealthReadingCommand {
         {
             Ok(()) => Ok(()),
             Err(e) => {
+                if e.downcast_ref::<MissingHealthReading>().is_some() {
+                    return Err(AppError::NotFound);
+                }
                 tracing::error!("Error deleting HealthReading: {}", e);
                 Err(AppError::from(e))
             }

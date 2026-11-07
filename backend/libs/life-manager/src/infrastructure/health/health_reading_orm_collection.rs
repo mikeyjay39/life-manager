@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::{
     application::health_reading_repository::{
         DuplicateHealthReadingDate, HealthReadingRepository, InactiveHealthMemberForReading,
-        MissingHealthMemberForReading,
+        MissingHealthMemberForReading, MissingHealthReading,
     },
     domain::{
         health_member::HealthMemberId,
@@ -256,9 +256,15 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
             })
             .await;
 
+        // Map UNIQUE on (health_member_id, recorded_on) to DuplicateHealthReadingDate.
+        // Map 0 rows (removed after load) to MissingHealthReading.
         match result {
             Ok(Ok(rows)) if rows > 0 => Ok(reading_for_return),
-            Ok(Ok(_)) => Err("HealthReading not found for update".into()),
+            Ok(Ok(_)) => Err(Box::new(MissingHealthReading)),
+            Ok(Err(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            ))) => Err(Box::new(DuplicateHealthReadingDate)),
             Ok(Err(e)) => {
                 tracing::error!("Error updating HealthReading: {}", e);
                 Err(Box::new(e))
@@ -283,7 +289,7 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
 
         match result {
             Ok(Ok(rows)) if rows > 0 => Ok(()),
-            Ok(Ok(_)) => Err("HealthReading not found for delete".into()),
+            Ok(Ok(_)) => Err(Box::new(MissingHealthReading)),
             Ok(Err(e)) => {
                 tracing::error!("Error deleting HealthReading: {}", e);
                 Err(Box::new(e))

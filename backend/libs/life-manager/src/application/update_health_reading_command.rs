@@ -5,7 +5,9 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::HealthReadingRepository,
+    application::health_reading_repository::{
+        DuplicateHealthReadingDate, HealthReadingRepository, MissingHealthReading,
+    },
     domain::health_reading::{HealthReading, HealthReadingId, HealthReadingVitals},
 };
 
@@ -64,6 +66,12 @@ impl UpdateHealthReadingCommand {
         match self.health_reading_repository.update(reading).await {
             Ok(saved) => Ok(saved),
             Err(e) => {
+                if e.downcast_ref::<DuplicateHealthReadingDate>().is_some() {
+                    return Err(AppError::Validation(e.to_string()));
+                }
+                if e.downcast_ref::<MissingHealthReading>().is_some() {
+                    return Err(AppError::NotFound);
+                }
                 tracing::error!("Error updating HealthReading: {}", e);
                 Err(AppError::from(e))
             }
