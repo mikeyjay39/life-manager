@@ -4,7 +4,7 @@
 # and still belongs to this worktree.
 #
 # Slot N → APP_PORT=3000+N, FRONTEND_PORT=8080+N (N = 0..31).
-# Claims live under /tmp/life-manager-dev-port-claims/ so two worktrees cannot
+# Claims live under /tmp/life-manager-dev-port-claims-$UID/ so two worktrees cannot
 # pick the same free ports while cargo build has not bound them yet.
 # Control-agent reads the slot with: grep -oP 'for slot \K[0-9]+' .env.tilt.ports
 set -euo pipefail
@@ -13,11 +13,12 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$REPO_ROOT/.env.tilt.ports"
 MAX_SLOT="${DEV_PORT_MAX_SLOT:-31}"
 FORCE="${1:-}"
-CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-/tmp/life-manager-dev-port-claims}"
+CLAIM_UID="${UID:-$(id -u)}"
+CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-/tmp/life-manager-dev-port-claims-${CLAIM_UID}}"
 LOCK_FILE="${CLAIM_DIR}/allocate.lock"
-# Keep foreign claims during long cargo builds; reclaim after this many seconds
-# or when the claiming worktree directory is gone.
-STALE_SECONDS="${DEV_PORT_CLAIM_STALE_SECONDS:-1800}"
+# Optional age reclaim for abandoned claims whose worktree dir still exists.
+# Default 0 = never age-out; reclaim only when WORKTREE_ROOT is missing.
+STALE_SECONDS="${DEV_PORT_CLAIM_STALE_SECONDS:-0}"
 
 mkdir -p "$CLAIM_DIR"
 
@@ -46,13 +47,17 @@ read_claim_field() {
   echo "${line#${key}=}"
 }
 
-claim_is_stale_or_missing_worktree() {
+# Reclaim when the claiming worktree is gone. Age reclaim only if STALE_SECONDS > 0.
+claim_is_releasable() {
   local slot="$1"
   local root claimed_at now age
   root="$(read_claim_field "$slot" WORKTREE_ROOT 2>/dev/null || true)"
   [[ -n "$root" ]] || return 0
   if [[ ! -d "$root" ]]; then
     return 0
+  fi
+  if (( STALE_SECONDS <= 0 )); then
+    return 1
   fi
   claimed_at="$(read_claim_field "$slot" CLAIMED_AT 2>/dev/null || true)"
   if [[ ! "$claimed_at" =~ ^[0-9]+$ ]]; then
@@ -115,8 +120,8 @@ slot_available() {
     return 0
   fi
 
-  # Foreign claim: hold during cargo build unless stale or worktree gone.
-  if claim_is_stale_or_missing_worktree "$slot"; then
+  # Foreign claim: hold while the worktree directory exists (covers cargo build).
+  if claim_is_releasable "$slot"; then
     rm -f "$(claim_path "$slot")"
     return 0
   fi
@@ -148,7 +153,7 @@ if [[ -f "$OUT" && "$FORCE" != "--force" ]]; then
       echo "Using existing $OUT (slot ${slot}: APP_PORT=${app} FRONTEND_PORT=${fe})"
       exit 0
     fi
-    if port_free "$app" && port_free "$fe" && { [[ -z "$root" ]] || claim_is_stale_or_missing_worktree "$slot"; }; then
+    if port_free "$app" && port_free "$fe" && { [[ -z "$root" ]] || claim_is_releasable "$slot"; }; then
       write_ports "$slot"
       exit 0
     fi

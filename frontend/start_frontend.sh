@@ -23,9 +23,11 @@ if [[ -f "$ENV_PATH" ]]; then
   set +a
 fi
 
-# Per-worktree port overrides (parallel manual-test / multiple worktrees)
-# shellcheck source=../scripts/load-dev-ports.sh
-. "$REPO_ROOT/scripts/load-dev-ports.sh"
+# Per-worktree port overrides (host Expo only)
+if [[ "$PROFILE" == "dev" ]]; then
+  # shellcheck source=../scripts/load-dev-ports.sh
+  . "$REPO_ROOT/scripts/load-dev-ports.sh"
+fi
 
 : "${FRONTEND_PORT:=8080}"
 : "${APP_PORT:=3000}"

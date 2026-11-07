@@ -71,7 +71,7 @@ Two **`dev`** stacks on one machine need different host ports. From each worktre
 grep -E '^(APP_PORT|FRONTEND_PORT)=' .env.tilt.ports
 ```
 
-Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**. Slot claims live under **`/tmp/life-manager-dev-port-claims/`** so two worktrees do not take the same free ports during a long **`cargo build`**. A foreign claim is held while the claiming worktree directory exists and the claim is younger than **30 minutes** (`DEV_PORT_CLAIM_STALE_SECONDS`); after that, or if the worktree path is gone, another worktree may reclaim the slot.
+Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**. Slot claims live under **`/tmp/life-manager-dev-port-claims-$UID/`** so two worktrees do not take the same free ports during a long **`cargo build`**. A foreign claim is held while the claiming worktree directory exists. Remove the worktree (or the claim file) to free the slot. Optional age reclaim: set **`DEV_PORT_CLAIM_STALE_SECONDS`** to a positive value (default **0** = off). Host **`dev`** start scripts load **`.env.tilt.ports`** and refresh the claim; Compose profiles do not.
 
 - **Android Emulator:** reverse the **slot** API port from **`.env.tilt.ports`** (not always 3000):
 

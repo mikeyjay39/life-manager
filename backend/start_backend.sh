@@ -71,9 +71,11 @@ fi
 # Load variables, ignoring comments and empty lines
 export $(grep -v '^#' "$ENV_PATH" | xargs -d '\n')
 
-# Per-worktree port overrides (parallel manual-test / multiple worktrees)
-# shellcheck source=../scripts/load-dev-ports.sh
-. "$REPO_ROOT/scripts/load-dev-ports.sh"
+# Per-worktree port overrides (host cargo only; skip Compose profiles)
+if [[ "$PROFILE" == "dev" ]]; then
+  # shellcheck source=../scripts/load-dev-ports.sh
+  . "$REPO_ROOT/scripts/load-dev-ports.sh"
+fi
 
 if [[ "$WITH_TESSERACT" -eq 1 ]]; then
   export TESSERACT_ENABLED=true
