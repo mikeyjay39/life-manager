@@ -7,7 +7,10 @@ use uuid::Uuid;
 use crate::{
     application::{
         health_member_repository::HealthMemberRepository,
-        health_reading_repository::HealthReadingRepository,
+        health_reading_repository::{
+            DuplicateHealthReadingDate, HealthReadingRepository, InactiveHealthMemberForReading,
+            MissingHealthMemberForReading,
+        },
     },
     domain::{
         health_member::HealthMemberId,
@@ -66,6 +69,15 @@ impl CreateHealthReadingCommand {
         match self.health_reading_repository.save(reading).await {
             Ok(saved) => Ok(saved),
             Err(e) => {
+                if e.downcast_ref::<DuplicateHealthReadingDate>().is_some() {
+                    return Err(AppError::Validation(e.to_string()));
+                }
+                if e.downcast_ref::<InactiveHealthMemberForReading>().is_some() {
+                    return Err(AppError::Validation(e.to_string()));
+                }
+                if e.downcast_ref::<MissingHealthMemberForReading>().is_some() {
+                    return Err(AppError::NotFound);
+                }
                 tracing::error!("Error saving HealthReading: {}", e);
                 Err(AppError::from(e))
             }
