@@ -16,6 +16,7 @@ pub struct CarMaintenanceEventDto {
     pub occurred_on: NaiveDate,
     pub event_type: String,
     pub odometer_miles: Option<i32>,
+    #[ts(type = "number | null")]
     pub cost_cents: Option<i64>,
     pub title: Option<String>,
     pub notes: Option<String>,

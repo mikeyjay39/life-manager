@@ -19,6 +19,7 @@ pub struct CreateCarMaintenanceEventCommandDto {
     #[serde(default)]
     pub odometer_miles: Option<i32>,
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub cost_cents: Option<i64>,
     #[serde(default)]
     pub title: Option<String>,
