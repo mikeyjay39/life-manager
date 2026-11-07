@@ -9,7 +9,11 @@ import { useTenant } from '@/lib/tenant/TenantContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { withAlpha } from '@/lib/tenant/theme/color-utils';
 
-type MenuIcon = 'house.fill' | 'heart.fill' | 'rectangle.portrait.and.arrow.right';
+type MenuIcon =
+  | 'house.fill'
+  | 'heart.fill'
+  | 'car.fill'
+  | 'rectangle.portrait.and.arrow.right';
 
 type MenuItem = {
   key: string;
@@ -21,17 +25,19 @@ type MenuItem = {
 };
 
 /**
- * Top app menu. Shows Health only when the tenant registers screens.Health.
+ * Top app menu. Shows Health/Car only when the tenant registers those screens.
  *
  * sequenceDiagram
  *   participant User
  *   participant Menu as AppMenuBar
  *   participant Router as expo-router
- *   User->>Menu: press Home / Health / Log Out
+ *   User->>Menu: press Home / Health / Cars / Log Out
  *   alt Home
  *     Menu->>Router: replace /(tabs)
  *   else Health (when registered)
  *     Menu->>Router: replace /(tabs)/health
+ *   else Cars (when registered)
+ *     Menu->>Router: replace /(tabs)/car
  *   else Log Out
  *     Menu->>Menu: confirm then logout
  *   end
@@ -44,6 +50,7 @@ export default function AppMenuBar() {
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
   const hasHealth = Boolean(tenant.screens.Health);
+  const hasCar = Boolean(tenant.screens.Car);
 
   const isHomeActive =
     pathname === '/' || pathname === '/(tabs)' || pathname.endsWith('/index');
@@ -51,6 +58,10 @@ export default function AppMenuBar() {
     pathname === '/health' ||
     pathname === '/(tabs)/health' ||
     pathname.endsWith('/health');
+  const isCarActive =
+    pathname === '/car' ||
+    pathname === '/(tabs)/car' ||
+    pathname.endsWith('/car');
 
   const styles = useMemo(
     () =>
@@ -113,6 +124,19 @@ export default function AppMenuBar() {
       isActive: isHealthActive,
       onPress: () => {
         router.replace('/(tabs)/health');
+      },
+    });
+  }
+
+  if (hasCar) {
+    items.push({
+      key: 'car',
+      label: 'Cars',
+      icon: 'car.fill',
+      accessibilityLabel: 'Cars',
+      isActive: isCarActive,
+      onPress: () => {
+        router.replace('/(tabs)/car');
       },
     });
   }
