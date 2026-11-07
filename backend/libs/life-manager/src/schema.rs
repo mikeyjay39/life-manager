@@ -50,6 +50,23 @@ diesel::table! {
 }
 
 diesel::table! {
+    car_maintenance_events (id) {
+        id -> Text,
+        user_id -> Text,
+        car_id -> Text,
+        occurred_on -> Date,
+        event_type -> Text,
+        odometer_miles -> Nullable<Integer>,
+        cost_cents -> Nullable<BigInt>,
+        title -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        document_id -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     doctor_visits (id) {
         id -> Text,
         user_id -> Text,
@@ -96,8 +113,10 @@ diesel::table! {
 
 diesel::joinable!(document_tags -> documents (document_id));
 diesel::joinable!(document_tags -> tags (tag_id));
+diesel::joinable!(car_maintenance_events -> cars (car_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    car_maintenance_events,
     cars,
     doctor_visits,
     documents,

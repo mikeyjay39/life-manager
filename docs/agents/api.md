@@ -41,12 +41,16 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `PUT /life-manager/api/v1/cars/{id}` | JSON: UpdateCarCommand — `make`, `model`, `year` required. Optional fields (`display_name`, `vin`, `license_plate`, `notes`, document ids): omit = keep, `null` = clear, value = set. Optional `active` for reactivate (`true`) or deactivate (`false`). Prefer POST deactivate for deactivate. Same VIN/plate uniqueness and Document ownership rules as create. |
 | `POST /life-manager/api/v1/cars/{id}/deactivate` | Soft-deactivate (idempotent). Sets `active=false` and `deactivated_at`. Row remains; GET by id still works for owner. |
 | `DELETE /life-manager/api/v1/cars/{id}` | Hard-delete owned Car (204). Missing / other user's id → 404. Delete twice → second 404. JWT. |
+| `POST /life-manager/api/v1/car-maintenance-events` | JSON: CreateCarMaintenanceEventCommand (`car_id`, `occurred_on` YYYY-MM-DD required, not future; `event_type` one of `oil_change`, `tire`, `brakes`, `service`, `repair`, `other`; optional `odometer_miles` >= 0, `cost_cents` >= 0, `title` max 100, `notes` max 2000, `document_id`). At least one of title, notes, odometer_miles, or cost_cents. Inactive Car → 400. Missing / other user's Car → 404. `document_id` must be an owned Document when set. JWT. |
+| `GET /life-manager/api/v1/car-maintenance-events` | List events for one owned Car. Query `car_id` required (missing → 400). Optional inclusive `from` / `to` (YYYY-MM-DD) on `occurred_on`; `from` > `to` → 400. Optional `event_type` filter (invalid → 400). Newest `occurred_on` first. MVP returns all matching rows (unbounded). |
+| `GET /life-manager/api/v1/car-maintenance-events/{id}` | Single owned event. Missing / other user's id → 404. JWT. |
 
 **Car ownership**
 
 - Auth user owns `Car` (`user_id`). Document links store UUID refs only; application verifies owned Documents when set.
 - VIN and license_plate uniqueness are per user when non-empty. Different users may share the same VIN or plate.
 - Inactive cars stay queryable by id for the owner. List excludes inactive by default.
+- Auth user owns `CarMaintenanceEvent` (`user_id` copied from Car on create). Create rejects inactive Cars. Optional `document_id` is a UUID ref; ownership is checked in the application layer.
 
 **Health ownership and units**
 
@@ -62,7 +66,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount()` and `TestTenant::mount()` nest `/life-manager` and `/test-tenant` with per-tenant state
-- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`, `cars`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`, `cars`, `car-maintenance-events`
 - `backend/libs/test-tenant/src/test_tenant.rs`: `TestTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth` only (pilot)
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 

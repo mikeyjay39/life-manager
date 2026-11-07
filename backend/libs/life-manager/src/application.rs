@@ -1,6 +1,9 @@
+pub mod car_maintenance_event_repository;
+pub mod car_maintenance_event_use_cases;
 pub mod car_repository;
 pub mod car_use_cases;
 pub mod create_car_command;
+pub mod create_car_maintenance_event_command;
 pub mod create_doctor_visit_command;
 pub mod create_document_command;
 pub mod create_health_member_command;
@@ -21,6 +24,7 @@ pub mod health_member_repository;
 pub mod health_member_use_cases;
 pub mod health_reading_repository;
 pub mod health_reading_use_cases;
+pub mod list_car_maintenance_events_query;
 pub mod list_cars_query;
 pub mod list_doctor_visits_query;
 pub mod list_health_members_query;
