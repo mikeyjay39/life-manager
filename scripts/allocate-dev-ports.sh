@@ -4,8 +4,8 @@
 # and still belongs to this worktree.
 #
 # Slot N → APP_PORT=3000+N, FRONTEND_PORT=8080+N (N = 0..31).
-# Claims live under /tmp/life-manager-dev-port-claims-$UID/ so two worktrees cannot
-# pick the same free ports while cargo build has not bound them yet.
+# Claims live under a per-user cache dir so two worktrees cannot pick the same
+# free ports while cargo build has not bound them yet.
 # Control-agent reads the slot with: grep -oP 'for slot \K[0-9]+' .env.tilt.ports
 set -euo pipefail
 
@@ -14,13 +14,32 @@ OUT="$REPO_ROOT/.env.tilt.ports"
 MAX_SLOT="${DEV_PORT_MAX_SLOT:-31}"
 FORCE="${1:-}"
 CLAIM_UID="${UID:-$(id -u)}"
-CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-/tmp/life-manager-dev-port-claims-${CLAIM_UID}}"
+DEFAULT_CLAIM_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/life-manager/dev-port-claims"
+CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-$DEFAULT_CLAIM_DIR}"
 LOCK_FILE="${CLAIM_DIR}/allocate.lock"
 # Optional age reclaim for abandoned claims whose worktree dir still exists.
 # Default 0 = never age-out; reclaim only when WORKTREE_ROOT is missing.
 STALE_SECONDS="${DEV_PORT_CLAIM_STALE_SECONDS:-0}"
 
-mkdir -p "$CLAIM_DIR"
+ensure_claim_dir() {
+  mkdir -p -m 700 "$CLAIM_DIR"
+  if [[ -L "$CLAIM_DIR" ]]; then
+    echo "Error: claim dir must not be a symlink: $CLAIM_DIR" >&2
+    exit 1
+  fi
+  if [[ ! -d "$CLAIM_DIR" ]]; then
+    echo "Error: claim dir is not a directory: $CLAIM_DIR" >&2
+    exit 1
+  fi
+  local owner
+  owner="$(stat -c '%u' "$CLAIM_DIR" 2>/dev/null || stat -f '%u' "$CLAIM_DIR")"
+  if [[ "$owner" != "$CLAIM_UID" ]]; then
+    echo "Error: claim dir not owned by uid $CLAIM_UID: $CLAIM_DIR" >&2
+    exit 1
+  fi
+}
+
+ensure_claim_dir
 
 port_free() {
   local port="$1"
@@ -37,7 +56,7 @@ claim_path() {
   echo "${CLAIM_DIR}/slot-$1.claim"
 }
 
-# Read claim as plain KEY=value lines. Do not source (files live under /tmp).
+# Read claim as plain KEY=value lines. Do not source (claim files are data).
 read_claim_field() {
   local slot="$1" key="$2" f line
   f="$(claim_path "$slot")"
@@ -73,12 +92,15 @@ claim_is_releasable() {
 
 write_claim() {
   local slot="$1"
-  local now
+  local now tmp target
   now="$(date +%s)"
+  target="$(claim_path "$slot")"
+  tmp="$(mktemp "${CLAIM_DIR}/slot-${slot}.claim.XXXXXX")"
   {
     printf 'WORKTREE_ROOT=%s\n' "$REPO_ROOT"
     printf 'CLAIMED_AT=%s\n' "$now"
-  } >"$(claim_path "$slot")"
+  } >"$tmp"
+  mv -f "$tmp" "$target"
 }
 
 clear_claim_if_ours() {
