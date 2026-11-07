@@ -31,8 +31,9 @@ Use `@/` path alias (`tsconfig.json`).
 - Each tenant exports a `TenantModule` from `tenants/<id>/config.ts` (mirrors backend `TenantMount`).
 - Register hostnames and mount metadata in `lib/tenant/registry.ts`.
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
-- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Health`, and `tenant.apiV1Prefix`.
+- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
 - Optional `screens.Health` registers the Health Manager route and menu item (life-manager only; test-tenant omits it).
+- Optional `screens.Car` registers the Car Manager route and menu item (life-manager only; test-tenant omits it).
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
 
 ## Tenant theme and branding
@@ -102,6 +103,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
+| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Skeleton sections for cars, maintenance, and charts (not Home/Documents). |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
 | Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (create / edit / delete + ConfirmDialog; selected active HealthMember) |

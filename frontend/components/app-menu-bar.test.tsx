@@ -28,15 +28,16 @@ vi.mock('expo-router', () => ({
 const mockUseAuth = vi.mocked(useAuth);
 const mockUsePathname = vi.mocked(usePathname);
 
-const tenantWithHealth: TenantModule = {
+const tenantWithHealthAndCar: TenantModule = {
   ...lifeManagerTenantMeta,
   screens: {
     Home: () => null,
     Health: () => null,
+    Car: () => null,
   },
 };
 
-const tenantWithoutHealth: TenantModule = {
+const tenantWithoutOptionalScreens: TenantModule = {
   ...lifeManagerTenantMeta,
   id: 'test-tenant',
   screens: {
@@ -44,7 +45,7 @@ const tenantWithoutHealth: TenantModule = {
   },
 };
 
-function renderAppMenuBar(tenant: TenantModule = tenantWithHealth) {
+function renderAppMenuBar(tenant: TenantModule = tenantWithHealthAndCar) {
   return render(
     <TenantTestProvider tenant={tenant}>
       <TenantThemeTestProvider theme={defaultResolvedTheme}>
@@ -69,23 +70,25 @@ describe('AppMenuBar', () => {
     });
   });
 
-  it('renders Home, Health, and Log Out when the tenant has Health', () => {
-    // Given a life-manager-style tenant with screens.Health
+  it('renders Home, Health, Cars, and Log Out when the tenant has Health and Car', () => {
+    // Given a life-manager-style tenant with screens.Health and screens.Car
     // When the menu renders
-    renderAppMenuBar(tenantWithHealth);
-    // Then Home, Health, and Log Out are present
+    renderAppMenuBar(tenantWithHealthAndCar);
+    // Then Home, Health, Cars, and Log Out are present
     expect(screen.getByLabelText('Home')).toBeTruthy();
     expect(screen.getByLabelText('Health')).toBeTruthy();
+    expect(screen.getByLabelText('Cars')).toBeTruthy();
     expect(screen.getByLabelText('Log out')).toBeTruthy();
   });
 
-  it('hides Health when the tenant has no Health screen', () => {
-    // Given a tenant without screens.Health
+  it('hides Health and Cars when the tenant has no optional screens', () => {
+    // Given a tenant without screens.Health or screens.Car
     // When the menu renders
-    renderAppMenuBar(tenantWithoutHealth);
-    // Then Health is absent; Home and Log Out remain
+    renderAppMenuBar(tenantWithoutOptionalScreens);
+    // Then Health and Cars are absent; Home and Log Out remain
     expect(screen.getByLabelText('Home')).toBeTruthy();
     expect(screen.queryByLabelText('Health')).toBeNull();
+    expect(screen.queryByLabelText('Cars')).toBeNull();
     expect(screen.getByLabelText('Log out')).toBeTruthy();
   });
 
@@ -97,6 +100,16 @@ describe('AppMenuBar', () => {
     fireEvent.press(screen.getByLabelText('Health'));
     // Then the Health Manager route is opened
     expect(router.replace).toHaveBeenCalledWith('/(tabs)/health');
+  });
+
+  it('given Home when Cars is pressed then navigates to Car route', () => {
+    // Given signed-in user on Home
+    mockUsePathname.mockReturnValue('/');
+    renderAppMenuBar();
+    // When Cars is pressed
+    fireEvent.press(screen.getByLabelText('Cars'));
+    // Then the Car Manager route is opened
+    expect(router.replace).toHaveBeenCalledWith('/(tabs)/car');
   });
 
   it('given Health when Home is pressed then navigates to Home route', () => {
@@ -116,6 +129,20 @@ describe('AppMenuBar', () => {
     renderAppMenuBar();
     // Then Health is selected and Home is not
     expect(screen.getByLabelText('Health').props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(screen.getByLabelText('Home').props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+  });
+
+  it('given Car screen when menu renders then Cars shows as active', () => {
+    // Given pathname is Car
+    mockUsePathname.mockReturnValue('/car');
+    // When the menu renders
+    renderAppMenuBar();
+    // Then Cars is selected and Home is not
+    expect(screen.getByLabelText('Cars').props.accessibilityState).toMatchObject({
       selected: true,
     });
     expect(screen.getByLabelText('Home').props.accessibilityState).toMatchObject({
