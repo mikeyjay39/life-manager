@@ -1,7 +1,8 @@
 use std::{env, fs, path::Path};
 
 use anyhow::Context;
-use deadpool_diesel::sqlite::{Manager, Pool, Runtime};
+use deadpool_diesel::sqlite::{Hook, HookError, Manager, Metrics, Pool, Runtime};
+use diesel::{RunQueryDsl, sql_query};
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 
@@ -17,7 +18,20 @@ pub fn create_connection_pool() -> anyhow::Result<Pool> {
 pub fn create_connection_pool_from_url(database_url: &str) -> anyhow::Result<Pool> {
     ensure_sqlite_parent_dir_exists(database_url)?;
     let mgr = Manager::new(database_url.to_string(), Runtime::Tokio1);
+    // SQLite keeps foreign keys off by default. Enable them on each new
+    // connection so ON DELETE CASCADE (and other FKs) are enforced.
     Pool::builder(mgr)
+        .post_create(Hook::sync_fn(|conn, _metrics: &Metrics| {
+            let mut guard = conn
+                .lock()
+                .map_err(|_| HookError::message("failed to lock sqlite connection"))?;
+            sql_query("PRAGMA foreign_keys = ON")
+                .execute(&mut *guard)
+                .map_err(|err| {
+                    HookError::message(format!("failed to enable sqlite foreign_keys: {err}"))
+                })?;
+            Ok(())
+        }))
         .max_size(16)
         .build()
         .context("Failed to create pool")
@@ -58,10 +72,7 @@ fn is_in_memory_sqlite(database_url: &str) -> bool {
 }
 
 pub async fn run_migrations(pool: &Pool) -> anyhow::Result<()> {
-    let conn = pool
-        .get()
-        .await
-        .context("Failed to get DB connection")?;
+    let conn = pool.get().await.context("Failed to get DB connection")?;
     conn.interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await
         .map_err(|err| anyhow::anyhow!("Failed to run life-manager migrations interact: {err:?}"))?
@@ -87,9 +98,7 @@ mod migration_tests {
         let db_url = format!("file:{}/legacy.db", dir.path().display());
         let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
 
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
 
         let conn = pool.get().await.expect("pool connection");
         conn.interact(|conn| -> Result<(), diesel::result::Error> {
@@ -117,9 +126,7 @@ mod migration_tests {
             "legacy schema should return no documents before migration"
         );
 
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
 
         let docs = repo.get_documents(&user_id, &100).await;
         assert_eq!(docs.len(), 1, "documents should load after migration");
@@ -132,9 +139,7 @@ mod migration_tests {
         let db_url = format!("file:{}/health_readings.db", dir.path().display());
         let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
 
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
 
         let conn = pool.get().await.expect("pool connection");
         let column_names = conn
@@ -171,5 +176,113 @@ mod migration_tests {
                 "missing column {required}; have {column_names:?}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn run_migrations_creates_car_maintenance_events_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_url = format!("file:{}/car_maintenance_events.db", dir.path().display());
+        let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
+
+        run_migrations(pool.as_ref()).await.expect("run migrations");
+
+        let conn = pool.get().await.expect("pool connection");
+        let column_names = conn
+            .interact(|conn| -> Result<Vec<String>, diesel::result::Error> {
+                #[derive(QueryableByName)]
+                struct ColumnName {
+                    #[diesel(sql_type = diesel::sql_types::Text)]
+                    name: String,
+                }
+                let rows: Vec<ColumnName> =
+                    diesel::sql_query("PRAGMA table_info(car_maintenance_events)").load(conn)?;
+                Ok(rows.into_iter().map(|r| r.name).collect())
+            })
+            .await
+            .expect("interact")
+            .expect("pragma");
+
+        for required in [
+            "id",
+            "user_id",
+            "car_id",
+            "occurred_on",
+            "event_type",
+            "odometer_miles",
+            "cost_cents",
+            "title",
+            "notes",
+            "document_id",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                column_names.iter().any(|n| n == required),
+                "missing column {required}; have {column_names:?}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn car_hard_delete_cascades_maintenance_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_url = format!("file:{}/car_cascade.db", dir.path().display());
+        let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
+
+        run_migrations(pool.as_ref()).await.expect("run migrations");
+
+        let conn = pool.get().await.expect("pool connection");
+        let remaining = conn
+            .interact(|conn| -> Result<i64, diesel::result::Error> {
+                diesel::sql_query(
+                    "INSERT INTO cars (
+                        id, user_id, make, model, year, active, created_at, updated_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-0000000000c1',
+                        '00000000-0000-0000-0000-000000000001',
+                        'Toyota', 'Corolla', 2020, 1,
+                        '2026-01-01 00:00:00', '2026-01-01 00:00:00'
+                    )",
+                )
+                .execute(conn)?;
+                diesel::sql_query(
+                    "INSERT INTO car_maintenance_events (
+                        id, user_id, car_id, occurred_on, event_type,
+                        odometer_miles, cost_cents, title, notes, document_id,
+                        created_at, updated_at
+                    ) VALUES (
+                        '00000000-0000-0000-0000-0000000000e1',
+                        '00000000-0000-0000-0000-000000000001',
+                        '00000000-0000-0000-0000-0000000000c1',
+                        '2026-01-02', 'oil_change', 42000, 4999, NULL, NULL, NULL,
+                        '2026-01-02 00:00:00', '2026-01-02 00:00:00'
+                    )",
+                )
+                .execute(conn)?;
+                diesel::sql_query(
+                    "DELETE FROM cars WHERE id = '00000000-0000-0000-0000-0000000000c1'",
+                )
+                .execute(conn)?;
+
+                #[derive(QueryableByName)]
+                struct CountRow {
+                    #[diesel(sql_type = diesel::sql_types::BigInt)]
+                    count: i64,
+                }
+                let rows: Vec<CountRow> = diesel::sql_query(
+                    "SELECT COUNT(*) AS count FROM car_maintenance_events
+                     WHERE id = '00000000-0000-0000-0000-0000000000e1'",
+                )
+                .load(conn)?;
+                Ok(rows[0].count)
+            })
+            .await
+            .expect("interact")
+            .expect("cascade delete");
+
+        assert_eq!(
+            remaining, 0,
+            "maintenance events must cascade-delete with the car"
+        );
     }
 }

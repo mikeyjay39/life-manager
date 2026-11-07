@@ -2,15 +2,21 @@
 name: manual-test
 description: >-
   Starts the life-manager full stack with the dev profile and verifies new
-  functionality on the current git branch against main. Use when asked to
-  manual-test a branch, smoke-test the working branch, or prove branch
-  changes on a running dev stack.
+  functionality on the current git branch against a base branch (default main).
+  Use when asked to manual-test a branch, smoke-test the working branch, or
+  prove branch changes on a running dev stack. Pass a base branch name as the
+  argument when proving a story against a feature branch.
 disable-model-invocation: true
+argument-hint: '[base-branch]'
 ---
 
 # Manual test
 
 Prove that the current branch works on a live **dev** stack. Write all prose in ASD-STE100. Do not apply STE to code identifiers or quoted text.
+
+**Base branch:** `$ARGUMENTS` if set, else `MANUAL_TEST_BASE`, else `main`.
+Use this name for `git log` / `git diff` discovery (for example `car-manager`
+when a deliver-feature story PR targets a feature branch).
 
 ## Guardrails
 
@@ -28,7 +34,8 @@ Prove that the current branch works on a live **dev** stack. Write all prose in 
 Copy and track progress:
 
 ```text
-- [ ] Discover branch vs main (and uncommitted work)
+- [ ] Resolve base branch (argument / MANUAL_TEST_BASE / main)
+- [ ] Discover branch vs base (and uncommitted work)
 - [ ] Start ./build_and_start_app.sh dev
 - [ ] Wait for health and Expo
 - [ ] Build verification plan from the diff
@@ -44,14 +51,19 @@ Copy and track progress:
 From the repo root:
 
 ```bash
+BASE="${1:-${MANUAL_TEST_BASE:-main}}"   # or $ARGUMENTS from the skill runner
+git fetch -q origin "$BASE" 2>/dev/null || true
 git branch --show-current
-git log --oneline main..HEAD
-git diff main...HEAD
+git log --oneline "${BASE}..HEAD"
+git diff "${BASE}...HEAD"
 git status
 git diff
 ```
 
-Base branch is **`main`**. Include uncommitted changes. Summarize user-visible and API behavior that this branch adds or changes.
+Base branch defaults to **`main`**. Override with the skill argument or
+`MANUAL_TEST_BASE` (deliver-feature story workers pass the feature branch).
+Include uncommitted changes. Summarize user-visible and API behavior that this
+branch adds or changes versus that base.
 
 ### 2. Start full stack (dev)
 

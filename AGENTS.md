@@ -1,6 +1,6 @@
 # life-manager — agent instructions
 
-Personal/family life-management app. **Documents** and partial **Health Manager** ship today; more domains are planned (see [README.md](README.md)).
+Personal/family life-management app. **Documents**, **Health Manager**, and **Car Manager** ship today; more domains are planned (see [README.md](README.md)).
 
 ## Monorepo
 
@@ -13,7 +13,7 @@ Personal/family life-management app. **Documents** and partial **Health Manager*
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)
 
-**Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant) · [`.cursor/skills/raise-gh-enhancement/`](.cursor/skills/raise-gh-enhancement/) (epic + story sub-issues from a feature idea)
+**Cursor skills:** [`.cursor/skills/deliver-feature/`](.cursor/skills/deliver-feature/) (boss: feature branch + story workers → feature→main PR, unmerged) · [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof; optional base branch) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant) · [`.cursor/skills/raise-gh-enhancement/`](.cursor/skills/raise-gh-enhancement/) (epic + story sub-issues from a feature idea)
 
 **Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`, `.cursor/rules/dev-stack-limits.mdc`
 
@@ -39,7 +39,7 @@ These override everything else in agent docs.
 
 **OK always:** `git status`, `git diff`, `git log`, `git show`, `git branch` (list), `git rev-parse`, `git describe`, `git fetch`.
 
-**Skill exception:** when the user invokes a Cursor skill that needs git write (for example [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/)), that skill run may use `git add`, `git commit`, and `git push -u origin HEAD` as the skill states. Follow the skill’s own git guardrails.
+**Skill exception:** when the user invokes a Cursor skill that needs git write (for example [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) or [`.cursor/skills/deliver-feature/`](.cursor/skills/deliver-feature/)), that skill run may use `git add`, `git commit`, and `git push -u origin HEAD` as the skill states. **deliver-feature** may also merge story PRs into the feature branch. It must not merge the feature branch into `main`. Follow the skill’s own git guardrails.
 
 **Never run unless the user explicitly asks in the current message:** `git push --force`, `git reset --hard`, `git clean -fd`, `git rebase` / `git cherry-pick` onto shared history, `git commit --amend` of a commit you did not just create, `git config` (set/unset), delete or rename a published branch, merge to `main`.
 
@@ -53,7 +53,7 @@ Humans never force-push `main`. Prefer a PR over committing directly on `main`.
 
 ### Parallel workers (max 3)
 
-When you coordinate multiple implementers (control-agent, parallel worktrees, or similar):
+When you coordinate multiple implementers ([`.cursor/skills/deliver-feature/`](.cursor/skills/deliver-feature/), control-agent, parallel worktrees, or similar):
 
 - Keep at most **3 active workers** at once.
 - Queue further issues until a worker finishes or stops.
@@ -77,7 +77,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 ## Scope
 
 - Do not implement [docs/todos.md](docs/todos.md) unless asked.
-- Respect domain aggregates in [README.md](README.md) (Document, HealthMember, HealthReading, DoctorVisit, etc.).
+- Respect domain aggregates in [README.md](README.md) (Document, HealthMember, HealthReading, DoctorVisit, Car, CarMaintenanceEvent, etc.).
 
 ## Before changing code
 

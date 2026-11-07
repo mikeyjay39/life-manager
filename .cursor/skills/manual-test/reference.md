@@ -1,5 +1,19 @@
 # Manual test — reference
 
+## Base branch
+
+Default compare base is **`main`**.
+
+| Source | When |
+|--------|------|
+| Skill `$ARGUMENTS` / first CLI arg | Explicit base (for example `car-manager`) |
+| `MANUAL_TEST_BASE` | Env override when the skill runner has no args |
+| `main` | Default |
+
+Use the same name in `git log <base>..HEAD` and `git diff <base>...HEAD`.
+Story workers under **deliver-feature** must pass the feature branch so proof
+covers only that story’s delta, not the whole feature stack versus `main`.
+
 ## Ports (dev defaults + parallel worktrees)
 
 Load from repo-root `.dev.env` when present. For **parallel** worktrees, `./build_and_start_app.sh dev` runs `scripts/allocate-dev-ports.sh`, which writes **`.env.tilt.ports`** (gitignored):

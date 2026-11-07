@@ -1,4 +1,5 @@
 import type { TenantModule } from '@/lib/tenant/types';
+import CarScreen from '@/tenants/life-manager/screens/CarScreen';
 import HealthScreen from '@/tenants/life-manager/screens/HealthScreen';
 import HomeScreen from '@/tenants/life-manager/screens/HomeScreen';
 import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
@@ -13,5 +14,6 @@ export const lifeManagerTenant: TenantModule = {
   screens: {
     Home: HomeScreen,
     Health: HealthScreen,
+    Car: CarScreen,
   },
 };

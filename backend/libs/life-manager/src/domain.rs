@@ -1,3 +1,5 @@
+pub mod car;
+pub mod car_maintenance_event;
 pub mod doctor_visit;
 pub mod document;
 pub mod document_storage_ref;
