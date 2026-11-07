@@ -256,4 +256,30 @@ describe('car chart-series mapping', () => {
       ])
     ).toBeNull();
   });
+
+  it('clears miles-since-oil when a later oil_change has no odometer', () => {
+    // Given a prior oil with miles, then a later oil without miles
+    expect(
+      milesSinceLastOilChange([
+        event({
+          id: 'a',
+          occurred_on: '2026-01-01',
+          event_type: 'oil_change',
+          odometer_miles: 50000,
+        }),
+        event({
+          id: 'b',
+          occurred_on: '2026-03-01',
+          event_type: 'oil_change',
+          odometer_miles: null,
+        }),
+        event({
+          id: 'c',
+          occurred_on: '2026-06-01',
+          event_type: 'service',
+          odometer_miles: 53000,
+        }),
+      ])
+    ).toBeNull();
+  });
 });

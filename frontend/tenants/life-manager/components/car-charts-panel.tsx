@@ -147,7 +147,10 @@ export default function CarChartsPanel({
     [events, metric]
   );
 
-  const oilMiles = useMemo(() => milesSinceLastOilChange(events), [events]);
+  const oilMiles = useMemo(
+    () => (loading ? null : milesSinceLastOilChange(events)),
+    [events, loading]
+  );
 
   const chartWidth = Math.max(280, Math.min(windowWidth - 48, 720));
   const pointCount = seriesPointCount(series);
@@ -252,7 +255,7 @@ export default function CarChartsPanel({
           color={palette.tint}
           accessibilityLabel="Loading car charts"
         />
-      ) : pointCount === 0 ? (
+      ) : error ? null : pointCount === 0 ? (
         <Text
           style={{ color: palette.icon }}
           accessibilityLabel="Charts empty state">

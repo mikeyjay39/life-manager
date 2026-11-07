@@ -239,12 +239,16 @@ export function milesSinceLastOilChange(
   let lastOilOdometer: number | null = null;
   let latestOdometer: number | null = null;
   for (const event of sorted) {
-    if (event.odometer_miles == null || !Number.isFinite(event.odometer_miles)) {
-      continue;
+    const miles =
+      event.odometer_miles != null && Number.isFinite(event.odometer_miles)
+        ? event.odometer_miles
+        : null;
+    if (miles != null) {
+      latestOdometer = miles;
     }
-    latestOdometer = event.odometer_miles;
     if (event.event_type === 'oil_change') {
-      lastOilOdometer = event.odometer_miles;
+      // Latest oil_change wins; null odometer clears a prior oil baseline.
+      lastOilOdometer = miles;
     }
   }
   if (lastOilOdometer == null || latestOdometer == null) {
