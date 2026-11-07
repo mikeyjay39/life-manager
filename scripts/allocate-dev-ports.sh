@@ -6,17 +6,21 @@
 # Slot N → APP_PORT=3000+N, FRONTEND_PORT=8080+N (N = 0..31).
 # Claims live under a per-user cache dir so two worktrees cannot pick the same
 # free ports while cargo build has not bound them yet.
+# At most LIFE_MANAGER_MAX_PARALLEL_DEV_STACKS (default 2) live claims may exist.
 # Control-agent reads the slot with: grep -oP 'for slot \K[0-9]+' .env.tilt.ports
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$REPO_ROOT/.env.tilt.ports"
 MAX_SLOT="${DEV_PORT_MAX_SLOT:-31}"
+MAX_PARALLEL_DEV_STACKS="${LIFE_MANAGER_MAX_PARALLEL_DEV_STACKS:-2}"
 FORCE="${1:-}"
 CLAIM_UID="${UID:-$(id -u)}"
 DEFAULT_CLAIM_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/life-manager/dev-port-claims"
 CLAIM_DIR="${LIFE_MANAGER_PORT_CLAIM_DIR:-$DEFAULT_CLAIM_DIR}"
 LOCK_FILE="${CLAIM_DIR}/allocate.lock"
+# Set when --force clears this worktree's existing claim so re-slot stays allowed.
+REPLACING_OWN_STACK=0
 
 ensure_claim_dir() {
   mkdir -p -m 700 "$CLAIM_DIR"
@@ -75,6 +79,68 @@ claim_is_releasable() {
   return 1
 }
 
+# Count claims whose worktree directory still exists.
+count_live_claims() {
+  local count=0
+  local f root
+  shopt -s nullglob
+  for f in "$CLAIM_DIR"/slot-*.claim; do
+    root="$(grep -E '^WORKTREE_ROOT=' "$f" | head -n1 | cut -d= -f2- || true)"
+    if [[ -n "$root" && -d "$root" ]]; then
+      count=$((count + 1))
+    fi
+  done
+  shopt -u nullglob
+  echo "$count"
+}
+
+worktree_has_live_claim() {
+  local f root
+  shopt -s nullglob
+  for f in "$CLAIM_DIR"/slot-*.claim; do
+    root="$(grep -E '^WORKTREE_ROOT=' "$f" | head -n1 | cut -d= -f2- || true)"
+    if [[ "$root" == "$REPO_ROOT" && -d "$root" ]]; then
+      shopt -u nullglob
+      return 0
+    fi
+  done
+  shopt -u nullglob
+  return 1
+}
+
+list_live_claim_roots() {
+  local f root
+  shopt -s nullglob
+  for f in "$CLAIM_DIR"/slot-*.claim; do
+    root="$(grep -E '^WORKTREE_ROOT=' "$f" | head -n1 | cut -d= -f2- || true)"
+    if [[ -n "$root" && -d "$root" ]]; then
+      printf '  - %s\n' "$root"
+    fi
+  done
+  shopt -u nullglob
+}
+
+# Allow restart/re-slot for this worktree. Block a third new stack.
+assert_may_allocate_new_stack() {
+  local live
+  if (( REPLACING_OWN_STACK == 1 )); then
+    return 0
+  fi
+  if worktree_has_live_claim; then
+    return 0
+  fi
+  live="$(count_live_claims)"
+  if (( live < MAX_PARALLEL_DEV_STACKS )); then
+    return 0
+  fi
+  echo "Error: already ${live} live host dev stack claim(s); max is ${MAX_PARALLEL_DEV_STACKS}." >&2
+  echo "Free a worktree or claim before starting another full stack." >&2
+  echo "Override only when needed: LIFE_MANAGER_MAX_PARALLEL_DEV_STACKS=<n>" >&2
+  echo "Live claims:" >&2
+  list_live_claim_roots >&2
+  exit 1
+}
+
 write_claim() {
   local slot="$1"
   local now tmp target
@@ -101,6 +167,7 @@ write_ports() {
   local slot="$1"
   local app=$((3000 + slot))
   local fe=$((8080 + slot))
+  assert_may_allocate_new_stack
   write_claim "$slot"
   cat >"$OUT" <<EOF
 # Dev port assignment for slot ${slot} (parallel worktrees / manual-test)
@@ -187,6 +254,10 @@ fi
 if [[ "$FORCE" == "--force" && -f "$OUT" ]]; then
   old_slot="$(read_slot_from_ports_file || true)"
   if [[ -n "${old_slot:-}" ]]; then
+    root="$(read_claim_field "$old_slot" WORKTREE_ROOT 2>/dev/null || true)"
+    if [[ -n "$root" && "$root" == "$REPO_ROOT" ]]; then
+      REPLACING_OWN_STACK=1
+    fi
     clear_claim_if_ours "$old_slot"
   fi
 fi
