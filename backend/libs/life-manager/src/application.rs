@@ -8,6 +8,7 @@ pub mod get_document_query;
 pub mod get_documents_query;
 pub mod health_member_repository;
 pub mod health_member_use_cases;
+pub mod health_reading_repository;
 pub mod list_health_members_query;
 pub mod update_document_command;
 pub mod update_health_member_command;
