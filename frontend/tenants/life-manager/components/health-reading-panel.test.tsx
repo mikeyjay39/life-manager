@@ -339,6 +339,35 @@ describe('HealthReadingPanel', () => {
     });
   });
 
+  it('given no member then first select keeps empty form ready without wipe race', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
+    const { rerender } = renderPanel(null);
+
+    expect(
+      screen.getByText('Select or create a HealthMember to enter vitals.')
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Weight in kilograms').props.editable).toBe(
+      false
+    );
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={member({ id: 'm1', display_name: 'Alex' })}
+          unitSystem="metric"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms').props.editable).toBe(
+        true
+      );
+    });
+  });
+
   it('given filled metric fields when unitSystem prop flips then converts form values', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
     const { rerender } = renderPanel(

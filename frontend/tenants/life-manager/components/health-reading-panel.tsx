@@ -103,6 +103,7 @@ export default function HealthReadingPanel({
   const selectedMemberIdRef = useRef<string | null>(null);
   selectedMemberIdRef.current = selectedMember?.id ?? null;
   const prevUnitSystemRef = useRef(unitSystem);
+  const prevMemberIdRef = useRef<string | null>(selectedMember?.id ?? null);
 
   const styles = useMemo(
     () =>
@@ -191,10 +192,15 @@ export default function HealthReadingPanel({
     prevUnitSystemRef.current = unitSystem;
   }, [unitSystem]);
 
-  // Clear vitals when the selected member changes so values do not carry over.
+  // Clear vitals only when switching between two concrete members.
   useEffect(() => {
-    setForm((prev) => emptyForm(prev.recordedOn));
-    setFormError(null);
+    const previousId = prevMemberIdRef.current;
+    const nextId = selectedMember?.id ?? null;
+    prevMemberIdRef.current = nextId;
+    if (previousId != null && nextId != null && previousId !== nextId) {
+      setForm((prev) => emptyForm(prev.recordedOn));
+      setFormError(null);
+    }
   }, [selectedMember?.id]);
 
   const setUnit = useCallback(
@@ -275,7 +281,9 @@ export default function HealthReadingPanel({
     Boolean(selectedMember?.active) &&
     unitPreferenceReady &&
     !submitting;
-  const fieldsLocked = !unitPreferenceReady || submitting;
+  const unitToggleLocked = !unitPreferenceReady || submitting;
+  const vitalsLocked =
+    unitToggleLocked || !selectedMember?.active;
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -358,7 +366,7 @@ export default function HealthReadingPanel({
           variant={unitSystem === 'metric' ? 'primary' : 'outline'}
           label="Metric"
           accessibilityLabel="Use metric units"
-          disabled={fieldsLocked}
+          disabled={unitToggleLocked}
           onPress={() => {
             void setUnit('metric');
           }}
@@ -368,7 +376,7 @@ export default function HealthReadingPanel({
           variant={unitSystem === 'imperial' ? 'primary' : 'outline'}
           label="Imperial"
           accessibilityLabel="Use imperial units"
-          disabled={fieldsLocked}
+          disabled={unitToggleLocked}
           onPress={() => {
             void setUnit('imperial');
           }}
@@ -398,7 +406,7 @@ export default function HealthReadingPanel({
           value={form.recordedOn}
           onChange={(value) => updateField('recordedOn', value)}
           accessibilityLabel="Recorded date"
-          disabled={fieldsLocked}
+          disabled={vitalsLocked}
         />
       </View>
 
@@ -407,7 +415,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Height (cm)" />
             <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
               style={styles.input}
               value={form.heightCm}
               onChangeText={(v) => updateField('heightCm', v)}
@@ -420,7 +428,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Weight (kg)" />
             <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
               style={styles.input}
               value={form.weightKg}
               onChangeText={(v) => updateField('weightKg', v)}
@@ -437,7 +445,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (ft)" />
               <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
                 style={styles.input}
                 value={form.heightFeet}
                 onChangeText={(v) => updateField('heightFeet', v)}
@@ -450,7 +458,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (in)" />
               <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
                 style={styles.input}
                 value={form.heightInches}
                 onChangeText={(v) => updateField('heightInches', v)}
@@ -464,7 +472,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Weight (lb)" />
             <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
               style={styles.input}
               value={form.weightLb}
               onChangeText={(v) => updateField('weightLb', v)}
@@ -480,7 +488,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Systolic (mmHg)" />
         <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
           style={styles.input}
           value={form.systolic}
           onChangeText={(v) => updateField('systolic', v)}
@@ -493,7 +501,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Diastolic (mmHg)" />
         <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
           style={styles.input}
           value={form.diastolic}
           onChangeText={(v) => updateField('diastolic', v)}
@@ -506,7 +514,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Heart rate (bpm)" />
         <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
           style={styles.input}
           value={form.heartRate}
           onChangeText={(v) => updateField('heartRate', v)}
@@ -519,7 +527,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Notes" />
         <TextInput
-              editable={!fieldsLocked}
+              editable={!vitalsLocked}
           style={[styles.input, styles.inputMultiline]}
           value={form.notes}
           onChangeText={(v) => updateField('notes', v)}
