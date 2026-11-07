@@ -34,11 +34,24 @@ impl std::fmt::Display for InactiveCarForMaintenanceEvent {
 
 impl std::error::Error for InactiveCarForMaintenanceEvent {}
 
+/// Update or delete affected 0 rows (row removed after load).
+#[derive(Debug)]
+pub struct MissingCarMaintenanceEvent;
+
+impl std::fmt::Display for MissingCarMaintenanceEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CarMaintenanceEvent not found")
+    }
+}
+
+impl std::error::Error for MissingCarMaintenanceEvent {}
+
 /**
  * Port for CarMaintenanceEvent persistence.
  *
  * Many events on the same date are allowed. There is no unique date key.
  * Callers that mutate must use `load_owned` so other users see not-found.
+ * `save` rejects inactive Cars. `update` and `delete` do not.
  */
 #[async_trait]
 pub trait CarMaintenanceEventRepository: Sync + Send {
@@ -60,6 +73,19 @@ pub trait CarMaintenanceEventRepository: Sync + Send {
         &self,
         event: CarMaintenanceEvent,
     ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>>;
+
+    /// Persists mutable fields. Does not require the Car to be active.
+    async fn update(
+        &self,
+        event: CarMaintenanceEvent,
+    ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>>;
+
+    /// Deletes by id only when `user_id` owns the row.
+    async fn delete(
+        &self,
+        id: &CarMaintenanceEventId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 
     /// Returns the event only when `user_id` owns it.
     async fn load_owned(

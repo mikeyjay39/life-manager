@@ -7,11 +7,14 @@ use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
 use crate::application::create_car_maintenance_event_command::CreateCarMaintenanceEventCommand;
+use crate::application::delete_car_maintenance_event_command::DeleteCarMaintenanceEventCommand;
 use crate::application::list_car_maintenance_events_query::ListCarMaintenanceEventsQuery;
+use crate::application::update_car_maintenance_event_command::UpdateCarMaintenanceEventCommand;
 use crate::domain::car::CarId;
 use crate::domain::car_maintenance_event::CarMaintenanceEventId;
 use crate::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
     CreateCarMaintenanceEventCommandDto, GetCarMaintenanceEventsQueryParams,
+    UpdateCarMaintenanceEventCommandDto,
 };
 use crate::infrastructure::car_maintenance_event::car_maintenance_event_dto::CarMaintenanceEventDto;
 use crate::infrastructure::car_maintenance_event::car_maintenance_event_state::CarMaintenanceEventState;
@@ -118,6 +121,76 @@ pub async fn get_car_maintenance_event(
         .await
         .ok_or(AppError::NotFound)?;
     AppResponse::ok(CarMaintenanceEventDto::from_domain(&event))
+}
+
+/// Updates an owned CarMaintenanceEvent. `car_id` is immutable.
+///
+/// Allowed on inactive Cars (history correction). Same field validation as create.
+///
+/// ```text
+/// +--------+     +---------------------------+     +--------------------+     +------------------+
+/// |        |     | Handler                   |     | Update command     |     | SQLite           |
+/// | Client |---->| update_car_maintenance_   |---->| verify document,   |---->| car_maintenance_ |
+/// |        |     | event (JWT user_id)       |     | load_owned, update,|     | events           |
+/// +--------+     +---------------------------+     | repo.update        |     +------------------+
+///      |                    |                      +--------------------+              |
+///      |  PUT /car-maintenance-events/{id}         |                                  |
+///      |  { occurred_on, event_type, ... }         |                                  |
+///      |------------------->|                       |                                  |
+///      |                    |  load_owned Document (when document_id set)              |
+///      |                    |  load_owned event                                        |
+///      |                    |  event.update (no active-car check)                      |
+///      |                    |  repo.update-------------------------------------------->|
+///      |  200 CarMaintenanceEventDto                |                                  |
+///      |<-------------------|                       |                                  |
+/// ```
+pub async fn update_car_maintenance_event(
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
+    State(CarMaintenanceEventState(use_cases)): State<CarMaintenanceEventState>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateCarMaintenanceEventCommandDto>,
+) -> ApiResult<CarMaintenanceEventDto> {
+    tracing::info!("Updating CarMaintenanceEvent id={}", id);
+    let event_type = payload.parse_event_type()?;
+    let event = UpdateCarMaintenanceEventCommand::new(
+        CarMaintenanceEventId(id),
+        user_id,
+        payload.occurred_on,
+        event_type,
+        payload.odometer_miles,
+        payload.cost_cents,
+        payload.title,
+        payload.notes,
+        payload.document_id,
+        use_cases.car_maintenance_event_repository.clone(),
+        use_cases.document_repository.clone(),
+    )
+    .execute()
+    .await?;
+    AppResponse::ok(CarMaintenanceEventDto::from_domain(&event))
+}
+
+/// Hard-deletes an owned CarMaintenanceEvent. Missing or other user's id → 404.
+pub async fn delete_car_maintenance_event(
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
+    State(CarMaintenanceEventState(use_cases)): State<CarMaintenanceEventState>,
+    Path(id): Path<Uuid>,
+) -> ApiResult<()> {
+    tracing::info!("Deleting CarMaintenanceEvent id={}", id);
+    DeleteCarMaintenanceEventCommand::new(
+        CarMaintenanceEventId(id),
+        user_id,
+        use_cases.car_maintenance_event_repository.clone(),
+    )
+    .execute()
+    .await?;
+    AppResponse::<()>::no_content()
 }
 
 #[cfg(test)]
@@ -370,5 +443,164 @@ mod tests {
         )
         .await;
         assert!(matches!(other, Err(AppError::NotFound)));
+    }
+
+    fn update_payload(occurred_on: NaiveDate) -> UpdateCarMaintenanceEventCommandDto {
+        UpdateCarMaintenanceEventCommandDto {
+            occurred_on,
+            event_type: "service".to_string(),
+            odometer_miles: Some(60_000),
+            cost_cents: Some(7_500),
+            title: None,
+            notes: None,
+            document_id: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn given_owned_event_when_update_odometer_and_cost_then_dto() {
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let created = create_event(
+            auth_user.clone(),
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+
+        let updated = update_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+            Json(update_payload(created.occurred_on)),
+        )
+        .await
+        .unwrap()
+        .data;
+
+        assert_eq!(updated.id, created.id);
+        assert_eq!(updated.car_id, created.car_id);
+        assert_eq!(updated.odometer_miles, Some(60_000));
+        assert_eq!(updated.cost_cents, Some(7_500));
+        assert_eq!(updated.event_type, "service");
+    }
+
+    #[tokio::test]
+    async fn given_inactive_car_when_update_event_then_accepted() {
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let created = create_event(
+            auth_user.clone(),
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+        let mut inactive = fx.cars.get_by_id(&car.id).await.unwrap();
+        inactive.deactivate();
+        fx.cars.update(inactive).await.unwrap();
+
+        let updated = update_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+            Json(update_payload(created.occurred_on)),
+        )
+        .await
+        .unwrap()
+        .data;
+
+        assert_eq!(updated.odometer_miles, Some(60_000));
+    }
+
+    #[tokio::test]
+    async fn given_other_users_event_when_update_then_not_found() {
+        let owner = test_auth_user();
+        let other = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, owner.user_id, true).await;
+        let created = create_event(
+            owner,
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+
+        let result = update_car_maintenance_event(
+            other,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+            Json(update_payload(created.occurred_on)),
+        )
+        .await;
+
+        assert!(matches!(result, Err(AppError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn given_owned_event_when_delete_then_gone_and_second_delete_not_found() {
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let created = create_event(
+            auth_user.clone(),
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+
+        delete_car_maintenance_event(
+            auth_user.clone(),
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+        )
+        .await
+        .unwrap();
+
+        let get = get_car_maintenance_event(
+            auth_user.clone(),
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+        )
+        .await;
+        assert!(matches!(get, Err(AppError::NotFound)));
+
+        let second = delete_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+        )
+        .await;
+        assert!(matches!(second, Err(AppError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn given_other_users_event_when_delete_then_not_found() {
+        let owner = test_auth_user();
+        let other = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, owner.user_id, true).await;
+        let created = create_event(
+            owner,
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+
+        let result = delete_car_maintenance_event(
+            other,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+        )
+        .await;
+
+        assert!(matches!(result, Err(AppError::NotFound)));
+        assert_eq!(fx.events.events.lock().await.len(), 1);
     }
 }

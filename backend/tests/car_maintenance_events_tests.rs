@@ -6,7 +6,9 @@ use axum_test::TestServer;
 use chrono::{NaiveDate, Utc};
 use life_manager::infrastructure::car::car_api_types::CreateCarCommandDto;
 use life_manager::infrastructure::car::car_dto::CarDto;
-use life_manager::infrastructure::car_maintenance_event::car_maintenance_event_api_types::CreateCarMaintenanceEventCommandDto;
+use life_manager::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
+    CreateCarMaintenanceEventCommandDto, UpdateCarMaintenanceEventCommandDto,
+};
 use life_manager::infrastructure::car_maintenance_event::car_maintenance_event_dto::CarMaintenanceEventDto;
 use life_manager::infrastructure::document::document_api_types::CreateDocumentCommandDto;
 use life_manager::infrastructure::document::document_dto::DocumentDto;
@@ -332,6 +334,208 @@ async fn given_owned_event_when_get_then_200() {
     .await;
 }
 
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_event_when_update_odometer_and_cost_then_200() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+
+        let res = put_event(
+            &server,
+            &auth_header,
+            created.id,
+            UpdateCarMaintenanceEventCommandDto {
+                occurred_on: created.occurred_on,
+                event_type: "service".to_string(),
+                odometer_miles: Some(60_000),
+                cost_cents: Some(7_500),
+                title: None,
+                notes: None,
+                document_id: None,
+            },
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let updated = res.json::<CarMaintenanceEventDto>().await.expect("json");
+        assert_eq!(updated.id, created.id);
+        assert_eq!(updated.car_id, created.car_id);
+        assert_eq!(updated.odometer_miles, Some(60_000));
+        assert_eq!(updated.cost_cents, Some(7_500));
+        assert_eq!(updated.event_type, "service");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_inactive_car_when_update_event_then_200() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+        deactivate_car(&server, &auth_header, car.id).await;
+
+        let res = put_event(
+            &server,
+            &auth_header,
+            created.id,
+            UpdateCarMaintenanceEventCommandDto {
+                occurred_on: created.occurred_on,
+                event_type: "oil_change".to_string(),
+                odometer_miles: Some(55_000),
+                cost_cents: Some(6_000),
+                title: None,
+                notes: None,
+                document_id: None,
+            },
+        )
+        .await;
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let updated = res.json::<CarMaintenanceEventDto>().await.expect("json");
+        assert_eq!(updated.odometer_miles, Some(55_000));
+        assert_eq!(updated.cost_cents, Some(6_000));
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_other_users_event_when_update_then_404() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+        let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
+
+        let res = put_event(
+            &server,
+            &other_header,
+            created.id,
+            UpdateCarMaintenanceEventCommandDto {
+                occurred_on: created.occurred_on,
+                event_type: "service".to_string(),
+                odometer_miles: Some(60_000),
+                cost_cents: Some(7_500),
+                title: None,
+                notes: None,
+                document_id: None,
+            },
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_negative_cost_when_update_then_400() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+
+        let res = put_event(
+            &server,
+            &auth_header,
+            created.id,
+            UpdateCarMaintenanceEventCommandDto {
+                occurred_on: created.occurred_on,
+                event_type: "oil_change".to_string(),
+                odometer_miles: Some(50_000),
+                cost_cents: Some(-1),
+                title: None,
+                notes: None,
+                document_id: None,
+            },
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_event_when_delete_then_204_and_get_404() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+
+        let del = delete_event(&server, &auth_header, created.id).await;
+        assert_eq!(del.status(), StatusCode::NO_CONTENT);
+
+        let get = get_event(&server, &auth_header, created.id).await;
+        assert_eq!(get.status(), StatusCode::NOT_FOUND);
+
+        let second = delete_event(&server, &auth_header, created.id).await;
+        assert_eq!(second.status(), StatusCode::NOT_FOUND);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_other_users_event_when_delete_then_404() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let created = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+        let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
+
+        let res = delete_event(&server, &other_header, created.id).await;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+
+        let still = get_event(&server, &auth_header, created.id).await;
+        assert_eq!(still.status(), StatusCode::OK);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_no_auth_when_put_or_delete_then_401() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let client = reqwest::Client::new();
+        let item = server
+            .server_url(&format!("{EVENTS_URL}/{}", Uuid::new_v4()))
+            .expect("url")
+            .to_string();
+
+        let put = client
+            .put(&item)
+            .json(&UpdateCarMaintenanceEventCommandDto {
+                occurred_on: day(2026, 1, 15),
+                event_type: "service".to_string(),
+                odometer_miles: Some(1),
+                cost_cents: None,
+                title: None,
+                notes: None,
+                document_id: None,
+            })
+            .send()
+            .await
+            .expect("put");
+        assert_eq!(put.status(), StatusCode::UNAUTHORIZED);
+
+        let del = client.delete(&item).send().await.expect("delete");
+        assert_eq!(del.status(), StatusCode::UNAUTHORIZED);
+    })
+    .await;
+}
+
 async fn create_car(server: &TestServer, auth_header: &str) -> CarDto {
     create_car_named(server, auth_header, "Toyota", "Corolla", 2020).await
 }
@@ -416,6 +620,38 @@ async fn get_event(server: &TestServer, auth_header: &str, id: Uuid) -> reqwest:
         .send()
         .await
         .expect("get event")
+}
+
+async fn put_event(
+    server: &TestServer,
+    auth_header: &str,
+    id: Uuid,
+    payload: UpdateCarMaintenanceEventCommandDto,
+) -> reqwest::Response {
+    let url = server
+        .server_url(&format!("{EVENTS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    reqwest::Client::new()
+        .put(url)
+        .header("Authorization", auth_header)
+        .json(&payload)
+        .send()
+        .await
+        .expect("put event")
+}
+
+async fn delete_event(server: &TestServer, auth_header: &str, id: Uuid) -> reqwest::Response {
+    let url = server
+        .server_url(&format!("{EVENTS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    reqwest::Client::new()
+        .delete(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("delete event")
 }
 
 async fn list_events(
