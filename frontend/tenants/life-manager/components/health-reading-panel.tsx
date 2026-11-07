@@ -111,6 +111,7 @@ export default function HealthReadingPanel({
     null
   );
   const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
 
   const loadGenerationRef = useRef(0);
   const selectedMemberIdRef = useRef<string | null>(null);
@@ -434,7 +435,7 @@ export default function HealthReadingPanel({
   };
 
   const handleDeleteConfirm = async () => {
-    if (!token || !deleteTarget || deleting) {
+    if (!token || !deleteTarget || deletingRef.current) {
       if (!token) {
         setActionError('No authentication token available.');
       }
@@ -442,9 +443,17 @@ export default function HealthReadingPanel({
     }
     const target = deleteTarget;
     const memberIdAtDelete = selectedMemberIdRef.current;
+    deletingRef.current = true;
     setDeleting(true);
     setActionError(null);
+    setDeleteTarget(null);
     const previousList = readings;
+    // Optimistic remove so a second confirm cannot revive the row after 404.
+    setReadings((prev) => prev.filter((r) => r.id !== target.id));
+    if (editingReadingId === target.id) {
+      setEditingReadingId(null);
+      setForm(emptyHealthReadingForm(todayYmd()));
+    }
     try {
       const response = await authenticatedFetch(
         `/health-readings/${encodeURIComponent(target.id)}`,
@@ -454,18 +463,14 @@ export default function HealthReadingPanel({
           onUnauthorized: handleUnauthorized,
         }
       );
-      if (!response.ok) {
+      // 404: already gone — keep optimistic removal.
+      if (!response.ok && response.status !== 404) {
         const bodyText = await response.text();
         throw new Error(
           bodyText
             ? `Request failed (${response.status}): ${bodyText}`
             : `Request failed with status ${response.status}`
         );
-      }
-      setDeleteTarget(null);
-      if (editingReadingId === target.id) {
-        setEditingReadingId(null);
-        setForm(emptyHealthReadingForm(todayYmd()));
       }
       if (selectedMemberIdRef.current === memberIdAtDelete) {
         await loadReadings();
@@ -476,11 +481,11 @@ export default function HealthReadingPanel({
       const msg =
         err instanceof Error ? err.message : 'Failed to delete reading';
       setActionError(msg);
-      setDeleteTarget(null);
       if (selectedMemberIdRef.current === memberIdAtDelete) {
         setReadings(previousList);
       }
     } finally {
+      deletingRef.current = false;
       setDeleting(false);
     }
   };

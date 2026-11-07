@@ -71,12 +71,11 @@ export function formFromHealthReading(
   const notes = reading.notes ?? '';
 
   if (unitSystem === 'metric') {
+    // Keep stored precision so an edit with no change does not rewrite values.
     return {
       ...base,
-      heightCm:
-        reading.height_cm != null ? String(round1(reading.height_cm)) : '',
-      weightKg:
-        reading.weight_kg != null ? String(round1(reading.weight_kg)) : '',
+      heightCm: reading.height_cm != null ? String(reading.height_cm) : '',
+      weightKg: reading.weight_kg != null ? String(reading.weight_kg) : '',
       systolic,
       diastolic,
       heartRate,

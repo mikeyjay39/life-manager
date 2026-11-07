@@ -198,6 +198,15 @@ describe('formFromHealthReading', () => {
     expect(form.notes).toBe('baseline');
   });
 
+  it('given metric mode when prefilling then keeps stored precision', () => {
+    const form = formFromHealthReading(
+      sampleReading({ height_cm: 180.55, weight_kg: 70.55 }),
+      'metric'
+    );
+    expect(form.heightCm).toBe('180.55');
+    expect(form.weightKg).toBe('70.55');
+  });
+
   it('given imperial mode when prefilling then converts height and weight', () => {
     const form = formFromHealthReading(sampleReading(), 'imperial');
     expect(form.heightFeet).toBe('5');

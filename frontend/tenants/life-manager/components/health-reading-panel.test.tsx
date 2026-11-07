@@ -745,4 +745,35 @@ describe('HealthReadingPanel', () => {
     expect(screen.getByText('still-here')).toBeTruthy();
     expect(mockOnReadingsChanged).not.toHaveBeenCalled();
   });
+
+  it('given delete returns 404 then keeps row removed and refreshes', async () => {
+    const existing = reading({
+      id: 'r-404',
+      recorded_on: '2026-03-08',
+      weight_kg: 65,
+      notes: 'already-gone',
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([existing]))
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('already-gone')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Delete reading on 2026-03-08'));
+    await waitFor(() => {
+      expect(screen.getByText('Delete reading?')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Delete'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('already-gone')).toBeNull();
+      expect(screen.getByText('No readings yet.')).toBeTruthy();
+    });
+    expect(mockOnReadingsChanged).toHaveBeenCalled();
+  });
 });
