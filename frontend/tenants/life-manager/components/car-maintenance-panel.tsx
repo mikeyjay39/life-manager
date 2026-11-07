@@ -101,6 +101,7 @@ export default function CarMaintenancePanel({
     null
   );
   const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
 
   const loadGenerationRef = useRef(0);
   const docsLoadGenerationRef = useRef(0);
@@ -210,7 +211,7 @@ export default function CarMaintenancePanel({
     return map;
   }, [documents]);
 
-  // Clear form when leaving a concrete Car (A→B or A→null).
+  // Clear form and history when leaving a concrete Car (A→B or A→null).
   useEffect(() => {
     const previousId = prevCarIdRef.current;
     const nextId = selectedCar?.id ?? null;
@@ -220,6 +221,8 @@ export default function CarMaintenancePanel({
       setEditingId(null);
       setDeleteTarget(null);
       setTypeFilter(null);
+      setEvents([]);
+      setListError(null);
     }
     prevCarIdRef.current = nextId;
   }, [selectedCar?.id]);
@@ -330,6 +333,7 @@ export default function CarMaintenancePanel({
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load events';
       setListError(msg);
+      setEvents([]);
     } finally {
       if (generation === loadGenerationRef.current) {
         setListLoading(false);
@@ -467,12 +471,20 @@ export default function CarMaintenancePanel({
   };
 
   const handleDeleteConfirm = async () => {
-    if (!token || !deleteTarget || deleting) {
+    if (!token || !deleteTarget || deletingRef.current) {
       return;
     }
     const target = deleteTarget;
     const carIdAtDelete = selectedCarIdRef.current;
+    deletingRef.current = true;
     setDeleting(true);
+    setDeleteTarget(null);
+    const previousList = events;
+    // Optimistic remove so a second confirm cannot revive the row after 404.
+    setEvents((prev) => prev.filter((e) => e.id !== target.id));
+    if (editingId === target.id) {
+      cancelEdit();
+    }
     try {
       const response = await authenticatedFetch(
         `/car-maintenance-events/${target.id}`,
@@ -482,7 +494,8 @@ export default function CarMaintenancePanel({
           onUnauthorized: handleUnauthorized,
         }
       );
-      if (!response.ok && response.status !== 204) {
+      // 404: already gone — keep optimistic removal.
+      if (!response.ok && response.status !== 204 && response.status !== 404) {
         const bodyText = await response.text();
         throw new Error(
           bodyText
@@ -491,22 +504,17 @@ export default function CarMaintenancePanel({
         );
       }
       if (selectedCarIdRef.current === carIdAtDelete) {
-        setDeleteTarget(null);
-        if (editingId === target.id) {
-          cancelEdit();
-        }
         await loadEvents();
-      } else {
-        setDeleteTarget(null);
       }
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete event';
       if (selectedCarIdRef.current === carIdAtDelete) {
         setListError(msg);
+        setEvents(previousList);
       }
-      setDeleteTarget(null);
     } finally {
+      deletingRef.current = false;
       setDeleting(false);
     }
   };
@@ -643,18 +651,21 @@ export default function CarMaintenancePanel({
         <FieldLabel label="Receipt document" />
         {documentsLoading ? (
           <ActivityIndicator accessibilityLabel="Loading receipt documents" />
-        ) : documentsError ? (
+        ) : null}
+        {documentsError ? (
           <Text
             style={styles.errorText}
             accessibilityRole="alert"
             accessibilityLabel="Receipt documents error">
             {documentsError}
           </Text>
-        ) : documents.length === 0 ? (
+        ) : null}
+        {!documentsLoading && documents.length === 0 && !documentsError ? (
           <Text style={styles.hint} accessibilityLabel="Receipt documents empty">
-            No documents yet. Link stays empty.
+            No documents yet. Choose None to clear a linked receipt.
           </Text>
-        ) : (
+        ) : null}
+        {!documentsLoading ? (
           <View
             style={styles.picker}
             accessibilityLabel="Receipt document picker">
@@ -707,7 +718,7 @@ export default function CarMaintenancePanel({
               );
             })}
           </View>
-        )}
+        ) : null}
       </View>
 
       {formError ? (
@@ -837,14 +848,14 @@ export default function CarMaintenancePanel({
               <Button
                 variant="outline"
                 label="Edit"
-                accessibilityLabel={`Edit maintenance event on ${event.occurred_on}`}
+                accessibilityLabel={`Edit maintenance event ${event.id} on ${event.occurred_on}`}
                 disabled={!selectedCar || submitting || deleting}
                 onPress={() => startEdit(event)}
               />
               <Button
                 variant="destructive"
                 label="Delete"
-                accessibilityLabel={`Delete maintenance event on ${event.occurred_on}`}
+                accessibilityLabel={`Delete maintenance event ${event.id} on ${event.occurred_on}`}
                 disabled={!selectedCar || submitting || deleting}
                 onPress={() => setDeleteTarget(event)}
               />

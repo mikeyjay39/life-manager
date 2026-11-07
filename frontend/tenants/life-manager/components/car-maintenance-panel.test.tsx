@@ -300,7 +300,9 @@ describe('CarMaintenancePanel', () => {
       expect(screen.getByText(/Notes: old/i)).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByLabelText('Edit maintenance event on 2026-01-15'));
+    fireEvent.press(
+      screen.getByLabelText('Edit maintenance event e1 on 2026-01-15')
+    );
     fireEvent.changeText(
       screen.getByLabelText('Maintenance notes'),
       'updated'
@@ -311,7 +313,9 @@ describe('CarMaintenancePanel', () => {
       expect(screen.getByText(/Notes: updated/i)).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByLabelText('Delete maintenance event on 2026-01-15'));
+    fireEvent.press(
+      screen.getByLabelText('Delete maintenance event e1 on 2026-01-15')
+    );
     fireEvent.press(screen.getByText('Delete'));
 
     await waitFor(() => {
@@ -351,10 +355,10 @@ describe('CarMaintenancePanel', () => {
     });
     expect(screen.getByLabelText('Add maintenance event')).toBeDisabled();
     expect(
-      screen.getByLabelText('Edit maintenance event on 2025-12-01')
+      screen.getByLabelText('Edit maintenance event e9 on 2025-12-01')
     ).not.toBeDisabled();
     expect(
-      screen.getByLabelText('Delete maintenance event on 2025-12-01')
+      screen.getByLabelText('Delete maintenance event e9 on 2025-12-01')
     ).not.toBeDisabled();
   });
 });
