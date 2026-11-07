@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -28,6 +28,11 @@ import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 const DISPLAY_NAME_MAX_LEN = 100;
 const NOTES_MAX_LEN = 2000;
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Count Unicode scalars (matches Rust `chars().count()`). */
+export function unicodeScalarLength(value: string): number {
+  return [...value].length;
+}
 
 export function parseHealthMemberDto(item: unknown): HealthMemberDto {
   const m = item as Record<string, unknown>;
@@ -110,6 +115,9 @@ export default function HealthMemberPanel({
   const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const loadGenerationRef = useRef(0);
+  selectedIdRef.current = selectedId;
 
   const [createVisible, setCreateVisible] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -308,8 +316,36 @@ export default function HealthMemberPanel({
     [notifySelection]
   );
 
+  const syncSelectionToList = useCallback(
+    (list: HealthMemberDto[]) => {
+      const prev = selectedIdRef.current;
+      if (!prev) {
+        return;
+      }
+      const stillPresent = list.find((m) => m.id === prev);
+      if (!stillPresent || (!includeInactive && !stillPresent.active)) {
+        setSelectedId(null);
+        notifySelection(null);
+        return;
+      }
+      notifySelection(stillPresent);
+    },
+    [includeInactive, notifySelection]
+  );
+
+  const upsertMemberLocally = useCallback((member: HealthMemberDto) => {
+    setMembers((prev) => {
+      const without = prev.filter((m) => m.id !== member.id);
+      return [...without, member];
+    });
+  }, []);
+
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     if (!token) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setMembers([]);
       setError(null);
       return;
@@ -335,28 +371,24 @@ export default function HealthMemberPanel({
       }
       const raw = (await response.json()) as unknown;
       const list = Array.isArray(raw) ? raw.map(parseHealthMemberDto) : [];
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setMembers(list);
-
-      setSelectedId((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        const stillPresent = list.find((m) => m.id === prev);
-        if (!stillPresent || (!includeInactive && !stillPresent.active)) {
-          notifySelection(null);
-          return null;
-        }
-        notifySelection(stillPresent);
-        return prev;
-      });
+      syncSelectionToList(list);
     } catch (err: unknown) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load HealthMembers';
       setError(msg);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
-  }, [token, includeInactive, handleUnauthorized, notifySelection]);
+  }, [token, includeInactive, handleUnauthorized, syncSelectionToList]);
 
   useEffect(() => {
     void load();
@@ -401,7 +433,7 @@ export default function HealthMemberPanel({
       setCreateError('Display name is required.');
       return;
     }
-    if (name.length > DISPLAY_NAME_MAX_LEN) {
+    if (unicodeScalarLength(name) > DISPLAY_NAME_MAX_LEN) {
       setCreateError(`Display name must be at most ${DISPLAY_NAME_MAX_LEN} characters.`);
       return;
     }
@@ -411,7 +443,7 @@ export default function HealthMemberPanel({
       return;
     }
     const notesTrimmed = createNotes.trim();
-    if (notesTrimmed.length > NOTES_MAX_LEN) {
+    if (unicodeScalarLength(notesTrimmed) > NOTES_MAX_LEN) {
       setCreateError(`Notes must be at most ${NOTES_MAX_LEN} characters.`);
       return;
     }
@@ -446,6 +478,10 @@ export default function HealthMemberPanel({
         // refresh will pick up the new member
       }
       closeCreateModal();
+      if (created?.id) {
+        upsertMemberLocally(created);
+        selectMember(created);
+      }
       await load();
       if (created?.id) {
         selectMember(created);
@@ -470,7 +506,7 @@ export default function HealthMemberPanel({
       setEditError('Display name is required.');
       return;
     }
-    if (name.length > DISPLAY_NAME_MAX_LEN) {
+    if (unicodeScalarLength(name) > DISPLAY_NAME_MAX_LEN) {
       setEditError(`Display name must be at most ${DISPLAY_NAME_MAX_LEN} characters.`);
       return;
     }
@@ -480,7 +516,7 @@ export default function HealthMemberPanel({
       return;
     }
     const notesTrimmed = editNotes.trim();
-    if (notesTrimmed.length > NOTES_MAX_LEN) {
+    if (unicodeScalarLength(notesTrimmed) > NOTES_MAX_LEN) {
       setEditError(`Notes must be at most ${NOTES_MAX_LEN} characters.`);
       return;
     }
@@ -516,6 +552,10 @@ export default function HealthMemberPanel({
         // refresh will sync
       }
       setEditing(false);
+      if (updated?.id) {
+        upsertMemberLocally(updated);
+        selectMember(updated);
+      }
       await load();
       if (updated?.id) {
         selectMember(updated);
@@ -556,6 +596,20 @@ export default function HealthMemberPanel({
       if (selectedId === target.id) {
         selectMember(null);
       }
+      setMembers((prev) => {
+        if (includeInactive) {
+          return prev.map((m) =>
+            m.id === target.id
+              ? {
+                  ...m,
+                  active: false,
+                  deactivated_at: m.deactivated_at ?? new Date().toISOString(),
+                }
+              : m
+          );
+        }
+        return prev.filter((m) => m.id !== target.id);
+      });
       await load();
     } catch (err: unknown) {
       console.error(err);
@@ -585,14 +639,21 @@ export default function HealthMemberPanel({
         body: JSON.stringify(payload),
         onUnauthorized: handleUnauthorized,
       });
+      const bodyText = await response.text();
       if (!response.ok) {
-        const bodyText = await response.text();
         throw new Error(
           bodyText
             ? `Request failed (${response.status}): ${bodyText}`
             : `Request failed with status ${response.status}`
         );
       }
+      let reactivated: HealthMemberDto | null = null;
+      try {
+        reactivated = parseHealthMemberDto(JSON.parse(bodyText));
+      } catch {
+        reactivated = { ...member, active: true, deactivated_at: null };
+      }
+      upsertMemberLocally(reactivated);
       await load();
     } catch (err: unknown) {
       console.error(err);

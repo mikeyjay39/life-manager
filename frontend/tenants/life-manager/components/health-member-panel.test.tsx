@@ -7,7 +7,7 @@ import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 import type { HealthMemberDto } from '@/lib/api/types';
 
-import HealthMemberPanel from './health-member-panel';
+import HealthMemberPanel, { unicodeScalarLength } from './health-member-panel';
 
 vi.mock('@react-native-community/datetimepicker', async () => {
   const ReactLib = await import('react');
@@ -92,6 +92,15 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
+describe('unicodeScalarLength', () => {
+  it('counts Unicode scalars like Rust chars().count()', () => {
+    expect(unicodeScalarLength('Alex')).toBe(4);
+    expect(unicodeScalarLength('あ'.repeat(50))).toBe(50);
+    expect(unicodeScalarLength('😀'.repeat(100))).toBe(100);
+    expect('😀'.repeat(100).length).toBe(200);
+  });
+});
+
 describe('HealthMemberPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -156,6 +165,31 @@ describe('HealthMemberPanel', () => {
       '/health-members',
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('given 100 emoji display name when create submitted then POSTs', async () => {
+    mockAuthenticatedFetch.mockResolvedValueOnce(jsonResponse([]));
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Create HealthMember')).toBeTruthy();
+    });
+
+    const name = '😀'.repeat(100);
+    const created = member({ id: 'm-emoji', display_name: name });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse(created, 201))
+      .mockResolvedValueOnce(jsonResponse([created]));
+
+    fireEvent.press(screen.getByLabelText('Create HealthMember'));
+    fireEvent.changeText(screen.getByLabelText('Create display name'), name);
+    fireEvent.press(screen.getByLabelText('Submit create HealthMember'));
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/health-members',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
   });
 
   it('Scenario: Update from Health screen — picker and header show the new name', async () => {
