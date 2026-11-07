@@ -18,6 +18,31 @@ vi.mock('expo-image', () => ({
   Image: () => null,
 }));
 
+vi.mock('@react-native-community/datetimepicker', async () => {
+  const ReactLib = await import('react');
+  const { View, Pressable, Text } = await import('react-native');
+  return {
+    __esModule: true,
+    default: ({
+      onChange,
+    }: {
+      onChange: (event: { type: string }, date?: Date) => void;
+    }) =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(
+          Pressable,
+          {
+            accessibilityLabel: 'Confirm picked date',
+            onPress: () => onChange({ type: 'set' }, new Date(2024, 5, 1)),
+          },
+          ReactLib.createElement(Text, null, 'Confirm')
+        )
+      ),
+  };
+});
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
@@ -78,7 +103,7 @@ describe('CarScreen', () => {
     });
   });
 
-  it('shows Car Manager with Cars panel and empty maintenance/charts sections', async () => {
+  it('shows Car Manager with Cars panel, maintenance panel, and charts shell', async () => {
     // Given the Car Manager screen
     // When the screen renders
     renderCarScreen();
@@ -90,7 +115,8 @@ describe('CarScreen', () => {
     });
     expect(screen.getByLabelText('Cars empty state')).toBeTruthy();
     expect(screen.getByLabelText('Maintenance section')).toBeTruthy();
-    expect(screen.getByLabelText('Maintenance empty state')).toBeTruthy();
+    expect(screen.getByLabelText('Maintenance events panel')).toBeTruthy();
+    expect(screen.getByLabelText('Maintenance select car prompt')).toBeTruthy();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
     expect(screen.getByLabelText('Charts empty state')).toBeTruthy();
     // And Documents create/list UI is not present

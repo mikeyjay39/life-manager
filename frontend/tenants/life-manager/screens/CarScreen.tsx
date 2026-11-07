@@ -7,17 +7,19 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { CarDto } from '@/lib/api/types';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
+import CarMaintenancePanel from '@/tenants/life-manager/components/car-maintenance-panel';
 import CarPanel from '@/tenants/life-manager/components/car-panel';
 
 /**
- * Car Manager shell. Child stories fill maintenance and charts.
+ * Car Manager screen: Cars picker plus maintenance history.
  *
  * ```
  * User -> CarScreen : open Car Manager
  * CarScreen -> CarPanel : render; onSelectedCarChange
  * CarPanel -> API : GET/POST/PUT/DELETE /cars; GET /documents
  * CarPanel -> CarScreen : selected car | null
- * CarScreen -> MaintenanceSection : empty (later story; uses selected car)
+ * CarScreen -> CarMaintenancePanel : selectedCar
+ * CarMaintenancePanel -> API : GET/POST/PUT/DELETE /car-maintenance-events; GET /documents
  * CarScreen -> ChartsSection : empty (later story; uses selected car)
  * ```
  */
@@ -50,11 +52,7 @@ export default function CarScreen() {
         style={styles.section}
         accessibilityLabel="Maintenance section">
         <ThemedText type="subtitle">Maintenance</ThemedText>
-        <ThemedText accessibilityLabel="Maintenance empty state">
-          {selectedCar
-            ? 'No maintenance history yet. Log events in a later story.'
-            : 'Select a car to manage maintenance in a later story.'}
-        </ThemedText>
+        <CarMaintenancePanel selectedCar={selectedCar} />
       </ThemedView>
 
       <ThemedView style={styles.section} accessibilityLabel="Charts section">
