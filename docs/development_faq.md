@@ -71,19 +71,27 @@ Two **`dev`** stacks on one machine need different host ports. From each worktre
 grep -E '^(APP_PORT|FRONTEND_PORT)=' .env.tilt.ports
 ```
 
-Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**.
+Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**. Slot claims live under **`/tmp/life-manager-dev-port-claims/`** so two worktrees do not take the same free ports during a long **`cargo build`**.
 
-- **Android Emulator:** run `adb reverse tcp:3000 tcp:3000` so the emulator’s `localhost:3000` reaches your machine. Use `http://localhost:3000` for the API URL when reversed.
-- **Physical devices** on the LAN should set `extra.apiUrl` / env to an origin the device can reach (for example `http://192.168.1.10:3000`).
+- **Android Emulator:** reverse the **slot** API port from **`.env.tilt.ports`** (not always 3000):
+
+```bash
+set -a && . .env.tilt.ports && set +a
+adb reverse "tcp:${APP_PORT}" "tcp:${APP_PORT}"
+# Use EXPO_PUBLIC_API_BASE_URL / http://localhost:${APP_PORT}
+```
+
+- **Physical devices** on the LAN should set `extra.apiUrl` / env to an origin the device can reach (for example `http://192.168.1.10:${APP_PORT}`).
 
 **Quick check**
 
 ```bash
-# Ops endpoints (unchanged path)
-curl -v --max-time 8 http://localhost:3000/api/health
+set -a && . .env.tilt.ports && set +a   # after allocate / build_and_start_app.sh dev
+# Ops endpoints
+curl -v --max-time 8 "http://localhost:${APP_PORT}/api/health"
 
 # v1 API (dev: direct to backend; prod: use gateway origin + same path)
-curl -v --max-time 8 'http://localhost:3000/life-manager/api/v1/documents'
+curl -v --max-time 8 "http://localhost:${APP_PORT}/life-manager/api/v1/documents"
 ```
 
 ### Frontend base URL
