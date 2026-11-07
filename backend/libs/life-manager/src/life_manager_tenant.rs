@@ -6,6 +6,7 @@ use server_host::{AppBootstrap, TenantMount};
 use crate::infrastructure::{
     app_state::{LifeManagerDeps, LifeManagerState, LifeManagerStateBuilder},
     document::document_router::document_router,
+    health::health_reading_router::health_reading_router,
     health_member::health_member_router::health_member_router,
 };
 
@@ -40,6 +41,7 @@ pub fn api_router() -> Router<LifeManagerState> {
         Router::new()
             .nest("/auth", auth_router::<LifeManagerState>())
             .nest("/documents", document_router())
-            .nest("/health-members", health_member_router()),
+            .nest("/health-members", health_member_router())
+            .nest("/health-readings", health_reading_router()),
     )
 }

@@ -1,5 +1,6 @@
 pub mod create_document_command;
 pub mod create_health_member_command;
+pub mod create_health_reading_command;
 pub mod deactivate_health_member_command;
 pub mod delete_document_command;
 pub mod document_repository;
@@ -9,6 +10,8 @@ pub mod get_documents_query;
 pub mod health_member_repository;
 pub mod health_member_use_cases;
 pub mod health_reading_repository;
+pub mod health_reading_use_cases;
 pub mod list_health_members_query;
+pub mod list_health_readings_query;
 pub mod update_document_command;
 pub mod update_health_member_command;
