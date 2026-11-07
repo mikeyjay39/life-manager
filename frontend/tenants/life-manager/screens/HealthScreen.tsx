@@ -5,16 +5,17 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
+import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
 
 /**
  * Health Manager shell. Child stories fill each section.
  *
  * activityDiagram
  *   [*] --> ShowShell
- *   ShowShell --> HealthMembersPlaceholder : #115
+ *   ShowShell --> HealthMembersPanel : #115
  *   ShowShell --> VitalsPlaceholder : #109-#111
  *   ShowShell --> DoctorVisitsPlaceholder : #114
- *   HealthMembersPlaceholder --> [*]
+ *   HealthMembersPanel --> [*]
  *   VitalsPlaceholder --> [*]
  *   DoctorVisitsPlaceholder --> [*]
  */
@@ -41,9 +42,7 @@ export default function HealthScreen() {
         style={styles.section}
         accessibilityLabel="HealthMembers section">
         <ThemedText type="subtitle">HealthMembers</ThemedText>
-        <ThemedText>
-          Placeholder: create, update, and deactivate HealthMembers (#115).
-        </ThemedText>
+        <HealthMemberPanel />
       </ThemedView>
 
       <ThemedView style={styles.section} accessibilityLabel="Vitals section">
