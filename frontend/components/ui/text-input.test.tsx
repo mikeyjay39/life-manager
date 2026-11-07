@@ -49,4 +49,18 @@ describe('TextInput', () => {
 
     expect(screen.getByLabelText('Create notes')).toBeTruthy();
   });
+
+  it('given editable false when rendered then the field keeps its accessible name', () => {
+    render(
+      <TextInput
+        value="locked"
+        onChangeText={() => {}}
+        accessibilityLabel="Maintenance notes"
+        multiline
+        editable={false}
+      />
+    );
+
+    expect(screen.getByLabelText('Maintenance notes')).toBeTruthy();
+  });
 });
