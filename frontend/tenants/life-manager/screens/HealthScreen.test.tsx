@@ -121,6 +121,7 @@ describe('HealthScreen', () => {
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
     expect(screen.getByLabelText('Charts need HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits section')).toBeTruthy();
+    expect(screen.getByLabelText('Doctor visits panel')).toBeTruthy();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();
     expect(screen.queryByText(/Create document/i)).toBeNull();
