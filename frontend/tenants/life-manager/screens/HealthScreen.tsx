@@ -1,35 +1,66 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { HealthMemberDto } from '@/lib/api/types';
+import {
+  loadUnitPreference,
+  saveUnitPreference,
+  type UnitSystem,
+} from '@/lib/health/units';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import HealthChartsPanel from '@/tenants/life-manager/components/health-charts-panel';
 import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
+import HealthReadingPanel from '@/tenants/life-manager/components/health-reading-panel';
 
 /**
  * Health Manager shell. Child stories fill each section.
  *
- * activityDiagram
- *   [*] --> ShowShell
- *   ShowShell --> HealthMembersPanel : #115
- *   ShowShell --> VitalsPlaceholder : #109 #111
- *   ShowShell --> ChartsPanel : #110
- *   ShowShell --> DoctorVisitsPlaceholder : #114
- *   HealthMembersPanel --> ChartsPanel : selected HealthMember
- *   HealthMembersPanel --> [*]
- *   VitalsPlaceholder --> [*]
- *   ChartsPanel --> [*]
- *   DoctorVisitsPlaceholder --> [*]
+ * ```
+ * User -> HealthScreen : open Health
+ * HealthScreen -> PrefStore : loadUnitPreference
+ * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
+ * HealthMemberPanel -> HealthScreen : selected member | null
+ * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
+ * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem
+ * HealthReadingPanel -> API : list / create readings for member
+ * HealthChartsPanel -> API : list readings for charts
+ * HealthScreen -> DoctorVisitsPlaceholder : #114
+ * ```
  */
 export default function HealthScreen() {
   const { assets, headerBackground } = useTenantBranding();
   const [selectedMember, setSelectedMember] = useState<HealthMemberDto | null>(
     null
   );
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>('metric');
+  const [unitPreferenceReady, setUnitPreferenceReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const preferred = await loadUnitPreference();
+      if (!cancelled) {
+        setUnitSystem(preferred);
+        setUnitPreferenceReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleUnitSystemChange = useCallback(async (next: UnitSystem) => {
+    setUnitSystem(next);
+    try {
+      await saveUnitPreference(next);
+    } catch {
+      // Preference write failed; keep UI mode for this session.
+    }
+  }, []);
 
   return (
     <ParallaxScrollView
@@ -56,14 +87,22 @@ export default function HealthScreen() {
 
       <ThemedView style={styles.section} accessibilityLabel="Vitals section">
         <ThemedText type="subtitle">Vitals</ThemedText>
-        <ThemedText>
-          Placeholder: vitals form and history (#109, #111).
-        </ThemedText>
+        <HealthReadingPanel
+          selectedMember={selectedMember}
+          unitSystem={unitSystem}
+          onUnitSystemChange={handleUnitSystemChange}
+          unitPreferenceReady={unitPreferenceReady}
+        />
       </ThemedView>
 
       <ThemedView style={styles.section} accessibilityLabel="Charts section">
         <ThemedText type="subtitle">Charts</ThemedText>
-        <HealthChartsPanel healthMember={selectedMember} />
+        <HealthChartsPanel
+          healthMember={selectedMember}
+          unitSystem={unitSystem}
+          onUnitSystemChange={handleUnitSystemChange}
+          unitPreferenceReady={unitPreferenceReady}
+        />
       </ThemedView>
 
       <ThemedView

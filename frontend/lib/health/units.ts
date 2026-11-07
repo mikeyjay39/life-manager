@@ -96,3 +96,32 @@ export async function loadUnitPreference(): Promise<UnitSystem> {
 export async function saveUnitPreference(unit: UnitSystem): Promise<void> {
   await AsyncStorage.setItem(HEALTH_UNIT_PREFERENCE_KEY, unit);
 }
+
+/** Format weight from stored kg for the active unit system. */
+export function formatWeightDisplay(
+  weightKg: number | null | undefined,
+  system: UnitSystem
+): string | null {
+  if (weightKg == null || !Number.isFinite(weightKg)) {
+    return null;
+  }
+  if (system === 'imperial') {
+    return `${round1(kgToLb(weightKg))} lb`;
+  }
+  return `${round1(weightKg)} kg`;
+}
+
+/** Format height from stored cm for the active unit system. */
+export function formatHeightDisplay(
+  heightCm: number | null | undefined,
+  system: UnitSystem
+): string | null {
+  if (heightCm == null || !Number.isFinite(heightCm)) {
+    return null;
+  }
+  if (system === 'imperial') {
+    const { feet, inches } = cmToFeetInches(heightCm);
+    return `${feet} ft ${inches} in`;
+  }
+  return `${round1(heightCm)} cm`;
+}

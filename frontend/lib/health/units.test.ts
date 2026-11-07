@@ -7,6 +7,8 @@ import {
   computeBmi,
   displayWeightKg,
   feetInchesToCm,
+  formatHeightDisplay,
+  formatWeightDisplay,
   kgToLb,
   lbToKg,
   loadUnitPreference,
@@ -80,5 +82,14 @@ describe('health units', () => {
   it('defaults to metric when preference is missing', async () => {
     mockStorage.getItem.mockResolvedValueOnce(null);
     await expect(loadUnitPreference()).resolves.toBe('metric');
+  });
+
+  it('formats weight and height for metric and imperial display', () => {
+    expect(formatWeightDisplay(70, 'imperial')).toBe('154.3 lb');
+    expect(formatHeightDisplay(180, 'imperial')).toBe('5 ft 10.9 in');
+    expect(formatWeightDisplay(70.12, 'metric')).toBe('70.1 kg');
+    expect(formatHeightDisplay(180.04, 'metric')).toBe('180 cm');
+    expect(formatWeightDisplay(null, 'metric')).toBeNull();
+    expect(formatHeightDisplay(undefined, 'imperial')).toBeNull();
   });
 });

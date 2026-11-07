@@ -22,15 +22,14 @@ import {
   type ChartMetric,
   type HealthChartSeries,
 } from '@/lib/health/chart-series';
-import {
-  loadUnitPreference,
-  saveUnitPreference,
-  type UnitSystem,
-} from '@/lib/health/units';
+import { type UnitSystem } from '@/lib/health/units';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 type HealthChartsPanelProps = {
   healthMember: HealthMemberDto | null;
+  unitSystem: UnitSystem;
+  onUnitSystemChange: (next: UnitSystem) => void | Promise<void>;
+  unitPreferenceReady: boolean;
 };
 
 const METRICS: { id: ChartMetric; label: string }[] = [
@@ -89,31 +88,18 @@ function metricAccessibilityLabel(metric: ChartMetric): string {
  */
 export default function HealthChartsPanel({
   healthMember,
+  unitSystem,
+  onUnitSystemChange,
+  unitPreferenceReady,
 }: HealthChartsPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
   const { width: windowWidth } = useWindowDimensions();
 
-  const [unit, setUnit] = useState<UnitSystem>('metric');
   const [metric, setMetric] = useState<ChartMetric>('weight');
   const [readings, setReadings] = useState<HealthReadingDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [prefReady, setPrefReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const preferred = await loadUnitPreference();
-      if (!cancelled) {
-        setUnit(preferred);
-        setPrefReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const loadReadings = useCallback(async () => {
     if (!token || !healthMember) {
@@ -163,17 +149,15 @@ export default function HealthChartsPanel({
   }, [loadReadings]);
 
   const series: HealthChartSeries = useMemo(
-    () => buildChartSeries(readings, metric, unit),
-    [readings, metric, unit]
+    () => buildChartSeries(readings, metric, unitSystem),
+    [readings, metric, unitSystem]
   );
 
   const setUnitAndPersist = async (next: UnitSystem) => {
-    setUnit(next);
-    try {
-      await saveUnitPreference(next);
-    } catch {
-      // Preference persistence is best-effort for MVP.
+    if (next === unitSystem) {
+      return;
     }
+    await onUnitSystemChange(next);
   };
 
   const chartWidth = Math.max(280, Math.min(windowWidth - 48, 720));
@@ -236,40 +220,48 @@ export default function HealthChartsPanel({
         accessibilityLabel="Unit system">
         <Pressable
           accessibilityRole="radio"
-          accessibilityState={{ checked: unit === 'metric' }}
+          accessibilityState={{
+            checked: unitSystem === 'metric',
+            disabled: !unitPreferenceReady,
+          }}
           accessibilityLabel="Metric units"
+          disabled={!unitPreferenceReady}
           onPress={() => void setUnitAndPersist('metric')}
           style={[
             styles.unitChip,
             {
               borderColor: palette.tint,
               backgroundColor:
-                unit === 'metric' ? palette.tint : 'transparent',
+                unitSystem === 'metric' ? palette.tint : 'transparent',
             },
           ]}>
           <Text
             style={{
-              color: unit === 'metric' ? palette.onTint : palette.text,
+              color: unitSystem === 'metric' ? palette.onTint : palette.text,
             }}>
             Metric
           </Text>
         </Pressable>
         <Pressable
           accessibilityRole="radio"
-          accessibilityState={{ checked: unit === 'imperial' }}
+          accessibilityState={{
+            checked: unitSystem === 'imperial',
+            disabled: !unitPreferenceReady,
+          }}
           accessibilityLabel="Imperial units"
+          disabled={!unitPreferenceReady}
           onPress={() => void setUnitAndPersist('imperial')}
           style={[
             styles.unitChip,
             {
               borderColor: palette.tint,
               backgroundColor:
-                unit === 'imperial' ? palette.tint : 'transparent',
+                unitSystem === 'imperial' ? palette.tint : 'transparent',
             },
           ]}>
           <Text
             style={{
-              color: unit === 'imperial' ? palette.onTint : palette.text,
+              color: unitSystem === 'imperial' ? palette.onTint : palette.text,
             }}>
             Imperial
           </Text>
@@ -319,7 +311,7 @@ export default function HealthChartsPanel({
         </View>
       ) : null}
 
-      {loading || !prefReady ? (
+      {loading || !unitPreferenceReady ? (
         <ActivityIndicator
           color={palette.tint}
           accessibilityLabel="Loading health charts"

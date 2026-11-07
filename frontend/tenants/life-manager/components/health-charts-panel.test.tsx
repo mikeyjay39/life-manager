@@ -7,7 +7,10 @@ import type { HealthMemberDto } from '@/lib/api/types';
 import type { HealthReadingDto } from '@/lib/api/generated/life-manager/HealthReadingDto';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
-import { HEALTH_UNIT_PREFERENCE_KEY } from '@/lib/health/units';
+import {
+  saveUnitPreference,
+  type UnitSystem,
+} from '@/lib/health/units';
 
 import HealthChartsPanel from './health-charts-panel';
 
@@ -90,12 +93,29 @@ function defaultAuth(): ReturnType<typeof useAuth> {
   } as ReturnType<typeof useAuth>;
 }
 
-function renderPanel(healthMember: HealthMemberDto | null) {
-  return render(
+function StatefulChartsPanel({
+  healthMember,
+}: {
+  healthMember: HealthMemberDto | null;
+}) {
+  const [unitSystem, setUnitSystem] = React.useState<UnitSystem>('metric');
+  return (
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
-      <HealthChartsPanel healthMember={healthMember} />
+      <HealthChartsPanel
+        healthMember={healthMember}
+        unitSystem={unitSystem}
+        onUnitSystemChange={async (next) => {
+          setUnitSystem(next);
+          await saveUnitPreference(next);
+        }}
+        unitPreferenceReady
+      />
     </TenantThemeTestProvider>
   );
+}
+
+function renderPanel(healthMember: HealthMemberDto | null) {
+  return render(<StatefulChartsPanel healthMember={healthMember} />);
 }
 
 describe('HealthChartsPanel', () => {
@@ -161,7 +181,7 @@ describe('HealthChartsPanel', () => {
       expect(screen.getByLabelText('Y axis lb')).toBeTruthy()
     );
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-      HEALTH_UNIT_PREFERENCE_KEY,
+      'health_unit_preference',
       'imperial'
     );
     // And the list API was not asked for imperial fields

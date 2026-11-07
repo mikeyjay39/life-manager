@@ -108,15 +108,16 @@ describe('HealthScreen', () => {
     );
   });
 
-  it('shows Health Manager with HealthMembers panel, charts, and placeholders', () => {
+  it('shows Health Manager with members, vitals form, charts, and doctor visits', () => {
     // Given the Health Manager screen
     // When the screen renders
     renderHealthScreen();
-    // Then the title, members panel, charts, and other sections are visible
+    // Then title, members, vitals, charts, and doctor visits are visible
     expect(screen.getByText('Health Manager')).toBeTruthy();
     expect(screen.getByLabelText('HealthMembers section')).toBeTruthy();
     expect(screen.getByLabelText('Create HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Vitals section')).toBeTruthy();
+    expect(screen.getByLabelText('Health readings panel')).toBeTruthy();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
     expect(screen.getByLabelText('Charts need HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits section')).toBeTruthy();
