@@ -4,24 +4,23 @@
  * Run from frontend/ with stack up:
  *
  *   set -a && source ../.dev.env && set +a
- *   export FRONTEND_URL=http://localhost:8081
+ *   export FRONTEND_URL="${FRONTEND_URL:-http://localhost:8080}"
  *   node scripts/vimium-fields-smoke.mjs
  *
  * Requires ADMIN_USERNAME and ADMIN_PASSWORD. Do not print them.
  */
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const require = createRequire(
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../package.json'),
-);
+const here = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(path.resolve(here, '../package.json'));
 const { chromium } = require('playwright');
 
-// Keep in sync with lib/vimium/text-input-xpath.ts (philc/vimium textInputXPath).
-const VIMIUM_TEXT_INPUT_XPATH =
-  '//input[(@type="text" or @type="search" or @type="email" or @type="url" or @type="number" or @type="password" or @type="date" or @type="tel" or not(@type)) and not(@disabled or @readonly)] | //textarea[not(@disabled or @readonly)] | //*[@contenteditable="true" and not(@disabled or @readonly)]';
+const { VIMIUM_TEXT_INPUT_XPATH } = await import(
+  pathToFileURL(path.resolve(here, '../lib/vimium/text-input-xpath.mjs')).href
+);
 
 const BASE = process.env.FRONTEND_URL || 'http://localhost:8080';
 const USER = process.env.ADMIN_USERNAME;
@@ -40,8 +39,14 @@ const result = {
   carTyping: 'fail',
   healthXpath: 'fail',
   healthTyping: 'fail',
+  lockedNotesNotTarget: 'fail',
   notes: [],
 };
+
+function writeResult() {
+  fs.writeFileSync(`${outDir}/result.json`, JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(result, null, 2));
+}
 
 async function login(page) {
   await page.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
@@ -65,7 +70,11 @@ async function visibleXpathArias(page) {
       const el = snap.snapshotItem(i);
       const r = el.getBoundingClientRect();
       if (r.width < 3 || r.height < 3) continue;
-      out.push(el.getAttribute('aria-label') || el.tagName);
+      out.push({
+        aria: el.getAttribute('aria-label') || el.tagName,
+        tag: el.tagName,
+        readOnly: !!el.readOnly,
+      });
     }
     return out;
   }, VIMIUM_TEXT_INPUT_XPATH);
@@ -78,14 +87,26 @@ page.setDefaultTimeout(60000);
 try {
   await login(page);
 
-  // Car create
+  // Car page without create modal: maintenance notes are locked.
   await page.goto(`${BASE}/car`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
+  const locked = await visibleXpathArias(page);
+  const lockedNotes = locked.filter((m) => m.aria === 'Maintenance notes');
+  if (lockedNotes.length === 0) {
+    result.lockedNotesNotTarget = 'pass';
+    result.notes.push('Locked Maintenance notes not in Vimium XPath matches');
+  } else {
+    result.notes.push(
+      `Locked Maintenance notes still matched Vimium (${lockedNotes.length})`,
+    );
+  }
+
   await page.getByLabel('Create Car').click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${outDir}/car-create.png`, fullPage: true });
 
-  const carArias = await visibleXpathArias(page);
+  const carMatches = await visibleXpathArias(page);
+  const carArias = carMatches.map((m) => m.aria);
   const needCar = [
     'Create make',
     'Create model',
@@ -110,7 +131,6 @@ try {
     result.notes.push('Create make value did not stick');
   }
 
-  // Focus Create model via XPath then keyboard type (Vimium-like)
   await page.evaluate((xpath) => {
     const snap = document.evaluate(
       xpath,
@@ -129,7 +149,9 @@ try {
   }, VIMIUM_TEXT_INPUT_XPATH);
   await page.keyboard.type('CivicSmoke');
   await page.waitForTimeout(200);
-  const modelVal = await page.getByLabel('Create model', { exact: true }).inputValue();
+  const modelVal = await page
+    .getByLabel('Create model', { exact: true })
+    .inputValue();
   if (modelVal === 'CivicSmoke') {
     result.notes.push('Create model stuck after Vimium-like focus + keyboard');
   } else {
@@ -140,21 +162,20 @@ try {
   await page.getByLabel('Cancel create Car').click();
   await page.waitForTimeout(400);
 
-  // Health create member
   await page.goto(`${BASE}/health`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
   await page.getByLabel('Create HealthMember').click();
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${outDir}/health-create.png`, fullPage: true });
 
-  const healthArias = await visibleXpathArias(page);
+  const healthArias = (await visibleXpathArias(page)).map((m) => m.aria);
   const needHealth = ['Create display name', 'Create notes'];
   const missingHealth = needHealth.filter((a) => !healthArias.includes(a));
   if (missingHealth.length) {
     result.notes.push(`Health XPath missing: ${missingHealth.join(', ')}`);
   } else {
     result.healthXpath = 'pass';
-    result.notes.push(`Health XPath matched create fields`);
+    result.notes.push('Health XPath matched create fields');
   }
 
   const name = page.getByLabel('Create display name', { exact: true });
@@ -167,21 +188,21 @@ try {
     result.notes.push('Create display name value did not stick');
   }
 
-  console.log(JSON.stringify(result, null, 2));
-  fs.writeFileSync(`${outDir}/result.json`, JSON.stringify(result, null, 2));
+  writeResult();
 
   if (
     result.carXpath !== 'pass' ||
     result.carTyping !== 'pass' ||
     result.healthXpath !== 'pass' ||
-    result.healthTyping !== 'pass'
+    result.healthTyping !== 'pass' ||
+    result.lockedNotesNotTarget !== 'pass'
   ) {
     process.exitCode = 1;
   }
 } catch (e) {
   console.error(e);
   result.notes.push(String(e));
-  console.log(JSON.stringify(result, null, 2));
+  writeResult();
   await page.screenshot({ path: `${outDir}/error.png`, fullPage: true }).catch(() => {});
   process.exitCode = 1;
 } finally {
