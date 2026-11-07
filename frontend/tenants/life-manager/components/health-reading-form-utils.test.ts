@@ -1,5 +1,6 @@
 import {
   buildCreateHealthReadingCommand,
+  convertFormHeightWeight,
   type HealthReadingFormInput,
 } from './health-reading-form-utils';
 
@@ -94,6 +95,18 @@ describe('buildCreateHealthReadingCommand', () => {
     }
   });
 
+  it('given diastolic greater than systolic when building then returns validation error', () => {
+    const result = buildCreateHealthReadingCommand(
+      MEMBER_ID,
+      'metric',
+      blankInput({ systolic: '110', diastolic: '120' })
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/diastolic must be less than or equal/i);
+    }
+  });
+
   it('given notes only when building then accepts the command', () => {
     const result = buildCreateHealthReadingCommand(
       MEMBER_ID,
@@ -116,5 +129,36 @@ describe('buildCreateHealthReadingCommand', () => {
     if (!result.ok) {
       expect(result.error).toMatch(/recorded date is required/i);
     }
+  });
+});
+
+describe('convertFormHeightWeight', () => {
+  it('given metric height and weight when switching to imperial then fills ft/in and lb', () => {
+    const next = convertFormHeightWeight(
+      blankInput({ heightCm: '180', weightKg: '70' }),
+      'metric',
+      'imperial'
+    );
+    expect(next.heightFeet).toBe('5');
+    expect(next.heightInches).toBe('10.9');
+    expect(next.weightLb).toBe('154.3');
+    expect(next.heightCm).toBe('');
+    expect(next.weightKg).toBe('');
+  });
+
+  it('given imperial height and weight when switching to metric then fills cm and kg', () => {
+    const next = convertFormHeightWeight(
+      blankInput({
+        heightFeet: '5',
+        heightInches: '10.9',
+        weightLb: '154.3',
+      }),
+      'imperial',
+      'metric'
+    );
+    expect(next.heightCm).toBe('180.1');
+    expect(next.weightKg).toBe('70');
+    expect(next.heightFeet).toBe('');
+    expect(next.weightLb).toBe('');
   });
 });

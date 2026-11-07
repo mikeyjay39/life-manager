@@ -5,9 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
 import {
-  getUnitSystemPreference,
-  setUnitSystemPreference,
-} from '@/lib/health/unit-preference';
+  loadUnitPreference,
+  saveUnitPreference,
+} from '@/lib/health/units';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
@@ -50,15 +50,19 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/health/unit-preference', () => ({
-  getUnitSystemPreference: vi.fn(),
-  setUnitSystemPreference: vi.fn(),
-}));
+vi.mock('@/lib/health/units', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/health/units')>();
+  return {
+    ...actual,
+    loadUnitPreference: vi.fn(),
+    saveUnitPreference: vi.fn(),
+  };
+});
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
-const mockGetUnitPref = vi.mocked(getUnitSystemPreference);
-const mockSetUnitPref = vi.mocked(setUnitSystemPreference);
+const mockGetUnitPref = vi.mocked(loadUnitPreference);
+const mockSetUnitPref = vi.mocked(saveUnitPreference);
 
 function member(
   overrides: Partial<HealthMemberDto> & Pick<HealthMemberDto, 'id' | 'display_name'>
@@ -264,6 +268,27 @@ describe('HealthReadingPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/70(\.0)? kg/)).toBeTruthy();
+    });
+  });
+
+  it('given filled metric fields when toggling to imperial then converts form values', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+    });
+
+    fireEvent.changeText(screen.getByLabelText('Height in centimetres'), '180');
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
+    fireEvent.press(screen.getByLabelText('Use imperial units'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Height feet').props.value).toBe('5');
+      expect(screen.getByLabelText('Height inches').props.value).toBe('10.9');
+      expect(screen.getByLabelText('Weight in pounds').props.value).toBe(
+        '154.3'
+      );
     });
   });
 

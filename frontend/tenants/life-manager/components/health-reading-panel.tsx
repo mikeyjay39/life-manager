@@ -15,18 +15,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
 import {
-  getUnitSystemPreference,
-  setUnitSystemPreference,
-} from '@/lib/health/unit-preference';
-import {
   formatHeightDisplay,
   formatWeightDisplay,
+  loadUnitPreference,
+  saveUnitPreference,
   type UnitSystem,
 } from '@/lib/health/units';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import {
   buildCreateHealthReadingCommand,
+  convertFormHeightWeight,
   NOTES_MAX_LEN,
   parseHealthReadingDto,
   type HealthReadingFormInput,
@@ -98,6 +97,8 @@ export default function HealthReadingPanel({
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
+  const selectedMemberIdRef = useRef<string | null>(null);
+  selectedMemberIdRef.current = selectedMember?.id ?? null;
 
   const styles = useMemo(
     () =>
@@ -179,7 +180,7 @@ export default function HealthReadingPanel({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const preferred = await getUnitSystemPreference();
+      const preferred = await loadUnitPreference();
       if (!cancelled) {
         setUnitSystem(preferred);
         setPreferenceReady(true);
@@ -190,14 +191,18 @@ export default function HealthReadingPanel({
     };
   }, []);
 
-  const setUnit = useCallback(async (next: UnitSystem) => {
-    setUnitSystem(next);
-    try {
-      await setUnitSystemPreference(next);
-    } catch {
-      // Preference write failed; keep UI mode for this session.
-    }
-  }, []);
+  const setUnit = useCallback(
+    async (next: UnitSystem) => {
+      setForm((prev) => convertFormHeightWeight(prev, unitSystem, next));
+      setUnitSystem(next);
+      try {
+        await saveUnitPreference(next);
+      } catch {
+        // Preference write failed; keep UI mode for this session.
+      }
+    },
+    [unitSystem]
+  );
 
   const updateField = useCallback(
     <K extends keyof HealthReadingFormInput>(
@@ -292,6 +297,7 @@ export default function HealthReadingPanel({
       return;
     }
 
+    const memberIdAtSubmit = selectedMember.id;
     setSubmitting(true);
     const previousList = readings;
     try {
@@ -313,12 +319,17 @@ export default function HealthReadingPanel({
       setForm((prev) => ({
         ...emptyForm(prev.recordedOn),
       }));
-      await loadReadings();
+      // Skip refresh when the selected member changed during the POST.
+      if (selectedMemberIdRef.current === memberIdAtSubmit) {
+        await loadReadings();
+      }
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to save reading';
       setFormError(msg);
-      setReadings(previousList);
+      if (selectedMemberIdRef.current === memberIdAtSubmit) {
+        setReadings(previousList);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -377,7 +388,7 @@ export default function HealthReadingPanel({
       )}
 
       <View style={styles.fieldBlock}>
-        <FieldLabel required>Recorded date</FieldLabel>
+        <FieldLabel label="Recorded date" required />
         <DatePicker
           value={form.recordedOn}
           onChange={(value) => updateField('recordedOn', value)}
@@ -388,7 +399,7 @@ export default function HealthReadingPanel({
       {unitSystem === 'metric' ? (
         <>
           <View style={styles.fieldBlock}>
-            <FieldLabel>Height (cm)</FieldLabel>
+            <FieldLabel label="Height (cm)" />
             <TextInput
               style={styles.input}
               value={form.heightCm}
@@ -400,7 +411,7 @@ export default function HealthReadingPanel({
             />
           </View>
           <View style={styles.fieldBlock}>
-            <FieldLabel>Weight (kg)</FieldLabel>
+            <FieldLabel label="Weight (kg)" />
             <TextInput
               style={styles.input}
               value={form.weightKg}
@@ -416,7 +427,7 @@ export default function HealthReadingPanel({
         <>
           <View style={styles.heightRow}>
             <View style={styles.heightField}>
-              <FieldLabel>Height (ft)</FieldLabel>
+              <FieldLabel label="Height (ft)" />
               <TextInput
                 style={styles.input}
                 value={form.heightFeet}
@@ -428,7 +439,7 @@ export default function HealthReadingPanel({
               />
             </View>
             <View style={styles.heightField}>
-              <FieldLabel>Height (in)</FieldLabel>
+              <FieldLabel label="Height (in)" />
               <TextInput
                 style={styles.input}
                 value={form.heightInches}
@@ -441,7 +452,7 @@ export default function HealthReadingPanel({
             </View>
           </View>
           <View style={styles.fieldBlock}>
-            <FieldLabel>Weight (lb)</FieldLabel>
+            <FieldLabel label="Weight (lb)" />
             <TextInput
               style={styles.input}
               value={form.weightLb}
@@ -456,7 +467,7 @@ export default function HealthReadingPanel({
       )}
 
       <View style={styles.fieldBlock}>
-        <FieldLabel>Systolic (mmHg)</FieldLabel>
+        <FieldLabel label="Systolic (mmHg)" />
         <TextInput
           style={styles.input}
           value={form.systolic}
@@ -468,7 +479,7 @@ export default function HealthReadingPanel({
         />
       </View>
       <View style={styles.fieldBlock}>
-        <FieldLabel>Diastolic (mmHg)</FieldLabel>
+        <FieldLabel label="Diastolic (mmHg)" />
         <TextInput
           style={styles.input}
           value={form.diastolic}
@@ -480,7 +491,7 @@ export default function HealthReadingPanel({
         />
       </View>
       <View style={styles.fieldBlock}>
-        <FieldLabel>Heart rate (bpm)</FieldLabel>
+        <FieldLabel label="Heart rate (bpm)" />
         <TextInput
           style={styles.input}
           value={form.heartRate}
@@ -492,7 +503,7 @@ export default function HealthReadingPanel({
         />
       </View>
       <View style={styles.fieldBlock}>
-        <FieldLabel>Notes</FieldLabel>
+        <FieldLabel label="Notes" />
         <TextInput
           style={[styles.input, styles.inputMultiline]}
           value={form.notes}

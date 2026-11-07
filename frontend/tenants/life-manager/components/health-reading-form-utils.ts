@@ -1,7 +1,10 @@
 import type { CreateHealthReadingCommand } from '@/lib/api/types';
 import {
+  cmToFeetInches,
   feetInchesToCm,
+  kgToLb,
   lbToKg,
+  round1,
   type UnitSystem,
 } from '@/lib/health/units';
 
@@ -144,14 +147,15 @@ export function buildCreateHealthReadingCommand(
           error: 'Height inches must be less than 12 (use feet for larger values).',
         };
       }
-      height_cm = feetInchesToCm(feet, inches);
+      height_cm = round1(feetInchesToCm(feet, inches));
     }
 
     const weight = parseOptionalPositiveFloat(input.weightLb, 'Weight');
     if (!weight.ok) {
       return weight;
     }
-    weight_kg = weight.value == null ? null : lbToKg(weight.value);
+    weight_kg =
+      weight.value == null ? null : round1(lbToKg(weight.value));
   }
 
   const systolic = parseOptionalPositiveInt(input.systolic, 'Systolic');
@@ -169,6 +173,16 @@ export function buildCreateHealthReadingCommand(
     return {
       ok: false,
       error: 'Enter both systolic and diastolic blood pressure, or leave both blank.',
+    };
+  }
+  if (
+    systolic.value != null &&
+    diastolic.value != null &&
+    diastolic.value > systolic.value
+  ) {
+    return {
+      ok: false,
+      error: 'Diastolic must be less than or equal to systolic.',
     };
   }
 
@@ -211,6 +225,83 @@ export function buildCreateHealthReadingCommand(
       heart_rate_bpm: heartRate.value,
       notes,
     },
+  };
+}
+
+/**
+ * Convert height/weight field strings when the unit toggle changes.
+ * Leaves non-numeric or empty height/weight fields blank in the target system.
+ */
+export function convertFormHeightWeight(
+  input: HealthReadingFormInput,
+  from: UnitSystem,
+  to: UnitSystem
+): HealthReadingFormInput {
+  if (from === to) {
+    return input;
+  }
+
+  if (from === 'metric' && to === 'imperial') {
+    let heightFeet = '';
+    let heightInches = '';
+    let weightLb = '';
+    const cmRaw = input.heightCm.trim();
+    if (cmRaw !== '') {
+      const cm = Number(cmRaw);
+      if (Number.isFinite(cm) && cm > 0) {
+        const { feet, inches } = cmToFeetInches(cm);
+        heightFeet = String(feet);
+        heightInches = String(inches);
+      }
+    }
+    const kgRaw = input.weightKg.trim();
+    if (kgRaw !== '') {
+      const kg = Number(kgRaw);
+      if (Number.isFinite(kg) && kg > 0) {
+        weightLb = String(round1(kgToLb(kg)));
+      }
+    }
+    return {
+      ...input,
+      heightCm: '',
+      weightKg: '',
+      heightFeet,
+      heightInches,
+      weightLb,
+    };
+  }
+
+  let heightCm = '';
+  let weightKg = '';
+  const feetRaw = input.heightFeet.trim();
+  const inchesRaw = input.heightInches.trim();
+  if (feetRaw !== '' || inchesRaw !== '') {
+    const feet = feetRaw === '' ? 0 : Number(feetRaw);
+    const inches = inchesRaw === '' ? 0 : Number(inchesRaw);
+    if (
+      Number.isFinite(feet) &&
+      Number.isFinite(inches) &&
+      feet >= 0 &&
+      inches >= 0 &&
+      (feet > 0 || inches > 0)
+    ) {
+      heightCm = String(round1(feetInchesToCm(feet, inches)));
+    }
+  }
+  const lbRaw = input.weightLb.trim();
+  if (lbRaw !== '') {
+    const lb = Number(lbRaw);
+    if (Number.isFinite(lb) && lb > 0) {
+      weightKg = String(round1(lbToKg(lb)));
+    }
+  }
+  return {
+    ...input,
+    heightCm,
+    weightKg,
+    heightFeet: '',
+    heightInches: '',
+    weightLb: '',
   };
 }
 

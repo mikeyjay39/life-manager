@@ -15,7 +15,7 @@ Personal/family life-management app. **Documents** are implemented today; more d
 
 **Cursor skills:** [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant) · [`.cursor/skills/raise-gh-enhancement/`](.cursor/skills/raise-gh-enhancement/) (epic + story sub-issues from a feature idea)
 
-**Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`
+**Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`, `.cursor/rules/dev-stack-limits.mdc`
 
 ## Docs to read first
 
@@ -50,6 +50,16 @@ Humans never force-push `main`. Prefer a PR over committing directly on `main`.
 **Never run** write SQL or migration-apply CLI (`INSERT`…`REPLACE`, `diesel migration run`, `diesel database reset`, write `sqlite3`, etc.).
 
 **OK:** `SELECT`, read-only Diesel inspect (`diesel migration list`, `diesel print-schema`), **authoring** `backend/libs/life-manager/migrations/*.sql` and `backend/libs/auth/migrations/*.sql`, **`cargo test`** / **`cargo run`** (app/test harness owns DB). Details: [backend/AGENTS.md](backend/AGENTS.md).
+
+### Parallel workers (max 3)
+
+When you coordinate multiple implementers (control-agent, parallel worktrees, or similar):
+
+- Keep at most **3 active workers** at once.
+- Queue further issues until a worker finishes or stops.
+- **Active** means a tmux / `cursor-agent` session that is still implementing. Plan-only or idle-blocked sessions do not count.
+
+Host `dev` full-stack limits are separate: see [`.cursor/rules/dev-stack-limits.mdc`](.cursor/rules/dev-stack-limits.mdc) and [docs/development_faq.md](docs/development_faq.md#parallel-worktrees-manual-test).
 
 ## Do not assume
 

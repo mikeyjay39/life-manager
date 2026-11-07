@@ -1,62 +1,95 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
+  HEALTH_UNIT_PREFERENCE_KEY,
   cmToFeetInches,
+  computeBmi,
+  displayWeightKg,
   feetInchesToCm,
   formatHeightDisplay,
   formatWeightDisplay,
   kgToLb,
   lbToKg,
-  roundToDecimals,
+  loadUnitPreference,
+  round1,
+  saveUnitPreference,
+  weightUnitLabel,
 } from './units';
 
-describe('health unit helpers', () => {
-  it('given 70 kg when converting to lb then returns 154.3', () => {
-    // Given a known metric weight
-    // When converting to imperial
-    // Then pounds match the fixture (1 decimal)
-    expect(kgToLb(70)).toBe(154.3);
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: vi.fn(),
+    setItem: vi.fn(),
+  },
+}));
+
+const mockStorage = AsyncStorage as unknown as {
+  getItem: ReturnType<typeof vi.fn>;
+  setItem: ReturnType<typeof vi.fn>;
+};
+
+describe('health units', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('given 154.3 lb when converting to kg then returns 70.0', () => {
-    // Given the imperial fixture from 70 kg
-    // When converting back to metric
-    // Then kilograms round to 70.0
-    expect(lbToKg(154.3)).toBe(70);
+  it('converts 70 kg to lb with known fixture', () => {
+    // Given 70 kg
+    // When converting to lb
+    const lb = round1(kgToLb(70));
+    // Then ≈ 154.3 lb
+    expect(lb).toBe(154.3);
+    expect(round1(lbToKg(154.3))).toBe(70);
   });
 
-  it('given 180 cm when converting to ft/in then returns 5 ft 10.9 in', () => {
-    // Given a known metric height
-    // When converting to imperial
-    // Then feet and inches match the fixture
-    expect(cmToFeetInches(180)).toEqual({ feet: 5, inches: 10.9 });
+  it('converts 180 cm to feet and inches', () => {
+    // Given 180 cm
+    const { feet, inches } = cmToFeetInches(180);
+    // Then ≈ 5 ft 10.9 in (1-decimal display; round-trip stays near 180)
+    expect(feet).toBe(5);
+    expect(inches).toBe(10.9);
+    expect(round1(feetInchesToCm(5, 10.9))).toBeCloseTo(180, 0);
   });
 
-  it('given 5 ft 10.9 in when converting to cm then returns near 180', () => {
-    // Given the imperial fixture from 180 cm
-    // When converting back to metric
-    // Then centimetres round to 180.1 (1-decimal inch path)
-    expect(feetInchesToCm(5, 10.9)).toBe(180.1);
+  it('computes BMI from metric height and weight only', () => {
+    // Given 180 cm and 70 kg
+    // When computing BMI
+    const bmi = computeBmi(180, 70);
+    // Then metric formula result (≈ 21.6)
+    expect(bmi).toBe(21.6);
   });
 
-  it('given metric stored values when formatting imperial then shows lb and ft/in', () => {
-    // Given stored metric readings
-    // When formatting for imperial display
-    // Then labels use lb and ft/in only
+  it('displayWeightKg uses lb labels in imperial mode', () => {
+    expect(displayWeightKg(70, 'metric')).toBe(70);
+    expect(displayWeightKg(70, 'imperial')).toBe(154.3);
+    expect(weightUnitLabel('imperial')).toBe('lb');
+    expect(weightUnitLabel('metric')).toBe('kg');
+  });
+
+  it('loads and saves unit preference under the shared key', async () => {
+    mockStorage.getItem.mockResolvedValueOnce('imperial');
+    await expect(loadUnitPreference()).resolves.toBe('imperial');
+    expect(mockStorage.getItem).toHaveBeenCalledWith(HEALTH_UNIT_PREFERENCE_KEY);
+
+    await saveUnitPreference('metric');
+    expect(mockStorage.setItem).toHaveBeenCalledWith(
+      HEALTH_UNIT_PREFERENCE_KEY,
+      'metric'
+    );
+  });
+
+  it('defaults to metric when preference is missing', async () => {
+    mockStorage.getItem.mockResolvedValueOnce(null);
+    await expect(loadUnitPreference()).resolves.toBe('metric');
+  });
+
+  it('formats weight and height for metric and imperial display', () => {
     expect(formatWeightDisplay(70, 'imperial')).toBe('154.3 lb');
     expect(formatHeightDisplay(180, 'imperial')).toBe('5 ft 10.9 in');
-  });
-
-  it('given metric stored values when formatting metric then shows kg and cm', () => {
     expect(formatWeightDisplay(70.12, 'metric')).toBe('70.1 kg');
     expect(formatHeightDisplay(180.04, 'metric')).toBe('180 cm');
-  });
-
-  it('given null vitals when formatting then returns null', () => {
     expect(formatWeightDisplay(null, 'metric')).toBeNull();
     expect(formatHeightDisplay(undefined, 'imperial')).toBeNull();
-  });
-
-  it('roundToDecimals rounds half away from zero via Math.round', () => {
-    expect(roundToDecimals(1.25, 1)).toBe(1.3);
-    expect(roundToDecimals(1.24, 1)).toBe(1.2);
   });
 });

@@ -1,0 +1,15 @@
+---
+description: Cap parallel host dev full stacks at 2
+globs: scripts/**,build_and_start_app.sh,AGENTS.md,docs/development_faq.md
+alwaysApply: true
+---
+
+# Dev stack limits
+
+On one machine, run at most **2** concurrent host **`dev`** full stacks (`./build_and_start_app.sh dev` / manual-test).
+
+- Do not start a third stack.
+- Free a port claim or remove a worktree first.
+- `scripts/allocate-dev-ports.sh` enforces this (default `LIFE_MANAGER_MAX_PARALLEL_DEV_STACKS=2`).
+- Restart of a stack that already owns a claim is allowed.
+- Details: [docs/development_faq.md](../docs/development_faq.md#parallel-worktrees-manual-test).
