@@ -25,8 +25,9 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
  * HealthMemberPanel -> HealthScreen : selected member | null
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
- * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem
- * HealthReadingPanel -> API : list / create readings for member
+ * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
+ * HealthReadingPanel -> API : list / create / update / delete readings
+ * HealthReadingPanel -> HealthScreen : onReadingsChanged (bump refreshKey)
  * HealthChartsPanel -> API : list readings for charts
  * HealthScreen -> DoctorVisitsPlaceholder : #114
  * ```
@@ -38,6 +39,7 @@ export default function HealthScreen() {
   );
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('metric');
   const [unitPreferenceReady, setUnitPreferenceReady] = useState(false);
+  const [readingsRefreshKey, setReadingsRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +62,10 @@ export default function HealthScreen() {
     } catch {
       // Preference write failed; keep UI mode for this session.
     }
+  }, []);
+
+  const handleReadingsChanged = useCallback(() => {
+    setReadingsRefreshKey((n) => n + 1);
   }, []);
 
   return (
@@ -92,6 +98,7 @@ export default function HealthScreen() {
           unitSystem={unitSystem}
           onUnitSystemChange={handleUnitSystemChange}
           unitPreferenceReady={unitPreferenceReady}
+          onReadingsChanged={handleReadingsChanged}
         />
       </ThemedView>
 
@@ -102,6 +109,7 @@ export default function HealthScreen() {
           unitSystem={unitSystem}
           onUnitSystemChange={handleUnitSystemChange}
           unitPreferenceReady={unitPreferenceReady}
+          refreshKey={readingsRefreshKey}
         />
       </ThemedView>
 

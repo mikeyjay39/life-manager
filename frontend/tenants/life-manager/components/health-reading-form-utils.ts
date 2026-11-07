@@ -1,4 +1,8 @@
-import type { CreateHealthReadingCommand } from '@/lib/api/types';
+import type {
+  CreateHealthReadingCommand,
+  HealthReadingDto,
+  UpdateHealthReadingCommand,
+} from '@/lib/api/types';
 import {
   cmToFeetInches,
   feetInchesToCm,
@@ -27,6 +31,82 @@ export type HealthReadingFormInput = {
 export type BuildCreateCommandResult =
   | { ok: true; command: CreateHealthReadingCommand }
   | { ok: false; error: string };
+
+export type BuildUpdateCommandResult =
+  | { ok: true; command: UpdateHealthReadingCommand }
+  | { ok: false; error: string };
+
+export function emptyHealthReadingForm(
+  recordedOn = ''
+): HealthReadingFormInput {
+  return {
+    recordedOn,
+    heightCm: '',
+    weightKg: '',
+    heightFeet: '',
+    heightInches: '',
+    weightLb: '',
+    systolic: '',
+    diastolic: '',
+    heartRate: '',
+    notes: '',
+  };
+}
+
+/**
+ * Prefill the vitals form from a stored metric reading.
+ * Imperial mode shows converted height/weight field strings.
+ */
+export function formFromHealthReading(
+  reading: HealthReadingDto,
+  unitSystem: UnitSystem
+): HealthReadingFormInput {
+  const base = emptyHealthReadingForm(reading.recorded_on);
+  const systolic =
+    reading.systolic_mm_hg != null ? String(reading.systolic_mm_hg) : '';
+  const diastolic =
+    reading.diastolic_mm_hg != null ? String(reading.diastolic_mm_hg) : '';
+  const heartRate =
+    reading.heart_rate_bpm != null ? String(reading.heart_rate_bpm) : '';
+  const notes = reading.notes ?? '';
+
+  if (unitSystem === 'metric') {
+    return {
+      ...base,
+      heightCm:
+        reading.height_cm != null ? String(round1(reading.height_cm)) : '',
+      weightKg:
+        reading.weight_kg != null ? String(round1(reading.weight_kg)) : '',
+      systolic,
+      diastolic,
+      heartRate,
+      notes,
+    };
+  }
+
+  let heightFeet = '';
+  let heightInches = '';
+  if (reading.height_cm != null && Number.isFinite(reading.height_cm)) {
+    const { feet, inches } = cmToFeetInches(reading.height_cm);
+    heightFeet = String(feet);
+    heightInches = String(inches);
+  }
+  const weightLb =
+    reading.weight_kg != null && Number.isFinite(reading.weight_kg)
+      ? String(round1(kgToLb(reading.weight_kg)))
+      : '';
+
+  return {
+    ...base,
+    heightFeet,
+    heightInches,
+    weightLb,
+    systolic,
+    diastolic,
+    heartRate,
+    notes,
+  };
+}
 
 function parseOptionalPositiveFloat(
   raw: string,
@@ -226,6 +306,22 @@ export function buildCreateHealthReadingCommand(
       notes,
     },
   };
+}
+
+/**
+ * Validate form input and build a metric-only UpdateHealthReadingCommand.
+ * Reuses create validation; omits immutable health_member_id.
+ */
+export function buildUpdateHealthReadingCommand(
+  unitSystem: UnitSystem,
+  input: HealthReadingFormInput
+): BuildUpdateCommandResult {
+  const built = buildCreateHealthReadingCommand('_', unitSystem, input);
+  if (!built.ok) {
+    return built;
+  }
+  const { health_member_id: _memberId, ...command } = built.command;
+  return { ok: true, command };
 }
 
 /**

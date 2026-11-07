@@ -30,6 +30,8 @@ type HealthChartsPanelProps = {
   unitSystem: UnitSystem;
   onUnitSystemChange: (next: UnitSystem) => void | Promise<void>;
   unitPreferenceReady: boolean;
+  /** Bump after vitals create / update / delete so charts reload. */
+  refreshKey?: number;
 };
 
 const METRICS: { id: ChartMetric; label: string }[] = [
@@ -91,6 +93,7 @@ export default function HealthChartsPanel({
   unitSystem,
   onUnitSystemChange,
   unitPreferenceReady,
+  refreshKey = 0,
 }: HealthChartsPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
@@ -146,7 +149,7 @@ export default function HealthChartsPanel({
 
   useEffect(() => {
     void loadReadings();
-  }, [loadReadings]);
+  }, [loadReadings, refreshKey]);
 
   const series: HealthChartSeries = useMemo(
     () => buildChartSeries(readings, metric, unitSystem),

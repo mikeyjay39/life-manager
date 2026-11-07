@@ -216,4 +216,46 @@ describe('HealthChartsPanel', () => {
       );
     });
   });
+
+  it('given refreshKey bump when mounted then reloads readings', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          reading({ id: 'a', recorded_on: '2026-06-01', weight_kg: 68 }),
+        ]),
+        { status: 200 }
+      )
+    );
+    const { rerender } = render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthChartsPanel
+          healthMember={member()}
+          unitSystem="metric"
+          onUnitSystemChange={async () => undefined}
+          unitPreferenceReady
+          refreshKey={0}
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledTimes(1);
+    });
+
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthChartsPanel
+          healthMember={member()}
+          unitSystem="metric"
+          onUnitSystemChange={async () => undefined}
+          unitPreferenceReady
+          refreshKey={1}
+        />
+      </TenantThemeTestProvider>
+    );
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledTimes(2);
+    });
+  });
 });

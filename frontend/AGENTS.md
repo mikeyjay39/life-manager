@@ -103,7 +103,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager skeleton | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog) |
-| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; POST metric-only; history list) |
+| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; POST/PUT metric-only; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`) |
 | List + tests | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog) |

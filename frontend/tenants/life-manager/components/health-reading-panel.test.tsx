@@ -50,6 +50,7 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
 const mockOnUnitSystemChange = vi.fn(async (_next: UnitSystem) => undefined);
+const mockOnReadingsChanged = vi.fn();
 
 function member(
   overrides: Partial<HealthMemberDto> & Pick<HealthMemberDto, 'id' | 'display_name'>
@@ -121,6 +122,7 @@ function StatefulReadingPanel({
           setUnitSystem(next);
         }}
         unitPreferenceReady
+        onReadingsChanged={mockOnReadingsChanged}
       />
     </TenantThemeTestProvider>
   );
@@ -137,6 +139,7 @@ function renderPanel(
         unitSystem={opts.unitSystem ?? 'metric'}
         onUnitSystemChange={mockOnUnitSystemChange}
         unitPreferenceReady={opts.unitPreferenceReady ?? true}
+        onReadingsChanged={mockOnReadingsChanged}
       />
     </TenantThemeTestProvider>
   );
@@ -147,6 +150,7 @@ describe('HealthReadingPanel', () => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue(defaultAuth());
     mockOnUnitSystemChange.mockClear();
+    mockOnReadingsChanged.mockClear();
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
   });
 
@@ -492,5 +496,253 @@ describe('HealthReadingPanel', () => {
           String(c[0]).startsWith('/health-readings') && c[1]?.method === 'GET'
       )
     ).toHaveLength(1);
+  });
+
+  it('given metric mode when editing weight then PUTs weight_kg and refreshes history', async () => {
+    // Given a reading in history
+    const existing = reading({
+      id: 'r-edit',
+      recorded_on: '2026-03-01',
+      weight_kg: 68,
+    });
+    const updated = reading({
+      id: 'r-edit',
+      recorded_on: '2026-03-01',
+      weight_kg: 71,
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([existing]))
+      .mockResolvedValueOnce(jsonResponse(updated))
+      .mockResolvedValueOnce(jsonResponse([updated]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('68 kg')).toBeTruthy();
+    });
+
+    // When editing weight and saving
+    fireEvent.press(screen.getByLabelText('Edit reading on 2026-03-01'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in kilograms').props.value).toBe(
+        '68'
+      );
+    });
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '71');
+    fireEvent.press(screen.getByLabelText('Update health reading'));
+
+    // Then PUT sends metric weight and list shows the new value
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/health-readings/r-edit',
+        expect.objectContaining({
+          method: 'PUT',
+          body: expect.stringContaining('"weight_kg":71'),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText('71 kg')).toBeTruthy();
+    });
+    expect(mockOnReadingsChanged).toHaveBeenCalled();
+  });
+
+  it('given imperial mode when editing weight then PUT sends weight_kg and list shows lb', async () => {
+    const existing = reading({
+      id: 'r-imp',
+      recorded_on: '2026-03-02',
+      weight_kg: 70,
+    });
+    const updated = reading({
+      id: 'r-imp',
+      recorded_on: '2026-03-02',
+      weight_kg: 72,
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([existing]))
+      .mockResolvedValueOnce(jsonResponse(updated))
+      .mockResolvedValueOnce(jsonResponse([updated]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }), {
+      unitSystem: 'imperial',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/154\.3 lb/)).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Edit reading on 2026-03-02'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Weight in pounds').props.value).toBe(
+        '154.3'
+      );
+    });
+    fireEvent.changeText(screen.getByLabelText('Weight in pounds'), '158.7');
+    fireEvent.press(screen.getByLabelText('Update health reading'));
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/health-readings/r-imp',
+        expect.objectContaining({ method: 'PUT' })
+      );
+    });
+    const putCall = mockAuthenticatedFetch.mock.calls.find(
+      (c) => c[0] === '/health-readings/r-imp' && c[1]?.method === 'PUT'
+    );
+    const payload = JSON.parse(String(putCall?.[1]?.body));
+    expect(payload.weight_kg).toBe(72);
+    expect(payload).not.toHaveProperty('weight_lb');
+    expect(payload).not.toHaveProperty('health_member_id');
+
+    await waitFor(() => {
+      expect(screen.getByText(/158\.7 lb/)).toBeTruthy();
+    });
+    expect(mockOnReadingsChanged).toHaveBeenCalled();
+  });
+
+  it('given delete then cancel on dialog then reading remains', async () => {
+    const existing = reading({
+      id: 'r-keep',
+      recorded_on: '2026-03-03',
+      weight_kg: 69,
+      notes: 'keep-me',
+    });
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([existing]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('keep-me')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Delete reading on 2026-03-03'));
+    await waitFor(() => {
+      expect(screen.getByText('Delete reading?')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Cancel'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Delete reading?')).toBeNull();
+    });
+    expect(screen.getByText('keep-me')).toBeTruthy();
+    expect(
+      mockAuthenticatedFetch.mock.calls.some((c) => c[1]?.method === 'DELETE')
+    ).toBe(false);
+  });
+
+  it('given delete confirm then reading is removed from the list', async () => {
+    const existing = reading({
+      id: 'r-gone',
+      recorded_on: '2026-03-04',
+      weight_kg: 67,
+      notes: 'remove-me',
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([existing]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse([]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('remove-me')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Delete reading on 2026-03-04'));
+    await waitFor(() => {
+      expect(screen.getByText('Delete reading?')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Delete'));
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/health-readings/r-gone',
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('remove-me')).toBeNull();
+      expect(screen.getByText('No readings yet.')).toBeTruthy();
+    });
+    expect(mockOnReadingsChanged).toHaveBeenCalled();
+  });
+
+  it('given recorded_on conflict on edit then shows API error and keeps list', async () => {
+    const existing = reading({
+      id: 'r-a',
+      recorded_on: '2026-03-05',
+      weight_kg: 70,
+      notes: 'first',
+    });
+    const other = reading({
+      id: 'r-b',
+      recorded_on: '2026-03-06',
+      weight_kg: 71,
+      notes: 'second',
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([other, existing]))
+      .mockResolvedValueOnce(
+        new Response('duplicate recorded_on for this HealthMember', {
+          status: 400,
+        })
+      );
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('first')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Edit reading on 2026-03-05'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Update health reading')).toBeTruthy();
+    });
+    // Change date onto the other reading's day (DatePicker mock sets 2026-03-01;
+    // set via change on recorded date is not available — use weight path and
+    // mock conflict on whatever date is sent). Prefer editing the date field
+    // through the form's recordedOn by pressing the update after changing weight
+    // while API returns conflict for recorded_on.
+    fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '72');
+    fireEvent.press(screen.getByLabelText('Update health reading'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Request failed \(400\)/)).toBeTruthy();
+    });
+    expect(screen.getByText('first')).toBeTruthy();
+    expect(screen.getByText('second')).toBeTruthy();
+    expect(mockOnReadingsChanged).not.toHaveBeenCalled();
+  });
+
+  it('given delete API failure then keeps row and shows error', async () => {
+    const existing = reading({
+      id: 'r-fail',
+      recorded_on: '2026-03-07',
+      weight_kg: 66,
+      notes: 'still-here',
+    });
+    mockAuthenticatedFetch
+      .mockResolvedValueOnce(jsonResponse([existing]))
+      .mockResolvedValueOnce(
+        new Response('delete failed', { status: 500 })
+      );
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('still-here')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Delete reading on 2026-03-07'));
+    await waitFor(() => {
+      expect(screen.getByText('Delete reading?')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Delete'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Request failed \(500\)/)).toBeTruthy();
+    });
+    expect(screen.getByText('still-here')).toBeTruthy();
+    expect(mockOnReadingsChanged).not.toHaveBeenCalled();
   });
 });
