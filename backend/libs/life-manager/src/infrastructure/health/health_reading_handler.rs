@@ -1,15 +1,19 @@
 use auth::AuthUser;
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use backend_utils::AppError;
 use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
+use uuid::Uuid;
 
 use crate::application::create_health_reading_command::CreateHealthReadingCommand;
+use crate::application::delete_health_reading_command::DeleteHealthReadingCommand;
 use crate::application::list_health_readings_query::ListHealthReadingsQuery;
+use crate::application::update_health_reading_command::UpdateHealthReadingCommand;
 use crate::domain::health_member::HealthMemberId;
+use crate::domain::health_reading::HealthReadingId;
 use crate::infrastructure::health::health_reading_api_types::{
-    CreateHealthReadingCommandDto, GetHealthReadingsQueryParams,
+    CreateHealthReadingCommandDto, GetHealthReadingsQueryParams, UpdateHealthReadingCommandDto,
 };
 use crate::infrastructure::health::health_reading_dto::HealthReadingDto;
 use crate::infrastructure::health::health_reading_state::HealthReadingState;
@@ -93,12 +97,92 @@ pub async fn list_health_readings(
     )
 }
 
+/// Updates mutable metric fields on an owned HealthReading.
+///
+/// `health_member_id` is immutable. Missing or other user's id → 404.
+///
+/// ```text
+/// +--------+     +-----------------------+     +--------------------+     +------------------+
+/// |        |     | Handler               |     | Update command     |     | SQLite           |
+/// | Client |---->| update_health_reading |---->| load_owned,        |---->| health_readings  |
+/// |        |     | (JWT user_id)         |     | duplicate check,   |     |                  |
+/// +--------+     +-----------------------+     | domain update      |     +------------------+
+///      |                    |                 +--------------------+              |
+///      |  PUT /health-readings/{id}           |                                   |
+///      |  { recorded_on, vitals }             |                                   |
+///      |------------------->|                 |                                   |
+///      |                    |  load_owned     |                                   |
+///      |                    |  find_by_date   |                                   |
+///      |                    |  reading.update |                                   |
+///      |                    |  repo.update    |---------------------------------->|
+///      |  200 HealthReadingDto                |                                   |
+///      |<-------------------|                 |                                   |
+/// ```
+pub async fn update_health_reading(
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
+    State(HealthReadingState(use_cases)): State<HealthReadingState>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateHealthReadingCommandDto>,
+) -> ApiResult<HealthReadingDto> {
+    tracing::info!("Updating HealthReading id={}", id);
+    let recorded_on = payload.recorded_on;
+    let vitals = payload.into_vitals();
+    let reading = UpdateHealthReadingCommand::new(
+        HealthReadingId(id),
+        user_id,
+        recorded_on,
+        vitals,
+        use_cases.health_reading_repository.clone(),
+    )
+    .execute()
+    .await?;
+    AppResponse::ok(HealthReadingDto::from_domain(&reading))
+}
+
+/// Hard-deletes an owned HealthReading. Missing or other user's id → 404.
+///
+/// ```text
+/// +--------+     +-----------------------+     +--------------------+     +------------------+
+/// |        |     | Handler               |     | Delete command     |     | SQLite           |
+/// | Client |---->| delete_health_reading |---->| load_owned, delete |---->| health_readings  |
+/// |        |     | (JWT user_id)         |     |                    |     |                  |
+/// +--------+     +-----------------------+     +--------------------+     +------------------+
+///      |                    |                            |                         |
+///      |  DELETE /health-readings/{id}                   |                         |
+///      |------------------->|                            |                         |
+///      |                    |  load_owned                |                         |
+///      |                    |  repo.delete               |------------------------>|
+///      |  204               |                            |                         |
+///      |<-------------------|                            |                         |
+/// ```
+pub async fn delete_health_reading(
+    AuthUser {
+        user_id,
+        tenant: _tenant,
+    }: AuthUser,
+    State(HealthReadingState(use_cases)): State<HealthReadingState>,
+    Path(id): Path<Uuid>,
+) -> ApiResult<()> {
+    tracing::info!("Deleting HealthReading id={}", id);
+    DeleteHealthReadingCommand::new(
+        HealthReadingId(id),
+        user_id,
+        use_cases.health_reading_repository.clone(),
+    )
+    .execute()
+    .await?;
+    AppResponse::<()>::no_content()
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
     use axum::body::to_bytes;
-    use axum::extract::{Query, State};
+    use axum::extract::{Path, Query, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
     use axum::Json;
@@ -109,7 +193,6 @@ mod tests {
     use super::*;
     use crate::application::health_member_repository::HealthMemberRepository;
     use crate::application::health_member_use_cases::HealthMemberUseCases;
-    use crate::application::health_reading_repository::HealthReadingRepository;
     use crate::application::health_reading_use_cases::HealthReadingUseCases;
     use crate::domain::health_member::HealthMember;
     use crate::infrastructure::health::health_reading_collection::HealthReadingCollection;
@@ -183,6 +266,36 @@ mod tests {
             heart_rate_bpm: None,
             notes: None,
         }
+    }
+
+    fn update_payload(recorded_on: NaiveDate, weight_kg: Option<f64>) -> UpdateHealthReadingCommandDto {
+        UpdateHealthReadingCommandDto {
+            recorded_on,
+            height_cm: Some(180.0),
+            weight_kg,
+            systolic_mm_hg: None,
+            diastolic_mm_hg: None,
+            heart_rate_bpm: None,
+            notes: None,
+        }
+    }
+
+    async fn create_owned_reading(
+        auth_user: AuthUser,
+        use_cases: Arc<HealthReadingUseCases>,
+        member_id: Uuid,
+        recorded_on: NaiveDate,
+    ) -> HealthReadingDto {
+        let response = create_health_reading(
+            auth_user,
+            State(HealthReadingState(use_cases)),
+            Json(metric_payload(member_id, recorded_on)),
+        )
+        .await
+        .into_response();
+        let (status, dto): (StatusCode, HealthReadingDto) = response_json(response).await;
+        assert_eq!(status, StatusCode::CREATED);
+        dto
     }
 
     #[tokio::test]
@@ -407,5 +520,187 @@ mod tests {
         )
         .await;
         assert!(matches!(result, Err(AppError::Validation(_))));
+    }
+
+    #[tokio::test]
+    async fn given_owned_reading_when_update_weight_then_200_and_list_reflects() {
+        let auth_user = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(auth_user.clone(), members).await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, day).await;
+
+        let response = update_health_reading(
+            auth_user.clone(),
+            State(HealthReadingState(use_cases.clone())),
+            Path(created.id),
+            Json(update_payload(day, Some(80.0))),
+        )
+        .await
+        .into_response();
+
+        let (status, dto): (StatusCode, HealthReadingDto) = response_json(response).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(dto.id, created.id);
+        assert_eq!(dto.weight_kg, Some(80.0));
+        assert_eq!(dto.health_member_id, member_id);
+
+        let list = list_health_readings(
+            auth_user,
+            State(HealthReadingState(use_cases)),
+            Query(GetHealthReadingsQueryParams {
+                health_member_id: Some(member_id),
+                from: None,
+                to: None,
+            }),
+        )
+        .await
+        .expect("list")
+        .data;
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].weight_kg, Some(80.0));
+    }
+
+    #[tokio::test]
+    async fn given_owned_reading_when_delete_then_204_and_gone_from_list() {
+        let auth_user = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(auth_user.clone(), members).await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, day).await;
+
+        let response = delete_health_reading(
+            auth_user.clone(),
+            State(HealthReadingState(use_cases.clone())),
+            Path(created.id),
+        )
+        .await
+        .into_response();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+        let list = list_health_readings(
+            auth_user,
+            State(HealthReadingState(use_cases)),
+            Query(GetHealthReadingsQueryParams {
+                health_member_id: Some(member_id),
+                from: None,
+                to: None,
+            }),
+        )
+        .await
+        .expect("list")
+        .data;
+        assert!(list.is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_other_users_reading_when_update_or_delete_then_404() {
+        let owner = test_auth_user();
+        let other = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(owner.clone(), members).await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = create_owned_reading(owner, use_cases.clone(), member_id, day).await;
+
+        let update_result = update_health_reading(
+            other.clone(),
+            State(HealthReadingState(use_cases.clone())),
+            Path(created.id),
+            Json(update_payload(day, Some(80.0))),
+        )
+        .await;
+        assert!(matches!(update_result, Err(AppError::NotFound)));
+
+        let delete_result = delete_health_reading(
+            other,
+            State(HealthReadingState(use_cases)),
+            Path(created.id),
+        )
+        .await;
+        assert!(matches!(delete_result, Err(AppError::NotFound)));
+    }
+
+    #[tokio::test]
+    async fn given_update_clears_all_metrics_when_put_then_400() {
+        let auth_user = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(auth_user.clone(), members).await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, day).await;
+
+        let result = update_health_reading(
+            auth_user,
+            State(HealthReadingState(use_cases)),
+            Path(created.id),
+            Json(UpdateHealthReadingCommandDto {
+                recorded_on: day,
+                height_cm: None,
+                weight_kg: None,
+                systolic_mm_hg: None,
+                diastolic_mm_hg: None,
+                heart_rate_bpm: None,
+                notes: None,
+            }),
+        )
+        .await;
+        assert!(matches!(result, Err(AppError::Validation(_))));
+    }
+
+    #[tokio::test]
+    async fn given_duplicate_date_when_update_then_400() {
+        let auth_user = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(auth_user.clone(), members).await;
+        let d1 = NaiveDate::from_ymd_opt(2026, 1, 10).unwrap();
+        let d2 = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let _first =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, d1).await;
+        let second =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, d2).await;
+
+        let result = update_health_reading(
+            auth_user.clone(),
+            State(HealthReadingState(use_cases.clone())),
+            Path(second.id),
+            Json(update_payload(d1, Some(80.0))),
+        )
+        .await;
+        assert!(matches!(result, Err(AppError::Validation(_))));
+
+        let stored = use_cases
+            .health_reading_repository
+            .load_owned(&HealthReadingId(second.id), &auth_user.user_id)
+            .await
+            .expect("still present");
+        assert_eq!(stored.recorded_on, d2);
+    }
+
+    #[tokio::test]
+    async fn given_deleted_reading_when_delete_again_then_404() {
+        let auth_user = test_auth_user();
+        let (use_cases, members, _) = use_cases_with_collections();
+        let member_id = create_owned_member(auth_user.clone(), members).await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created =
+            create_owned_reading(auth_user.clone(), use_cases.clone(), member_id, day).await;
+
+        delete_health_reading(
+            auth_user.clone(),
+            State(HealthReadingState(use_cases.clone())),
+            Path(created.id),
+        )
+        .await
+        .expect("first delete");
+
+        let second = delete_health_reading(
+            auth_user,
+            State(HealthReadingState(use_cases)),
+            Path(created.id),
+        )
+        .await;
+        assert!(matches!(second, Err(AppError::NotFound)));
     }
 }

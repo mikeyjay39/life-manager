@@ -49,6 +49,18 @@ impl std::fmt::Display for InactiveHealthMemberForReading {
 
 impl std::error::Error for InactiveHealthMemberForReading {}
 
+/// Update or delete affected 0 rows (row removed after load).
+#[derive(Debug)]
+pub struct MissingHealthReading;
+
+impl std::fmt::Display for MissingHealthReading {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HealthReading not found")
+    }
+}
+
+impl std::error::Error for MissingHealthReading {}
+
 /**
  * Port for HealthReading persistence.
  *
