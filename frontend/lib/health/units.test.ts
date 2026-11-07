@@ -5,6 +5,7 @@ import {
   HEALTH_UNIT_PREFERENCE_KEY,
   cmToFeetInches,
   computeBmi,
+  defaultUnitSystemFromLocale,
   displayWeightKg,
   feetInchesToCm,
   formatHeightDisplay,
@@ -12,6 +13,7 @@ import {
   kgToLb,
   lbToKg,
   loadUnitPreference,
+  regionFromLocale,
   round1,
   saveUnitPreference,
   weightUnitLabel,
@@ -79,9 +81,36 @@ describe('health units', () => {
     );
   });
 
-  it('defaults to metric when preference is missing', async () => {
+  it('defaults from locale when preference is missing', async () => {
+    // Given no saved preference and a US locale
     mockStorage.getItem.mockResolvedValueOnce(null);
+    vi.stubGlobal('navigator', { language: 'en-US' });
+    // When loading preference
+    await expect(loadUnitPreference()).resolves.toBe('imperial');
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps a saved metric preference over a US locale', async () => {
+    // Given US locale and a saved metric preference
+    mockStorage.getItem.mockResolvedValueOnce('metric');
+    vi.stubGlobal('navigator', { language: 'en-US' });
+    // When loading preference
     await expect(loadUnitPreference()).resolves.toBe('metric');
+    vi.unstubAllGlobals();
+  });
+
+  it('maps locale regions to the locked unit default', () => {
+    // Given region tags from the locked map and common others
+    expect(defaultUnitSystemFromLocale('en-US')).toBe('imperial');
+    expect(defaultUnitSystemFromLocale('en-us')).toBe('imperial');
+    expect(defaultUnitSystemFromLocale('en-LR')).toBe('imperial');
+    expect(defaultUnitSystemFromLocale('my-MM')).toBe('imperial');
+    expect(defaultUnitSystemFromLocale('en-GB')).toBe('metric');
+    expect(defaultUnitSystemFromLocale('en')).toBe('metric');
+    expect(defaultUnitSystemFromLocale('')).toBe('metric');
+    expect(defaultUnitSystemFromLocale(null)).toBe('metric');
+    expect(regionFromLocale('zh-Hans-CN')).toBe('CN');
+    expect(regionFromLocale('en')).toBeNull();
   });
 
   it('formats weight and height for metric and imperial display', () => {

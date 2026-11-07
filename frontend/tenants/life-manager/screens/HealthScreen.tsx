@@ -22,7 +22,7 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  *
  * ```
  * User -> HealthScreen : open Health
- * HealthScreen -> PrefStore : loadUnitPreference
+ * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
  * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
  * HealthMemberPanel -> HealthScreen : selected member | null
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
