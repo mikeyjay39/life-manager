@@ -1,4 +1,4 @@
-import React, { useId, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, type TextStyle } from 'react-native';
 
 import type { TextInputKeyboardType, TextInputProps } from './text-input-types';
@@ -9,13 +9,30 @@ export type { TextInputProps };
  * TextInput on web (activity):
  *
  * [*] --> EditableField : editable true, mount input or textarea
- * [*] --> DisplayOnly : editable false, mount div (not a Vimium typed target)
+ * [*] --> DisplayOnly : editable false, mount labelled div (not a Vimium typed target)
  * EditableField --> Typed : change event
  * DisplayOnly --> [*] : show value only
  *
  * Renders a real HTML input/textarea so Vimium gi / input hints can focus it.
  * Locked fields are not input/textarea, because Vimium still matches readonly textareas.
  */
+
+const PLACEHOLDER_STYLE_ATTR = 'data-lm-ti-placeholder';
+const PLACEHOLDER_CSS =
+  '[data-lm-ti]::placeholder{color:var(--lm-placeholder);opacity:1;}';
+
+function ensurePlaceholderStyle(): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  if (document.head.querySelector(`style[${PLACEHOLDER_STYLE_ATTR}]`)) {
+    return;
+  }
+  const style = document.createElement('style');
+  style.setAttribute(PLACEHOLDER_STYLE_ATTR, '1');
+  style.textContent = PLACEHOLDER_CSS;
+  document.head.appendChild(style);
+}
 
 function htmlTypeAndInputMode(keyboardType: TextInputKeyboardType): {
   type: string;
@@ -45,7 +62,8 @@ function flattenStyle(style: TextInputProps['style']): TextStyle {
 function toDomStyle(
   flat: TextStyle,
   multiline: boolean,
-  textAlignVertical: TextInputProps['textAlignVertical']
+  textAlignVertical: TextInputProps['textAlignVertical'],
+  placeholderTextColor?: string
 ): React.CSSProperties {
   return {
     ...(flat as React.CSSProperties),
@@ -71,6 +89,9 @@ function toDomStyle(
     resize: multiline ? 'vertical' : undefined,
     verticalAlign: textAlignVertical === 'top' ? 'top' : undefined,
     whiteSpace: multiline ? 'pre-wrap' : undefined,
+    ...(placeholderTextColor
+      ? ({ ['--lm-placeholder']: placeholderTextColor } as React.CSSProperties)
+      : null),
   };
 }
 
@@ -94,25 +115,27 @@ export function TextInput({
   const flat = useMemo(() => flattenStyle(style), [style]);
   const { type, inputMode } = htmlTypeAndInputMode(keyboardType);
   const readOnly = editable === false;
-  const fieldId = useId().replace(/:/g, '');
-  const domStyle = toDomStyle(flat, multiline, textAlignVertical);
+  const domStyle = toDomStyle(
+    flat,
+    multiline,
+    textAlignVertical,
+    readOnly ? undefined : placeholderTextColor
+  );
 
-  const placeholderRule =
-    placeholderTextColor && !readOnly
-      ? React.createElement('style', {
-          dangerouslySetInnerHTML: {
-            __html: `[data-lm-ti="${fieldId}"]::placeholder{color:${placeholderTextColor};opacity:1;}`,
-          },
-        })
-      : null;
+  useEffect(() => {
+    if (!readOnly && placeholderTextColor) {
+      ensurePlaceholderStyle();
+    }
+  }, [readOnly, placeholderTextColor]);
 
   if (readOnly) {
     // Div is not a Vimium typed target (input/textarea/contenteditable).
+    // role=group keeps aria-label in the accessibility tree.
     return React.createElement(
       'div',
       {
+        role: 'group',
         'aria-label': accessibilityLabel,
-        'aria-readonly': true,
         'data-testid': testID,
         style: domStyle,
       },
@@ -127,7 +150,7 @@ export function TextInput({
     'aria-required': ariaRequired || undefined,
     maxLength,
     'data-testid': testID,
-    'data-lm-ti': fieldId,
+    'data-lm-ti': '',
     autoCapitalize,
     onChange: (event: { target: { value: string } }) => {
       if (!onChangeText) {
@@ -138,20 +161,16 @@ export function TextInput({
     style: domStyle,
   };
 
-  const field = multiline
-    ? React.createElement('textarea', {
-        ...common,
-        rows: 3,
-      })
-    : React.createElement('input', {
-        ...common,
-        type: secureTextEntry ? 'password' : type,
-        inputMode,
-      });
-
-  if (!placeholderRule) {
-    return field;
+  if (multiline) {
+    return React.createElement('textarea', {
+      ...common,
+      rows: 3,
+    });
   }
 
-  return React.createElement(React.Fragment, null, placeholderRule, field);
+  return React.createElement('input', {
+    ...common,
+    type: secureTextEntry ? 'password' : type,
+    inputMode,
+  });
 }
