@@ -4,7 +4,9 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::HealthReadingRepository,
+    application::health_reading_repository::{
+        DuplicateHealthReadingDate, HealthReadingRepository,
+    },
     domain::{
         health_member::HealthMemberId,
         health_reading::{HealthReading, HealthReadingId},
@@ -82,7 +84,13 @@ impl HealthReadingRepository for HealthReadingCollection {
         &self,
         reading: HealthReading,
     ) -> Result<HealthReading, Box<dyn std::error::Error>> {
-        self.readings.lock().await.push(reading.clone());
+        let mut readings = self.readings.lock().await;
+        if readings.iter().any(|r| {
+            r.health_member_id == reading.health_member_id && r.recorded_on == reading.recorded_on
+        }) {
+            return Err(Box::new(DuplicateHealthReadingDate));
+        }
+        readings.push(reading.clone());
         Ok(reading)
     }
 
