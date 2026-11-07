@@ -321,12 +321,14 @@ impl Car {
                 if trimmed.is_empty() {
                     return Ok(None);
                 }
-                if trimmed.chars().count() > LICENSE_PLATE_MAX_LEN {
+                // Uppercase first: some Unicode characters expand (e.g. ß → SS).
+                let upper = trimmed.to_uppercase();
+                if upper.chars().count() > LICENSE_PLATE_MAX_LEN {
                     return Err(AppError::Validation(format!(
                         "license_plate must be at most {LICENSE_PLATE_MAX_LEN} characters"
                     )));
                 }
-                Ok(Some(trimmed.to_uppercase()))
+                Ok(Some(upper))
             }
         }
     }
@@ -488,5 +490,20 @@ mod tests {
         assert!(car.active);
         assert!(car.deactivated_at.is_none());
         assert!(car.ensure_active_for_write().is_ok());
+    }
+
+    #[test]
+    fn given_plate_that_expands_on_uppercase_when_over_limit_then_validation_error() {
+        // 32 sharp-s characters expand to 64 chars after uppercase.
+        let plate = "ß".repeat(LICENSE_PLATE_MAX_LEN);
+        let err = Car::create(
+            Uuid::new_v4(),
+            CarProfileInput {
+                license_plate: Some(&plate),
+                ..base_input()
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(err, AppError::Validation(msg) if msg.contains("license_plate")));
     }
 }

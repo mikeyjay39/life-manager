@@ -100,11 +100,22 @@ impl UpdateCarCommand {
             Some(v) => v,
         };
 
+        // Only verify Document ownership when the client sets a new id.
+        // Omit (keep) must not re-check: a later Document hard-delete must not
+        // block unrelated Car field updates. Clear (`null`) needs no check.
+        let insurance_to_verify = match self.insurance_document_id {
+            Some(Some(id)) => Some(id),
+            _ => None,
+        };
+        let registration_to_verify = match self.registration_document_id {
+            Some(Some(id)) => Some(id),
+            _ => None,
+        };
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
-            insurance_document_id,
-            registration_document_id,
+            insurance_to_verify,
+            registration_to_verify,
         )
         .await?;
 

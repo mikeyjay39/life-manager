@@ -638,6 +638,70 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn given_kept_dangling_document_link_when_update_other_fields_then_200() {
+        let auth_user = test_auth_user();
+        let (use_cases, _, docs) = use_cases_with_collections();
+        let doc = Document::new("Insurance", "policy", auth_user.user_id);
+        let doc_id = doc.id;
+        docs.save_document(doc).await.expect("save doc");
+
+        let created = create_car(
+            auth_user.clone(),
+            State(CarState(use_cases.clone())),
+            Json(create_payload("Toyota", "Corolla", 2020)),
+        )
+        .await
+        .expect("create")
+        .data;
+
+        update_car(
+            auth_user.clone(),
+            State(CarState(use_cases.clone())),
+            Path(created.id),
+            Json(UpdateCarCommandDto {
+                display_name: None,
+                make: "Toyota".to_string(),
+                model: "Corolla".to_string(),
+                year: 2020,
+                vin: None,
+                license_plate: None,
+                notes: None,
+                insurance_document_id: Some(Some(doc_id)),
+                registration_document_id: None,
+                active: None,
+            }),
+        )
+        .await
+        .expect("link");
+
+        docs.delete_document(doc_id).await.expect("delete doc");
+
+        let response = update_car(
+            auth_user,
+            State(CarState(use_cases)),
+            Path(created.id),
+            Json(UpdateCarCommandDto {
+                display_name: Some(Some("Daily".to_string())),
+                make: "Toyota".to_string(),
+                model: "Corolla".to_string(),
+                year: 2020,
+                vin: None,
+                license_plate: None,
+                notes: None,
+                insurance_document_id: None,
+                registration_document_id: None,
+                active: None,
+            }),
+        )
+        .await
+        .into_response();
+        let (status, dto): (StatusCode, CarDto) = response_json(response).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(dto.display_name.as_deref(), Some("Daily"));
+        assert_eq!(dto.insurance_document_id, Some(doc_id));
+    }
+
+    #[tokio::test]
     async fn given_same_vin_on_same_car_when_update_then_ok() {
         let auth_user = test_auth_user();
         let (use_cases, _, _) = use_cases_with_collections();
