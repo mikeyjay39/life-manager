@@ -9,7 +9,10 @@ use diesel::{
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::HealthReadingRepository,
+    application::health_reading_repository::{
+        DuplicateHealthReadingDate, HealthReadingRepository, InactiveHealthMemberForReading,
+        MissingHealthMemberForReading,
+    },
     domain::{
         health_member::HealthMemberId,
         health_reading::{HealthReading, HealthReadingId},
@@ -17,8 +20,21 @@ use crate::{
     infrastructure::health::health_reading_entity::{
         HealthReadingEntity, NewHealthReadingEntity, UpdateHealthReadingEntity,
     },
-    schema::health_readings,
+    schema::{health_members, health_readings},
 };
+
+/// Local failure for the save transaction (Diesel + domain checks).
+enum SaveTxError {
+    MemberMissing,
+    InactiveMember,
+    Diesel(diesel::result::Error),
+}
+
+impl From<diesel::result::Error> for SaveTxError {
+    fn from(value: diesel::result::Error) -> Self {
+        Self::Diesel(value)
+    }
+}
 
 #[derive(Clone)]
 pub struct HealthReadingOrmCollection {
@@ -165,13 +181,34 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
         let conn = self.pool.get().await?;
         let new_entity = NewHealthReadingEntity::from(&reading);
         let reading_id = reading.id;
+        let member_id_str = reading.health_member_id.to_string();
+        let user_id_str = reading.user_id.to_string();
 
+        // Re-check active member in the same transaction as INSERT so a
+        // concurrent deactivate cannot leave a new reading on an inactive member.
+        // Map UNIQUE on (health_member_id, recorded_on) to DuplicateHealthReadingDate.
         let result = conn
-            .interact(move |conn| -> QueryResult<HealthReadingEntity> {
-                diesel::insert_into(health_readings::table)
-                    .values(&new_entity)
-                    .returning(HealthReadingEntity::as_returning())
-                    .get_result(conn)
+            .interact(move |conn| {
+                // IMMEDIATE locks the DB writer so deactivate cannot interleave
+                // between the active check and the INSERT.
+                conn.immediate_transaction(|conn| {
+                    let member_active: Option<bool> = health_members::table
+                        .filter(health_members::id.eq(&member_id_str))
+                        .filter(health_members::user_id.eq(&user_id_str))
+                        .select(health_members::active)
+                        .first(conn)
+                        .optional()?;
+                    match member_active {
+                        Some(true) => {}
+                        Some(false) => return Err(SaveTxError::InactiveMember),
+                        None => return Err(SaveTxError::MemberMissing),
+                    }
+                    diesel::insert_into(health_readings::table)
+                        .values(&new_entity)
+                        .returning(HealthReadingEntity::as_returning())
+                        .get_result(conn)
+                        .map_err(SaveTxError::from)
+                })
             })
             .await;
 
@@ -179,7 +216,19 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
             Ok(Ok(entity)) => entity
                 .into_domain()
                 .ok_or_else(|| "Failed to map saved HealthReading".into()),
-            Ok(Err(e)) => {
+            Ok(Err(SaveTxError::MemberMissing)) => {
+                Err(Box::new(MissingHealthMemberForReading))
+            }
+            Ok(Err(SaveTxError::InactiveMember)) => {
+                Err(Box::new(InactiveHealthMemberForReading))
+            }
+            Ok(Err(SaveTxError::Diesel(
+                diesel::result::Error::DatabaseError(
+                    diesel::result::DatabaseErrorKind::UniqueViolation,
+                    _,
+                ),
+            ))) => Err(Box::new(DuplicateHealthReadingDate)),
+            Ok(Err(SaveTxError::Diesel(e))) => {
                 tracing::error!("Error saving HealthReading {}: {}", reading_id, e);
                 Err(Box::new(e))
             }
