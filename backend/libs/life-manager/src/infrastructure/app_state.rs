@@ -7,11 +7,13 @@ use deadpool_diesel::sqlite::Pool;
 use crate::{
     application::{
         document_use_cases::DocumentUseCases, health_member_use_cases::HealthMemberUseCases,
+        health_reading_use_cases::HealthReadingUseCases,
     },
     domain::document_text_reader::DocumentTextReader,
     infrastructure::{
         db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
         document::document_orm_collection::DocumentOrmCollection,
+        health::health_reading_orm_collection::HealthReadingOrmCollection,
         health_member::health_member_orm_collection::HealthMemberOrmCollection,
         noop_document_text_reader::NoOpDocumentTextReader,
         ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
@@ -24,6 +26,7 @@ use crate::{
 pub struct LifeManagerState {
     pub(crate) document_use_cases: Arc<DocumentUseCases>,
     pub(crate) health_member_use_cases: Arc<HealthMemberUseCases>,
+    pub(crate) health_reading_use_cases: Arc<HealthReadingUseCases>,
     pub(crate) auth_state: AuthState,
 }
 
@@ -33,6 +36,7 @@ pub struct LifeManagerDeps {
     pub db_pool: Option<Arc<Pool>>,
     pub document_use_cases: Option<Arc<DocumentUseCases>>,
     pub health_member_use_cases: Option<Arc<HealthMemberUseCases>>,
+    pub health_reading_use_cases: Option<Arc<HealthReadingUseCases>>,
     pub auth_state: Option<AuthState>,
 }
 
@@ -76,11 +80,23 @@ impl LifeManagerStateBuilder {
         };
         let health_member_use_cases = match deps.health_member_use_cases {
             Some(use_cases) => use_cases,
-            None => Arc::new(default_health_member_use_cases(pool)),
+            None => Arc::new(HealthMemberUseCases {
+                health_member_repository: Arc::new(HealthMemberOrmCollection::new(pool.clone())),
+            }),
+        };
+        let health_reading_use_cases = match deps.health_reading_use_cases {
+            Some(use_cases) => use_cases,
+            None => Arc::new(HealthReadingUseCases {
+                health_reading_repository: Arc::new(HealthReadingOrmCollection::new(pool)),
+                health_member_repository: health_member_use_cases
+                    .health_member_repository
+                    .clone(),
+            }),
         };
         Ok(LifeManagerState {
             document_use_cases,
             health_member_use_cases,
+            health_reading_use_cases,
             auth_state,
         })
     }
@@ -119,13 +135,6 @@ fn default_document_use_cases(pool: Arc<Pool>) -> anyhow::Result<DocumentUseCase
                 .and_then(|url_str| url_str.parse().ok()),
         )),
     })
-}
-
-fn default_health_member_use_cases(pool: Arc<Pool>) -> HealthMemberUseCases {
-    tracing::info!("Creating default HealthMemberUseCases...");
-    HealthMemberUseCases {
-        health_member_repository: Arc::new(HealthMemberOrmCollection::new(pool)),
-    }
 }
 
 async fn init_db(pool: Pool) -> anyhow::Result<Pool> {

@@ -17,11 +17,14 @@ use crate::domain::{
 pub trait HealthReadingRepository: Sync + Send {
     async fn get_by_id(&self, id: &HealthReadingId) -> Option<HealthReading>;
 
-    /// Lists readings for one HealthMember, newest `recorded_on` first.
+    /// Lists readings for one HealthMember owned by `user_id`, newest first.
+    /// Optional `from` / `to` filter on `recorded_on` (inclusive).
     async fn list_by_member(
         &self,
         health_member_id: &HealthMemberId,
         user_id: &Uuid,
+        from: Option<NaiveDate>,
+        to: Option<NaiveDate>,
     ) -> Vec<HealthReading>;
 
     async fn find_by_member_and_date(

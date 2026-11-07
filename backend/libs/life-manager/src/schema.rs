@@ -30,6 +30,23 @@ diesel::table! {
 }
 
 diesel::table! {
+    health_readings (id) {
+        id -> Text,
+        user_id -> Text,
+        health_member_id -> Text,
+        recorded_on -> Date,
+        height_cm -> Nullable<Double>,
+        weight_kg -> Nullable<Double>,
+        systolic_mm_hg -> Nullable<Integer>,
+        diastolic_mm_hg -> Nullable<Integer>,
+        heart_rate_bpm -> Nullable<Integer>,
+        notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     tags (id) {
         id -> Text,
         name -> Text,
@@ -49,6 +66,7 @@ diesel::joinable!(document_tags -> tags (tag_id));
 diesel::allow_tables_to_appear_in_same_query!(
     documents,
     health_members,
+    health_readings,
     tags,
     document_tags,
 );
