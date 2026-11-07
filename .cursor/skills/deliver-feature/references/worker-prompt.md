@@ -43,6 +43,21 @@ A boss session may type messages that start with "From the boss session:".
    (include Summary, Test plan, Closes #<n>, and any Flagged for boss notes)
 4. Run the personal skill pr-review-loop until the reviewer returns NO ISSUES.
    Commit and push fixes each round.
+   **Local tests (required each review-loop round, including the final clean
+   round):** run the unit and integration suites from docs/agents/testing.md
+   that match the stacks you changed. Do not rely on GitHub Actions for story
+   PRs (base is not main). Fix failures before you push or re-ask the reviewer.
+   - Frontend changed: `cd frontend && npm ci && npm run test:run` (and
+     `npm run lint` when frontend changed).
+   - Backend changed: `./backend/scripts/write_rev.sh` then
+     `cargo test --lib --workspace --manifest-path backend/Cargo.toml`
+     (unit) and `cd backend && cargo test --test '*'` (integration).
+   - DTO / ts-rs bindings changed: also
+     `./backend/scripts/export_ts_bindings.sh` and
+     `git diff --exit-code -- frontend/lib/api/generated/`.
+   - Docs/CI-only with no app code: state that in the PR / boss note; skip app
+     suites.
+   Report which commands you ran and the pass/fail result to the boss.
 5. Run the personal skill pr-summary-for-human on this PR (posts a general
    comment). Do not approve or request changes.
 6. Wait for the boss if it says the manual-test slot is full. When cleared,

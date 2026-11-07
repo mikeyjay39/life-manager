@@ -6,6 +6,8 @@ Match CI: [`.github/workflows/main.yml`](../../.github/workflows/main.yml).
 
 **Triggers:** `pull_request` runs only when the PR **base** is `main` (frontend and backend test jobs). PRs into feature or story base branches do not start this workflow. On **push to `main`** (after tests pass), CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`, `observability/` → `alloy`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
 
+**deliver-feature story PRs:** base is the feature branch, so Actions does not run. Workers must run the unit and integration commands below locally inside **pr-review-loop** (see [`.cursor/skills/deliver-feature/`](../../.cursor/skills/deliver-feature/)).
+
 ## Commands
 
 **Frontend (Vitest):**

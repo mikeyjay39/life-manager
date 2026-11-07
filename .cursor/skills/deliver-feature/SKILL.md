@@ -3,9 +3,10 @@ name: deliver-feature
 description: >-
   Boss agent delivers a GitHub feature issue via a feature branch and story
   workers in tmux worktrees. Stories PR against the feature branch (not main),
-  then run pr-review-loop, pr-summary-for-human, and manual-test. Merges stories
-  into the feature branch; keeps feature→main PR open unmerged. Use when asked
-  to deliver-feature, run the overnight feature pipeline, or coordinate story
+  then run pr-review-loop (with local unit and integration tests),
+  pr-summary-for-human, and manual-test. Merges stories into the feature
+  branch; keeps feature→main PR open unmerged. Use when asked to
+  deliver-feature, run the overnight feature pipeline, or coordinate story
   workers for a GitHub epic.
 disable-model-invocation: true
 argument-hint: '<#n | issue-url>'
@@ -32,6 +33,7 @@ Feature issue (#n or URL)
   |-- open/refresh feature -> main PR (DO NOT MERGE)
   |-- dispatch <=3 active workers (tmux + worktree + cursor-agent)
   |-- per story: implement -> PR vs feature -> review-loop
+  |              (local unit + integration tests each round)
   |              -> summary-for-human -> manual-test (<=2 parallel)
   |              -> boss merges into feature; close story
   |-- finalize feature PR body + Flagged decisions; stop
@@ -61,7 +63,8 @@ Feature issue (#n or URL)
 - [ ] Create or update feature branch from origin/main
 - [ ] Open or refresh feature -> main PR (never merge)
 - [ ] Write worker prompts; spawn waves (<=3 active)
-- [ ] Per story: wait for PR + review-loop + summary + manual-test
+- [ ] Per story: wait for PR + review-loop (incl. local tests) + summary +
+      manual-test
 - [ ] Merge story into feature; confirm issue closed
 - [ ] Refresh feature PR (story map, proof, Flagged decisions)
 - [ ] Report feature PR URL; all stories done
@@ -176,6 +179,11 @@ When a worker reports an open story PR (or pane goes idle after “PR open”):
 
 1. Confirm PR **base** is `<feature-branch>`.
 2. Confirm worker ran **pr-review-loop** (or run it in the worker session).
+   As part of that loop, confirm the worker ran the **local unit and
+   integration** commands from [docs/agents/testing.md](../../../docs/agents/testing.md)
+   for every touched stack (see [reference.md](reference.md#local-tests-in-review-loop)).
+   Do not merge if those suites failed or were skipped without a stated
+   docs/CI-only reason.
 3. Confirm **pr-summary-for-human** posted a general comment.
 4. **Manual-test slot:** if fewer than 2 stacks are in manual-test, tell the
    worker to run [`.cursor/skills/manual-test/`](../manual-test/) with base
