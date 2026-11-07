@@ -19,6 +19,7 @@ Update this file and the hub when frontend conventions change.
 | `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1`; `types.ts` — generated API DTOs |
 | `lib/api/generated/` | ts-rs output from Rust — **do not hand-edit** (see `generated/README.md`) |
 | `lib/health/` | Shared Health helpers: `units.ts` (metric/imperial preference + **client-side** conversion; API stays metric-only), `chart-series.ts` (readings → chart points) |
+| `lib/car/` | Shared Car helpers: `chart-series.ts` (maintenance events → odometer / cost / event_type chart series; miles only; USD from `cost_cents`) |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
 | `constants/` | `theme.ts` — `defaultColors` / `Fonts`; `config.ts` — `API_BASE_URL` |
 
@@ -103,9 +104,10 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
-| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + maintenance panel + empty charts shell (not Home/Documents). |
+| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + maintenance panel + charts (not Home/Documents). |
 | Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
-| Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car) |
+| Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car; `onEventsChanged` refreshes charts) |
+| Car charts | `tenants/life-manager/components/car-charts-panel.tsx` + `lib/car/chart-series.ts` (`react-native-gifted-charts` LineChart / BarChart; odometer miles, event_type counts, cost USD; empty states; optional miles-since-oil callout) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
 | Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (create / edit / delete + ConfirmDialog; selected active HealthMember) |

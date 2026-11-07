@@ -41,6 +41,8 @@ import {
 
 type CarMaintenancePanelProps = {
   selectedCar: CarDto | null;
+  /** Notify parent after create / update / delete so charts can reload. */
+  onEventsChanged?: () => void;
 };
 
 function todayYmd(): string {
@@ -62,19 +64,23 @@ function todayYmd(): string {
  * alt create (active Car only)
  *   Panel -> API : POST /car-maintenance-events
  *   Panel -> API : GET /car-maintenance-events (refresh)
+ *   Panel -> Parent : onEventsChanged (charts refresh)
  * else edit (allowed on inactive Car)
  *   Panel -> API : PUT /car-maintenance-events/{id}
  *   Panel -> API : GET /car-maintenance-events (refresh)
+ *   Panel -> Parent : onEventsChanged (charts refresh)
  * else delete
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm
  *   Panel -> API : DELETE /car-maintenance-events/{id}
  *   Panel -> API : GET /car-maintenance-events (refresh)
+ *   Panel -> Parent : onEventsChanged (charts refresh)
  * end
  * ```
  */
 export default function CarMaintenancePanel({
   selectedCar,
+  onEventsChanged,
 }: CarMaintenancePanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
@@ -417,6 +423,7 @@ export default function CarMaintenancePanel({
         if (selectedCarIdRef.current === carIdAtSubmit) {
           cancelEdit();
           await loadEvents();
+          onEventsChanged?.();
         }
       } catch (err: unknown) {
         console.error(err);
@@ -460,6 +467,7 @@ export default function CarMaintenancePanel({
       if (selectedCarIdRef.current === carIdAtSubmit) {
         setForm(emptyCarMaintenanceForm(form.occurredOn || todayYmd()));
         await loadEvents();
+        onEventsChanged?.();
       }
     } catch (err: unknown) {
       console.error(err);
@@ -505,6 +513,7 @@ export default function CarMaintenancePanel({
       }
       if (selectedCarIdRef.current === carIdAtDelete) {
         await loadEvents();
+        onEventsChanged?.();
       }
     } catch (err: unknown) {
       console.error(err);
