@@ -21,6 +21,13 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /life-manager/api/v1/documents/` | List owned docs. `title` = keyset cursor (`title >` value). `title_contains` = case-insensitive substring on title. |
 | `PUT /life-manager/api/v1/documents/json/{id}` | JSON body: UpdateDocumentCommand; optional `storage` replaces Proton ref; `storage: null` keeps existing |
 | `PUT /life-manager/api/v1/documents/{id}` | Multipart: `json` (UpdateDocumentCommand) + optional `file` (OCR on native) |
+| `POST /life-manager/api/v1/health-members` | JSON: CreateHealthMemberCommand (`display_name` required, trimmed, max 100; optional `birth_date` YYYY-MM-DD, not future; optional `notes` max 2000). Creates `active=true`. JWT. |
+| `GET /life-manager/api/v1/health-members` | List owned HealthMembers. Query `include_inactive=true` to include deactivated (default false = active only). |
+| `GET /life-manager/api/v1/health-members/{id}` | Single HealthMember (owner only; other users / missing → 404). Inactive still returned for owner. |
+| `PUT /life-manager/api/v1/health-members/{id}` | JSON: UpdateHealthMemberCommand — `display_name` required. `birth_date` / `notes`: omit = keep, `null` = clear, value = set. Optional `active` for reactivate (`true`) or deactivate (`false`). Prefer POST deactivate for deactivate. Limits are Unicode characters (name max 100, notes max 2000). |
+| `POST /life-manager/api/v1/health-members/{id}/deactivate` | Soft-deactivate (idempotent). Sets `active=false` and `deactivated_at`. Row remains; GET by id still works for owner. |
+
+**HealthMember ownership (for HealthReading / other aggregates):** store `HealthMemberId` only; enforce owner via `user_id`; reject new readings/visits on inactive members (`HealthMember::ensure_active_for_write`). Separate from Document.
 
 Proton-backed file **preview, download, and trash** are client → Proton Drive only (web). There is no `GET .../documents/{id}/file` (or similar) on this API; see [Proton preview/download](../development_faq.md#preview-and-download-workflow) and [delete workflow](../development_faq.md#delete-workflow).
 
@@ -29,7 +36,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount()` and `TestTenant::mount()` nest `/life-manager` and `/test-tenant` with per-tenant state
-- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`
 - `backend/libs/test-tenant/src/test_tenant.rs`: `TestTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth` only (pilot)
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 

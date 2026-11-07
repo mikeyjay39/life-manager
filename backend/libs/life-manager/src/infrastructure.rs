@@ -3,6 +3,7 @@ pub mod auth_integration;
 pub mod db;
 pub mod document;
 pub mod document_text_extraction;
+pub mod health_member;
 pub mod http_client;
 pub mod noop_document_text_reader;
 pub mod ollama_document_summarizer_adapter;

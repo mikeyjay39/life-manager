@@ -121,7 +121,7 @@ Requires `LETSENCRYPT_EMAIL` in `.prod.env`.
 
 - Never run `generate-nginx-tenant-servers.sh` only on the server — output must be committed from local/CI dev machine.
 - Never hand-edit `nginx/generated/tenant-servers.conf.template`.
-- Do not run state-changing git commands unless the user asks.
+- Do not commit or push unless this skill’s steps require it (see [AGENTS.md](../../../AGENTS.md)).
 - Do not run `certbot` locally; provisioning is server-only at deploy.
 
 ## Additional resources

@@ -18,7 +18,7 @@ Write all prose in ASD-STE100. Do not apply STE to code identifiers or quoted te
 ```text
 Agent
   |-- check branch clean vs main
-  |-- git push -u origin HEAD (this skill only)
+  |-- git add/commit if dirty, then git push -u origin HEAD
   |-- gh pr create (or reuse open PR)
   |-- pr-summary-for-human steps 1-6 -> gh pr edit --body-file
   |-- manual-test skill (full)
@@ -36,7 +36,7 @@ Agent
 - Do not copy the long procedures from other skills into this file. **Read** them and follow them in place.
 - Leave the manual-test stack running after the run.
 - If `gh` attach fails, keep the text body and tell the user that images did not upload.
-- **Git:** this skill alone may run `git push -u origin HEAD`. Do not run other state-changing git (`commit`, `merge`, `reset`, force-push, etc.). See [AGENTS.md](../../../AGENTS.md).
+- **Git (skill exception in [AGENTS.md](../../../AGENTS.md)):** if the tree is dirty, `git add` and `git commit` first. Then `git push -u origin HEAD`. Do not force-push, reset hard, or merge to `main`.
 
 ## Checklist
 

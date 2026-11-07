@@ -1,7 +1,13 @@
 pub mod create_document_command;
+pub mod create_health_member_command;
+pub mod deactivate_health_member_command;
 pub mod delete_document_command;
 pub mod document_repository;
 pub mod document_use_cases;
 pub mod get_document_query;
 pub mod get_documents_query;
+pub mod health_member_repository;
+pub mod health_member_use_cases;
+pub mod list_health_members_query;
 pub mod update_document_command;
+pub mod update_health_member_command;

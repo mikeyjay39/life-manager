@@ -16,6 +16,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    health_members (id) {
+        id -> Text,
+        user_id -> Text,
+        display_name -> Text,
+        birth_date -> Nullable<Date>,
+        notes -> Nullable<Text>,
+        active -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+        deactivated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     tags (id) {
         id -> Text,
         name -> Text,
@@ -34,6 +48,7 @@ diesel::joinable!(document_tags -> tags (tag_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     documents,
+    health_members,
     tags,
     document_tags,
 );
