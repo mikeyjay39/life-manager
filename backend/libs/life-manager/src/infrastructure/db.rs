@@ -172,4 +172,51 @@ mod migration_tests {
             );
         }
     }
+
+    #[tokio::test]
+    async fn run_migrations_creates_car_maintenance_events_table() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_url = format!("file:{}/car_maintenance_events.db", dir.path().display());
+        let pool = Arc::new(create_connection_pool_from_url(&db_url).expect("create pool"));
+
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+
+        let conn = pool.get().await.expect("pool connection");
+        let column_names = conn
+            .interact(|conn| -> Result<Vec<String>, diesel::result::Error> {
+                #[derive(QueryableByName)]
+                struct ColumnName {
+                    #[diesel(sql_type = diesel::sql_types::Text)]
+                    name: String,
+                }
+                let rows: Vec<ColumnName> =
+                    diesel::sql_query("PRAGMA table_info(car_maintenance_events)").load(conn)?;
+                Ok(rows.into_iter().map(|r| r.name).collect())
+            })
+            .await
+            .expect("interact")
+            .expect("pragma");
+
+        for required in [
+            "id",
+            "user_id",
+            "car_id",
+            "occurred_on",
+            "event_type",
+            "odometer_miles",
+            "cost_cents",
+            "title",
+            "notes",
+            "document_id",
+            "created_at",
+            "updated_at",
+        ] {
+            assert!(
+                column_names.iter().any(|n| n == required),
+                "missing column {required}; have {column_names:?}"
+            );
+        }
+    }
 }
