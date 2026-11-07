@@ -4,7 +4,9 @@ mod common;
 
 use axum_test::TestServer;
 use chrono::NaiveDate;
-use life_manager::infrastructure::health::health_reading_api_types::CreateHealthReadingCommandDto;
+use life_manager::infrastructure::health::health_reading_api_types::{
+    CreateHealthReadingCommandDto, UpdateHealthReadingCommandDto,
+};
 use life_manager::infrastructure::health::health_reading_dto::HealthReadingDto;
 use life_manager::infrastructure::health_member::health_member_api_types::CreateHealthMemberCommandDto;
 use life_manager::infrastructure::health_member::health_member_dto::HealthMemberDto;
@@ -206,6 +208,224 @@ async fn given_several_dates_when_list_with_from_to_then_inclusive_range() {
     .await;
 }
 
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_reading_when_update_weight_then_200_and_list_reflects() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = post_reading(&server, &auth_header, metric_payload(member.id, day))
+            .await
+            .error_for_status()
+            .expect("create")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+
+        let res = put_reading(
+            &server,
+            &auth_header,
+            created.id,
+            UpdateHealthReadingCommandDto {
+                recorded_on: day,
+                height_cm: Some(180.0),
+                weight_kg: Some(80.0),
+                systolic_mm_hg: None,
+                diastolic_mm_hg: None,
+                heart_rate_bpm: None,
+                notes: None,
+            },
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::OK);
+        let updated = res.json::<HealthReadingDto>().await.expect("json");
+        assert_eq!(updated.id, created.id);
+        assert_eq!(updated.weight_kg, Some(80.0));
+
+        let list = list_readings(&server, &auth_header, member.id, None, None).await;
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].weight_kg, Some(80.0));
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_reading_when_delete_then_204_and_gone_from_list() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = post_reading(&server, &auth_header, metric_payload(member.id, day))
+            .await
+            .error_for_status()
+            .expect("create")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+
+        let res = delete_reading(&server, &auth_header, created.id).await;
+        assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+        let list = list_readings(&server, &auth_header, member.id, None, None).await;
+        assert!(list.is_empty());
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_other_users_reading_when_update_or_delete_then_404() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = post_reading(&server, &auth_header, metric_payload(member.id, day))
+            .await
+            .error_for_status()
+            .expect("create")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+        let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
+
+        let put_res = put_reading(
+            &server,
+            &other_header,
+            created.id,
+            UpdateHealthReadingCommandDto {
+                recorded_on: day,
+                height_cm: Some(180.0),
+                weight_kg: Some(80.0),
+                systolic_mm_hg: None,
+                diastolic_mm_hg: None,
+                heart_rate_bpm: None,
+                notes: None,
+            },
+        )
+        .await;
+        assert_eq!(put_res.status(), StatusCode::NOT_FOUND);
+
+        let del_res = delete_reading(&server, &other_header, created.id).await;
+        assert_eq!(del_res.status(), StatusCode::NOT_FOUND);
+
+        let list = list_readings(&server, &auth_header, member.id, None, None).await;
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, created.id);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_update_clears_all_metrics_when_put_then_400() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = post_reading(&server, &auth_header, metric_payload(member.id, day))
+            .await
+            .error_for_status()
+            .expect("create")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+
+        let res = put_reading(
+            &server,
+            &auth_header,
+            created.id,
+            UpdateHealthReadingCommandDto {
+                recorded_on: day,
+                height_cm: None,
+                weight_kg: None,
+                systolic_mm_hg: None,
+                diastolic_mm_hg: None,
+                heart_rate_bpm: None,
+                notes: None,
+            },
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_duplicate_date_when_update_then_400() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let d1 = NaiveDate::from_ymd_opt(2026, 1, 10).unwrap();
+        let d2 = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        post_reading(&server, &auth_header, metric_payload(member.id, d1))
+            .await
+            .error_for_status()
+            .expect("d1");
+        let second = post_reading(&server, &auth_header, metric_payload(member.id, d2))
+            .await
+            .error_for_status()
+            .expect("d2")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+
+        let res = put_reading(
+            &server,
+            &auth_header,
+            second.id,
+            UpdateHealthReadingCommandDto {
+                recorded_on: d1,
+                height_cm: Some(180.0),
+                weight_kg: Some(80.0),
+                systolic_mm_hg: None,
+                diastolic_mm_hg: None,
+                heart_rate_bpm: None,
+                notes: None,
+            },
+        )
+        .await;
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+        let list = list_readings(&server, &auth_header, member.id, None, None).await;
+        assert_eq!(list.len(), 2);
+        let still = list.iter().find(|r| r.id == second.id).expect("second");
+        assert_eq!(still.recorded_on, d2);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_deleted_reading_when_delete_again_then_404() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let member = create_member(&server, &auth_header, "Alex").await;
+        let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
+        let created = post_reading(&server, &auth_header, metric_payload(member.id, day))
+            .await
+            .error_for_status()
+            .expect("create")
+            .json::<HealthReadingDto>()
+            .await
+            .expect("json");
+
+        let first = delete_reading(&server, &auth_header, created.id).await;
+        assert_eq!(first.status(), StatusCode::NO_CONTENT);
+        let second = delete_reading(&server, &auth_header, created.id).await;
+        assert_eq!(second.status(), StatusCode::NOT_FOUND);
+    })
+    .await;
+}
+
 fn metric_payload(health_member_id: Uuid, recorded_on: NaiveDate) -> CreateHealthReadingCommandDto {
     CreateHealthReadingCommandDto {
         health_member_id,
@@ -273,6 +493,42 @@ async fn post_reading(
         .send()
         .await
         .expect("post reading")
+}
+
+async fn put_reading(
+    server: &TestServer,
+    auth_header: &str,
+    id: Uuid,
+    payload: UpdateHealthReadingCommandDto,
+) -> reqwest::Response {
+    let url = server
+        .server_url(&format!("{HEALTH_READINGS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    reqwest::Client::new()
+        .put(url)
+        .header("Authorization", auth_header)
+        .json(&payload)
+        .send()
+        .await
+        .expect("put reading")
+}
+
+async fn delete_reading(
+    server: &TestServer,
+    auth_header: &str,
+    id: Uuid,
+) -> reqwest::Response {
+    let url = server
+        .server_url(&format!("{HEALTH_READINGS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    reqwest::Client::new()
+        .delete(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("delete reading")
 }
 
 async fn list_readings(

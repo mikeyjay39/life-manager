@@ -28,6 +28,8 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `POST /life-manager/api/v1/health-members/{id}/deactivate` | Soft-deactivate (idempotent). Sets `active=false` and `deactivated_at`. Row remains; GET by id still works for owner. |
 | `POST /life-manager/api/v1/health-readings` | JSON: CreateHealthReadingCommand (`health_member_id`, `recorded_on` YYYY-MM-DD required; optional metric vitals only — `height_cm`, `weight_kg`, `systolic_mm_hg`, `diastolic_mm_hg`, `heart_rate_bpm`, `notes`). At least one metric or notes. Duplicate `(health_member_id, recorded_on)` → 400. Inactive member → 400. Other user's member → 404. JWT. Response includes optional computed `bmi` (not stored). |
 | `GET /life-manager/api/v1/health-readings` | List readings for one owned HealthMember. Query `health_member_id` required. Optional inclusive `from` / `to` (YYYY-MM-DD); `from` > `to` → 400. Newest `recorded_on` first. MVP returns all matching rows (unbounded). |
+| `PUT /life-manager/api/v1/health-readings/{id}` | JSON: UpdateHealthReadingCommand — replace mutable metric fields (`recorded_on` required; optional vitals same as create). `health_member_id` is immutable. At least one metric or notes. Changing `recorded_on` onto another reading's date for that member → 400. Missing / other user's id → 404. JWT. |
+| `DELETE /life-manager/api/v1/health-readings/{id}` | Hard-delete owned reading (204). Missing / other user's id → 404. Delete twice → second 404. JWT. |
 
 **HealthMember ownership (for HealthReading / other aggregates):** store `HealthMemberId` only; enforce owner via `user_id`; reject new readings/visits on inactive members (`HealthMember::ensure_active_for_write`). Separate from Document.
 
