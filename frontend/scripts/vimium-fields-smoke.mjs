@@ -90,15 +90,20 @@ try {
   // Car page without create modal: maintenance notes are locked.
   await page.goto(`${BASE}/car`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1000);
-  const locked = await visibleXpathArias(page);
-  const lockedNotes = locked.filter((m) => m.aria === 'Maintenance notes');
-  if (lockedNotes.length === 0) {
-    result.lockedNotesNotTarget = 'pass';
-    result.notes.push('Locked Maintenance notes not in Vimium XPath matches');
+  const lockedNotesOnPage = page.getByLabel('Maintenance notes', { exact: true });
+  if ((await lockedNotesOnPage.count()) === 0) {
+    result.notes.push('Maintenance notes field not on Car page before create');
   } else {
-    result.notes.push(
-      `Locked Maintenance notes still matched Vimium (${lockedNotes.length})`,
-    );
+    const locked = await visibleXpathArias(page);
+    const lockedNotes = locked.filter((m) => m.aria === 'Maintenance notes');
+    if (lockedNotes.length === 0) {
+      result.lockedNotesNotTarget = 'pass';
+      result.notes.push('Locked Maintenance notes on page but not in Vimium XPath');
+    } else {
+      result.notes.push(
+        `Locked Maintenance notes still matched Vimium (${lockedNotes.length})`,
+      );
+    }
   }
 
   await page.getByLabel('Create Car').click();

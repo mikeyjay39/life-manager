@@ -4,7 +4,9 @@ import {
   Text,
   TextInput as RNTextInput,
   View,
+  type StyleProp,
   type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 
 import type { TextInputProps } from './text-input-types';
@@ -17,7 +19,7 @@ export type { TextInputProps };
  * [*] --> Editable : editable true -> RN TextInput (real input/textarea)
  * [*] --> LockedDisplay : editable false -> View + Text (not a Vimium target)
  * Editable --> Typed : onChangeText
- * LockedDisplay --> [*] : show value only
+ * LockedDisplay --> [*] : show value or placeholder
  *
  * Editable path keeps react-native TextInput so controlled typing works
  * (PR #166 custom HTML broke that). Locked path avoids textarea: Vimium's
@@ -47,21 +49,32 @@ export function TextInput({
   );
 
   if (editable === false) {
+    const {
+      color,
+      fontSize,
+      fontWeight,
+      ...viewOnly
+    } = flat;
+    const displayText = value || placeholder || '';
+    const textColor = value
+      ? color
+      : (placeholderTextColor ?? color);
+
     return (
       <View
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="text"
         testID={testID}
-        style={style}
+        style={viewOnly as StyleProp<ViewStyle>}
       >
         <Text
           style={{
-            color: flat.color,
-            fontSize: flat.fontSize,
-            fontWeight: flat.fontWeight,
+            color: textColor,
+            fontSize,
+            fontWeight,
           }}
         >
-          {value || ''}
+          {displayText}
         </Text>
       </View>
     );

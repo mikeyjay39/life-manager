@@ -15,12 +15,12 @@ export type { TextInputProps };
  * TextInput -> RNTextInput: forward value, onChangeText, editable, style
  * RNTextInput -> DOM: mount input or textarea (react-native-web)
  * User -> Vimium: gi / input hints
- * Vimium -> DOM: XPath matches visible input/textarea (not readonly/disabled)
+ * Vimium -> DOM: XPath matches visible input/textarea
  * User -> DOM: type; React keeps controlled value
  *
- * Do not replace RN TextInput with a custom HTML input on web.
- * PR #166 did that and broke controlled typing; it was reverted.
- * react-native-web already emits real input/textarea that Vimium accepts.
+ * Web locked fields use text-input.web.tsx (View+Text). Vimium matches
+ * every textarea (no readonly filter). Do not replace editable RN TextInput
+ * with custom HTML input on web — PR #166 broke controlled typing.
  */
 
 export function TextInput({
