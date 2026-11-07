@@ -59,6 +59,11 @@ vi.mock('expo-blur', () => ({
   BlurView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('react-native-gifted-charts', () => ({
+  LineChart: () => null,
+  BarChart: () => null,
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
 
@@ -103,7 +108,7 @@ describe('CarScreen', () => {
     });
   });
 
-  it('shows Car Manager with Cars panel, maintenance panel, and charts shell', async () => {
+  it('shows Car Manager with Cars panel, maintenance panel, and charts', async () => {
     // Given the Car Manager screen
     // When the screen renders
     renderCarScreen();
@@ -118,7 +123,7 @@ describe('CarScreen', () => {
     expect(screen.getByLabelText('Maintenance events panel')).toBeTruthy();
     expect(screen.getByLabelText('Maintenance select car prompt')).toBeTruthy();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
-    expect(screen.getByLabelText('Charts empty state')).toBeTruthy();
+    expect(screen.getByLabelText('Charts need Car')).toBeTruthy();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();
     expect(screen.queryByText(/Create document/i)).toBeNull();
