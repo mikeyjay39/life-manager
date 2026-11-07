@@ -51,7 +51,7 @@ Multitenancy is **composition-based**: each product tenant is a separate Rust cr
 | Layer | Shared? | Where |
 |-------|---------|-------|
 | Auth (login, JWT, `auth_users`) | Yes | `backend/libs/auth/` — mounted per tenant |
-| Domain aggregates (Document, HealthMember, HealthReading; DoctorVisit with #114) | No (today) | `backend/libs/life-manager/` only |
+| Domain aggregates (Document, HealthMember, HealthReading, DoctorVisit) | No (today) | `backend/libs/life-manager/` only |
 | Tenant UI (documents + Health Manager) | No (today) | `frontend/tenants/life-manager/` only |
 
 ```mermaid
@@ -73,7 +73,7 @@ flowchart LR
 |-----------|-------|--------|
 | **HealthMember** | Auth `user_id` | Create / update / soft-deactivate (no hard-delete MVP). Inactive members stay readable by owner. |
 | **HealthReading** | Same user; refs `HealthMemberId` | Metric vitals only on the API. Reject **create** when the member is inactive (updates do not require active). Separate from Document. |
-| **DoctorVisit** | Same user; refs `HealthMemberId` | Lands with **#114** (not on `main` yet). Reject **create and update** when the member is inactive. Same Health Manager screen; no Document link. |
+| **DoctorVisit** | Same user; refs `HealthMemberId` | Reject **create and update** when the member is inactive. Same Health Manager screen; no Document link. |
 
 **Units policy:** the backend stores metric fields only. Imperial display and conversion live in the frontend (`frontend/lib/health/units.ts` and the Health reading form). Do not add imperial fields to the HTTP API.
 
@@ -129,8 +129,8 @@ flowchart LR
 | `/life-manager/api/v1/health-members/{id}/deactivate` | `life-manager` — soft-deactivate |
 | `/life-manager/api/v1/health-readings` | `life-manager` — list / create HealthReadings (metric) |
 | `/life-manager/api/v1/health-readings/{id}` | `life-manager` — update / delete HealthReading |
-| `/life-manager/api/v1/doctor-visits` | `life-manager` — list / create DoctorVisits (**#114**, not on `main` yet) |
-| `/life-manager/api/v1/doctor-visits/{id}` | `life-manager` — get / update / delete DoctorVisit (**#114**) |
+| `/life-manager/api/v1/doctor-visits` | `life-manager` — list / create DoctorVisits |
+| `/life-manager/api/v1/doctor-visits/{id}` | `life-manager` — get / update / delete DoctorVisit |
 | `/test-tenant/api/v1/auth/login` | `auth` crate — login (test-tenant pilot) |
 | `/test-tenant/api/v1/auth/protected` | `auth` crate — auth smoke test (test-tenant pilot) |
 | `/api/health` | Top-level — liveness |

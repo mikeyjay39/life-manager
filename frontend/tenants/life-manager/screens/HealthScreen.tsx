@@ -12,6 +12,7 @@ import {
   type UnitSystem,
 } from '@/lib/health/units';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
+import DoctorVisitPanel from '@/tenants/life-manager/components/doctor-visit-panel';
 import HealthChartsPanel from '@/tenants/life-manager/components/health-charts-panel';
 import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
 import HealthReadingPanel from '@/tenants/life-manager/components/health-reading-panel';
@@ -25,10 +26,12 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
  * HealthMemberPanel -> HealthScreen : selected member | null
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
- * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem
- * HealthReadingPanel -> API : list / create readings for member
+ * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
+ * HealthReadingPanel -> API : list / create / update / delete readings
+ * HealthReadingPanel -> HealthScreen : onReadingsChanged (bump refreshKey)
  * HealthChartsPanel -> API : list readings for charts
- * HealthScreen -> DoctorVisitsPlaceholder : #114
+ * HealthScreen -> DoctorVisitPanel : selectedMember
+ * DoctorVisitPanel -> API : list / create / update / delete visits
  * ```
  */
 export default function HealthScreen() {
@@ -38,6 +41,7 @@ export default function HealthScreen() {
   );
   const [unitSystem, setUnitSystem] = useState<UnitSystem>('metric');
   const [unitPreferenceReady, setUnitPreferenceReady] = useState(false);
+  const [readingsRefreshKey, setReadingsRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +64,10 @@ export default function HealthScreen() {
     } catch {
       // Preference write failed; keep UI mode for this session.
     }
+  }, []);
+
+  const handleReadingsChanged = useCallback(() => {
+    setReadingsRefreshKey((n) => n + 1);
   }, []);
 
   return (
@@ -92,6 +100,7 @@ export default function HealthScreen() {
           unitSystem={unitSystem}
           onUnitSystemChange={handleUnitSystemChange}
           unitPreferenceReady={unitPreferenceReady}
+          onReadingsChanged={handleReadingsChanged}
         />
       </ThemedView>
 
@@ -102,6 +111,7 @@ export default function HealthScreen() {
           unitSystem={unitSystem}
           onUnitSystemChange={handleUnitSystemChange}
           unitPreferenceReady={unitPreferenceReady}
+          refreshKey={readingsRefreshKey}
         />
       </ThemedView>
 
@@ -109,9 +119,7 @@ export default function HealthScreen() {
         style={styles.section}
         accessibilityLabel="Doctor visits section">
         <ThemedText type="subtitle">Doctor visits</ThemedText>
-        <ThemedText>
-          Placeholder: doctor visit diary (#114).
-        </ThemedText>
+        <DoctorVisitPanel selectedMember={selectedMember} />
       </ThemedView>
     </ParallaxScrollView>
   );

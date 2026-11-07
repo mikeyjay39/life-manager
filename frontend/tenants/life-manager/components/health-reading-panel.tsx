@@ -9,6 +9,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +24,10 @@ import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import {
   buildCreateHealthReadingCommand,
+  buildUpdateHealthReadingCommand,
   convertFormHeightWeight,
+  emptyHealthReadingForm,
+  formFromHealthReading,
   NOTES_MAX_LEN,
   parseHealthReadingDto,
   type HealthReadingFormInput,
@@ -34,22 +38,9 @@ type HealthReadingPanelProps = {
   unitSystem: UnitSystem;
   onUnitSystemChange: (next: UnitSystem) => void | Promise<void>;
   unitPreferenceReady: boolean;
+  /** Notify parent after create / update / delete so charts can reload. */
+  onReadingsChanged?: () => void;
 };
-
-function emptyForm(recordedOn = ''): HealthReadingFormInput {
-  return {
-    recordedOn,
-    heightCm: '',
-    weightKg: '',
-    heightFeet: '',
-    heightInches: '',
-    weightLb: '',
-    systolic: '',
-    diastolic: '',
-    heartRate: '',
-    notes: '',
-  };
-}
 
 function todayYmd(): string {
   // Match API validation: recorded_on must not be after Utc::now().date_naive().
@@ -64,20 +55,34 @@ function todayYmd(): string {
  * Submit health readings and show history for the selected HealthMember.
  *
  * ```
- * User -> Panel : select member (parent) / toggle units / fill form / submit
+ * User -> Panel : select member / toggle units / fill form / submit
  * Panel -> Parent : onUnitSystemChange (shared with charts)
  * Panel -> API : GET /health-readings?health_member_id=…
- * alt submit valid
+ * alt create (no edit target)
  *   Panel -> Panel : convert imperial → metric if needed
  *   Panel -> API : POST /health-readings (metric fields only)
- *   alt 2xx
- *     Panel -> API : GET /health-readings (refresh history)
- *     Panel -> Panel : clear vitals; keep date
- *   else 4xx
- *     Panel -> User : show API error; list unchanged
+ * else edit
+ *   Panel -> API : PUT /health-readings/{id} (metric fields only)
+ * end
+ * alt 2xx
+ *   Panel -> API : GET /health-readings (refresh history)
+ *   Panel -> Parent : onReadingsChanged (charts refresh)
+ *   Panel -> Panel : clear vitals or exit edit; keep date on create
+ * else 4xx
+ *   Panel -> User : show API error; list unchanged
+ * end
+ * alt delete
+ *   Panel -> ConfirmDialog : show
+ *   alt confirm
+ *     Panel -> API : DELETE /health-readings/{id}
+ *     alt 2xx
+ *       Panel -> API : GET refresh; Parent onReadingsChanged
+ *     else
+ *       Panel -> User : keep row; show error
+ *     end
+ *   else cancel
+ *     Panel -> Panel : keep reading
  *   end
- * else client validation fail
- *   Panel -> User : show validation; no POST
  * end
  * ```
  */
@@ -86,24 +91,35 @@ export default function HealthReadingPanel({
   unitSystem,
   onUnitSystemChange,
   unitPreferenceReady,
+  onReadingsChanged,
 }: HealthReadingPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
 
   const [form, setForm] = useState<HealthReadingFormInput>(() =>
-    emptyForm(todayYmd())
+    emptyHealthReadingForm(todayYmd())
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editingReadingId, setEditingReadingId] = useState<string | null>(null);
 
   const [readings, setReadings] = useState<HealthReadingDto[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<HealthReadingDto | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+
   const loadGenerationRef = useRef(0);
   const selectedMemberIdRef = useRef<string | null>(null);
   selectedMemberIdRef.current = selectedMember?.id ?? null;
   const prevUnitSystemRef = useRef(unitSystem);
   const prevMemberIdRef = useRef<string | null>(selectedMember?.id ?? null);
+  const onReadingsChangedRef = useRef(onReadingsChanged);
+  onReadingsChangedRef.current = onReadingsChanged;
 
   const styles = useMemo(
     () =>
@@ -153,6 +169,15 @@ export default function HealthReadingPanel({
           flex: 1,
           gap: 4,
         },
+        submitRow: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 8,
+        },
+        submitButton: {
+          flexGrow: 1,
+          minWidth: 140,
+        },
         historyHeader: {
           marginTop: 8,
           gap: 4,
@@ -178,6 +203,17 @@ export default function HealthReadingPanel({
           fontSize: 13,
           color: palette.icon,
         },
+        historyActions: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginTop: 4,
+        },
+        historyActionButton: {
+          paddingVertical: 6,
+          paddingHorizontal: 10,
+          minWidth: 72,
+        },
       }),
     [palette]
   );
@@ -198,8 +234,11 @@ export default function HealthReadingPanel({
     const previousId = prevMemberIdRef.current;
     const nextId = selectedMember?.id ?? null;
     if (previousId !== nextId && previousId != null) {
-      setForm((prev) => emptyForm(prev.recordedOn));
+      setForm((prev) => emptyHealthReadingForm(prev.recordedOn));
       setFormError(null);
+      setEditingReadingId(null);
+      setActionError(null);
+      setDeleteTarget(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
@@ -223,6 +262,10 @@ export default function HealthReadingPanel({
     },
     []
   );
+
+  const notifyReadingsChanged = useCallback(() => {
+    onReadingsChangedRef.current?.();
+  }, []);
 
   const loadReadings = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
@@ -277,17 +320,34 @@ export default function HealthReadingPanel({
     void loadReadings();
   }, [loadReadings]);
 
+  const isEditing = editingReadingId != null;
   const canSubmit =
     Boolean(token) &&
-    Boolean(selectedMember?.active) &&
+    Boolean(selectedMember) &&
     unitPreferenceReady &&
-    !submitting;
-  const unitToggleLocked = !unitPreferenceReady || submitting;
+    !submitting &&
+    !deleting &&
+    (isEditing || Boolean(selectedMember?.active));
+  const unitToggleLocked = !unitPreferenceReady || submitting || deleting;
   const vitalsLocked =
-    unitToggleLocked || !selectedMember?.active;
+    unitToggleLocked || (!isEditing && !selectedMember?.active);
+
+  const startEdit = (reading: HealthReadingDto) => {
+    setEditingReadingId(reading.id);
+    setForm(formFromHealthReading(reading, unitSystem));
+    setFormError(null);
+    setActionError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingReadingId(null);
+    setForm(emptyHealthReadingForm(todayYmd()));
+    setFormError(null);
+  };
 
   const handleSubmit = async () => {
     setFormError(null);
+    setActionError(null);
     if (!token) {
       setFormError('No authentication token available.');
       return;
@@ -296,30 +356,49 @@ export default function HealthReadingPanel({
       setFormError('Select a HealthMember before saving a reading.');
       return;
     }
-    if (!selectedMember.active) {
+    if (!isEditing && !selectedMember.active) {
       setFormError('Selected HealthMember is inactive. Choose an active member.');
       return;
     }
 
-    const built = buildCreateHealthReadingCommand(
-      selectedMember.id,
-      unitSystem,
-      form
-    );
-    if (!built.ok) {
-      setFormError(built.error);
-      return;
+    const memberIdAtSubmit = selectedMember.id;
+    const editingId = editingReadingId;
+
+    let requestPath: string;
+    let method: 'POST' | 'PUT';
+    let body: string;
+    if (editingId != null) {
+      const built = buildUpdateHealthReadingCommand(unitSystem, form);
+      if (!built.ok) {
+        setFormError(built.error);
+        return;
+      }
+      requestPath = `/health-readings/${encodeURIComponent(editingId)}`;
+      method = 'PUT';
+      body = JSON.stringify(built.command);
+    } else {
+      const built = buildCreateHealthReadingCommand(
+        selectedMember.id,
+        unitSystem,
+        form
+      );
+      if (!built.ok) {
+        setFormError(built.error);
+        return;
+      }
+      requestPath = '/health-readings';
+      method = 'POST';
+      body = JSON.stringify(built.command);
     }
 
-    const memberIdAtSubmit = selectedMember.id;
     setSubmitting(true);
     const previousList = readings;
     try {
-      const response = await authenticatedFetch('/health-readings', {
-        method: 'POST',
+      const response = await authenticatedFetch(requestPath, {
+        method,
         token,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(built.command),
+        body,
         onUnauthorized: handleUnauthorized,
       });
       const bodyText = await response.text();
@@ -330,12 +409,18 @@ export default function HealthReadingPanel({
             : `Request failed with status ${response.status}`
         );
       }
-      // Skip clear/refresh when the selected member changed during the POST.
+      // Skip clear/refresh when the selected member changed during the save.
       if (selectedMemberIdRef.current === memberIdAtSubmit) {
-        setForm((prev) => ({
-          ...emptyForm(prev.recordedOn),
-        }));
+        if (editingId != null) {
+          setEditingReadingId(null);
+          setForm(emptyHealthReadingForm(todayYmd()));
+        } else {
+          setForm((prev) => ({
+            ...emptyHealthReadingForm(prev.recordedOn),
+          }));
+        }
         await loadReadings();
+        notifyReadingsChanged();
       }
     } catch (err: unknown) {
       console.error(err);
@@ -346,6 +431,62 @@ export default function HealthReadingPanel({
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!token || !deleteTarget || deletingRef.current) {
+      if (!token) {
+        setActionError('No authentication token available.');
+      }
+      return;
+    }
+    const target = deleteTarget;
+    const memberIdAtDelete = selectedMemberIdRef.current;
+    deletingRef.current = true;
+    setDeleting(true);
+    setActionError(null);
+    setDeleteTarget(null);
+    const previousList = readings;
+    // Optimistic remove so a second confirm cannot revive the row after 404.
+    setReadings((prev) => prev.filter((r) => r.id !== target.id));
+    if (editingReadingId === target.id) {
+      setEditingReadingId(null);
+      setForm(emptyHealthReadingForm(todayYmd()));
+    }
+    try {
+      const response = await authenticatedFetch(
+        `/health-readings/${encodeURIComponent(target.id)}`,
+        {
+          method: 'DELETE',
+          token,
+          onUnauthorized: handleUnauthorized,
+        }
+      );
+      // 404: already gone — keep optimistic removal.
+      if (!response.ok && response.status !== 404) {
+        const bodyText = await response.text();
+        throw new Error(
+          bodyText
+            ? `Request failed (${response.status}): ${bodyText}`
+            : `Request failed with status ${response.status}`
+        );
+      }
+      if (selectedMemberIdRef.current === memberIdAtDelete) {
+        await loadReadings();
+        notifyReadingsChanged();
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      const msg =
+        err instanceof Error ? err.message : 'Failed to delete reading';
+      setActionError(msg);
+      if (selectedMemberIdRef.current === memberIdAtDelete) {
+        setReadings(previousList);
+      }
+    } finally {
+      deletingRef.current = false;
+      setDeleting(false);
     }
   };
 
@@ -389,10 +530,15 @@ export default function HealthReadingPanel({
         <ThemedText style={styles.hint}>
           Select or create a HealthMember to enter vitals.
         </ThemedText>
-      ) : !selectedMember.active ? (
+      ) : !selectedMember.active && !isEditing ? (
         <ThemedText style={styles.hint}>
           Selected HealthMember is inactive. Choose an active member to add
           readings.
+        </ThemedText>
+      ) : isEditing ? (
+        <ThemedText style={styles.hint}>
+          Editing reading for {selectedMember.display_name}. API stores metric
+          values only.
         </ThemedText>
       ) : (
         <ThemedText style={styles.hint}>
@@ -446,7 +592,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (ft)" />
               <TextInput
-              editable={!vitalsLocked}
+                editable={!vitalsLocked}
                 style={styles.input}
                 value={form.heightFeet}
                 onChangeText={(v) => updateField('heightFeet', v)}
@@ -459,7 +605,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (in)" />
               <TextInput
-              editable={!vitalsLocked}
+                editable={!vitalsLocked}
                 style={styles.input}
                 value={form.heightInches}
                 onChangeText={(v) => updateField('heightInches', v)}
@@ -489,7 +635,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Systolic (mmHg)" />
         <TextInput
-              editable={!vitalsLocked}
+          editable={!vitalsLocked}
           style={styles.input}
           value={form.systolic}
           onChangeText={(v) => updateField('systolic', v)}
@@ -502,7 +648,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Diastolic (mmHg)" />
         <TextInput
-              editable={!vitalsLocked}
+          editable={!vitalsLocked}
           style={styles.input}
           value={form.diastolic}
           onChangeText={(v) => updateField('diastolic', v)}
@@ -515,7 +661,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Heart rate (bpm)" />
         <TextInput
-              editable={!vitalsLocked}
+          editable={!vitalsLocked}
           style={styles.input}
           value={form.heartRate}
           onChangeText={(v) => updateField('heartRate', v)}
@@ -528,7 +674,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Notes" />
         <TextInput
-              editable={!vitalsLocked}
+          editable={!vitalsLocked}
           style={[styles.input, styles.inputMultiline]}
           value={form.notes}
           onChangeText={(v) => updateField('notes', v)}
@@ -545,18 +691,38 @@ export default function HealthReadingPanel({
         </Text>
       ) : null}
 
-      <Button
-        label="Save reading"
-        accessibilityLabel="Save health reading"
-        disabled={!canSubmit}
-        loading={submitting}
-        onPress={() => {
-          void handleSubmit();
-        }}
-      />
+      <View style={styles.submitRow}>
+        <Button
+          label={isEditing ? 'Update reading' : 'Save reading'}
+          accessibilityLabel={
+            isEditing ? 'Update health reading' : 'Save health reading'
+          }
+          disabled={!canSubmit}
+          loading={submitting}
+          onPress={() => {
+            void handleSubmit();
+          }}
+          style={styles.submitButton}
+        />
+        {isEditing ? (
+          <Button
+            variant="outline"
+            label="Cancel edit"
+            accessibilityLabel="Cancel edit health reading"
+            disabled={submitting || deleting}
+            onPress={cancelEdit}
+            style={styles.submitButton}
+          />
+        ) : null}
+      </View>
 
       <View style={styles.historyHeader} accessibilityLabel="Reading history">
         <ThemedText type="defaultSemiBold">History</ThemedText>
+        {actionError ? (
+          <Text style={styles.errorText} accessibilityRole="alert">
+            {actionError}
+          </Text>
+        ) : null}
         {!selectedMember ? (
           <ThemedText style={styles.hint}>
             History appears after you select a HealthMember.
@@ -601,11 +767,53 @@ export default function HealthReadingPanel({
                 {reading.notes ? (
                   <Text style={styles.historyMuted}>{reading.notes}</Text>
                 ) : null}
+                <View style={styles.historyActions}>
+                  <Button
+                    variant="secondary"
+                    label="Edit"
+                    accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
+                    disabled={submitting || deleting}
+                    onPress={() => startEdit(reading)}
+                    style={styles.historyActionButton}
+                  />
+                  <Button
+                    variant="destructive"
+                    label="Delete"
+                    accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
+                    disabled={submitting || deleting}
+                    onPress={() => {
+                      setActionError(null);
+                      setDeleteTarget(reading);
+                    }}
+                    style={styles.historyActionButton}
+                  />
+                </View>
               </View>
             );
           })
         )}
       </View>
+
+      <ConfirmDialog
+        visible={deleteTarget != null}
+        title="Delete reading?"
+        message={
+          deleteTarget
+            ? `Delete the reading from ${deleteTarget.recorded_on}? This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleDeleteConfirm();
+        }}
+      />
     </View>
   );
 }

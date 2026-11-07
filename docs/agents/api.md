@@ -30,15 +30,15 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /life-manager/api/v1/health-readings` | List readings for one owned HealthMember. Query `health_member_id` required. Optional inclusive `from` / `to` (YYYY-MM-DD); `from` > `to` → 400. Newest `recorded_on` first. MVP returns all matching rows (unbounded). |
 | `PUT /life-manager/api/v1/health-readings/{id}` | JSON: UpdateHealthReadingCommand — replace mutable **metric** fields (`recorded_on` required, not future; optional vitals same as create, `notes` max 2000). `health_member_id` is immutable. At least one metric or notes. Changing `recorded_on` onto another reading's date for that member → 400. Missing / other user's id → 404. JWT. Does not require the member to be active. |
 | `DELETE /life-manager/api/v1/health-readings/{id}` | Hard-delete owned reading (204). Missing / other user's id → 404. Delete twice → second 404. JWT. |
-| `POST /life-manager/api/v1/doctor-visits` | **Lands with #114** (not on `main` yet). JSON: CreateDoctorVisitCommand (`health_member_id`, `visited_on` required, not future; optional `provider_name` max 100, `reason` / `notes` max 2000). At least one of provider/reason/notes after trim. Inactive member → 400. Other user's member → 404. Multiple visits same day allowed. JWT. |
-| `GET /life-manager/api/v1/doctor-visits` | **#114.** List visits for one owned HealthMember. Query `health_member_id` required. Optional inclusive `from` / `to`; `from` > `to` → 400. Newest `visited_on` first. |
-| `GET /life-manager/api/v1/doctor-visits/{id}` | **#114.** Single visit (owner only; other users / missing → 404). |
-| `PUT /life-manager/api/v1/doctor-visits/{id}` | **#114.** JSON: UpdateDoctorVisitCommand — replace `visited_on` (not future) and text fields. `health_member_id` immutable. At least one of provider/reason/notes after trim. Member must be active. |
-| `DELETE /life-manager/api/v1/doctor-visits/{id}` | **#114.** Hard-delete owned visit (204). Missing / other user's id → 404. |
+| `POST /life-manager/api/v1/doctor-visits` | JSON: CreateDoctorVisitCommand (`health_member_id`, `visited_on` YYYY-MM-DD required, not future; optional `provider_name` max 100, `reason` max 2000, `notes` max 2000). Text is trimmed. Blank becomes null. At least one of `provider_name`, `reason`, `notes` is required. Many visits on the same day are allowed. Inactive member → 400. Other user's member → 404. JWT. |
+| `GET /life-manager/api/v1/doctor-visits` | List visits for one owned HealthMember. Query `health_member_id` required (missing → 400). Optional inclusive `from` / `to` (YYYY-MM-DD) on `visited_on`; `from` > `to` → 400. Newest `visited_on` first. MVP returns all matching rows (unbounded). |
+| `GET /life-manager/api/v1/doctor-visits/{id}` | Single owned visit. Missing / other user's id → 404. JWT. |
+| `PUT /life-manager/api/v1/doctor-visits/{id}` | JSON: UpdateDoctorVisitCommand — replace `visited_on` (required, not future) and optional text fields. Same validation as create. `health_member_id` is immutable. Inactive member → 400 (update checks the member, unlike health-readings). Missing / other user's id → 404. JWT. |
+| `DELETE /life-manager/api/v1/doctor-visits/{id}` | Hard-delete owned visit (204). Allowed when the member is inactive. Missing / other user's id → 404. Delete twice → second 404. JWT. |
 
 **Health ownership and units**
 
-- Auth user owns `HealthMember` (`user_id`). Readings and visits store `HealthMemberId` (plus denormalized `user_id` for auth). Call `HealthMember::ensure_active_for_write` before **creating** readings and before **creating or updating** doctor visits (#114). Reading updates do not require an active member.
+- Auth user owns `HealthMember` (`user_id`). Readings and visits store `HealthMemberId` (plus denormalized `user_id` for auth). Call `HealthMember::ensure_active_for_write` before **creating** readings and before **creating or updating** doctor visits. Reading updates do not require an active member.
 - Health does **not** share Document storage or Proton Drive refs.
 - API vitals are **metric only**. UI imperial conversion is client-side (`frontend/lib/health/units.ts`); do not document or accept imperial fields on the backend API.
 - UI: create/update/deactivate HealthMembers and manage doctor visits on the Health Manager screen (`HealthScreen`), not on Home/Documents.
@@ -50,7 +50,7 @@ Ops endpoints stay at `/api/*`. The v1 product API is namespaced under `/life-ma
 ### Router wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; `LifeManagerTenant::mount()` and `TestTenant::mount()` nest `/life-manager` and `/test-tenant` with per-tenant state
-- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings` (and `doctor-visits` when #114 merges)
+- `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`
 - `backend/libs/test-tenant/src/test_tenant.rs`: `TestTenant` implements `TenantMount`; `api_router()` nests `/api/v1` → `auth` only (pilot)
 - `backend/libs/common/server-host/`: `AppBootstrap` (build-time only) and `TenantMount` trait
 

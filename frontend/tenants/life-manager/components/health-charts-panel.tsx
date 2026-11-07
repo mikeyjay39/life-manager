@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -30,6 +30,8 @@ type HealthChartsPanelProps = {
   unitSystem: UnitSystem;
   onUnitSystemChange: (next: UnitSystem) => void | Promise<void>;
   unitPreferenceReady: boolean;
+  /** Bump after vitals create / update / delete so charts reload. */
+  refreshKey?: number;
 };
 
 const METRICS: { id: ChartMetric; label: string }[] = [
@@ -91,6 +93,7 @@ export default function HealthChartsPanel({
   unitSystem,
   onUnitSystemChange,
   unitPreferenceReady,
+  refreshKey = 0,
 }: HealthChartsPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
@@ -100,12 +103,16 @@ export default function HealthChartsPanel({
   const [readings, setReadings] = useState<HealthReadingDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadGenerationRef = useRef(0);
 
   const loadReadings = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     if (!token || !healthMember) {
-      setReadings([]);
-      setError(null);
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setReadings([]);
+        setError(null);
+        setLoading(false);
+      }
       return;
     }
 
@@ -133,20 +140,28 @@ export default function HealthChartsPanel({
       }
       const raw: unknown = await response.json();
       const list = Array.isArray(raw) ? raw.map(parseHealthReadingDto) : [];
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setReadings(list);
     } catch (err) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       const msg =
         err instanceof Error ? err.message : 'Failed to load health readings';
       setError(msg);
       setReadings([]);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [token, healthMember, handleUnauthorized]);
 
   useEffect(() => {
     void loadReadings();
-  }, [loadReadings]);
+  }, [loadReadings, refreshKey]);
 
   const series: HealthChartSeries = useMemo(
     () => buildChartSeries(readings, metric, unitSystem),

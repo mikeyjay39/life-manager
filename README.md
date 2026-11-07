@@ -177,12 +177,11 @@ The server and integration tests also apply both migration sets automatically on
 * Store documents owned by the auth user (Proton Drive file refs on web)
 * Reminders before document expiry remain planned
 
-### Health Manager (partial — epic #104)
-* **Shipped on main:** `HealthMember` create / update / soft-deactivate (no hard-delete MVP); `HealthReading` create / list / update / delete; Health Manager screen with member management, vitals form, and charts
+### Health Manager (epic #104 — shipped MVP)
+* **Shipped:** `HealthMember` create / update / soft-deactivate (no hard-delete MVP); `HealthReading` create / list / update / delete; `DoctorVisit` create / list / update / delete; Health Manager screen with members, vitals, charts, and doctor visits
 * **Units:** backend and API store **metric only** (`height_cm`, `weight_kg`, …). The UI may show imperial; conversion is **client-side** before POST/PUT. Do not send imperial fields to the API.
 * **Ownership:** the auth user owns `HealthMember` rows (`user_id`). `HealthReading` and `DoctorVisit` store `HealthMemberId` (and denormalized `user_id` for auth). They do **not** share Document storage or Proton refs.
-* **UI:** HealthMembers, vitals, charts, and doctor visits are managed on the **Health Manager** screen (`HealthScreen`), not on Home/Documents.
-* **Landing with #114 (not yet merged):** doctor visit diary API + UI section (`DoctorVisit`). Routes match issue #114 / branch `mikeyjay39/gh-114-doctor-visit-diary` — see [docs/agents/api.md](docs/agents/api.md).
+* **UI:** HealthMembers, vitals, charts, and doctor visits are managed on the **Health Manager** screen (`HealthScreen`), not on Home/Documents. Routes: [docs/agents/api.md](docs/agents/api.md).
 
 ### Location Manager (planned)
 * Integrate with Google's "find my device" feature to show location of everyone on a map
@@ -205,7 +204,7 @@ flowchart TD
   U --> HM[HealthMember]
   HM --> HMid[HealthMemberId]
   HMid --> HR["HealthReading\n(metric vitals, SQLite)"]
-  HMid --> DV["DoctorVisit\n(lands with #114)"]
+  HMid --> DV["DoctorVisit\n(SQLite diary)"]
 ```
 
 Document and Health do **not** share storage. Health rows live in SQLite only.

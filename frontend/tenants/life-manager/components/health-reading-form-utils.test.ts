@@ -1,6 +1,10 @@
+import type { HealthReadingDto } from '@/lib/api/types';
+
 import {
   buildCreateHealthReadingCommand,
+  buildUpdateHealthReadingCommand,
   convertFormHeightWeight,
+  formFromHealthReading,
   type HealthReadingFormInput,
 } from './health-reading-form-utils';
 
@@ -160,5 +164,70 @@ describe('convertFormHeightWeight', () => {
     expect(next.weightKg).toBe('70');
     expect(next.heightFeet).toBe('');
     expect(next.weightLb).toBe('');
+  });
+});
+
+function sampleReading(
+  overrides: Partial<HealthReadingDto> = {}
+): HealthReadingDto {
+  return {
+    id: 'r1',
+    health_member_id: MEMBER_ID,
+    recorded_on: '2026-02-15',
+    height_cm: 180,
+    weight_kg: 70,
+    systolic_mm_hg: 120,
+    diastolic_mm_hg: 80,
+    heart_rate_bpm: 72,
+    notes: 'baseline',
+    bmi: 21.6,
+    created_at: '2026-02-15T00:00:00Z',
+    updated_at: '2026-02-15T00:00:00Z',
+    ...overrides,
+  };
+}
+
+describe('formFromHealthReading', () => {
+  it('given metric mode when prefilling then uses cm and kg strings', () => {
+    const form = formFromHealthReading(sampleReading(), 'metric');
+    expect(form.recordedOn).toBe('2026-02-15');
+    expect(form.heightCm).toBe('180');
+    expect(form.weightKg).toBe('70');
+    expect(form.weightLb).toBe('');
+    expect(form.systolic).toBe('120');
+    expect(form.notes).toBe('baseline');
+  });
+
+  it('given metric mode when prefilling then keeps stored precision', () => {
+    const form = formFromHealthReading(
+      sampleReading({ height_cm: 180.55, weight_kg: 70.55 }),
+      'metric'
+    );
+    expect(form.heightCm).toBe('180.55');
+    expect(form.weightKg).toBe('70.55');
+  });
+
+  it('given imperial mode when prefilling then converts height and weight', () => {
+    const form = formFromHealthReading(sampleReading(), 'imperial');
+    expect(form.heightFeet).toBe('5');
+    expect(form.heightInches).toBe('10.9');
+    expect(form.weightLb).toBe('154.3');
+    expect(form.heightCm).toBe('');
+    expect(form.weightKg).toBe('');
+  });
+});
+
+describe('buildUpdateHealthReadingCommand', () => {
+  it('given imperial weight when building then PUT body uses weight_kg only', () => {
+    const result = buildUpdateHealthReadingCommand(
+      'imperial',
+      blankInput({ weightLb: '154.3' })
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.command.weight_kg).toBe(70);
+      expect(result.command).not.toHaveProperty('health_member_id');
+      expect(result.command).not.toHaveProperty('weight_lb');
+    }
   });
 });

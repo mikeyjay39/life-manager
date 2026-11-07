@@ -1,6 +1,7 @@
 pub mod app_state;
 pub mod auth_integration;
 pub mod db;
+pub mod doctor_visit;
 pub mod document;
 pub mod document_text_extraction;
 pub mod health;
