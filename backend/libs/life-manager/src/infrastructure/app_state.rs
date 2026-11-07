@@ -6,12 +6,15 @@ use deadpool_diesel::sqlite::Pool;
 
 use crate::{
     application::{
+        car_maintenance_event_use_cases::CarMaintenanceEventUseCases, car_use_cases::CarUseCases,
         doctor_visit_use_cases::DoctorVisitUseCases, document_use_cases::DocumentUseCases,
         health_member_use_cases::HealthMemberUseCases,
         health_reading_use_cases::HealthReadingUseCases,
     },
     domain::document_text_reader::DocumentTextReader,
     infrastructure::{
+        car::car_orm_collection::CarOrmCollection,
+        car_maintenance_event::car_maintenance_event_orm_collection::CarMaintenanceEventOrmCollection,
         db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
         doctor_visit::doctor_visit_orm_collection::DoctorVisitOrmCollection,
         document::document_orm_collection::DocumentOrmCollection,
@@ -30,6 +33,8 @@ pub struct LifeManagerState {
     pub(crate) health_member_use_cases: Arc<HealthMemberUseCases>,
     pub(crate) health_reading_use_cases: Arc<HealthReadingUseCases>,
     pub(crate) doctor_visit_use_cases: Arc<DoctorVisitUseCases>,
+    pub(crate) car_use_cases: Arc<CarUseCases>,
+    pub(crate) car_maintenance_event_use_cases: Arc<CarMaintenanceEventUseCases>,
     pub(crate) auth_state: AuthState,
 }
 
@@ -41,6 +46,8 @@ pub struct LifeManagerDeps {
     pub health_member_use_cases: Option<Arc<HealthMemberUseCases>>,
     pub health_reading_use_cases: Option<Arc<HealthReadingUseCases>>,
     pub doctor_visit_use_cases: Option<Arc<DoctorVisitUseCases>>,
+    pub car_use_cases: Option<Arc<CarUseCases>>,
+    pub car_maintenance_event_use_cases: Option<Arc<CarMaintenanceEventUseCases>>,
     pub auth_state: Option<AuthState>,
 }
 
@@ -100,10 +107,27 @@ impl LifeManagerStateBuilder {
         let doctor_visit_use_cases = match deps.doctor_visit_use_cases {
             Some(use_cases) => use_cases,
             None => Arc::new(DoctorVisitUseCases {
-                doctor_visit_repository: Arc::new(DoctorVisitOrmCollection::new(pool)),
+                doctor_visit_repository: Arc::new(DoctorVisitOrmCollection::new(pool.clone())),
                 health_member_repository: health_member_use_cases
                     .health_member_repository
                     .clone(),
+            }),
+        };
+        let car_use_cases = match deps.car_use_cases {
+            Some(use_cases) => use_cases,
+            None => Arc::new(CarUseCases {
+                car_repository: Arc::new(CarOrmCollection::new(pool.clone())),
+                document_repository: document_use_cases.document_repository.clone(),
+            }),
+        };
+        let car_maintenance_event_use_cases = match deps.car_maintenance_event_use_cases {
+            Some(use_cases) => use_cases,
+            None => Arc::new(CarMaintenanceEventUseCases {
+                car_maintenance_event_repository: Arc::new(CarMaintenanceEventOrmCollection::new(
+                    pool,
+                )),
+                car_repository: car_use_cases.car_repository.clone(),
+                document_repository: document_use_cases.document_repository.clone(),
             }),
         };
         Ok(LifeManagerState {
@@ -111,6 +135,8 @@ impl LifeManagerStateBuilder {
             health_member_use_cases,
             health_reading_use_cases,
             doctor_visit_use_cases,
+            car_use_cases,
+            car_maintenance_event_use_cases,
             auth_state,
         })
     }

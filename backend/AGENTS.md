@@ -37,7 +37,7 @@ Rust **edition 2024** (`Cargo.toml`).
 | **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
 | **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
 | **`auth`** | Shared authentication (`libs/auth/`) |
-| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health APIs |
+| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; own SQLite pool via `TEST_TENANT_DATABASE_URL` |
 
 `mikeyjay-server` depends on `server-host` + `life-manager` + `test-tenant`. New product tenants implement `TenantMount` in their own crate; shared auth stays in `auth`.
@@ -60,10 +60,11 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; nest tenants via `TenantMount::mount`
 - `backend/libs/life-manager/src/life_manager_tenant.rs`: `LifeManagerTenant` implements `TenantMount`; builds `LifeManagerState` (own DB pool) and calls `.with_state()` on the nested router
-- `backend/libs/life-manager/src/life_manager_tenant.rs` → `api_router()`: nest `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`
+- `backend/libs/life-manager/src/life_manager_tenant.rs` → `api_router()`: nest `/api/v1` → `auth`, `documents`, `health-members`, `health-readings`, `doctor-visits`, `cars`, `car-maintenance-events`
 - Public v1 paths: `/life-manager/api/v1/...` — see [../docs/agents/api.md](../docs/agents/api.md)
 - Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs` (handler state via `FromRef<LifeManagerState>`)
 - Health API: metric vitals only; no imperial request fields. Ownership: auth `user_id` on `HealthMember`; readings/visits reference `HealthMemberId`.
+- Car API: auth `user_id` on `Car`; events reference `CarId`. Optional Document links are UUID refs only (owned Documents). Hard-delete of a Car cascades events.
 
 ## TypeScript DTO codegen (ts-rs)
 
@@ -72,7 +73,7 @@ Rust is the source of truth for **HTTP contract types** (request/response DTOs).
 | Crate | Annotated types | Output |
 |-------|-----------------|--------|
 | `auth` | `LoginRequest`, `LoginResponse` in `domain/login_request.rs`; `SignupRequest`, `SignupResponse` in `domain/signup_request.rs` | `frontend/lib/api/generated/auth/` |
-| `life-manager` | `DocumentDto`, `CreateDocumentCommand`, `DocumentStorageRefDto`, `GetDocumentsQueryParams` in `infrastructure/document/`; `HealthMemberDto`, `CreateHealthMemberCommand`, `UpdateHealthMemberCommand`, `GetHealthMembersQueryParams` in `infrastructure/health_member/`; `HealthReadingDto`, `CreateHealthReadingCommand`, `UpdateHealthReadingCommand`, `GetHealthReadingsQueryParams` in `infrastructure/health/`; `DoctorVisitDto`, `CreateDoctorVisitCommand`, `UpdateDoctorVisitCommand`, `GetDoctorVisitsQueryParams` in `infrastructure/doctor_visit/` | `frontend/lib/api/generated/life-manager/` |
+| `life-manager` | `DocumentDto`, `CreateDocumentCommand`, `DocumentStorageRefDto`, `GetDocumentsQueryParams` in `infrastructure/document/`; `HealthMemberDto`, `CreateHealthMemberCommand`, `UpdateHealthMemberCommand`, `GetHealthMembersQueryParams` in `infrastructure/health_member/`; `HealthReadingDto`, `CreateHealthReadingCommand`, `UpdateHealthReadingCommand`, `GetHealthReadingsQueryParams` in `infrastructure/health/`; `DoctorVisitDto`, `CreateDoctorVisitCommand`, `UpdateDoctorVisitCommand`, `GetDoctorVisitsQueryParams` in `infrastructure/doctor_visit/`; `CarDto`, `CreateCarCommand`, `UpdateCarCommand`, `GetCarsQueryParams` in `infrastructure/car/`; `CarMaintenanceEventDto`, `CreateCarMaintenanceEventCommand`, `UpdateCarMaintenanceEventCommand`, `GetCarMaintenanceEventsQueryParams` in `infrastructure/car_maintenance_event/` | `frontend/lib/api/generated/life-manager/` |
 
 **Do not** export domain aggregates (e.g. `Document` with `user_id`) or server-only types (e.g. JWT `Claims`).
 
@@ -112,4 +113,10 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 | DoctorVisit handler + diagram | `libs/life-manager/src/infrastructure/doctor_visit/doctor_visit_handler.rs` |
 | DoctorVisit router | `libs/life-manager/src/infrastructure/doctor_visit/doctor_visit_router.rs` |
 | DoctorVisit integration | `tests/doctor_visits_tests.rs` |
+| Car handler + diagram | `libs/life-manager/src/infrastructure/car/car_handler.rs` |
+| Car router | `libs/life-manager/src/infrastructure/car/car_router.rs` |
+| Car integration | `tests/cars_tests.rs` |
+| CarMaintenanceEvent handler + diagram | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_handler.rs` |
+| CarMaintenanceEvent router | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_router.rs` |
+| CarMaintenanceEvent integration | `tests/car_maintenance_events_tests.rs` |
 | Multitenancy pilot | `tests/test_tenant_auth_tests.rs`, `libs/test-tenant/` |

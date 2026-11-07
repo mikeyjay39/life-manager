@@ -6,6 +6,8 @@ export type TenantScreens = {
   Home: ComponentType;
   /** Optional. life-manager registers Health Manager; test-tenant omits it. */
   Health?: ComponentType;
+  /** Optional. life-manager registers Car Manager; test-tenant omits it. */
+  Car?: ComponentType;
 };
 
 export type TenantMeta = {

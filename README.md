@@ -186,8 +186,12 @@ The server and integration tests also apply both migration sets automatically on
 ### Location Manager (planned)
 * Integrate with Google's "find my device" feature to show location of everyone on a map
 
-### Car Manager (planned)
-* Diary of mechanic visits and history
+### Car Manager (epic #121 — shipped MVP)
+* **Shipped:** `Car` create / update / soft-deactivate / hard-delete; `CarMaintenanceEvent` create / list / update / delete; Car Manager screen with Cars, maintenance history, and charts (odometer, event types, cost)
+* **Ownership:** the auth user owns `Car` rows (`user_id`). `CarMaintenanceEvent` stores `CarId` (and denormalized `user_id` for auth). Hard-delete of a Car cascades its events (FK `ON DELETE CASCADE`).
+* **Document links:** optional UUID refs only (`insurance_document_id`, `registration_document_id` on Car; `document_id` on events). Document stays a separate aggregate. No shared storage or Proton refs on Car rows.
+* **UI:** Cars, maintenance, and charts are managed on the **Car Manager** screen (`CarScreen`), not on Home/Documents. Routes: [docs/agents/api.md](docs/agents/api.md).
+* **Out of scope (MVP):** fuel/MPG, registration/insurance expiry alerts (Document owns those docs; see epic #131).
 
 ### Receipt Manager (planned)
 * Upload and store receipts. Possibly parsing info such as vendor name, date, and amount from
@@ -205,9 +209,14 @@ flowchart TD
   HM --> HMid[HealthMemberId]
   HMid --> HR["HealthReading\n(metric vitals, SQLite)"]
   HMid --> DV["DoctorVisit\n(SQLite diary)"]
+  U --> C[Car]
+  C --> Cid[CarId]
+  Cid --> CME["CarMaintenanceEvent\n(SQLite diary)"]
+  C -. "optional UUID refs" .-> D
+  CME -. "optional document_id" .-> D
 ```
 
-Document and Health do **not** share storage. Health rows live in SQLite only.
+Document, Health, and Car do **not** share storage. Health and Car rows live in SQLite only. Document links from Car are UUID refs only.
 
 ## License
 
