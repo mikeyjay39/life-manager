@@ -18,6 +18,7 @@ Update this file and the hub when frontend conventions change.
 | `lib/tenant/theme/` | Theme types, defaults, `mergeTenantTheme()`, `TenantThemeProvider` |
 | `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1`; `types.ts` — generated API DTOs |
 | `lib/api/generated/` | ts-rs output from Rust — **do not hand-edit** (see `generated/README.md`) |
+| `lib/health/` | Shared Health helpers: `units.ts` (metric/imperial preference + conversion), `chart-series.ts` (readings → chart points) |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
 | `constants/` | `theme.ts` — `defaultColors` / `Fonts`; `config.ts` — `API_BASE_URL` |
 
@@ -102,6 +103,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
 | Health Manager skeleton | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog) |
+| Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | List + tests | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog) |
 | Proton preview in modal | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
 | Form + tests | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx` |

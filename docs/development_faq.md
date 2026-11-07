@@ -63,7 +63,9 @@ The backend listens on plain HTTP (see **`APP_PORT`**, default **`3000`**). For 
 
 ### Parallel worktrees (manual-test)
 
-Two **`dev`** stacks on one machine need different host ports. From each worktree root:
+At most **2** concurrent host **`dev`** full stacks may run on one machine. `scripts/allocate-dev-ports.sh` enforces this (default **`LIFE_MANAGER_MAX_PARALLEL_DEV_STACKS=2`**). A third new stack fails until you remove a worktree or its claim file. Restart of a stack that already owns a claim is allowed. Raise the env only for a rare local need; keep the default at 2. Agent policy: [`.cursor/rules/dev-stack-limits.mdc`](../.cursor/rules/dev-stack-limits.mdc).
+
+Two **`dev`** stacks need different host ports. From each worktree root:
 
 ```bash
 ./scripts/allocate-dev-ports.sh   # or let build_and_start_app.sh dev do it
@@ -71,7 +73,7 @@ Two **`dev`** stacks on one machine need different host ports. From each worktre
 grep -E '^(APP_PORT|FRONTEND_PORT)=' .env.tilt.ports
 ```
 
-Re-run with **`--force`** only when you need a new slot. Do not commit **`.env.tilt.ports`**. Slot claims live under **`$XDG_CACHE_HOME/life-manager/dev-port-claims`** (or **`~/.cache/...`**) so two worktrees do not take the same free ports during a long **`cargo build`**. A foreign claim is held while the claiming worktree directory exists. Remove the worktree (or the claim file) to free the slot. Host **`dev`** start scripts load **`.env.tilt.ports`**; Compose profiles do not.
+Re-run with **`--force`** only when you need a new slot for the **same** worktree. **`--force`** does not bypass the parallel cap. Do not commit **`.env.tilt.ports`**. Slot claims live under **`$XDG_CACHE_HOME/life-manager/dev-port-claims`** (or **`~/.cache/...`**) so two worktrees do not take the same free ports during a long **`cargo build`**. A foreign claim is held while the claiming worktree directory exists. Remove the worktree (or the claim file) to free the slot. Host **`dev`** start scripts load **`.env.tilt.ports`**; Compose profiles do not.
 
 - **Android Emulator:** reverse the **slot** API port from **`.env.tilt.ports`** (not always 3000):
 
