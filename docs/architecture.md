@@ -37,7 +37,7 @@ flowchart TB
 | **`mikeyjay-server`** | HTTP server entrypoint; stateless top-level routes (`/api/health`, `/api/version`); mounts tenant routers |
 | **`server-host`** | Composition-only `AppBootstrap` and `TenantMount` trait — not Axum state |
 | **`auth`** | Authentication router and JWT helpers; mounted under each tenant's `/api/v1/auth` |
-| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health APIs; owns `LifeManagerState` and `DATABASE_URL` pool |
+| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs; owns `LifeManagerState` and `DATABASE_URL` pool |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; owns `TestTenantState` and `TEST_TENANT_DATABASE_URL` pool |
 
 Each tenant crate implements `TenantMount`, builds its own state (including DB pool and migrations), and registers `.with_state()` on its nested router only. The parent router has no global Axum state.
@@ -51,8 +51,8 @@ Multitenancy is **composition-based**: each product tenant is a separate Rust cr
 | Layer | Shared? | Where |
 |-------|---------|-------|
 | Auth (login, JWT, `auth_users`) | Yes | `backend/libs/auth/` — mounted per tenant |
-| Domain aggregates (Document, HealthMember, HealthReading, DoctorVisit) | No (today) | `backend/libs/life-manager/` only |
-| Tenant UI (documents + Health Manager) | No (today) | `frontend/tenants/life-manager/` only |
+| Domain aggregates (Document, HealthMember, HealthReading, DoctorVisit, Car, CarMaintenanceEvent) | No (today) | `backend/libs/life-manager/` only |
+| Tenant UI (documents + Health Manager + Car Manager) | No (today) | `frontend/tenants/life-manager/` only |
 
 ```mermaid
 flowchart LR
@@ -60,7 +60,7 @@ flowchart LR
     authCrate["auth"]
   end
   subgraph tenants["Tenant crates"]
-    lm["life-manager\nauth + documents + health"]
+    lm["life-manager\nauth + documents + health + car"]
     tt["test-tenant\nauth only"]
   end
   authCrate --> lm
@@ -78,6 +78,17 @@ flowchart LR
 **Units policy:** the backend stores metric fields only. Imperial display and conversion live in the frontend (`frontend/lib/health/units.ts` and the Health reading form). Do not add imperial fields to the HTTP API.
 
 **UI:** manage HealthMembers, readings, charts, and doctor visits on `HealthScreen` (life-manager only).
+
+### Car domain (life-manager)
+
+| Aggregate | Owner | Notes |
+|-----------|-------|--------|
+| **Car** | Auth `user_id` | Create / update / soft-deactivate / hard-delete. Optional `insurance_document_id` / `registration_document_id` are UUID refs to owned Documents only. Inactive cars stay readable by owner. |
+| **CarMaintenanceEvent** | Same user; refs `CarId` | Reject **create** when the Car is inactive. Update and delete stay allowed on inactive Cars. Optional `document_id` is a UUID ref to an owned Document. Hard-delete of a Car cascades events (`ON DELETE CASCADE`). |
+
+**Document coupling:** store UUID refs only. Do not import Document tables or handlers into Car domain code beyond ownership checks at the application boundary.
+
+**UI:** manage Cars, maintenance history, and charts on `CarScreen` (life-manager only). Not on Home/Documents.
 
 **Rules:**
 
@@ -105,7 +116,7 @@ flowchart LR
   subgraph server["mikeyjay-server (Axum)"]
     r1["/life-manager\nLifeManagerTenant::mount()"]
     r1b["/test-tenant\nTestTenant::mount()"]
-    r2["/api/v1\nauth + documents + health\n.with_state(LifeManagerState)"]
+    r2["/api/v1\nauth + documents + health + car\n.with_state(LifeManagerState)"]
     r2b["/api/v1\nauth only\n.with_state(TestTenantState)"]
     r3["/api/health, /api/version\n(stateless top-level)"]
   end
@@ -131,6 +142,11 @@ flowchart LR
 | `/life-manager/api/v1/health-readings/{id}` | `life-manager` — update / delete HealthReading |
 | `/life-manager/api/v1/doctor-visits` | `life-manager` — list / create DoctorVisits |
 | `/life-manager/api/v1/doctor-visits/{id}` | `life-manager` — get / update / delete DoctorVisit |
+| `/life-manager/api/v1/cars` | `life-manager` — list / create Cars |
+| `/life-manager/api/v1/cars/{id}` | `life-manager` — get / update / delete Car |
+| `/life-manager/api/v1/cars/{id}/deactivate` | `life-manager` — soft-deactivate Car |
+| `/life-manager/api/v1/car-maintenance-events` | `life-manager` — list / create CarMaintenanceEvents |
+| `/life-manager/api/v1/car-maintenance-events/{id}` | `life-manager` — get / update / delete CarMaintenanceEvent |
 | `/test-tenant/api/v1/auth/login` | `auth` crate — login (test-tenant pilot) |
 | `/test-tenant/api/v1/auth/protected` | `auth` crate — auth smoke test (test-tenant pilot) |
 | `/api/health` | Top-level — liveness |
