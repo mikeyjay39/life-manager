@@ -17,6 +17,7 @@ export type {
 export type { CreateHealthReadingCommand } from './generated/life-manager/CreateHealthReadingCommand';
 export type { GetHealthReadingsQueryParams } from './generated/life-manager/GetHealthReadingsQueryParams';
 export type { HealthReadingDto } from './generated/life-manager/HealthReadingDto';
+export type { UpdateHealthReadingCommand } from './generated/life-manager/UpdateHealthReadingCommand';
 
 export type { CreateDoctorVisitCommand } from './generated/life-manager/CreateDoctorVisitCommand';
 export type { DoctorVisitDto } from './generated/life-manager/DoctorVisitDto';
