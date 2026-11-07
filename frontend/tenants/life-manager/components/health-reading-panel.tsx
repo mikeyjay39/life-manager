@@ -17,8 +17,6 @@ import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
 import {
   formatHeightDisplay,
   formatWeightDisplay,
-  loadUnitPreference,
-  saveUnitPreference,
   type UnitSystem,
 } from '@/lib/health/units';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
@@ -33,6 +31,9 @@ import {
 
 type HealthReadingPanelProps = {
   selectedMember: HealthMemberDto | null;
+  unitSystem: UnitSystem;
+  onUnitSystemChange: (next: UnitSystem) => void | Promise<void>;
+  unitPreferenceReady: boolean;
 };
 
 function emptyForm(recordedOn = ''): HealthReadingFormInput {
@@ -51,10 +52,11 @@ function emptyForm(recordedOn = ''): HealthReadingFormInput {
 }
 
 function todayYmd(): string {
+  // Match API validation: recorded_on must not be after Utc::now().date_naive().
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(now.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
@@ -63,7 +65,7 @@ function todayYmd(): string {
  *
  * ```
  * User -> Panel : select member (parent) / toggle units / fill form / submit
- * Panel -> PrefStore : load / save unit preference
+ * Panel -> Parent : onUnitSystemChange (shared with charts)
  * Panel -> API : GET /health-readings?health_member_id=…
  * alt submit valid
  *   Panel -> Panel : convert imperial → metric if needed
@@ -81,12 +83,13 @@ function todayYmd(): string {
  */
 export default function HealthReadingPanel({
   selectedMember,
+  unitSystem,
+  onUnitSystemChange,
+  unitPreferenceReady,
 }: HealthReadingPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
 
-  const [unitSystem, setUnitSystem] = useState<UnitSystem>('metric');
-  const [preferenceReady, setPreferenceReady] = useState(false);
   const [form, setForm] = useState<HealthReadingFormInput>(() =>
     emptyForm(todayYmd())
   );
@@ -177,31 +180,15 @@ export default function HealthReadingPanel({
     [palette]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const preferred = await loadUnitPreference();
-      if (!cancelled) {
-        setUnitSystem(preferred);
-        setPreferenceReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const setUnit = useCallback(
     async (next: UnitSystem) => {
-      setForm((prev) => convertFormHeightWeight(prev, unitSystem, next));
-      setUnitSystem(next);
-      try {
-        await saveUnitPreference(next);
-      } catch {
-        // Preference write failed; keep UI mode for this session.
+      if (next === unitSystem) {
+        return;
       }
+      setForm((prev) => convertFormHeightWeight(prev, unitSystem, next));
+      await onUnitSystemChange(next);
     },
-    [unitSystem]
+    [unitSystem, onUnitSystemChange]
   );
 
   const updateField = useCallback(
@@ -270,7 +257,9 @@ export default function HealthReadingPanel({
   const canSubmit =
     Boolean(token) &&
     Boolean(selectedMember?.active) &&
+    unitPreferenceReady &&
     !submitting;
+  const fieldsLocked = !unitPreferenceReady || submitting;
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -316,11 +305,11 @@ export default function HealthReadingPanel({
             : `Request failed with status ${response.status}`
         );
       }
-      setForm((prev) => ({
-        ...emptyForm(prev.recordedOn),
-      }));
-      // Skip refresh when the selected member changed during the POST.
+      // Skip clear/refresh when the selected member changed during the POST.
       if (selectedMemberIdRef.current === memberIdAtSubmit) {
+        setForm((prev) => ({
+          ...emptyForm(prev.recordedOn),
+        }));
         await loadReadings();
       }
     } catch (err: unknown) {
@@ -353,7 +342,7 @@ export default function HealthReadingPanel({
           variant={unitSystem === 'metric' ? 'primary' : 'outline'}
           label="Metric"
           accessibilityLabel="Use metric units"
-          disabled={!preferenceReady}
+          disabled={fieldsLocked}
           onPress={() => {
             void setUnit('metric');
           }}
@@ -363,7 +352,7 @@ export default function HealthReadingPanel({
           variant={unitSystem === 'imperial' ? 'primary' : 'outline'}
           label="Imperial"
           accessibilityLabel="Use imperial units"
-          disabled={!preferenceReady}
+          disabled={fieldsLocked}
           onPress={() => {
             void setUnit('imperial');
           }}
@@ -393,6 +382,7 @@ export default function HealthReadingPanel({
           value={form.recordedOn}
           onChange={(value) => updateField('recordedOn', value)}
           accessibilityLabel="Recorded date"
+          disabled={fieldsLocked}
         />
       </View>
 
@@ -401,6 +391,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Height (cm)" />
             <TextInput
+              editable={!fieldsLocked}
               style={styles.input}
               value={form.heightCm}
               onChangeText={(v) => updateField('heightCm', v)}
@@ -413,6 +404,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Weight (kg)" />
             <TextInput
+              editable={!fieldsLocked}
               style={styles.input}
               value={form.weightKg}
               onChangeText={(v) => updateField('weightKg', v)}
@@ -429,6 +421,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (ft)" />
               <TextInput
+              editable={!fieldsLocked}
                 style={styles.input}
                 value={form.heightFeet}
                 onChangeText={(v) => updateField('heightFeet', v)}
@@ -441,6 +434,7 @@ export default function HealthReadingPanel({
             <View style={styles.heightField}>
               <FieldLabel label="Height (in)" />
               <TextInput
+              editable={!fieldsLocked}
                 style={styles.input}
                 value={form.heightInches}
                 onChangeText={(v) => updateField('heightInches', v)}
@@ -454,6 +448,7 @@ export default function HealthReadingPanel({
           <View style={styles.fieldBlock}>
             <FieldLabel label="Weight (lb)" />
             <TextInput
+              editable={!fieldsLocked}
               style={styles.input}
               value={form.weightLb}
               onChangeText={(v) => updateField('weightLb', v)}
@@ -469,6 +464,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Systolic (mmHg)" />
         <TextInput
+              editable={!fieldsLocked}
           style={styles.input}
           value={form.systolic}
           onChangeText={(v) => updateField('systolic', v)}
@@ -481,6 +477,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Diastolic (mmHg)" />
         <TextInput
+              editable={!fieldsLocked}
           style={styles.input}
           value={form.diastolic}
           onChangeText={(v) => updateField('diastolic', v)}
@@ -493,6 +490,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Heart rate (bpm)" />
         <TextInput
+              editable={!fieldsLocked}
           style={styles.input}
           value={form.heartRate}
           onChangeText={(v) => updateField('heartRate', v)}
@@ -505,6 +503,7 @@ export default function HealthReadingPanel({
       <View style={styles.fieldBlock}>
         <FieldLabel label="Notes" />
         <TextInput
+              editable={!fieldsLocked}
           style={[styles.input, styles.inputMultiline]}
           value={form.notes}
           onChangeText={(v) => updateField('notes', v)}

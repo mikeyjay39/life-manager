@@ -4,10 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
-import {
-  loadUnitPreference,
-  saveUnitPreference,
-} from '@/lib/health/units';
+import type { UnitSystem } from '@/lib/health/units';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
@@ -50,19 +47,9 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
   };
 });
 
-vi.mock('@/lib/health/units', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/health/units')>();
-  return {
-    ...actual,
-    loadUnitPreference: vi.fn(),
-    saveUnitPreference: vi.fn(),
-  };
-});
-
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
-const mockGetUnitPref = vi.mocked(loadUnitPreference);
-const mockSetUnitPref = vi.mocked(saveUnitPreference);
+const mockOnUnitSystemChange = vi.fn(async (_next: UnitSystem) => undefined);
 
 function member(
   overrides: Partial<HealthMemberDto> & Pick<HealthMemberDto, 'id' | 'display_name'>
@@ -115,10 +102,42 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
 }
 
-function renderPanel(selected: HealthMemberDto | null) {
+
+function StatefulReadingPanel({
+  selected,
+  initialUnit = 'metric' as UnitSystem,
+}: {
+  selected: HealthMemberDto | null;
+  initialUnit?: UnitSystem;
+}) {
+  const [unitSystem, setUnitSystem] = React.useState<UnitSystem>(initialUnit);
+  return (
+    <TenantThemeTestProvider theme={defaultResolvedTheme}>
+      <HealthReadingPanel
+        selectedMember={selected}
+        unitSystem={unitSystem}
+        onUnitSystemChange={async (next) => {
+          mockOnUnitSystemChange(next);
+          setUnitSystem(next);
+        }}
+        unitPreferenceReady
+      />
+    </TenantThemeTestProvider>
+  );
+}
+
+function renderPanel(
+  selected: HealthMemberDto | null,
+  opts: { unitSystem?: UnitSystem; unitPreferenceReady?: boolean } = {}
+) {
   return render(
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
-      <HealthReadingPanel selectedMember={selected} />
+      <HealthReadingPanel
+        selectedMember={selected}
+        unitSystem={opts.unitSystem ?? 'metric'}
+        onUnitSystemChange={mockOnUnitSystemChange}
+        unitPreferenceReady={opts.unitPreferenceReady ?? true}
+      />
     </TenantThemeTestProvider>
   );
 }
@@ -127,8 +146,7 @@ describe('HealthReadingPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue(defaultAuth());
-    mockGetUnitPref.mockResolvedValue('metric');
-    mockSetUnitPref.mockResolvedValue();
+    mockOnUnitSystemChange.mockClear();
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
   });
 
@@ -148,9 +166,6 @@ describe('HealthReadingPanel', () => {
     expect(
       screen.getByText('Select or create a HealthMember to enter vitals.')
     ).toBeTruthy();
-    await waitFor(() => {
-      expect(mockGetUnitPref).toHaveBeenCalled();
-    });
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
   });
 
@@ -203,7 +218,6 @@ describe('HealthReadingPanel', () => {
   });
 
   it('given imperial mode when submitting then converts to weight_kg and height_cm only', async () => {
-    mockGetUnitPref.mockResolvedValue('imperial');
     const created = reading({
       id: 'r2',
       recorded_on: '2026-03-01',
@@ -215,7 +229,9 @@ describe('HealthReadingPanel', () => {
       .mockResolvedValueOnce(jsonResponse(created, 201))
       .mockResolvedValueOnce(jsonResponse([created]));
 
-    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }), {
+      unitSystem: 'imperial',
+    });
 
     await waitFor(() => {
       expect(screen.getByLabelText('Weight in pounds')).toBeTruthy();
@@ -251,7 +267,9 @@ describe('HealthReadingPanel', () => {
     });
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([stored]));
 
-    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+    render(
+      <StatefulReadingPanel selected={member({ id: 'm1', display_name: 'Alex' })} />
+    );
 
     await waitFor(() => {
       expect(screen.getByText(/70(\.0)? kg/)).toBeTruthy();
@@ -262,7 +280,7 @@ describe('HealthReadingPanel', () => {
     await waitFor(() => {
       expect(screen.getByText(/154\.3 lb/)).toBeTruthy();
     });
-    expect(mockSetUnitPref).toHaveBeenCalledWith('imperial');
+    expect(mockOnUnitSystemChange).toHaveBeenCalledWith('imperial');
 
     fireEvent.press(screen.getByLabelText('Use metric units'));
 
@@ -273,7 +291,9 @@ describe('HealthReadingPanel', () => {
 
   it('given filled metric fields when toggling to imperial then converts form values', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
-    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+    render(
+      <StatefulReadingPanel selected={member({ id: 'm1', display_name: 'Alex' })} />
+    );
 
     await waitFor(() => {
       expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
@@ -291,6 +311,7 @@ describe('HealthReadingPanel', () => {
       );
     });
   });
+
 
   it('given empty vitals when submitting then shows validation and does not POST create', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
