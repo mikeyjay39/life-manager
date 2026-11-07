@@ -43,7 +43,7 @@ Agent
 Copy and track progress:
 
 ```text
-- [ ] Discover branch; clean tree; commits vs main
+- [ ] Discover branch; commit if dirty; commits vs main
 - [ ] Push branch (open-pr exception)
 - [ ] Create or reuse PR against main
 - [ ] Write summary (pr-summary-for-human steps 1–6) into PR body
@@ -65,8 +65,8 @@ git log --oneline main..HEAD
 git diff main...HEAD --stat
 ```
 
-- If the working tree is dirty (uncommitted changes), **stop**. Tell the user to commit first.
-- If `main..HEAD` has no commits, **stop**. Tell the user there is nothing to open.
+- If the working tree is dirty (uncommitted changes), `git add` the intended files and `git commit` with a short STE message (skill exception). Do not commit secrets (`.dev.env`, certs, credentials).
+- After that commit (or if the tree was already clean), if `main..HEAD` has no commits, **stop**. Tell the user there is nothing to open.
 - Summarize the change in one short list for the PR title later.
 
 ### 2. Push the branch
