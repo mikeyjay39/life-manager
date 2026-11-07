@@ -81,6 +81,85 @@ export function isUnitSystem(value: unknown): value is UnitSystem {
   return value === 'metric' || value === 'imperial';
 }
 
+/** Regions that default to imperial when no saved preference exists (#147). */
+const IMPERIAL_REGIONS = new Set(['US', 'LR', 'MM']);
+
+/**
+ * Resolve the runtime locale tag.
+ * Prefer `navigator.language` (web / Expo web). Fall back to `Intl`.
+ */
+export function resolveRuntimeLocale(): string {
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.language === 'string' &&
+      navigator.language.trim() !== ''
+    ) {
+      return navigator.language;
+    }
+  } catch {
+    // Ignore and try Intl.
+  }
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    if (typeof locale === 'string' && locale.trim() !== '') {
+      return locale;
+    }
+  } catch {
+    // Fall through.
+  }
+  return '';
+}
+
+/**
+ * Extract a BCP 47 region subtag (uppercase), or null when missing / invalid.
+ */
+export function regionFromLocale(locale: string | null | undefined): string | null {
+  if (locale == null || typeof locale !== 'string') {
+    return null;
+  }
+  const trimmed = locale.trim();
+  if (trimmed === '') {
+    return null;
+  }
+  try {
+    const region = new Intl.Locale(trimmed).region;
+    if (typeof region === 'string' && region.trim() !== '') {
+      return region.toUpperCase();
+    }
+    return null;
+  } catch {
+    // Fallback when Intl.Locale rejects the tag (e.g. underscores only).
+    const parts = trimmed.replace(/_/g, '-').split('-');
+    for (let i = parts.length - 1; i >= 1; i -= 1) {
+      const part = parts[i];
+      if (/^[A-Za-z]{2}$/.test(part)) {
+        return part.toUpperCase();
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Initial unit mode from locale region.
+ * Imperial only for US, LR, MM. Metric when region is missing or other.
+ * Omit `locale` to use the runtime locale; pass null/empty for metric.
+ */
+export function defaultUnitSystemFromLocale(
+  locale: string | null | undefined = resolveRuntimeLocale()
+): UnitSystem {
+  const region = regionFromLocale(locale ?? '');
+  if (region != null && IMPERIAL_REGIONS.has(region)) {
+    return 'imperial';
+  }
+  return 'metric';
+}
+
+/**
+ * Load saved unit preference, or locale default when none is stored.
+ * Does not write the locale default; only an explicit toggle persists.
+ */
 export async function loadUnitPreference(): Promise<UnitSystem> {
   try {
     const raw = await AsyncStorage.getItem(HEALTH_UNIT_PREFERENCE_KEY);
@@ -88,9 +167,9 @@ export async function loadUnitPreference(): Promise<UnitSystem> {
       return raw;
     }
   } catch {
-    // Fall through to default.
+    // Fall through to locale default.
   }
-  return 'metric';
+  return defaultUnitSystemFromLocale();
 }
 
 export async function saveUnitPreference(unit: UnitSystem): Promise<void> {
