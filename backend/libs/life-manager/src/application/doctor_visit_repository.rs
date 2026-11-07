@@ -70,7 +70,12 @@ pub trait DoctorVisitRepository: Sync + Send {
 
     async fn update(&self, visit: DoctorVisit) -> Result<DoctorVisit, Box<dyn std::error::Error>>;
 
-    async fn delete(&self, id: &DoctorVisitId) -> Result<(), Box<dyn std::error::Error>>;
+    /// Deletes by id only when `user_id` owns the row.
+    async fn delete(
+        &self,
+        id: &DoctorVisitId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 
     /// Returns the visit only when `user_id` owns it.
     async fn load_owned(&self, id: &DoctorVisitId, user_id: &Uuid) -> Option<DoctorVisit>;

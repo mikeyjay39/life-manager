@@ -82,11 +82,15 @@ impl DoctorVisitRepository for DoctorVisitCollection {
         Ok(visit)
     }
 
-    async fn delete(&self, id: &DoctorVisitId) -> Result<(), Box<dyn std::error::Error>> {
+    async fn delete(
+        &self,
+        id: &DoctorVisitId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut visits = self.visits.lock().await;
         let index = visits
             .iter()
-            .position(|v| v.id == *id)
+            .position(|v| v.id == *id && v.user_id == *user_id)
             .ok_or(MissingDoctorVisit)?;
         visits.remove(index);
         Ok(())

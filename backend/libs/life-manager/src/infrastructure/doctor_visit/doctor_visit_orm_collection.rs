@@ -253,14 +253,23 @@ impl DoctorVisitRepository for DoctorVisitOrmCollection {
         }
     }
 
-    async fn delete(&self, id: &DoctorVisitId) -> Result<(), Box<dyn std::error::Error>> {
+    async fn delete(
+        &self,
+        id: &DoctorVisitId,
+        user_id: &Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let conn = self.pool.get().await?;
         let id_str = id.to_string();
+        let user_id_str = user_id.to_string();
 
         let result = conn
             .interact(move |conn| -> QueryResult<usize> {
-                diesel::delete(doctor_visits::table.filter(doctor_visits::id.eq(id_str)))
-                    .execute(conn)
+                diesel::delete(
+                    doctor_visits::table
+                        .filter(doctor_visits::id.eq(id_str))
+                        .filter(doctor_visits::user_id.eq(user_id_str)),
+                )
+                .execute(conn)
             })
             .await;
 

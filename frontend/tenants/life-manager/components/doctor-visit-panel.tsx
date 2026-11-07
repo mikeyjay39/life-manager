@@ -344,6 +344,7 @@ export default function DoctorVisitPanel({
       return;
     }
     const target = deleteTarget;
+    const memberIdAtDelete = selectedMemberIdRef.current;
     setDeleting(true);
     try {
       const response = await authenticatedFetch(`/doctor-visits/${target.id}`, {
@@ -359,15 +360,22 @@ export default function DoctorVisitPanel({
             : `Request failed with status ${response.status}`
         );
       }
-      setDeleteTarget(null);
-      if (editingId === target.id) {
-        cancelEdit();
+      // Skip UI refresh when the selected member changed during DELETE.
+      if (selectedMemberIdRef.current === memberIdAtDelete) {
+        setDeleteTarget(null);
+        if (editingId === target.id) {
+          cancelEdit();
+        }
+        await loadVisits();
+      } else {
+        setDeleteTarget(null);
       }
-      await loadVisits();
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete visit';
-      setListError(msg);
+      if (selectedMemberIdRef.current === memberIdAtDelete) {
+        setListError(msg);
+      }
       setDeleteTarget(null);
     } finally {
       setDeleting(false);

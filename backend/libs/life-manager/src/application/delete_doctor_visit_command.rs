@@ -39,7 +39,11 @@ impl DeleteDoctorVisitCommand {
             return Err(AppError::NotFound);
         };
 
-        match self.doctor_visit_repository.delete(&self.visit_id).await {
+        match self
+            .doctor_visit_repository
+            .delete(&self.visit_id, &self.user_id)
+            .await
+        {
             Ok(()) => Ok(()),
             Err(e) => {
                 if e.downcast_ref::<MissingDoctorVisit>().is_some() {
