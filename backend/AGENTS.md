@@ -37,7 +37,7 @@ Rust **edition 2024** (`Cargo.toml`).
 | **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
 | **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
 | **`auth`** | Shared authentication (`libs/auth/`) |
-| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health APIs |
+| **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; own SQLite pool via `TEST_TENANT_DATABASE_URL` |
 
 `mikeyjay-server` depends on `server-host` + `life-manager` + `test-tenant`. New product tenants implement `TenantMount` in their own crate; shared auth stays in `auth`.
@@ -64,6 +64,7 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 - Public v1 paths: `/life-manager/api/v1/...` — see [../docs/agents/api.md](../docs/agents/api.md)
 - Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs` (handler state via `FromRef<LifeManagerState>`)
 - Health API: metric vitals only; no imperial request fields. Ownership: auth `user_id` on `HealthMember`; readings/visits reference `HealthMemberId`.
+- Car API: auth `user_id` on `Car`; events reference `CarId`. Optional Document links are UUID refs only (owned Documents). Hard-delete of a Car cascades events.
 
 ## TypeScript DTO codegen (ts-rs)
 
