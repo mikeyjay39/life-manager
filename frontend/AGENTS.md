@@ -10,7 +10,7 @@ Update this file and the hub when frontend conventions change.
 |------|------|
 | `app/` | Expo Router shell (`(tabs)/`, `login.tsx`, `_layout.tsx`) — routes are shared across tenants |
 | `components/` | Shared UI; co-locate `*.test.tsx` |
-| `components/ui/` | Shared primitives (`button.tsx` for CTAs with hover/press colors; `confirm-dialog.tsx` for themed confirmations; `date-picker.tsx` / `date-picker.web.tsx` for optional YYYY-MM-DD fields; `field-label.tsx` for form field labels) |
+| `components/ui/` | Shared primitives (`button.tsx` for CTAs with hover/press colors; `confirm-dialog.tsx` for themed confirmations; `date-picker.tsx` / `date-picker.web.tsx` for optional YYYY-MM-DD fields; `field-label.tsx` for form field labels; `text-input.tsx` / `text-input.web.tsx` for typed fields — web uses native `input`/`textarea` so Vimium can focus them) |
 | `components/auth/` | Shared auth UI (`login-form.tsx`, `signup-form.tsx`) |
 | `contexts/` | `AuthContext` (tenant-scoped token + login), `ProtonConnectContext` (web Proton Drive session) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
@@ -53,6 +53,8 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 **UI convention:** do not import `Colors` directly in components — use `useColorPalette()` or `useThemeColor()`. Use `useTenantBranding()` for copy and assets on tenant screens. Prefer `components/ui/button.tsx` for CTAs (Pressable with web hover / press background changes; variants `primary` | `secondary` | `destructive` | `outline`). For filled buttons using `palette.tint` as background, use `palette.onTint` for label text and spinners. Prefer `components/ui/confirm-dialog.tsx` over `Alert.alert` / `window.confirm` for user confirmations (themed, blurred backdrop, works on web).
 
 Use `components/ui/field-label.tsx` for form field labels. Set `required` to show an asterisk. The accessible name is the label text plus `, required`.
+
+Use `components/ui/text-input.tsx` for typed form fields on Car Manager and Health Manager (and other screens that need Vimium-detectable fields on web). Web (`text-input.web.tsx`) renders a native HTML `input` or `textarea`. Keep `accessibilityLabel`. Set `editable={false}` for locked fields: web renders a `div` (not `input`/`textarea`) because Vimium still matches readonly textareas.
 
 Use `components/ui/date-picker.tsx` for optional date fields. Value is `YYYY-MM-DD` or `''`. Web uses `input type="date"` (`date-picker.web.tsx`); native uses `@react-native-community/datetimepicker`. Clear stays available when a value is set.
 
