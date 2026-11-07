@@ -30,6 +30,26 @@ diesel::table! {
 }
 
 diesel::table! {
+    cars (id) {
+        id -> Text,
+        user_id -> Text,
+        display_name -> Nullable<Text>,
+        make -> Text,
+        model -> Text,
+        year -> Integer,
+        vin -> Nullable<Text>,
+        license_plate -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        insurance_document_id -> Nullable<Text>,
+        registration_document_id -> Nullable<Text>,
+        active -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+        deactivated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     doctor_visits (id) {
         id -> Text,
         user_id -> Text,
@@ -78,6 +98,7 @@ diesel::joinable!(document_tags -> documents (document_id));
 diesel::joinable!(document_tags -> tags (tag_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    cars,
     doctor_visits,
     documents,
     health_members,
