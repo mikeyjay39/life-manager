@@ -33,6 +33,7 @@ Use `@/` path alias (`tsconfig.json`).
 - Register hostnames and mount metadata in `lib/tenant/registry.ts`.
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
 - `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Documents`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
+- **Home** is the manager hub (icon tiles only). Document create/list/Proton live under **Document Manager** (`screens.Documents`), not on Home.
 - Optional `screens.Documents` / `Health` / `Car` register manager routes (life-manager; test-tenant omits them).
 - Hub tiles and `AppMenuBar` manager links both read `tenants/life-manager/manager-registry.ts` (`LIFE_MANAGER_MANAGERS`). Hub may show Coming soon; the menu lists only registered managers. Always keep **Home** and **Log Out**. Documents label is **Documents**.
 - test-tenant has no optional screens → menu is **Home** + **Log Out** only.
@@ -104,9 +105,9 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant config | `tenants/life-manager/meta.ts` (hostnames, API prefix, optional `theme`) |
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
-| Tenant home hub | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx` (icon tiles launch Documents/Health/Cars; Coming soon when screen not registered; no document list on Home) |
+| Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
 | Shared manager menu | `components/app-menu-bar.tsx` + `tenants/life-manager/manager-registry.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; active state from path. |
-| Document Manager screen | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Owns Proton connect, create, list, preview, and delete (not Home). |
+| Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Owns Proton connect, create, list, preview, and delete (not Home). |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via registry (Health). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via registry (Cars). Cars panel + maintenance panel + charts (not Home/Documents). |
 | Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
@@ -117,8 +118,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (create / edit / delete + ConfirmDialog; selected active HealthMember) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API |
-| List + tests | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog) |
-| Proton preview in modal | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
-| Form + tests | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx` |
+| Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
+| Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
+| Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |
 | API client | `lib/api/client.ts` |
 | Tenant resolution | `lib/tenant/resolve.ts`, `lib/tenant/TenantContext.tsx` |
