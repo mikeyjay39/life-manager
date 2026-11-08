@@ -5,6 +5,7 @@ export default function TabLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="documents" />
       <Stack.Screen name="health" />
       <Stack.Screen name="car" />
     </Stack>

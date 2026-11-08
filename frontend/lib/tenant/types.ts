@@ -4,6 +4,8 @@ import type { TenantTheme } from '@/lib/tenant/theme/types';
 
 export type TenantScreens = {
   Home: ComponentType;
+  /** Optional. life-manager registers Document Manager; test-tenant omits it. */
+  Documents?: ComponentType;
   /** Optional. life-manager registers Health Manager; test-tenant omits it. */
   Health?: ComponentType;
   /** Optional. life-manager registers Car Manager; test-tenant omits it. */
