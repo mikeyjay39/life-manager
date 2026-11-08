@@ -79,3 +79,26 @@ export function resolveManagerTiles(screens: TenantScreens): ResolvedManagerTile
     };
   });
 }
+
+/**
+ * Menu links for registered managers only (no Coming soon).
+ * AppMenuBar keeps Home and Log Out outside this list.
+ */
+export function resolveRegisteredManagerMenuItems(
+  screens: TenantScreens
+): readonly ManagerRegistryEntry[] {
+  return LIFE_MANAGER_MANAGERS.filter((entry) => Boolean(screens[entry.screenKey]));
+}
+
+/** True when pathname matches a manager Expo route (with or without the /(tabs) group). */
+export function isManagerRouteActive(
+  pathname: string,
+  route: ManagerRegistryEntry['route']
+): boolean {
+  const leaf = route.replace('/(tabs)', '');
+  return (
+    pathname === route ||
+    pathname === leaf ||
+    (leaf.length > 0 && pathname.endsWith(leaf))
+  );
+}

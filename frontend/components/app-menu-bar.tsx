@@ -8,13 +8,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { withAlpha } from '@/lib/tenant/theme/color-utils';
+import {
+  isManagerRouteActive,
+  resolveRegisteredManagerMenuItems,
+  type ManagerIconName,
+} from '@/tenants/life-manager/manager-registry';
 
-type MenuIcon =
-  | 'house.fill'
-  | 'doc.fill'
-  | 'heart.fill'
-  | 'car.fill'
-  | 'rectangle.portrait.and.arrow.right';
+type MenuIcon = 'house.fill' | ManagerIconName | 'rectangle.portrait.and.arrow.right';
 
 type MenuItem = {
   key: string;
@@ -26,21 +26,25 @@ type MenuItem = {
 };
 
 /**
- * Top app menu. Shows Documents/Health/Car only when the tenant registers them.
+ * Top app menu. Manager links come from the life-manager registry when registered.
+ * Always keeps Home and Log Out. test-tenant has no optional screens → Home + Log Out only.
+ *
+ * Follow-up: if many managers crowd this bar, consider a compact overflow control.
+ * Do not add a hamburger in MVP unless the bar is actually crowded.
  *
  * sequenceDiagram
  *   participant User
  *   participant Menu as AppMenuBar
+ *   participant Registry as resolveRegisteredManagerMenuItems
  *   participant Router as expo-router
- *   User->>Menu: press Home / Documents / Health / Cars / Log Out
+ *   User->>Menu: open menu
+ *   Menu->>Registry: tenant.screens
+ *   Registry-->>Menu: registered managers (Documents, Health, Cars)
+ *   User->>Menu: press Home / manager / Log Out
  *   alt Home
  *     Menu->>Router: replace /(tabs)
- *   else Documents (when registered)
- *     Menu->>Router: replace /(tabs)/documents
- *   else Health (when registered)
- *     Menu->>Router: replace /(tabs)/health
- *   else Cars (when registered)
- *     Menu->>Router: replace /(tabs)/car
+ *   else registered manager
+ *     Menu->>Router: replace entry.route
  *   else Log Out
  *     Menu->>Menu: confirm then logout
  *   end
@@ -52,24 +56,10 @@ export default function AppMenuBar() {
   const { tenant } = useTenant();
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
-  const hasDocuments = Boolean(tenant.screens.Documents);
-  const hasHealth = Boolean(tenant.screens.Health);
-  const hasCar = Boolean(tenant.screens.Car);
+  const managerItems = resolveRegisteredManagerMenuItems(tenant.screens);
 
   const isHomeActive =
     pathname === '/' || pathname === '/(tabs)' || pathname.endsWith('/index');
-  const isDocumentsActive =
-    pathname === '/documents' ||
-    pathname === '/(tabs)/documents' ||
-    pathname.endsWith('/documents');
-  const isHealthActive =
-    pathname === '/health' ||
-    pathname === '/(tabs)/health' ||
-    pathname.endsWith('/health');
-  const isCarActive =
-    pathname === '/car' ||
-    pathname === '/(tabs)/car' ||
-    pathname.endsWith('/car');
 
   const styles = useMemo(
     () =>
@@ -123,41 +113,15 @@ export default function AppMenuBar() {
     },
   ];
 
-  if (hasDocuments) {
+  for (const entry of managerItems) {
     items.push({
-      key: 'documents',
-      label: 'Documents',
-      icon: 'doc.fill',
-      accessibilityLabel: 'Documents',
-      isActive: isDocumentsActive,
+      key: entry.id,
+      label: entry.label,
+      icon: entry.icon,
+      accessibilityLabel: entry.label,
+      isActive: isManagerRouteActive(pathname, entry.route),
       onPress: () => {
-        router.replace('/(tabs)/documents');
-      },
-    });
-  }
-
-  if (hasHealth) {
-    items.push({
-      key: 'health',
-      label: 'Health',
-      icon: 'heart.fill',
-      accessibilityLabel: 'Health',
-      isActive: isHealthActive,
-      onPress: () => {
-        router.replace('/(tabs)/health');
-      },
-    });
-  }
-
-  if (hasCar) {
-    items.push({
-      key: 'car',
-      label: 'Cars',
-      icon: 'car.fill',
-      accessibilityLabel: 'Cars',
-      isActive: isCarActive,
-      onPress: () => {
-        router.replace('/(tabs)/car');
+        router.replace(entry.route);
       },
     });
   }

@@ -33,9 +33,10 @@ Use `@/` path alias (`tsconfig.json`).
 - Register hostnames and mount metadata in `lib/tenant/registry.ts`.
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
 - `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Documents`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
-- Optional `screens.Documents` registers the Document Manager route and **Documents** menu item (life-manager only; test-tenant omits it).
-- Optional `screens.Health` registers the Health Manager route and menu item (life-manager only; test-tenant omits it).
-- Optional `screens.Car` registers the Car Manager route and menu item (life-manager only; test-tenant omits it).
+- Optional `screens.Documents` / `Health` / `Car` register manager routes (life-manager; test-tenant omits them).
+- Hub tiles and `AppMenuBar` manager links both read `tenants/life-manager/manager-registry.ts` (`LIFE_MANAGER_MANAGERS`). Hub may show Coming soon; the menu lists only registered managers. Always keep **Home** and **Log Out**. Documents label is **Documents**.
+- test-tenant has no optional screens → menu is **Home** + **Log Out** only.
+- Follow-up: if the menu bar gets crowded with more managers, consider compact overflow; do not add a hamburger in MVP unless needed.
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
 
 ## Tenant theme and branding
@@ -104,9 +105,10 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Tenant home hub | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx` (icon tiles launch Documents/Health/Cars; Coming soon when screen not registered; no document list on Home) |
-| Document Manager screen | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via `components/app-menu-bar.tsx` (**Documents** when `screens.Documents` is set). Owns Proton connect, create, list, preview, and delete (not Home). |
-| Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
-| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + maintenance panel + charts (not Home/Documents). |
+| Shared manager menu | `components/app-menu-bar.tsx` + `tenants/life-manager/manager-registry.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; active state from path. |
+| Document Manager screen | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Owns Proton connect, create, list, preview, and delete (not Home). |
+| Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via registry (Health). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
+| Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via registry (Cars). Cars panel + maintenance panel + charts (not Home/Documents). |
 | Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
 | Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car; `onEventsChanged` refreshes charts) |
 | Car charts | `tenants/life-manager/components/car-charts-panel.tsx` + `lib/car/chart-series.ts` (`react-native-gifted-charts` LineChart / BarChart; odometer miles, event_type counts, cost USD; empty states; optional miles-since-oil callout) |

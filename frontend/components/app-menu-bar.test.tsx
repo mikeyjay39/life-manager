@@ -135,6 +135,20 @@ describe('AppMenuBar', () => {
     expect(router.replace).toHaveBeenCalledWith('/(tabs)');
   });
 
+  it('given Home hub when menu renders then Home shows as active', () => {
+    // Given pathname is Home
+    mockUsePathname.mockReturnValue('/');
+    // When the menu renders
+    renderAppMenuBar();
+    // Then Home is selected and Documents is not
+    expect(screen.getByLabelText('Home').props.accessibilityState).toMatchObject({
+      selected: true,
+    });
+    expect(screen.getByLabelText('Documents').props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+  });
+
   it('given Documents screen when menu renders then Documents shows as active', () => {
     // Given pathname is Documents
     mockUsePathname.mockReturnValue('/documents');
