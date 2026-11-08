@@ -11,6 +11,7 @@ import { withAlpha } from '@/lib/tenant/theme/color-utils';
 
 type MenuIcon =
   | 'house.fill'
+  | 'doc.fill'
   | 'heart.fill'
   | 'car.fill'
   | 'rectangle.portrait.and.arrow.right';
@@ -25,15 +26,17 @@ type MenuItem = {
 };
 
 /**
- * Top app menu. Shows Health/Car only when the tenant registers those screens.
+ * Top app menu. Shows Documents/Health/Car only when the tenant registers them.
  *
  * sequenceDiagram
  *   participant User
  *   participant Menu as AppMenuBar
  *   participant Router as expo-router
- *   User->>Menu: press Home / Health / Cars / Log Out
+ *   User->>Menu: press Home / Documents / Health / Cars / Log Out
  *   alt Home
  *     Menu->>Router: replace /(tabs)
+ *   else Documents (when registered)
+ *     Menu->>Router: replace /(tabs)/documents
  *   else Health (when registered)
  *     Menu->>Router: replace /(tabs)/health
  *   else Cars (when registered)
@@ -49,11 +52,16 @@ export default function AppMenuBar() {
   const { tenant } = useTenant();
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
+  const hasDocuments = Boolean(tenant.screens.Documents);
   const hasHealth = Boolean(tenant.screens.Health);
   const hasCar = Boolean(tenant.screens.Car);
 
   const isHomeActive =
     pathname === '/' || pathname === '/(tabs)' || pathname.endsWith('/index');
+  const isDocumentsActive =
+    pathname === '/documents' ||
+    pathname === '/(tabs)/documents' ||
+    pathname.endsWith('/documents');
   const isHealthActive =
     pathname === '/health' ||
     pathname === '/(tabs)/health' ||
@@ -114,6 +122,19 @@ export default function AppMenuBar() {
       },
     },
   ];
+
+  if (hasDocuments) {
+    items.push({
+      key: 'documents',
+      label: 'Documents',
+      icon: 'doc.fill',
+      accessibilityLabel: 'Documents',
+      isActive: isDocumentsActive,
+      onPress: () => {
+        router.replace('/(tabs)/documents');
+      },
+    });
+  }
 
   if (hasHealth) {
     items.push({

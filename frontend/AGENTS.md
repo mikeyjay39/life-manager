@@ -32,7 +32,8 @@ Use `@/` path alias (`tsconfig.json`).
 - Each tenant exports a `TenantModule` from `tenants/<id>/config.ts` (mirrors backend `TenantMount`).
 - Register hostnames and mount metadata in `lib/tenant/registry.ts`.
 - `TenantProvider` resolves the active tenant at bootstrap (hostname on web, env on native) and configures the API client prefix.
-- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
+- `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Documents`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
+- Optional `screens.Documents` registers the Document Manager route and **Documents** menu item (life-manager only; test-tenant omits it).
 - Optional `screens.Health` registers the Health Manager route and menu item (life-manager only; test-tenant omits it).
 - Optional `screens.Car` registers the Car Manager route and menu item (life-manager only; test-tenant omits it).
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
@@ -102,7 +103,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant config | `tenants/life-manager/meta.ts` (hostnames, API prefix, optional `theme`) |
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
-| Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` |
+| Tenant home screen | `tenants/life-manager/screens/HomeScreen.tsx` (welcome shell; Documents UI lives on Document Manager) |
+| Document Manager screen | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via `components/app-menu-bar.tsx` (**Documents** when `screens.Documents` is set). Owns Proton connect, create, list, preview, and delete (not Home). |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via `components/app-menu-bar.tsx` (Health when `screens.Health` is set). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via `components/app-menu-bar.tsx` (Cars when `screens.Car` is set). Cars panel + maintenance panel + charts (not Home/Documents). |
 | Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
