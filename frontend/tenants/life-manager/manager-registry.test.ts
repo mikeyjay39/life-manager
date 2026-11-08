@@ -1,4 +1,8 @@
-import { resolveManagerTiles } from '@/tenants/life-manager/manager-registry';
+import {
+  isManagerRouteActive,
+  resolveManagerTiles,
+  resolveRegisteredManagerMenuItems,
+} from '@/tenants/life-manager/manager-registry';
 import type { TenantScreens } from '@/lib/tenant/types';
 
 describe('resolveManagerTiles', () => {
@@ -52,5 +56,40 @@ describe('resolveManagerTiles', () => {
       ['health', 'available'],
       ['cars', 'available'],
     ]);
+  });
+});
+
+describe('resolveRegisteredManagerMenuItems', () => {
+  it('returns only managers whose screens are registered', () => {
+    // Given Documents and Health only
+    const screens: TenantScreens = {
+      Home: () => null,
+      Documents: () => null,
+      Health: () => null,
+    };
+    // When menu items resolve
+    const items = resolveRegisteredManagerMenuItems(screens);
+    // Then Cars is omitted; labels stay registry copy
+    expect(items.map((item) => item.id)).toEqual(['documents', 'health']);
+    expect(items[0]?.label).toBe('Documents');
+  });
+
+  it('returns an empty list when no optional screens are registered', () => {
+    // Given test-tenant-style screens
+    const screens: TenantScreens = {
+      Home: () => null,
+    };
+    // When menu items resolve
+    const items = resolveRegisteredManagerMenuItems(screens);
+    // Then the menu has no manager links
+    expect(items).toEqual([]);
+  });
+});
+
+describe('isManagerRouteActive', () => {
+  it('matches Documents path forms', () => {
+    expect(isManagerRouteActive('/documents', '/(tabs)/documents')).toBe(true);
+    expect(isManagerRouteActive('/(tabs)/documents', '/(tabs)/documents')).toBe(true);
+    expect(isManagerRouteActive('/', '/(tabs)/documents')).toBe(false);
   });
 });
