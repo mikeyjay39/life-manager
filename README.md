@@ -175,6 +175,7 @@ The server and integration tests also apply both migration sets automatically on
 
 #### Document Manager (shipped)
 * Store documents owned by the auth user (Proton Drive file refs on web)
+* **UI:** create, list, preview, and delete live on the **Document Manager** screen (`DocumentManagerScreen`); Home is the manager hub only
 * Reminders before document expiry remain planned
 
 ### Health Manager (epic #104 — shipped MVP)
