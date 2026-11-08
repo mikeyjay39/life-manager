@@ -63,8 +63,11 @@ A boss session may type messages that start with "From the boss session:".
 6. Wait for the boss if it says the manual-test slot is full. When cleared,
    run the project skill manual-test with base branch <feature-branch>
    (pass <feature-branch> as the skill argument, or set MANUAL_TEST_BASE).
-   Attach or comment proof on the PR. Leave the stack as that skill says.
-7. Stop. Tell the boss the PR URL and that the pipeline is done. Do not merge.
+   That skill must post a PR comment with **uploaded** screenshots
+   (`gh pr comment --attach` / `scripts/post-pr-proof.sh`). Local `/tmp`
+   paths alone are not proof. Leave the stack as that skill says.
+7. Stop. Tell the boss the PR URL, the proof comment URL, and that the
+   pipeline is done. Do not merge.
 
 ## Parallel workers
 You run with: <other session ids>. Shared files: name them in your turn summary
