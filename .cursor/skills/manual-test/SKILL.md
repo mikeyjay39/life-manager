@@ -28,6 +28,8 @@ when a deliver-feature story PR targets a feature branch).
 - Do not put secrets from `.dev.env` in the report.
 - Leave the stack running after the report.
 - For UI checks, use the repo Playwright package in `frontend/` — do not `npm install playwright` under `/tmp`.
+- Do not commit screenshot PNGs into the repo.
+- Naming local `/tmp` paths on a PR is not proof. Upload PNGs with `gh --attach` when a PR exists.
 
 ## Checklist
 
@@ -41,6 +43,7 @@ Copy and track progress:
 - [ ] Build verification plan from the diff
 - [ ] Exercise new behavior live
 - [ ] Show UI screenshots (tmux window + Read PNGs)
+- [ ] Post proof on the open PR with uploaded screenshots (`gh --attach`)
 - [ ] Report proof
 ```
 
@@ -146,6 +149,44 @@ Capture commands, status codes, response snippets, screenshots, and UI observati
 
 Optional: run matching automated tests from [docs/agents/testing.md](../../../docs/agents/testing.md) for touched areas. They do not replace live proof.
 
+### 6. Post screenshot proof on the PR
+
+Local `/tmp` paths and filename lists are **not** enough for GitHub review.
+When this branch has an open PR (or `MANUAL_TEST_PR` is set), post a proof
+comment that **uploads** the PNGs with `gh pr comment --attach`.
+
+1. Resolve the PR:
+
+```bash
+PR="${MANUAL_TEST_PR:-}"
+if [[ -z "$PR" ]]; then
+  PR=$(gh pr view --json number -q .number 2>/dev/null || true)
+fi
+```
+
+2. If no PR exists, say so in the report and skip this step.
+3. Write a markdown body (scenario table + pass/fail). Embed each PNG as
+   `![alt](<absolute-or-artifact-path>)` so `gh` can rewrite it. Template:
+   [reference.md](reference.md#pr-proof-comment).
+4. Post with the helper (preferred) or the same `gh` flags:
+
+```bash
+ART="${PLAYWRIGHT_ARTIFACTS_DIR:-/tmp/lm-playwright-artifacts}"
+REPO_ROOT="$(pwd)"
+bash "$REPO_ROOT/.cursor/skills/manual-test/scripts/post-pr-proof.sh" \
+  --pr "$PR" --artifacts "$ART" --body-file /tmp/manual-test-proof.md
+```
+
+5. Confirm the comment URL. Open it if useful. The comment must show images on
+   github.com (not only local filenames).
+6. Do **not** commit PNGs into the git tree.
+7. If `--attach` fails, keep the text comment and report that images did not
+   upload. Do not claim screenshot proof on the PR.
+
+Needs `gh` 2.99+. deliver-feature story workers must always hit this step for
+the story PR. open-pr may also attach images to the PR body; a proof comment
+here is still required when a PR exists.
+
 ### 7. Report
 
 Tell the user:
@@ -154,6 +195,7 @@ Tell the user:
 - Stack URLs (API and Expo)
 - Scenario checklist with pass/fail and evidence
 - Artifact dir and whether screenshots were shown in tmux window `manual-test-shots` (or chat-only if no tmux/chafa)
+- PR proof comment URL, or that no PR existed / attach failed
 - Anything they must do (migrations, activate a user, supply credentials)
 
 ## Additional resources
@@ -161,5 +203,6 @@ Tell the user:
 - Ports, health poll, Playwright, login curls: [reference.md](reference.md)
 - UI smoke script: [scripts/ui-smoke.mjs](scripts/ui-smoke.mjs)
 - Screenshot viewer (Ghostty + tmux): [scripts/show-artifacts.sh](scripts/show-artifacts.sh)
+- PR proof with uploads: [scripts/post-pr-proof.sh](scripts/post-pr-proof.sh)
 - HTTP routes: [docs/agents/api.md](../../../docs/agents/api.md)
 - How to run profiles: [README.md](../../../README.md)

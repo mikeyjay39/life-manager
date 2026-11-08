@@ -184,6 +184,72 @@ tmux select-window -t manual-test-shots
 
 Agents also **Read** each PNG into the chat so proof is visible without the pane.
 
+## PR proof comment
+
+Local artifact paths are invisible on github.com. When an open PR exists for
+the branch (or `MANUAL_TEST_PR` is set), post a comment that **uploads** the
+PNGs. Needs `gh` 2.99+ (`--attach`).
+
+### Body template
+
+Write `/tmp/manual-test-proof.md` (adjust scenarios to the diff). Keep only
+image lines for files that exist under `<ART>`:
+
+```markdown
+## Manual-test proof
+
+**Branch:** `<branch>`
+**Base:** `<base>`
+**Stack:** API `http://127.0.0.1:<APP_PORT>` · Expo `http://localhost:<FRONTEND_PORT>`
+**Artifacts:** `<ART>`
+
+| Scenario | Result | Evidence |
+| --- | --- | --- |
+| … | pass | `01-….png` |
+
+### Screenshots
+
+![01-home](<ART>/01-home.png)
+![02-after-login](<ART>/02-after-login.png)
+![03-documents](<ART>/03-documents.png)
+![04-doc-modal](<ART>/04-doc-modal.png)
+![05-editing](<ART>/05-editing.png)
+![06-after-save](<ART>/06-after-save.png)
+```
+
+One-off smoke runs may use different PNG names. List every PNG you need the
+human to see. On failure, include `error.png` when present.
+
+### Post helper
+
+```bash
+PR="${MANUAL_TEST_PR:-$(gh pr view --json number -q .number)}"
+ART="${PLAYWRIGHT_ARTIFACTS_DIR:-/tmp/lm-playwright-artifacts}"
+bash .cursor/skills/manual-test/scripts/post-pr-proof.sh \
+  --pr "$PR" --artifacts "$ART" --body-file /tmp/manual-test-proof.md
+```
+
+The helper:
+
+1. Appends any PNGs in `<ART>` that the body does not already reference.
+2. Runs `gh pr comment --body-file … --attach <file>#<alt>` for each PNG.
+3. Lets `gh` rewrite local paths to `user-attachments` URLs.
+
+Manual equivalent (same rewrite rule as [open-pr](../open-pr/reference.md#attach-screenshots-to-the-pr-body)):
+
+```bash
+attach_args=()
+for f in "$ART"/*.png; do
+  [[ -f "$f" ]] || continue
+  base=$(basename "$f")
+  attach_args+=(--attach "${f}#${base%.png}")
+done
+gh pr comment "$PR" --body-file /tmp/manual-test-proof.md "${attach_args[@]}"
+```
+
+Do not commit PNGs. If attach fails, keep the text comment and report the
+upload failure.
+
 ## Failure notes
 
 - Port already in use: `build_and_start_app.sh` / `start_backend.sh` try to free `APP_PORT` / `FRONTEND_PORT` for **dev**.

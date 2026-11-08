@@ -64,7 +64,7 @@ Feature issue (#n or URL)
 - [ ] Open or refresh feature -> main PR (never merge)
 - [ ] Write worker prompts; spawn waves (<=3 active)
 - [ ] Per story: wait for PR + review-loop (incl. local tests) + summary +
-      manual-test
+      manual-test (proof comment with uploaded screenshots)
 - [ ] Merge story into feature; confirm issue closed
 - [ ] Refresh feature PR (story map, proof, Flagged decisions)
 - [ ] Report feature PR URL; all stories done
@@ -189,15 +189,19 @@ When a worker reports an open story PR (or pane goes idle after “PR open”):
    worker to run [`.cursor/skills/manual-test/`](../manual-test/) with base
    `<feature-branch>` (see manual-test `$ARGUMENTS` / `MANUAL_TEST_BASE`). Else
    queue until a slot frees; free claims after proof.
-5. On green proof: merge story into feature:
+5. Confirm the manual-test proof comment on the story PR shows **uploaded**
+   screenshots (GitHub `user-attachments` / visible images), not only local
+   `/tmp` filenames. If images are missing, send the worker back to
+   `post-pr-proof.sh` before merge.
+6. On green proof: merge story into feature:
 
 ```bash
 gh pr merge <story-pr> --squash --delete-branch
 git fetch origin <feature-branch>
 ```
 
-6. Confirm the story issue is closed (`Closes #<n>`). Comment on failure.
-7. Update the feature PR body (story status, proof links, new Flagged
+7. Confirm the story issue is closed (`Closes #<n>`). Comment on failure.
+8. Update the feature PR body (story status, proof links, new Flagged
    decisions). Dispatch the next queued story.
 
 Answer coordination questions yourself. Record product/arch guesses under

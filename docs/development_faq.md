@@ -171,7 +171,7 @@ See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code)
 
 life-manager can upload document files **directly to Proton Drive** from the **Expo web** build (desktop or mobile browser). The native Expo app still uses the backend multipart upload path without Proton.
 
-- **Connect:** Home screen → **Proton Drive (experimental)** panel. You log in to Proton in the browser; credentials stay client-side only (never sent to the life-manager backend).
+- **Connect:** Document Manager (**Documents** menu or Home hub tile) → **Proton Drive (experimental)** panel. You log in to Proton in the browser; credentials stay client-side only (never sent to the life-manager backend).
 - **Upload flow:** Connect Proton → create a document with title/content → attach a file → submit. The file is encrypted and uploaded via `@protontech/drive-sdk`; metadata (Proton node IDs) is saved via `POST /life-manager/api/v1/documents/json`.
 - **Preview / download:** Open a Proton-backed document in the list modal (web). Preview tries an SDK thumbnail first; if none exists, it downloads and decrypts the file in the browser (images/PDF inline; other types show a file card). **Download** saves the decrypted file via the same Drive SDK path. There is **no** life-manager backend download endpoint — bytes stay client ↔ Proton.
 - **Delete:** Document modal → **Delete** → confirm. If the document has a Proton `storage` ref, trash the Drive file first (requires Proton connected on web), then `DELETE /life-manager/api/v1/documents/{id}`. Documents without storage are DB-only deletes. See [delete workflow](#delete-workflow).

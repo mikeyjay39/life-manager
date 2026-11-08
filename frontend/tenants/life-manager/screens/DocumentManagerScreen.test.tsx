@@ -1,0 +1,131 @@
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react-native';
+
+import { useAuth } from '@/contexts/AuthContext';
+import { authenticatedFetch } from '@/lib/api/client';
+import { TenantTestProvider } from '@/lib/tenant/TenantContext';
+import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
+import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
+import type { TenantModule } from '@/lib/tenant/types';
+import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
+import DocumentManagerScreen from '@/tenants/life-manager/screens/DocumentManagerScreen';
+
+vi.mock('@/components/parallax-scroll-view', () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/components/ui/icon-symbol', () => ({
+  IconSymbol: () => null,
+}));
+
+vi.mock('expo-image', () => ({
+  Image: () => null,
+}));
+
+vi.mock('@react-native-community/datetimepicker', async () => {
+  const ReactLib = await import('react');
+  const { View, Pressable, Text } = await import('react-native');
+  return {
+    __esModule: true,
+    default: ({
+      onChange,
+    }: {
+      onChange: (event: { type: string }, date?: Date) => void;
+    }) =>
+      ReactLib.createElement(
+        View,
+        null,
+        ReactLib.createElement(
+          Pressable,
+          {
+            accessibilityLabel: 'Confirm picked date',
+            onPress: () => onChange({ type: 'set' }, new Date(2024, 5, 1)),
+          },
+          ReactLib.createElement(Text, null, 'Confirm')
+        )
+      ),
+  };
+});
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
+vi.mock('@/contexts/ProtonConnectContext', () => ({
+  useProtonConnect: vi.fn(() => ({
+    isSupported: true,
+    session: null,
+    isConnecting: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+}));
+
+vi.mock('@/lib/api/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/client')>();
+  return {
+    ...actual,
+    authenticatedFetch: vi.fn(),
+  };
+});
+
+vi.mock('expo-blur', () => ({
+  BlurView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('expo-document-picker', () => ({
+  getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
+const mockUseAuth = vi.mocked(useAuth);
+const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
+
+const tenant: TenantModule = {
+  ...lifeManagerTenantMeta,
+  screens: {
+    Home: () => null,
+    Documents: DocumentManagerScreen,
+  },
+};
+
+function renderDocumentManagerScreen() {
+  return render(
+    <TenantTestProvider tenant={tenant}>
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <DocumentManagerScreen />
+      </TenantThemeTestProvider>
+    </TenantTestProvider>
+  );
+}
+
+describe('DocumentManagerScreen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      token: 'tok',
+      handleUnauthorized: vi.fn(),
+      isAuthenticated: true,
+      isLoading: false,
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn(),
+    } as ReturnType<typeof useAuth>);
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 })
+    );
+  });
+
+  it('shows Document Manager with Proton connect, create, and list', async () => {
+    // Given the Document Manager screen
+    // When the screen renders
+    renderDocumentManagerScreen();
+    // Then title, Proton connect, create, and list are visible
+    expect(screen.getByText('Document Manager')).toBeTruthy();
+    expect(screen.getByLabelText('Documents section')).toBeTruthy();
+    expect(screen.getByLabelText('Connect Proton Drive')).toBeTruthy();
+    expect(screen.getByLabelText('Create document')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Refresh documents')).toBeTruthy();
+    });
+  });
+});
