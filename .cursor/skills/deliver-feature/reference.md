@@ -88,9 +88,27 @@ EOF
 )"
 ```
 
+## Local tests in review-loop
+
+Story PRs target the feature branch, so GitHub Actions does **not** run CI for
+them. Workers must run local unit and integration tests inside
+**pr-review-loop** (each fix round and the final clean round).
+
+Commands: [docs/agents/testing.md](../../../docs/agents/testing.md).
+
+| Change area | Required local runs |
+|-------------|---------------------|
+| `frontend/` | `cd frontend && npm ci && npm run test:run`; `npm run lint` when UI changed |
+| backend Rust | `./backend/scripts/write_rev.sh`; `cargo test --lib --workspace --manifest-path backend/Cargo.toml`; `cd backend && cargo test --test '*'` |
+| generated DTOs | `./backend/scripts/export_ts_bindings.sh` + `git diff --exit-code -- frontend/lib/api/generated/` |
+| docs / CI YAML only | No app suites; worker must say so in the PR or boss note |
+
+Do not run `#[ignore]` suites unless the story needs them. Boss must not merge
+when required suites failed or were skipped without a docs/CI-only reason.
+
 ## Merge story into feature
 
-Boss only, after review-loop + summary + manual-test pass:
+Boss only, after review-loop (incl. local tests) + summary + manual-test pass:
 
 ```bash
 gh pr merge <pr> --squash --delete-branch
