@@ -22,6 +22,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -820,8 +821,8 @@ export default function CarMaintenancePanel({
 
   const historyResults = (
     <View accessibilityLabel="Maintenance history">
-      {listLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading maintenance events" />
+      {listLoading && events.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading maintenance events" />
       ) : null}
       {events.length > 0 ? (
         <ManagerDataList
@@ -952,10 +953,7 @@ export default function CarMaintenancePanel({
       listLoading &&
       events.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator
-          color={palette.tint}
-          accessibilityLabel="Loading maintenance events"
-        />
+        <ManagerListSkeleton accessibilityLabel="Loading maintenance events" />
       ) : (
         <ManagerFormVsResults
           itemCount={events.length}

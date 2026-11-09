@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -19,6 +18,7 @@ import {
   ManagerFeedbackBanner,
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSection } from '@/components/ui/manager-section';
 import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import {
@@ -724,7 +724,7 @@ export default function HealthMemberPanel({
       ) : null}
 
       {loading && members.length === 0 ? (
-        <ActivityIndicator color={palette.tint} accessibilityLabel="Loading HealthMembers" />
+        <ManagerListSkeleton accessibilityLabel="Loading HealthMembers" />
       ) : members.length === 0 ? (
         <ThemedText style={styles.hint}>
           {includeInactive

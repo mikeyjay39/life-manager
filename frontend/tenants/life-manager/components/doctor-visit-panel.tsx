@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -21,6 +20,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -144,7 +144,7 @@ export default function DoctorVisitPanel({
     [palette]
   );
 
-  // Clear form when leaving a concrete member (A→B or A→null).
+  // Clear form and history when leaving a concrete member (A→B or A→null).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
     const nextId = selectedMember?.id ?? null;
@@ -154,6 +154,8 @@ export default function DoctorVisitPanel({
       setEditingId(null);
       setFormMode('collapsed');
       setDeleteTarget(null);
+      setVisits([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
@@ -494,10 +496,9 @@ export default function DoctorVisitPanel({
   const visitResults = (
     <View style={styles.historyHeader} accessibilityLabel="Visit history">
       <ThemedText type="sectionTitle">Visit history</ThemedText>
-      {listLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
-      ) : null}
-      {!listLoading ? (
+      {listLoading && visits.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
+      ) : (
         <ManagerDataList
           testID="doctor-visit-data-list"
           leadingHeader="Date"
@@ -572,7 +573,7 @@ export default function DoctorVisitPanel({
             );
           })}
         </ManagerDataList>
-      ) : null}
+      )}
     </View>
   );
 
@@ -595,7 +596,7 @@ export default function DoctorVisitPanel({
       listLoading &&
       visits.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
       ) : (
         <ManagerFormVsResults
           itemCount={visits.length}
