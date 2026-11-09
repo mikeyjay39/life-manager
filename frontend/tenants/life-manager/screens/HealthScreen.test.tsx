@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,12 +36,19 @@ vi.mock('@react-native-community/datetimepicker', async () => {
   };
 });
 
-vi.mock('@/components/parallax-scroll-view', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-vi.mock('expo-image', () => ({
-  Image: () => null,
+vi.mock('@/components/ui/manager-scroll-view', () => ({
+  ManagerScrollView: ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) => (
+    <>
+      <Text>{title}</Text>
+      {children}
+    </>
+  ),
 }));
 
 vi.mock('@/contexts/AuthContext', () => ({

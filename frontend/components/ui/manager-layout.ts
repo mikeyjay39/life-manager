@@ -1,6 +1,5 @@
 /**
  * Shared sizing for manager page shells and CTAs.
- * Later manager stories adopt these values; screens stay unchanged in #183.
  */
 
 /** Max width of the centered manager content column on wide viewports. */
@@ -11,6 +10,12 @@ export const MANAGER_CONTENT_PADDING_X = 16;
 
 /** Vertical gap between stacked manager sections. */
 export const MANAGER_CONTENT_GAP = 16;
+
+/** Vertical padding around the quiet manager page body. */
+export const MANAGER_PAGE_PADDING_Y = 16;
+
+/** Gap between page title and optional subtitle in quiet chrome. */
+export const MANAGER_PAGE_HEADER_GAP = 4;
 
 /** Padding inside a manager section chrome. */
 export const MANAGER_SECTION_PADDING = 16;
