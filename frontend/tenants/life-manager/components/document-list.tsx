@@ -17,6 +17,10 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
@@ -119,6 +123,7 @@ export default function DocumentList({
   const [cachedFullFileBlob, setCachedFullFileBlob] = useState<Blob | null>(null);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { feedback, showSuccess, showError, dismiss, clearError } = useManagerFeedback();
 
   const isProtonStorage =
     selected?.storage?.provider === 'proton_drive' && Boolean(selected.storage.share_id);
@@ -502,7 +507,7 @@ export default function DocumentList({
   const handleDeleteConfirm = async () => {
     if (!selected || !token || deleting) {
       if (!token) {
-        Alert.alert('Error', 'No authentication token available.');
+        showError('No authentication token available.');
       }
       return;
     }
@@ -513,19 +518,21 @@ export default function DocumentList({
 
     if (hasProtonStorage) {
       if (!isWeb || !protonSupported) {
-        Alert.alert(
-          'Proton Drive',
+        setDeleteDialogVisible(false);
+        showError(
           'Proton-backed documents can only be deleted from the web app with Proton Drive connected.'
         );
         return;
       }
       if (!protonSession) {
-        Alert.alert('Proton Drive', 'Connect Proton Drive before deleting this document.');
+        setDeleteDialogVisible(false);
+        showError('Connect Proton Drive before deleting this document.');
         return;
       }
     }
 
     setDeleting(true);
+    clearError();
     try {
       if (hasProtonStorage && doc.storage) {
         const proton = await import('@/lib/proton-drive/load-proton.web');
@@ -550,11 +557,11 @@ export default function DocumentList({
       closeModal();
       onDocumentUpdated?.();
       await load();
-      Alert.alert('Success', `Deleted document "${doc.title}".`);
+      showSuccess(`Document "${doc.title}" deleted.`);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete document';
-      Alert.alert('Error', msg);
+      showError(msg);
     } finally {
       setDeleting(false);
     }
@@ -567,28 +574,29 @@ export default function DocumentList({
    *   metadata only            -> PUT /documents/json/{id}
    */
   const handleSave = async () => {
+    clearError();
     if (!token || !selected) {
-      Alert.alert('Error', 'No authentication token available.');
+      showError('No authentication token available.');
       return;
     }
     if (!editTitle.trim() || !editContent.trim()) {
-      Alert.alert('Error', 'Please enter a title and content.');
+      showError('Please enter a title and content.');
       return;
     }
     if (isWeb && pickedFile && !protonSession) {
-      Alert.alert('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
+      showError('Connect Proton Drive before uploading a file on web.');
       return;
     }
 
     const tags = parseTags(editTagsInput);
     const issuedDate = parseOptionalDateInput(editIssuedDateInput);
     if (!issuedDate.ok) {
-      Alert.alert('Error', 'Issue date must be in YYYY-MM-DD format.');
+      showError('Issue date must be in YYYY-MM-DD format.');
       return;
     }
     const expireDate = parseOptionalDateInput(editExpireDateInput);
     if (!expireDate.ok) {
-      Alert.alert('Error', 'Expire date must be in YYYY-MM-DD format.');
+      showError('Expire date must be in YYYY-MM-DD format.');
       return;
     }
 
@@ -691,11 +699,11 @@ export default function DocumentList({
       setIsEditing(false);
       setPickedFile(null);
       onDocumentUpdated?.();
-      Alert.alert('Success', `Updated document "${updated.title}".`);
+      showSuccess(`Document "${updated.title}" updated.`);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', msg);
+      showError(msg);
     } finally {
       setSaving(false);
     }
@@ -747,8 +755,18 @@ export default function DocumentList({
 
   const hasTable = token && !error && documents.length > 0;
 
+  const feedbackBanner =
+    feedback != null ? (
+      <ManagerFeedbackBanner
+        tone={feedback.tone}
+        message={feedback.message}
+        onDismiss={dismiss}
+      />
+    ) : null;
+
   return (
     <View style={styles.container}>
+      {selected == null ? feedbackBanner : null}
       {hasTable ? (
         <ScrollView
           horizontal
@@ -909,6 +927,7 @@ export default function DocumentList({
                 </>
               )}
             </ScrollView>
+            {selected != null ? feedbackBanner : null}
             <View style={styles.modalActions}>
               {isEditing ? (
                 <>

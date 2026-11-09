@@ -15,6 +15,10 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -109,6 +113,11 @@ export default function HealthMemberPanel({
 }: HealthMemberPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
+  const {
+    feedback: actionFeedback,
+    showSuccess,
+    dismiss: dismissActionFeedback,
+  } = useManagerFeedback();
 
   const [members, setMembers] = useState<HealthMemberDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -486,6 +495,11 @@ export default function HealthMemberPanel({
       if (created?.id) {
         selectMember(created);
       }
+      showSuccess(
+        created?.display_name
+          ? `HealthMember "${created.display_name}" created.`
+          : 'HealthMember created.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to create HealthMember';
@@ -560,6 +574,11 @@ export default function HealthMemberPanel({
       if (updated?.id) {
         selectMember(updated);
       }
+      showSuccess(
+        updated?.display_name
+          ? `HealthMember "${updated.display_name}" updated.`
+          : 'HealthMember updated.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to update HealthMember';
@@ -720,10 +739,20 @@ export default function HealthMemberPanel({
         />
       </View>
 
+      {actionFeedback ? (
+        <ManagerFeedbackBanner
+          tone={actionFeedback.tone}
+          message={actionFeedback.message}
+          onDismiss={dismissActionFeedback}
+        />
+      ) : null}
+
       {error ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {error}
-        </Text>
+        <ManagerFeedbackBanner
+          tone="error"
+          message={error}
+          onDismiss={() => setError(null)}
+        />
       ) : null}
 
       {loading && members.length === 0 ? (
@@ -804,9 +833,11 @@ export default function HealthMemberPanel({
                 accessibilityLabel="Edit notes"
               />
               {editError ? (
-                <Text style={styles.errorText} accessibilityRole="alert">
-                  {editError}
-                </Text>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={editError}
+                  onDismiss={() => setEditError(null)}
+                />
               ) : null}
               <View style={styles.actionRow}>
                 <Button
@@ -922,8 +953,12 @@ export default function HealthMemberPanel({
               />
             </ScrollView>
             {createError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{createError}</Text>
+              <View style={styles.errorBanner}>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={createError}
+                  onDismiss={() => setCreateError(null)}
+                />
               </View>
             ) : null}
             <View style={styles.modalActions}>

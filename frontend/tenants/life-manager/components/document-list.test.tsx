@@ -541,8 +541,9 @@ describe('DocumentList', () => {
     fireEvent.press(screen.getByLabelText('Save document'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.stringContaining('404'));
+      expect(screen.getByText(/Request failed \(404\)/)).toBeTruthy();
     });
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     expect(screen.getByLabelText('Save document')).toBeTruthy();
   });
 
@@ -960,7 +961,10 @@ describe('DocumentList Proton preview and download', () => {
       );
     });
     expect(mockTrashProtonFile).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith('Success', 'Deleted document "Doc A".');
+    await waitFor(() => {
+      expect(screen.getByText('Document "Doc A" deleted.')).toBeTruthy();
+    });
+    expect(screen.getByTestId('manager-feedback-success')).toBeTruthy();
   });
 
   it('given proton storage and no session when delete is confirmed then blocks and does not call API', async () => {
@@ -986,11 +990,12 @@ describe('DocumentList Proton preview and download', () => {
     fireEvent.press(screen.getByLabelText('Delete'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Proton Drive',
-        'Connect Proton Drive before deleting this document.'
-      );
+      expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     });
+    expect(
+      screen.getByText('Connect Proton Drive before deleting this document.')
+    ).toBeTruthy();
+    expect(screen.queryByText('Delete document?')).toBeNull();
     expect(mockTrashProtonFile).not.toHaveBeenCalled();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
       expect.stringContaining('/documents/'),

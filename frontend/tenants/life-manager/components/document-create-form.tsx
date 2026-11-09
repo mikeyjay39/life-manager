@@ -4,7 +4,6 @@ import {
   TextInput,
   Text,
   StyleSheet,
-  Alert,
   TouchableOpacity,
   Platform,
   Modal,
@@ -15,6 +14,7 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import { ManagerFeedbackBanner } from '@/components/ui/manager-feedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
@@ -47,7 +47,8 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 }
 
 type DocumentCreateFormProps = {
-  onDocumentCreated?: () => void;
+  /** Fires after a successful create with a short success message. */
+  onDocumentCreated?: (successMessage: string) => void;
 };
 
 export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreateFormProps) {
@@ -117,17 +118,12 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
           color: palette.tint,
           fontWeight: '600',
         },
-        errorBanner: {
+        feedbackSlot: {
           paddingHorizontal: 14,
           paddingTop: 10,
           paddingBottom: 4,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: palette.icon,
-          gap: 6,
-        },
-        errorText: {
-          fontSize: 14,
-          color: '#c62828',
         },
         modalBackdrop: {
           flex: 1,
@@ -175,9 +171,8 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
     setSubmitError(null);
   };
 
-  const showSubmitError = (title: string, message: string) => {
+  const showSubmitError = (message: string) => {
     setSubmitError(message);
-    Alert.alert(title, message);
   };
 
   const closeModal = () => {
@@ -204,26 +199,26 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
    *
    * [*] --> clear submitError
    *     --> validate fields
-   *         | invalid --> showSubmitError (inline + Alert) --> [*]
+   *         | invalid --> showSubmitError (inline banner) --> [*]
    *         | valid --> POST (multipart or Proton JSON)
    *             | fail --> showSubmitError; keep modal open --> [*]
-   *             | ok --> clear error; close modal; success Alert --> [*]
+   *             | ok --> clear error; close modal; onDocumentCreated(message) --> [*]
    * User may dismiss inline error without submitting again.
    */
   const handleSubmit = async () => {
     setSubmitError(null);
 
     if (!token) {
-      showSubmitError('Error', 'No authentication token available.');
+      showSubmitError('No authentication token available.');
       return;
     }
     if (!title.trim() || !content.trim()) {
-      showSubmitError('Error', 'Please enter a title and content.');
+      showSubmitError('Please enter a title and content.');
       return;
     }
 
     if (isWeb && pickedFile && !protonSession) {
-      showSubmitError('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
+      showSubmitError('Connect Proton Drive before uploading a file on web.');
       return;
     }
 
@@ -231,13 +226,13 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
 
     const issuedDate = parseOptionalDateInput(issuedDateInput);
     if (!issuedDate.ok) {
-      showSubmitError('Error', 'Issue date must be in YYYY-MM-DD format.');
+      showSubmitError('Issue date must be in YYYY-MM-DD format.');
       return;
     }
 
     const expireDate = parseOptionalDateInput(expireDateInput);
     if (!expireDate.ok) {
-      showSubmitError('Error', 'Expire date must be in YYYY-MM-DD format.');
+      showSubmitError('Expire date must be in YYYY-MM-DD format.');
       return;
     }
 
@@ -281,18 +276,17 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
           );
         }
 
-        let message = 'Document created and file stored in Proton Drive.';
+        let message = 'Document created.';
         try {
           const data = JSON.parse(bodyText) as DocumentDto;
           if (data.id) {
-            message = `Created document "${data.title ?? title.trim()}" (${data.id}). File stored in Proton Drive.`;
+            message = `Document "${data.title ?? title.trim()}" created.`;
           }
         } catch {
           // use default message
         }
-        onDocumentCreated?.();
         closeModal();
-        Alert.alert('Success', message);
+        onDocumentCreated?.(message);
         return;
       }
 
@@ -337,22 +331,21 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
         );
       }
 
-      let message = 'Document created successfully.';
+      let message = 'Document created.';
       try {
         const data = JSON.parse(bodyText) as DocumentDto;
         if (data.id) {
-          message = `Created document "${data.title ?? title.trim()}" (${data.id}).`;
+          message = `Document "${data.title ?? title.trim()}" created.`;
         }
       } catch {
         // use default message
       }
-      onDocumentCreated?.();
       closeModal();
-      Alert.alert('Success', message);
+      onDocumentCreated?.(message);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      showSubmitError('Error', msg);
+      showSubmitError(msg);
     } finally {
       setLoading(false);
     }
@@ -460,15 +453,12 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
             </ScrollView>
 
             {submitError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{submitError}</Text>
-                <TouchableOpacity
-                  onPress={() => setSubmitError(null)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Dismiss error"
-                >
-                  <Text style={styles.clearLink}>Dismiss</Text>
-                </TouchableOpacity>
+              <View style={styles.feedbackSlot}>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={submitError}
+                  onDismiss={() => setSubmitError(null)}
+                />
               </View>
             ) : null}
 

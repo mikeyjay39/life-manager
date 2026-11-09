@@ -14,6 +14,10 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -405,6 +409,11 @@ function DocumentLinkPicker({
 export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
+  const {
+    feedback: actionFeedback,
+    showSuccess,
+    dismiss: dismissActionFeedback,
+  } = useManagerFeedback();
 
   const [cars, setCars] = useState<CarDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
@@ -829,6 +838,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (created?.id) {
         selectCar(created);
       }
+      showSuccess(
+        created?.display_name
+          ? `Car "${created.display_name}" created.`
+          : 'Car created.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to create Car';
@@ -890,6 +904,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (updated?.id) {
         selectCar(updated);
       }
+      showSuccess(
+        updated?.display_name
+          ? `Car "${updated.display_name}" updated.`
+          : 'Car updated.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to update Car';
@@ -1208,10 +1227,20 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         />
       </View>
 
+      {actionFeedback ? (
+        <ManagerFeedbackBanner
+          tone={actionFeedback.tone}
+          message={actionFeedback.message}
+          onDismiss={dismissActionFeedback}
+        />
+      ) : null}
+
       {error ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {error}
-        </Text>
+        <ManagerFeedbackBanner
+          tone="error"
+          message={error}
+          onDismiss={() => setError(null)}
+        />
       ) : null}
 
       {loading && cars.length === 0 ? (
@@ -1262,9 +1291,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             <>
               {renderCarFormFields(editForm, setEditForm, 'edit')}
               {editError ? (
-                <Text style={styles.errorText} accessibilityRole="alert">
-                  {editError}
-                </Text>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={editError}
+                  onDismiss={() => setEditError(null)}
+                />
               ) : null}
               <View style={styles.actionRow}>
                 <Button
@@ -1418,8 +1449,12 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
               {renderCarFormFields(createForm, setCreateForm, 'create')}
             </ScrollView>
             {createError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{createError}</Text>
+              <View style={styles.errorBanner}>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={createError}
+                  onDismiss={() => setCreateError(null)}
+                />
               </View>
             ) : null}
             <View style={styles.modalActions}>
