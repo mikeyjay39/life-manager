@@ -15,13 +15,13 @@ Update this file and the hub when frontend conventions change.
 | `contexts/` | `AuthContext` (tenant-scoped token + login), `ProtonConnectContext` (web Proton Drive session) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
 | `lib/proton-drive/` | Web-only Proton Drive SDK integration (`index.web.ts`); native stub in `index.ts` |
-| `lib/tenant/theme/` | Theme types, defaults, `mergeTenantTheme()`, `TenantThemeProvider` |
+| `lib/tenant/theme/` | Theme types, defaults, typography scale (`typography.ts`), `mergeTenantTheme()`, `TenantThemeProvider` |
 | `lib/api/` | `client.ts` — `apiFetch`, `authenticatedFetch`, `apiV1`; `types.ts` — generated API DTOs |
 | `lib/api/generated/` | ts-rs output from Rust — **do not hand-edit** (see `generated/README.md`) |
 | `lib/health/` | Shared Health helpers: `units.ts` (metric/imperial preference + **client-side** conversion; API stays metric-only), `chart-series.ts` (readings → chart points) |
 | `lib/car/` | Shared Car helpers: `chart-series.ts` (maintenance events → odometer / cost / event_type chart series; miles only; USD from `cost_cents`) |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
-| `constants/` | `theme.ts` — `defaultColors` / `Fonts`; `config.ts` — `API_BASE_URL` |
+| `constants/` | `theme.ts` — `defaultColors` / product `Fonts` (web sans stack); `config.ts` — `API_BASE_URL` |
 
 Use `@/` path alias (`tsconfig.json`).
 
@@ -57,16 +57,19 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 
 **Manager layout primitives** (adopt in later manager UX stories; do not invent per-screen width/CTA stretch): `ManagerPageContent` centers the page body (`maxWidth` from `manager-layout.ts`); `ManagerSection` renders title + body chrome via `useColorPalette` (border from `palette.icon`); `ManagerCta` wraps `Button` and caps width by default (`fullWidth` opt-in).
 
+**Typography:** use `ThemedText` with roles `pageTitle`, `sectionTitle`, `body`, `meta` (legacy aliases `title` / `subtitle` / `default` still work). Scale and product sans live in `lib/tenant/theme/typography.ts` (`Fonts.sans`). Full manager UX docs: #188.
+
 Use `components/ui/field-label.tsx` for form field labels. Set `required` to show an asterisk. The accessible name is the label text plus `, required`.
 
 Use `components/ui/date-picker.tsx` for optional date fields. Value is `YYYY-MM-DD` or `''`. Web uses `input type="date"` (`date-picker.web.tsx`); native uses `@react-native-community/datetimepicker`. Clear stays available when a value is set.
 
 Light/dark **mode** is resolved by `useColorScheme()` (`hooks/use-color-scheme.ts` / `.web.ts`). On web, browser `prefers-color-scheme` wins; React Native/OS is the fallback when the browser reports no preference. Native uses OS `Appearance` only.
 
-| Hook | Use for |
+| Hook / helper | Use for |
 |------|---------|
 | `useColorPalette()` | Current scheme palette (`tint`, `onTint`, `background`, `text`, `surface`, `border`, `muted`, `success`, `warning`, `danger`, …) |
 | `useThemeColor(props, name)` | Themed text/view color with optional per-mode overrides |
+| `ThemedText` / `typeStyle(role)` | Product type roles (`pageTitle`, `sectionTitle`, `body`, `meta`) + `Fonts.sans` |
 | `useTenantBranding()` | Resolved copy, assets, header background |
 | `useNavigationTheme()` | React Navigation theme (primary = tenant tint) |
 

@@ -51,7 +51,7 @@ export function ManagerSection({
       accessibilityLabel={accessibilityLabel ?? `${title} section`}
       testID={testID}
     >
-      <ThemedText type="subtitle" accessibilityRole="header">
+      <ThemedText type="sectionTitle" accessibilityRole="header">
         {title}
       </ThemedText>
       <View style={styles.body}>{children}</View>
