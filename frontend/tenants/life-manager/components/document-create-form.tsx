@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   TextInput,
@@ -7,8 +7,6 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  Modal,
-  ScrollView,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
@@ -48,20 +46,24 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 
 type DocumentCreateFormProps = {
   onDocumentCreated?: () => void;
-  /**
-   * When true, omit the standalone Create button.
-   * The section toolbar owns the primary Add control.
-   */
-  hideTrigger?: boolean;
 };
 
-export type DocumentCreateFormHandle = {
-  open: () => void;
-};
-
-const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFormProps>(
-  function DocumentCreateForm({ onDocumentCreated, hideTrigger = false }, ref) {
-  const [modalVisible, setModalVisible] = useState(false);
+/**
+ * Inline create-document fields for ManagerFormVsResults.
+ * Parent owns Add / Cancel expand state; this form owns Submit.
+ *
+ * ```
+ * [*] --> clear submitError
+ *     --> validate fields
+ *         | invalid --> showSubmitError (inline + Alert) --> [*]
+ *         | valid --> POST (multipart or Proton JSON)
+ *             | fail --> showSubmitError; keep form open --> [*]
+ *             | ok --> clear error; onDocumentCreated; success Alert --> [*]
+ * ```
+ */
+export default function DocumentCreateForm({
+  onDocumentCreated,
+}: DocumentCreateFormProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -75,16 +77,12 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
 
-  useImperativeHandle(ref, () => ({
-    open: () => setModalVisible(true),
-  }));
-
   const styles = useMemo(
     () =>
       StyleSheet.create({
         container: {
-          // No top margin when the section toolbar owns Create (modal-only mount).
-          marginTop: hideTrigger ? 0 : 8,
+          width: '100%',
+          gap: 8,
         },
         label: {
           fontSize: 16,
@@ -133,51 +131,24 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
           fontWeight: '600',
         },
         errorBanner: {
-          paddingHorizontal: 14,
-          paddingTop: 10,
-          paddingBottom: 4,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: palette.icon,
+          paddingVertical: 8,
           gap: 6,
         },
         errorText: {
           fontSize: 14,
           color: '#c62828',
         },
-        modalBackdrop: {
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.45)',
-          justifyContent: 'center',
-          padding: 24,
-        },
-        modalCard: {
-          backgroundColor: palette.background,
-          borderRadius: 12,
-          maxHeight: '85%',
-          overflow: 'hidden',
-        },
-        modalScroll: {
-          padding: 16,
-        },
-        modalTitle: {
-          fontSize: 20,
-          fontWeight: '700',
-          marginBottom: 12,
-          color: palette.text,
-        },
-        modalActions: {
+        actions: {
           flexDirection: 'row',
+          flexWrap: 'wrap',
           gap: 12,
-          padding: 14,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: palette.icon,
+          marginTop: 4,
         },
-        modalActionButton: {
-          flex: 1,
-          paddingVertical: 12,
+        submitButton: {
+          minWidth: 120,
         },
       }),
-    [palette, hideTrigger]
+    [palette]
   );
 
   const resetForm = () => {
@@ -190,14 +161,9 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
     setSubmitError(null);
   };
 
-  const showSubmitError = (title: string, message: string) => {
+  const showSubmitError = (alertTitle: string, message: string) => {
     setSubmitError(message);
-    Alert.alert(title, message);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-    resetForm();
+    Alert.alert(alertTitle, message);
   };
 
   const pickFile = async () => {
@@ -214,17 +180,6 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
 
   const clearFile = () => setPickedFile(null);
 
-  /*
-   * Submit create document — activity (error visibility):
-   *
-   * [*] --> clear submitError
-   *     --> validate fields
-   *         | invalid --> showSubmitError (inline + Alert) --> [*]
-   *         | valid --> POST (multipart or Proton JSON)
-   *             | fail --> showSubmitError; keep modal open --> [*]
-   *             | ok --> clear error; close modal; success Alert --> [*]
-   * User may dismiss inline error without submitting again.
-   */
   const handleSubmit = async () => {
     setSubmitError(null);
 
@@ -305,8 +260,8 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
         } catch {
           // use default message
         }
+        resetForm();
         onDocumentCreated?.();
-        closeModal();
         Alert.alert('Success', message);
         return;
       }
@@ -361,8 +316,8 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
       } catch {
         // use default message
       }
+      resetForm();
       onDocumentCreated?.();
-      closeModal();
       Alert.alert('Success', message);
     } catch (err: unknown) {
       console.error(err);
@@ -374,144 +329,110 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
   };
 
   return (
-    <View style={styles.container}>
-      {hideTrigger ? null : (
+    <View style={styles.container} accessibilityLabel="Document create form">
+      <FieldLabel label="Title" required style={styles.label} />
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Document title"
+        placeholderTextColor={palette.icon}
+        aria-required
+      />
+
+      <FieldLabel label="Content" required style={styles.label} />
+      <TextInput
+        style={[styles.input, styles.inputMultiline]}
+        value={content}
+        onChangeText={setContent}
+        placeholder="Document content"
+        placeholderTextColor={palette.icon}
+        multiline
+        textAlignVertical="top"
+        aria-required
+      />
+
+      <Text style={styles.label}>Tags (optional, comma-separated)</Text>
+      <TextInput
+        style={styles.input}
+        value={tagsInput}
+        onChangeText={setTagsInput}
+        placeholder="e.g. work, notes"
+        placeholderTextColor={palette.icon}
+      />
+
+      <Text style={styles.label}>Issue date (optional)</Text>
+      <DatePicker
+        value={issuedDateInput}
+        onChange={setIssuedDateInput}
+        accessibilityLabel="Issue date"
+        placeholder="YYYY-MM-DD"
+      />
+
+      <Text style={styles.label}>Expire date (optional)</Text>
+      <DatePicker
+        value={expireDateInput}
+        onChange={setExpireDateInput}
+        accessibilityLabel="Expire date"
+        placeholder="YYYY-MM-DD"
+      />
+
+      <Text style={styles.label}>File (optional)</Text>
+      {isWeb && protonSupported && !protonSession ? (
+        <Text style={styles.hint}>Connect Proton Drive above to attach files on web.</Text>
+      ) : null}
+      <View style={styles.fileRow}>
         <Button
-          label="Create document"
-          onPress={() => setModalVisible(true)}
-          disabled={loading}
-          accessibilityLabel="Create document"
+          variant="secondary"
+          label="Choose file"
+          onPress={() => void pickFile()}
+          disabled={loading || (isWeb && protonSupported && !protonSession)}
+          accessibilityLabel="Choose file"
+          style={styles.secondaryButton}
+          labelStyle={styles.secondaryButtonText}
         />
-      )}
+        {pickedFile ? (
+          <>
+            <Text style={styles.fileName} numberOfLines={1}>
+              {pickedFile.name}
+            </Text>
+            <TouchableOpacity
+              onPress={clearFile}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="Clear selected file"
+            >
+              <Text style={styles.clearLink}>Clear</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={styles.hint}>No file selected</Text>
+        )}
+      </View>
 
-      <Modal
-        visible={modalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={closeModal}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
-              <Text style={styles.modalTitle}>Create document</Text>
-
-              <FieldLabel label="Title" required style={styles.label} />
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Document title"
-                placeholderTextColor={palette.icon}
-                aria-required
-              />
-
-              <FieldLabel label="Content" required style={styles.label} />
-              <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                value={content}
-                onChangeText={setContent}
-                placeholder="Document content"
-                placeholderTextColor={palette.icon}
-                multiline
-                textAlignVertical="top"
-                aria-required
-              />
-
-              <Text style={styles.label}>Tags (optional, comma-separated)</Text>
-              <TextInput
-                style={styles.input}
-                value={tagsInput}
-                onChangeText={setTagsInput}
-                placeholder="e.g. work, notes"
-                placeholderTextColor={palette.icon}
-              />
-
-              <Text style={styles.label}>Issue date (optional)</Text>
-              <DatePicker
-                value={issuedDateInput}
-                onChange={setIssuedDateInput}
-                accessibilityLabel="Issue date"
-                placeholder="YYYY-MM-DD"
-              />
-
-              <Text style={styles.label}>Expire date (optional)</Text>
-              <DatePicker
-                value={expireDateInput}
-                onChange={setExpireDateInput}
-                accessibilityLabel="Expire date"
-                placeholder="YYYY-MM-DD"
-              />
-
-              <Text style={styles.label}>File (optional)</Text>
-              {isWeb && protonSupported && !protonSession ? (
-                <Text style={styles.hint}>Connect Proton Drive above to attach files on web.</Text>
-              ) : null}
-              <View style={styles.fileRow}>
-                <Button
-                  variant="secondary"
-                  label="Choose file"
-                  onPress={() => void pickFile()}
-                  disabled={loading || (isWeb && protonSupported && !protonSession)}
-                  accessibilityLabel="Choose file"
-                  style={styles.secondaryButton}
-                  labelStyle={styles.secondaryButtonText}
-                />
-                {pickedFile ? (
-                  <>
-                    <Text style={styles.fileName} numberOfLines={1}>
-                      {pickedFile.name}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={clearFile}
-                      disabled={loading}
-                      accessibilityRole="button"
-                      accessibilityLabel="Clear selected file"
-                    >
-                      <Text style={styles.clearLink}>Clear</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <Text style={styles.hint}>No file selected</Text>
-                )}
-              </View>
-            </ScrollView>
-
-            {submitError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{submitError}</Text>
-                <TouchableOpacity
-                  onPress={() => setSubmitError(null)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Dismiss error"
-                >
-                  <Text style={styles.clearLink}>Dismiss</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            <View style={styles.modalActions}>
-              <Button
-                label={loading ? 'Submitting…' : 'Submit'}
-                onPress={() => void handleSubmit()}
-                disabled={loading}
-                loading={loading}
-                accessibilityLabel={loading ? 'Submitting document' : 'Submit'}
-                style={styles.modalActionButton}
-              />
-              <Button
-                variant="outline"
-                label="Cancel"
-                onPress={closeModal}
-                disabled={loading}
-                accessibilityLabel="Cancel"
-                style={styles.modalActionButton}
-              />
-            </View>
-          </View>
+      {submitError ? (
+        <View style={styles.errorBanner} accessibilityRole="alert">
+          <Text style={styles.errorText}>{submitError}</Text>
+          <TouchableOpacity
+            onPress={() => setSubmitError(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss error"
+          >
+            <Text style={styles.clearLink}>Dismiss</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      ) : null}
+
+      <View style={styles.actions}>
+        <Button
+          label={loading ? 'Submitting…' : 'Submit'}
+          onPress={() => void handleSubmit()}
+          disabled={loading}
+          loading={loading}
+          accessibilityLabel={loading ? 'Submitting document' : 'Submit'}
+          style={styles.submitButton}
+        />
+      </View>
     </View>
   );
-});
-
-export default DocumentCreateForm;
+}
