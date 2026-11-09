@@ -495,6 +495,7 @@ export default function HealthMemberPanel({
       if (created?.id) {
         selectMember(created);
       }
+      setError(null);
       showSuccess(
         created?.display_name
           ? `HealthMember "${created.display_name}" created.`
@@ -574,6 +575,7 @@ export default function HealthMemberPanel({
       if (updated?.id) {
         selectMember(updated);
       }
+      setError(null);
       showSuccess(
         updated?.display_name
           ? `HealthMember "${updated.display_name}" updated.`
@@ -739,19 +741,17 @@ export default function HealthMemberPanel({
         />
       </View>
 
-      {actionFeedback ? (
-        <ManagerFeedbackBanner
-          tone={actionFeedback.tone}
-          message={actionFeedback.message}
-          onDismiss={dismissActionFeedback}
-        />
-      ) : null}
-
       {error ? (
         <ManagerFeedbackBanner
           tone="error"
           message={error}
           onDismiss={() => setError(null)}
+        />
+      ) : actionFeedback ? (
+        <ManagerFeedbackBanner
+          tone={actionFeedback.tone}
+          message={actionFeedback.message}
+          onDismiss={dismissActionFeedback}
         />
       ) : null}
 

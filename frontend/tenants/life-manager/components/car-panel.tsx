@@ -838,6 +838,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (created?.id) {
         selectCar(created);
       }
+      setError(null);
       showSuccess(
         created?.display_name
           ? `Car "${created.display_name}" created.`
@@ -904,6 +905,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (updated?.id) {
         selectCar(updated);
       }
+      setError(null);
       showSuccess(
         updated?.display_name
           ? `Car "${updated.display_name}" updated.`
@@ -1227,19 +1229,17 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         />
       </View>
 
-      {actionFeedback ? (
-        <ManagerFeedbackBanner
-          tone={actionFeedback.tone}
-          message={actionFeedback.message}
-          onDismiss={dismissActionFeedback}
-        />
-      ) : null}
-
       {error ? (
         <ManagerFeedbackBanner
           tone="error"
           message={error}
           onDismiss={() => setError(null)}
+        />
+      ) : actionFeedback ? (
+        <ManagerFeedbackBanner
+          tone={actionFeedback.tone}
+          message={actionFeedback.message}
+          onDismiss={dismissActionFeedback}
         />
       ) : null}
 

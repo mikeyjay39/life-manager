@@ -359,7 +359,8 @@ export default function DocumentList({
     setCachedFullFileBlob(null);
     setDeleteDialogVisible(false);
     setDeleting(false);
-  }, []);
+    dismiss();
+  }, [dismiss]);
 
   useEffect(() => {
     if (!selected || isEditing || !isProtonStorage || !selected.storage) {
@@ -507,6 +508,7 @@ export default function DocumentList({
   const handleDeleteConfirm = async () => {
     if (!selected || !token || deleting) {
       if (!token) {
+        setDeleteDialogVisible(false);
         showError('No authentication token available.');
       }
       return;
@@ -561,6 +563,7 @@ export default function DocumentList({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete document';
+      setDeleteDialogVisible(false);
       showError(msg);
     } finally {
       setDeleting(false);
