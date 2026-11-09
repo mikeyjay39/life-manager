@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  ActivityIndicator,
   Platform,
   TextInput,
   Alert,
@@ -21,6 +20,7 @@ import {
   ManagerFeedbackBanner,
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
@@ -821,7 +821,7 @@ export default function DocumentList({
           {!token ? (
             <Text style={styles.hint}>Sign in to see your documents.</Text>
           ) : loading && documents.length === 0 ? (
-            <ActivityIndicator size="small" color={palette.tint} />
+            <ManagerListSkeleton accessibilityLabel="Loading document list" />
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : (
