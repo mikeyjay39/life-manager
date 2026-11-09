@@ -1,17 +1,15 @@
-import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
 import type { HealthMemberDto } from '@/lib/api/types';
 import {
   loadUnitPreference,
   saveUnitPreference,
   type UnitSystem,
 } from '@/lib/health/units';
-import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import DoctorVisitPanel from '@/tenants/life-manager/components/doctor-visit-panel';
 import HealthChartsPanel from '@/tenants/life-manager/components/health-charts-panel';
 import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
@@ -22,6 +20,7 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  *
  * ```
  * User -> HealthScreen : open Health
+ * HealthScreen -> ManagerScrollView : quiet chrome (no parallax)
  * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
  * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
  * HealthMemberPanel -> HealthScreen : selected member | null
@@ -35,7 +34,6 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * ```
  */
 export default function HealthScreen() {
-  const { assets, headerBackground } = useTenantBranding();
   const [selectedMember, setSelectedMember] = useState<HealthMemberDto | null>(
     null
   );
@@ -71,21 +69,7 @@ export default function HealthScreen() {
   }, []);
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={headerBackground}
-      headerImage={
-        <Image
-          source={assets.headerImage}
-          style={styles.headerImage}
-          contentFit="cover"
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title" accessibilityRole="header">
-          Health Manager
-        </ThemedText>
-      </ThemedView>
-
+    <ManagerScrollView title="Health Manager">
       <ThemedView
         style={styles.section}
         accessibilityLabel="HealthMembers section">
@@ -121,23 +105,13 @@ export default function HealthScreen() {
         <ThemedText type="subtitle">Doctor visits</ThemedText>
         <DoctorVisitPanel selectedMember={selectedMember} />
       </ThemedView>
-    </ParallaxScrollView>
+    </ManagerScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   section: {
     gap: 8,
     marginBottom: 8,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
   },
 });
