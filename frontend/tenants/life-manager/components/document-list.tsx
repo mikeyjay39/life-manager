@@ -302,11 +302,13 @@ export default function DocumentList({
   const loadGenerationRef = useRef(0);
 
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     if (!token) {
       setDocuments([]);
+      setLoading(false);
+      setError(null);
       return;
     }
-    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
