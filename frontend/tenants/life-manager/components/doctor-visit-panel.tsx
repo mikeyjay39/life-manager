@@ -21,6 +21,7 @@ import {
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
 import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -404,7 +405,7 @@ export default function DoctorVisitPanel({
     !selectedMember?.active || submitting || deleting;
 
   const emptyMessage = !selectedMember
-    ? 'Select or create a HealthMember to log doctor visits.'
+    ? ''
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add or edit visits.'
       : listError
@@ -578,6 +579,13 @@ export default function DoctorVisitPanel({
 
   return (
     <View style={styles.container} accessibilityLabel="Doctor visits panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={selectedMember?.display_name ?? null}
+        inactive={selectedMember ? !selectedMember.active : false}
+        emptyHint="Choose a HealthMember above to log doctor visits."
+      />
+
       {listError ? (
         <Text style={styles.errorText} accessibilityRole="alert">
           {listError}

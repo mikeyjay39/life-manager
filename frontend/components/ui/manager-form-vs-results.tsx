@@ -142,7 +142,9 @@ export function ManagerFormVsResults({
           accessibilityLabel="Manager empty state"
           testID={testID ? `${testID}-empty` : undefined}
         >
-          <ThemedText style={emptyColor}>{emptyMessage}</ThemedText>
+          {emptyMessage.trim() !== '' ? (
+            <ThemedText style={emptyColor}>{emptyMessage}</ThemedText>
+          ) : null}
           <ManagerCta
             variant="primary"
             label={addLabel}

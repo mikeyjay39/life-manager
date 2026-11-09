@@ -126,7 +126,11 @@ describe('HealthChartsPanel', () => {
 
   it('prompts when no HealthMember is selected', () => {
     renderPanel(null);
-    expect(screen.getByLabelText('Charts need HealthMember')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Choose a HealthMember above to view charts.'
+      )
+    ).toBeTruthy();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
   });
 

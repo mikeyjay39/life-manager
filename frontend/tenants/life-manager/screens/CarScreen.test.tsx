@@ -133,10 +133,16 @@ describe('CarScreen', () => {
     expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
     expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
     expect(
-      screen.getByText('Select or create a Car to log maintenance events.')
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to log maintenance events.'
+      )
     ).toBeTruthy();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
-    expect(screen.getByLabelText('Charts need Car')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to view charts.'
+      )
+    ).toBeTruthy();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();
     expect(screen.queryByText(/Create document/i)).toBeNull();

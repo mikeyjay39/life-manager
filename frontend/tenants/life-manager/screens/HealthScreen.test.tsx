@@ -133,7 +133,11 @@ describe('HealthScreen', () => {
     expect(screen.queryByLabelText('Health reading form')).toBeNull();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
     expect(screen.getByText('Charts')).toBeTruthy();
-    expect(screen.getByLabelText('Charts need HealthMember')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Choose a HealthMember above to view charts.'
+      )
+    ).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits section')).toBeTruthy();
     expect(screen.getByText('Doctor visits')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits panel')).toBeTruthy();
