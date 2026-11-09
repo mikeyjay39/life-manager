@@ -192,7 +192,6 @@ export default function CarMaintenancePanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 8,
         },
       }),
     [palette]
@@ -770,57 +769,62 @@ export default function CarMaintenancePanel({
     </View>
   );
 
-  const typeFilterBar = selectedCar ? (
-    <View style={styles.historyHeader}>
-      <ThemedText type="sectionTitle">Maintenance history</ThemedText>
-      <ManagerStickyFilterChrome
-        accessibilityLabel="Maintenance type filter"
-        testID="car-maintenance-type-filter-chrome"
-      >
-        <View style={styles.picker}>
-          <Pressable
-            onPress={() => setTypeFilter(null)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: typeFilter == null }}
-            accessibilityLabel="Filter all event types"
+  // Sticky chrome must be a direct child of the panel container (sibling of
+  // results), not nested in a short header — CSS sticky stops at the parent box.
+  const typeFilterTitle = selectedCar ? (
+    <ThemedText type="sectionTitle" style={styles.historyHeader}>
+      Maintenance history
+    </ThemedText>
+  ) : null;
+
+  const typeFilterChrome = selectedCar ? (
+    <ManagerStickyFilterChrome
+      accessibilityLabel="Maintenance type filter"
+      testID="car-maintenance-type-filter-chrome"
+    >
+      <View style={styles.picker}>
+        <Pressable
+          onPress={() => setTypeFilter(null)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: typeFilter == null }}
+          accessibilityLabel="Filter all event types"
+          style={[
+            styles.pickerChip,
+            typeFilter == null && styles.pickerChipSelected,
+          ]}>
+          <Text
             style={[
-              styles.pickerChip,
-              typeFilter == null && styles.pickerChipSelected,
+              styles.pickerChipText,
+              typeFilter == null && styles.pickerChipTextSelected,
             ]}>
-            <Text
+            All
+          </Text>
+        </Pressable>
+        {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
+          const isSelected = typeFilter === type;
+          return (
+            <Pressable
+              key={`filter-${type}`}
+              onPress={() => setTypeFilter(type)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
               style={[
-                styles.pickerChipText,
-                typeFilter == null && styles.pickerChipTextSelected,
+                styles.pickerChip,
+                isSelected && styles.pickerChipSelected,
               ]}>
-              All
-            </Text>
-          </Pressable>
-          {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
-            const isSelected = typeFilter === type;
-            return (
-              <Pressable
-                key={`filter-${type}`}
-                onPress={() => setTypeFilter(type)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
+              <Text
                 style={[
-                  styles.pickerChip,
-                  isSelected && styles.pickerChipSelected,
+                  styles.pickerChipText,
+                  isSelected && styles.pickerChipTextSelected,
                 ]}>
-                <Text
-                  style={[
-                    styles.pickerChipText,
-                    isSelected && styles.pickerChipTextSelected,
-                  ]}>
-                  {EVENT_TYPE_LABELS[type]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ManagerStickyFilterChrome>
-    </View>
+                {EVENT_TYPE_LABELS[type]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ManagerStickyFilterChrome>
   ) : null;
 
   const historyResults = (
@@ -944,7 +948,8 @@ export default function CarMaintenancePanel({
         </Text>
       ) : null}
 
-      {typeFilterBar}
+      {typeFilterTitle}
+      {typeFilterChrome}
 
       {selectedCar &&
       listLoading &&
