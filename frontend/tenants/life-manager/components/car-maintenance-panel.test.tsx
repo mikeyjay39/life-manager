@@ -113,14 +113,19 @@ describe('CarMaintenancePanel', () => {
     mockDefaultLoads();
   });
 
+  function openAddEvent() {
+    fireEvent.press(screen.getByLabelText('Add maintenance event'));
+  }
+
   it('given no Car when render then prompts to select and disables add', async () => {
     // Given no selected Car
     renderPanel(null);
-    // Then the panel asks the user to select or create
+    // Then the empty state asks the user to select or create
     expect(
-      screen.getByLabelText('Maintenance select car prompt')
+      screen.getByText('Select or create a Car to log maintenance events.')
     ).toBeTruthy();
     expect(screen.getByLabelText('Add maintenance event')).toBeDisabled();
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
     await waitFor(() => {
       expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
         '/documents',
@@ -133,6 +138,41 @@ describe('CarMaintenancePanel', () => {
           typeof path === 'string' && path.startsWith('/car-maintenance-events')
       )
     ).toBe(false);
+  });
+
+  it('given events when rendering then form stays collapsed until Add event', async () => {
+    // Given an active Car with history
+    mockDefaultLoads([
+      {
+        id: 'e1',
+        car_id: 'c1',
+        occurred_on: '2026-01-15',
+        event_type: 'oil_change',
+        odometer_miles: 50000,
+        cost_cents: 5999,
+        title: null,
+        notes: null,
+        document_id: null,
+        created_at: 't',
+        updated_at: 't',
+      },
+    ]);
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
+    });
+    // Then history is visible without an always-open create form
+    expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
+    expect(screen.queryByLabelText('Maintenance event date')).toBeNull();
+
+    openAddEvent();
+
+    expect(screen.getByLabelText('Maintenance event form')).toBeTruthy();
+    expect(screen.getByLabelText('Maintenance event date')).toBeTruthy();
+    expect(screen.getByLabelText('Save maintenance event')).toBeTruthy();
   });
 
   it('given active Car when submit oil change with cost then posts and shows cost', async () => {
@@ -203,6 +243,8 @@ describe('CarMaintenancePanel', () => {
       );
     });
 
+    openAddEvent();
+
     fireEvent.changeText(
       screen.getByLabelText('Maintenance odometer miles'),
       '50000'
@@ -211,7 +253,7 @@ describe('CarMaintenancePanel', () => {
       screen.getByLabelText('Maintenance cost in dollars'),
       '59.99'
     );
-    fireEvent.press(screen.getByLabelText('Add maintenance event'));
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
 
     await waitFor(() => {
       expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
@@ -299,19 +341,22 @@ describe('CarMaintenancePanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Notes: old')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
 
     fireEvent.press(
       screen.getByLabelText('Edit maintenance event e1 on 2026-01-15')
     );
+    expect(screen.getByLabelText('Maintenance event form')).toBeTruthy();
     fireEvent.changeText(
       screen.getByLabelText('Maintenance notes'),
       'updated'
     );
-    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+    fireEvent.press(screen.getByLabelText('Update maintenance event'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Notes: updated')).toBeTruthy();
     });
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
 
     fireEvent.press(
       screen.getByLabelText('Delete maintenance event e1 on 2026-01-15')
@@ -326,8 +371,56 @@ describe('CarMaintenancePanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Maintenance history empty')).toBeTruthy();
+      expect(screen.getByText('No maintenance events yet.')).toBeTruthy();
     });
+  });
+
+  it('given type filter with no matches when empty then filter stays available', async () => {
+    // Given an oil-change event, then a tire filter returns none
+    mockAuthenticatedFetch.mockImplementation(async (path: string) => {
+      if (typeof path === 'string' && path.startsWith('/documents')) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (typeof path === 'string' && path.includes('event_type=tire')) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (typeof path === 'string' && path.startsWith('/car-maintenance-events')) {
+        return new Response(
+          JSON.stringify([
+            {
+              id: 'e1',
+              car_id: 'c1',
+              occurred_on: '2026-01-15',
+              event_type: 'oil_change',
+              odometer_miles: 50000,
+              cost_cents: 5999,
+              title: null,
+              notes: null,
+              document_id: null,
+              created_at: 't',
+              updated_at: 't',
+            },
+          ]),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify([]), { status: 200 });
+    });
+
+    renderPanel();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Filter Tire events'));
+
+    await waitFor(() => {
+      expect(screen.getByText('No matching maintenance events.')).toBeTruthy();
+    });
+    // Then the user can still clear the filter
+    expect(screen.getByLabelText('Filter all event types')).toBeTruthy();
+    expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
   });
 
   it('given inactive Car when render then create is disabled and history can load', async () => {
