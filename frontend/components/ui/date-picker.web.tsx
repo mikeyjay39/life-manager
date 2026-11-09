@@ -41,7 +41,7 @@ export function DatePicker({
         field: {
           flex: 1,
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           backgroundColor: palette.background,

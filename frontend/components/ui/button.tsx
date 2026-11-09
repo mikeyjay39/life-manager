@@ -14,7 +14,6 @@ import {
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { mixTowardBlack, withAlpha } from '@/lib/tenant/theme/color-utils';
 
-const DESTRUCTIVE_COLOR = '#ff3b30';
 const HOVER_DARKEN = 0.12;
 const PRESS_DARKEN = 0.18;
 const SECONDARY_BASE_ALPHA = 0.2;
@@ -62,18 +61,18 @@ export function Button({
     switch (variant) {
       case 'secondary':
         return {
-          base: withAlpha(palette.icon, SECONDARY_BASE_ALPHA),
-          hover: withAlpha(palette.icon, SECONDARY_HOVER_ALPHA),
-          press: withAlpha(palette.icon, SECONDARY_PRESS_ALPHA),
+          base: withAlpha(palette.muted, SECONDARY_BASE_ALPHA),
+          hover: withAlpha(palette.muted, SECONDARY_HOVER_ALPHA),
+          press: withAlpha(palette.muted, SECONDARY_PRESS_ALPHA),
           label: palette.text,
           borderColor: undefined as string | undefined,
           spinner: palette.text,
         };
       case 'destructive':
         return {
-          base: DESTRUCTIVE_COLOR,
-          hover: mixTowardBlack(DESTRUCTIVE_COLOR, HOVER_DARKEN),
-          press: mixTowardBlack(DESTRUCTIVE_COLOR, PRESS_DARKEN),
+          base: palette.danger,
+          hover: mixTowardBlack(palette.danger, HOVER_DARKEN),
+          press: mixTowardBlack(palette.danger, PRESS_DARKEN),
           label: '#ffffff',
           borderColor: undefined as string | undefined,
           spinner: '#ffffff',
@@ -81,10 +80,10 @@ export function Button({
       case 'outline':
         return {
           base: 'transparent',
-          hover: withAlpha(palette.icon, OUTLINE_HOVER_ALPHA),
-          press: withAlpha(palette.icon, OUTLINE_PRESS_ALPHA),
+          hover: withAlpha(palette.muted, OUTLINE_HOVER_ALPHA),
+          press: withAlpha(palette.muted, OUTLINE_PRESS_ALPHA),
           label: palette.text,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           spinner: palette.text,
         };
       case 'primary':

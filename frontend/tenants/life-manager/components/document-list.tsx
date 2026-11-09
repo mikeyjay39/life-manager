@@ -177,7 +177,7 @@ export default function DocumentList({
         },
         searchInput: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           color: palette.text,
@@ -186,11 +186,11 @@ export default function DocumentList({
         },
         hint: {
           fontSize: 14,
-          color: palette.icon,
+          color: palette.muted,
         },
         errorText: {
           fontSize: 14,
-          color: '#c00',
+          color: palette.danger,
         },
         modalBackdrop: {
           flex: 1,
@@ -199,8 +199,10 @@ export default function DocumentList({
           padding: 24,
         },
         modalCard: {
-          backgroundColor: palette.background,
+          backgroundColor: palette.surface,
           borderRadius: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: palette.border,
           maxHeight: '80%',
           overflow: 'hidden',
         },
@@ -233,7 +235,7 @@ export default function DocumentList({
         },
         input: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           marginBottom: 8,

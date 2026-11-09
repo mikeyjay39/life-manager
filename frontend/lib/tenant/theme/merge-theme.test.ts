@@ -49,4 +49,37 @@ describe('mergeTenantTheme', () => {
     expect(merged.colors.dark.onTint).toBe('#000000');
     expect(merged.colors.dark.tint).toBe(defaultResolvedTheme.colors.dark.tint);
   });
+
+  it('given default merge when reading palette then semantic tokens resolve for light and dark', () => {
+    const merged = mergeTenantTheme(undefined);
+    const semanticKeys = [
+      'surface',
+      'border',
+      'muted',
+      'success',
+      'warning',
+      'danger',
+    ] as const;
+
+    for (const key of semanticKeys) {
+      expect(merged.colors.light[key]).toEqual(expect.any(String));
+      expect(merged.colors.light[key].length).toBeGreaterThan(0);
+      expect(merged.colors.dark[key]).toEqual(expect.any(String));
+      expect(merged.colors.dark[key].length).toBeGreaterThan(0);
+    }
+  });
+
+  it('given partial tenant override when merging then unspecified semantic tokens stay at defaults', () => {
+    const merged = mergeTenantTheme({
+      light: { danger: '#aa0000' },
+    });
+    expect(merged.colors.light.danger).toBe('#aa0000');
+    expect(merged.colors.light.surface).toBe(defaultResolvedTheme.colors.light.surface);
+    expect(merged.colors.light.border).toBe(defaultResolvedTheme.colors.light.border);
+    expect(merged.colors.light.muted).toBe(defaultResolvedTheme.colors.light.muted);
+    expect(merged.colors.light.success).toBe(defaultResolvedTheme.colors.light.success);
+    expect(merged.colors.light.warning).toBe(defaultResolvedTheme.colors.light.warning);
+    expect(merged.colors.light.tint).toBe(defaultResolvedTheme.colors.light.tint);
+    expect(merged.colors.dark.danger).toBe(defaultResolvedTheme.colors.dark.danger);
+  });
 });

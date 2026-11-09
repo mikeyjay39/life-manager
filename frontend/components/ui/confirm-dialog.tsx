@@ -53,15 +53,17 @@ export function ConfirmDialog({
           paddingHorizontal: 24,
         },
         card: {
-          backgroundColor: palette.background,
+          backgroundColor: palette.surface,
           borderRadius: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: palette.border,
           padding: 24,
           width: '100%',
           maxWidth: 340,
           gap: 16,
         },
         message: {
-          opacity: 0.8,
+          color: palette.muted,
         },
         actions: {
           flexDirection: 'row',
