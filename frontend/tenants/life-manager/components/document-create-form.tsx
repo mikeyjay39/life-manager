@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   TextInput,
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import { ManagerFeedbackBanner } from '@/components/ui/manager-feedback';
-import { webFormEnterSubmitProps } from '@/components/ui/web-form-enter-submit';
+import { useWebFormEnterSubmit } from '@/components/ui/web-form-enter-submit';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
@@ -195,6 +195,9 @@ export default function DocumentCreateForm({
   const clearFile = () => setPickedFile(null);
 
   const handleSubmit = async () => {
+    if (loading) {
+      return;
+    }
     setSubmitError(null);
 
     if (!token) {
@@ -340,13 +343,16 @@ export default function DocumentCreateForm({
     }
   };
 
+  const formRef = useRef<View>(null);
+  useWebFormEnterSubmit(!loading, () => {
+    void handleSubmit();
+  }, formRef);
+
   return (
     <View
+      ref={formRef}
       style={styles.container}
       accessibilityLabel="Document create form"
-      {...webFormEnterSubmitProps(() => {
-        void handleSubmit();
-      })}
     >
       <FieldLabel label="Title" required style={styles.label} />
       <TextInput

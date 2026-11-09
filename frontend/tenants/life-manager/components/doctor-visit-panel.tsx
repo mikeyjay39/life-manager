@@ -612,9 +612,13 @@ export default function DoctorVisitPanel({
             }
           }}
           form={visitForm}
-          onEnterSubmit={() => {
-            void handleSubmit();
-          }}
+          onEnterSubmit={
+            canSubmit
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
           results={visitResults}
           testID="doctor-visits-form-vs-results"
         />

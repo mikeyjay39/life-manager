@@ -1,3 +1,4 @@
+import { useEffect, useRef, type RefObject } from 'react';
 import { Platform } from 'react-native';
 
 type WebKeyEvent = {
@@ -61,35 +62,81 @@ export function shouldSubmitWebFormEnter(
   return true;
 }
 
+type DomListenerTarget = {
+  addEventListener: (
+    type: string,
+    listener: EventListener,
+    options?: boolean | AddEventListenerOptions
+  ) => void;
+  removeEventListener: (
+    type: string,
+    listener: EventListener,
+    options?: boolean | EventListenerOptions
+  ) => void;
+};
+
 /**
- * Web View props that submit on Enter inside a manager form region.
- * Native returns an empty object.
+ * Capture-phase keydown on a form container.
+ * Capture runs before react-native-web TextInput stopPropagation.
+ */
+export function attachWebFormEnterSubmit(
+  node: DomListenerTarget,
+  onSubmit: () => void
+): () => void {
+  const handleKeyDown: EventListener = (event) => {
+    const keyEvent = event as unknown as WebKeyEvent & KeyboardEvent;
+    if (!shouldSubmitWebFormEnter(keyEvent)) {
+      return;
+    }
+    keyEvent.preventDefault();
+    onSubmit();
+  };
+  node.addEventListener('keydown', handleKeyDown, true);
+  return () => {
+    node.removeEventListener('keydown', handleKeyDown, true);
+  };
+}
+
+/**
+ * Web: attach capture Enter-to-submit on a form region ref while active.
  *
  * sequenceDiagram
  *   participant User
- *   participant Form as form region
- *   participant Helper as webFormEnterSubmitProps
- *   User->>Form: keydown Enter
- *   Form->>Helper: shouldSubmitWebFormEnter
+ *   participant Field as TextInput DOM
+ *   participant Form as form region capture
+ *   participant Hook as useWebFormEnterSubmit
+ *   User->>Field: keydown Enter
+ *   Form->>Hook: capture before stopPropagation
  *   alt single-line or Ctrl/Cmd+Enter in textarea
- *     Helper->>Helper: preventDefault
- *     Helper->>Form: onSubmit()
+ *     Hook->>Hook: preventDefault
+ *     Hook->>Form: onSubmit()
  *   else textarea Enter
- *     Helper-->>Form: allow newline
+ *     Hook-->>Field: allow newline
  *   end
  */
-export function webFormEnterSubmitProps(onSubmit: () => void): Record<string, unknown> {
-  if (Platform.OS !== 'web') {
-    return {};
-  }
-  return {
-    onKeyDown: (event: WebKeyEvent) => {
-      if (!shouldSubmitWebFormEnter(event)) {
-        return;
-      }
-      event.preventDefault?.();
-      event.nativeEvent?.preventDefault?.();
-      onSubmit();
-    },
-  };
+export function useWebFormEnterSubmit(
+  active: boolean,
+  onSubmit: (() => void) | undefined,
+  containerRef: RefObject<unknown>
+): void {
+  const onSubmitRef = useRef(onSubmit);
+  onSubmitRef.current = onSubmit;
+  const enabled = active && typeof onSubmit === 'function';
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !enabled) {
+      return;
+    }
+    const node = containerRef.current as DomListenerTarget | null;
+    if (
+      node == null ||
+      typeof node.addEventListener !== 'function' ||
+      typeof node.removeEventListener !== 'function'
+    ) {
+      return;
+    }
+    return attachWebFormEnterSubmit(node, () => {
+      onSubmitRef.current?.();
+    });
+  }, [enabled, containerRef]);
 }

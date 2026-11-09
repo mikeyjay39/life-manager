@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -114,10 +114,10 @@ export default function ProtonConnectPanel() {
     setErrorMessage(null);
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalVisible(false);
     clearSensitiveFields();
-  };
+  }, []);
 
   useWebEscapeClose(modalVisible, closeModal);
 

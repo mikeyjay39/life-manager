@@ -1,10 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ManagerCta } from '@/components/ui/manager-cta';
 import { MANAGER_SECTION_GAP } from '@/components/ui/manager-layout';
-import { webFormEnterSubmitProps } from '@/components/ui/web-form-enter-submit';
+import { useWebFormEnterSubmit } from '@/components/ui/web-form-enter-submit';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 /** Collapsed browse, create entry, or edit reuse of the same form surface. */
@@ -125,15 +125,17 @@ export function ManagerFormVsResults({
   }, [onCancel, setMode]);
 
   const emptyColor = useMemo(() => ({ color: palette.muted }), [palette.muted]);
+  const formRegionRef = useRef<View>(null);
+  useWebFormEnterSubmit(isExpanded, onEnterSubmit, formRegionRef);
 
   return (
     <View style={[styles.root, style]} testID={testID}>
       {isExpanded ? (
         <View
+          ref={formRegionRef}
           style={styles.formRegion}
           accessibilityLabel="Manager form"
           testID={testID ? `${testID}-form` : undefined}
-          {...(onEnterSubmit ? webFormEnterSubmitProps(onEnterSubmit) : {})}
         >
           {form}
           <ManagerCta

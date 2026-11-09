@@ -766,10 +766,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setCreateError(null);
   };
 
-  const closeCreateModal = () => {
+  const closeCreateModal = useCallback(() => {
     setCreateVisible(false);
     resetCreateForm();
-  };
+  }, []);
 
   useWebEscapeClose(createVisible, closeCreateModal);
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 /**
@@ -19,6 +19,9 @@ import { Platform } from 'react-native';
  *   end
  */
 export function useWebEscapeClose(active: boolean, onClose: () => void): void {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (Platform.OS !== 'web' || !active) {
       return;
@@ -37,7 +40,7 @@ export function useWebEscapeClose(active: boolean, onClose: () => void): void {
         return;
       }
       event.preventDefault();
-      onClose();
+      onCloseRef.current();
     };
 
     target.addEventListener('keydown', handleKeyDown);
@@ -46,5 +49,5 @@ export function useWebEscapeClose(active: boolean, onClose: () => void): void {
         target.removeEventListener('keydown', handleKeyDown);
       }
     };
-  }, [active, onClose]);
+  }, [active]);
 }

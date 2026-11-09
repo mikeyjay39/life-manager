@@ -391,10 +391,10 @@ export default function HealthMemberPanel({
     setCreateError(null);
   };
 
-  const closeCreateModal = () => {
+  const closeCreateModal = useCallback(() => {
     setCreateVisible(false);
     resetCreateForm();
-  };
+  }, []);
 
   useWebEscapeClose(createVisible, closeCreateModal);
 
