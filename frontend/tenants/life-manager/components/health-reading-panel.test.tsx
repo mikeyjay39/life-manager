@@ -230,6 +230,8 @@ describe('HealthReadingPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('listed')).toBeTruthy();
     });
+    expect(screen.getByTestId('health-reading-data-list')).toBeTruthy();
+    expect(screen.getByTestId('health-reading-row-r-list')).toBeTruthy();
     expect(screen.getByLabelText('Add reading')).toBeTruthy();
     expect(screen.queryByLabelText('Health reading form')).toBeNull();
 

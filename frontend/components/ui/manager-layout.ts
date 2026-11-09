@@ -37,3 +37,27 @@ export const MANAGER_CTA_MIN_WIDTH = 140;
 
 /** Minimum CTA height for touch targets. */
 export const MANAGER_CTA_MIN_HEIGHT = 44;
+
+/** Vertical padding inside a dense data list/table row (tighter than cards). */
+export const MANAGER_DATA_ROW_PADDING_Y = 6;
+
+/** Horizontal padding inside a dense data list/table row. */
+export const MANAGER_DATA_ROW_PADDING_X = 8;
+
+/** Vertical gap between dense data rows. */
+export const MANAGER_DATA_ROW_GAP = 0;
+
+/** Gap between aligned cells / actions inside a dense row. */
+export const MANAGER_DATA_CELL_GAP = 8;
+
+/**
+ * Viewport width at or below which dense rows stack cells under the leading
+ * column (native phones and narrow web). Wider viewports keep one band.
+ */
+export const MANAGER_DATA_STACK_BELOW = 560;
+
+/**
+ * Fixed trailing width for dense-row actions on wide layouts.
+ * Keeps header labels aligned with body cells when Edit/Delete are present.
+ */
+export const MANAGER_DATA_ACTIONS_WIDTH = 176;

@@ -170,7 +170,7 @@ describe('DoctorVisitPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Notes: checkup/i)).toBeTruthy();
+      expect(screen.getByLabelText('Notes: checkup')).toBeTruthy();
     });
   });
 
@@ -200,7 +200,7 @@ describe('DoctorVisitPanel', () => {
     renderPanel();
 
     await waitFor(() => {
-      expect(screen.getByText(/Provider: Dr. Lee/i)).toBeTruthy();
+      expect(screen.getByLabelText('Provider: Dr. Lee')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByLabelText('Delete visit on 2026-01-15'));
