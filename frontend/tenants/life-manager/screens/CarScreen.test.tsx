@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,12 +11,19 @@ import type { TenantModule } from '@/lib/tenant/types';
 import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
 import CarScreen from '@/tenants/life-manager/screens/CarScreen';
 
-vi.mock('@/components/parallax-scroll-view', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-vi.mock('expo-image', () => ({
-  Image: () => null,
+vi.mock('@/components/ui/manager-scroll-view', () => ({
+  ManagerScrollView: ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) => (
+    <>
+      <Text>{title}</Text>
+      {children}
+    </>
+  ),
 }));
 
 vi.mock('@react-native-community/datetimepicker', async () => {

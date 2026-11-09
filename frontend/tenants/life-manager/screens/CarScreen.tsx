@@ -1,12 +1,10 @@
-import { Image } from 'expo-image';
 import { useCallback, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
 import type { CarDto } from '@/lib/api/types';
-import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import CarChartsPanel from '@/tenants/life-manager/components/car-charts-panel';
 import CarMaintenancePanel from '@/tenants/life-manager/components/car-maintenance-panel';
 import CarPanel from '@/tenants/life-manager/components/car-panel';
@@ -16,6 +14,7 @@ import CarPanel from '@/tenants/life-manager/components/car-panel';
  *
  * ```
  * User -> CarScreen : open Car Manager
+ * CarScreen -> ManagerScrollView : quiet chrome (no parallax)
  * CarScreen -> CarPanel : render; onSelectedCarChange
  * CarPanel -> API : GET/POST/PUT/DELETE /cars; GET /documents
  * CarPanel -> CarScreen : selected car | null
@@ -27,7 +26,6 @@ import CarPanel from '@/tenants/life-manager/components/car-panel';
  * ```
  */
 export default function CarScreen() {
-  const { assets, headerBackground } = useTenantBranding();
   const [selectedCar, setSelectedCar] = useState<CarDto | null>(null);
   const [eventsRefreshKey, setEventsRefreshKey] = useState(0);
 
@@ -36,21 +34,7 @@ export default function CarScreen() {
   }, []);
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={headerBackground}
-      headerImage={
-        <Image
-          source={assets.headerImage}
-          style={styles.headerImage}
-          contentFit="cover"
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title" accessibilityRole="header">
-          Car Manager
-        </ThemedText>
-      </ThemedView>
-
+    <ManagerScrollView title="Car Manager">
       <ThemedView style={styles.section} accessibilityLabel="Cars section">
         <ThemedText type="subtitle">Cars</ThemedText>
         <CarPanel onSelectedCarChange={setSelectedCar} />
@@ -73,23 +57,13 @@ export default function CarScreen() {
           refreshKey={eventsRefreshKey}
         />
       </ThemedView>
-    </ParallaxScrollView>
+    </ManagerScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   section: {
     gap: 8,
     marginBottom: 8,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
   },
 });
