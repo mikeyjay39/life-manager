@@ -339,7 +339,7 @@ describe('CarMaintenancePanel', () => {
     renderPanel();
 
     await waitFor(() => {
-      expect(screen.getByText(/Notes: old/i)).toBeTruthy();
+      expect(screen.getByLabelText('Notes: old')).toBeTruthy();
     });
     expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
 
@@ -354,7 +354,7 @@ describe('CarMaintenancePanel', () => {
     fireEvent.press(screen.getByLabelText('Update maintenance event'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Notes: updated/i)).toBeTruthy();
+      expect(screen.getByLabelText('Notes: updated')).toBeTruthy();
     });
     expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
 
@@ -444,7 +444,7 @@ describe('CarMaintenancePanel', () => {
     renderPanel(inactiveCar);
 
     await waitFor(() => {
-      expect(screen.getByText(/Cost: \$100\.00/i)).toBeTruthy();
+      expect(screen.getByLabelText('Cost $100.00')).toBeTruthy();
     });
     expect(screen.getByLabelText('Add maintenance event')).toBeDisabled();
     expect(
