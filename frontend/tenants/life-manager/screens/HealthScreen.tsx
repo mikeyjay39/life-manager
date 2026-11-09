@@ -71,7 +71,9 @@ export default function HealthScreen() {
 
   return (
     <ManagerScrollView title="Health Manager">
-      <ManagerSection title="HealthMembers" accessibilityLabel="HealthMembers section">
+      <ManagerSection
+        title="HealthMembers"
+        accessibilityLabel="HealthMembers section">
         <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
       </ManagerSection>
 
