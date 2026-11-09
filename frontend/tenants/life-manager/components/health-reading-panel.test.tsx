@@ -396,6 +396,55 @@ describe('HealthReadingPanel', () => {
     expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
   });
 
+  it('given history for member A when switching to B before fetch ends then clears stale rows', async () => {
+    // Given member A history is on screen
+    let resolveB!: (value: Response) => void;
+    mockAuthenticatedFetch.mockResolvedValueOnce(
+      jsonResponse([
+        reading({
+          id: 'r-a',
+          health_member_id: 'm1',
+          recorded_on: '2026-01-10',
+          notes: 'Alex only',
+        }),
+      ])
+    );
+    const { rerender } = renderPanel(
+      member({ id: 'm1', display_name: 'Alex' })
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText('Reading on 2026-01-10')).toBeTruthy();
+    });
+
+    // When switch to B while B's fetch is still in flight
+    mockAuthenticatedFetch.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        resolveB = resolve;
+      })
+    );
+    rerender(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <HealthReadingPanel
+          selectedMember={member({ id: 'm2', display_name: 'Sam' })}
+          unitSystem="metric"
+          onUnitSystemChange={mockOnUnitSystemChange}
+          unitPreferenceReady
+        />
+      </TenantThemeTestProvider>
+    );
+
+    // Then Alex rows are gone and skeletons show for the empty load
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Reading on 2026-01-10')).toBeNull();
+    });
+    expect(screen.getByLabelText('Loading readings')).toBeTruthy();
+
+    resolveB(jsonResponse([]));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Loading readings')).toBeNull();
+    });
+  });
+
   it('given no member then first select keeps empty form ready without wipe race', async () => {
     mockAuthenticatedFetch.mockResolvedValue(jsonResponse([]));
     const { rerender } = renderPanel(null);

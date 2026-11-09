@@ -165,7 +165,7 @@ export default function DoctorVisitPanel({
     [palette]
   );
 
-  // Clear form when leaving a concrete member (A→B or A→null).
+  // Clear form and history when leaving a concrete member (A→B or A→null).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
     const nextId = selectedMember?.id ?? null;
@@ -175,6 +175,8 @@ export default function DoctorVisitPanel({
       setEditingId(null);
       setFormMode('collapsed');
       setDeleteTarget(null);
+      setVisits([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);

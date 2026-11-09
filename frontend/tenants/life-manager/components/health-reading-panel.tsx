@@ -235,7 +235,7 @@ export default function HealthReadingPanel({
     prevUnitSystemRef.current = unitSystem;
   }, [unitSystem]);
 
-  // Clear vitals when leaving a concrete member (A→B or A→null→B).
+  // Clear vitals and history when leaving a concrete member (A→B or A→null→B).
   // Do not clear on the first select (null→A).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
@@ -247,6 +247,8 @@ export default function HealthReadingPanel({
       setFormMode('collapsed');
       setActionError(null);
       setDeleteTarget(null);
+      setReadings([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
