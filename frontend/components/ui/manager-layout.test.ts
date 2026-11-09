@@ -4,6 +4,7 @@ import {
   MANAGER_CTA_MAX_WIDTH,
   MANAGER_CTA_MIN_HEIGHT,
   MANAGER_CTA_MIN_WIDTH,
+  MANAGER_DATA_ACTIONS_WIDTH,
   MANAGER_DATA_CELL_GAP,
   MANAGER_DATA_ROW_GAP,
   MANAGER_DATA_ROW_PADDING_X,
@@ -38,5 +39,6 @@ describe('manager-layout constants', () => {
     expect(MANAGER_DATA_CELL_GAP).toBeGreaterThan(0);
     expect(MANAGER_DATA_STACK_BELOW).toBeGreaterThan(0);
     expect(MANAGER_DATA_STACK_BELOW).toBeLessThan(MANAGER_CONTENT_MAX_WIDTH);
+    expect(MANAGER_DATA_ACTIONS_WIDTH).toBeGreaterThan(MANAGER_DATA_CELL_GAP);
   });
 });

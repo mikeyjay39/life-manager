@@ -9,6 +9,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import {
+  MANAGER_DATA_ACTIONS_WIDTH,
   MANAGER_DATA_CELL_GAP,
   MANAGER_DATA_ROW_GAP,
   MANAGER_DATA_ROW_PADDING_X,
@@ -180,7 +181,9 @@ function ManagerDataListHeaderRow({
           </View>
         ))}
       </View>
-      {!stacked ? <View style={styles.actionsWide} /> : null}
+      {!stacked ? (
+        <View style={styles.actionsWide} testID={testID ? `${testID}-actions` : undefined} />
+      ) : null}
     </View>
   );
 }
@@ -331,10 +334,11 @@ const styles = StyleSheet.create({
   actionsWide: {
     flexShrink: 0,
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-end',
     gap: MANAGER_DATA_CELL_GAP,
     marginLeft: 'auto',
-    minWidth: 120,
+    width: MANAGER_DATA_ACTIONS_WIDTH,
   },
   actionsStacked: {
     width: '100%',

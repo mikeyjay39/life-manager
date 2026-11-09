@@ -7,6 +7,7 @@ import {
   ManagerDataListRow,
 } from '@/components/ui/manager-data-list';
 import {
+  MANAGER_DATA_ACTIONS_WIDTH,
   MANAGER_DATA_ROW_PADDING_Y,
   MANAGER_SECTION_PADDING,
 } from '@/components/ui/manager-layout';
@@ -124,5 +125,20 @@ describe('ManagerDataList', () => {
     expect(screen.getByText('Notes')).toBeTruthy();
     expect(screen.getByTestId('sample-row-empty-cells').children).toHaveLength(2);
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('given a wide header when rendered then actions spacer matches body actions width', () => {
+    // Given / When a headed dense list on a wide layout
+    renderList(0);
+
+    // Then header and body actions columns share one fixed width
+    const headerActions = screen.getByTestId('sample-list-header-actions');
+    const rowActions = screen.getByTestId('sample-row-actions');
+    expect(headerActions.props.style).toEqual(
+      expect.objectContaining({ width: MANAGER_DATA_ACTIONS_WIDTH })
+    );
+    expect(rowActions.props.style).toEqual(
+      expect.objectContaining({ width: MANAGER_DATA_ACTIONS_WIDTH })
+    );
   });
 });

@@ -55,3 +55,9 @@ export const MANAGER_DATA_CELL_GAP = 8;
  * column (native phones and narrow web). Wider viewports keep one band.
  */
 export const MANAGER_DATA_STACK_BELOW = 560;
+
+/**
+ * Fixed trailing width for dense-row actions on wide layouts.
+ * Keeps header labels aligned with body cells when Edit/Delete are present.
+ */
+export const MANAGER_DATA_ACTIONS_WIDTH = 176;
