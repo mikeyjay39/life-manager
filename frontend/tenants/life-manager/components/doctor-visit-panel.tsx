@@ -11,6 +11,10 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerDataList,
+  ManagerDataListRow,
+} from '@/components/ui/manager-data-list';
 import { ManagerCta } from '@/components/ui/manager-cta';
 import {
   ManagerFormVsResults,
@@ -132,34 +136,7 @@ export default function DoctorVisitPanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 4,
-        },
-        historyItem: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          padding: 10,
-          gap: 6,
-          backgroundColor: palette.background,
-        },
-        historyDate: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: palette.text,
-        },
-        historyLine: {
-          fontSize: 14,
-          color: palette.text,
-        },
-        historyMuted: {
-          fontSize: 13,
-          color: palette.icon,
-        },
-        rowActions: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
           gap: 8,
-          marginTop: 4,
         },
       }),
     [palette]
@@ -514,47 +491,73 @@ export default function DoctorVisitPanel({
 
   const visitResults = (
     <View style={styles.historyHeader} accessibilityLabel="Visit history">
-      <ThemedText type="defaultSemiBold">Visit history</ThemedText>
+      <ThemedText type="sectionTitle">Visit history</ThemedText>
       {listLoading ? (
         <ActivityIndicator accessibilityLabel="Loading doctor visits" />
       ) : null}
-      {!listLoading
-        ? visits.map((visit) => (
-            <View
-              key={visit.id}
-              style={styles.historyItem}
-              accessibilityLabel={`Doctor visit on ${visit.visited_on}`}>
-              <Text style={styles.historyDate}>{visit.visited_on}</Text>
-              {visit.provider_name ? (
-                <Text style={styles.historyLine}>
-                  Provider: {visit.provider_name}
-                </Text>
-              ) : null}
-              {visit.reason ? (
-                <Text style={styles.historyLine}>Reason: {visit.reason}</Text>
-              ) : null}
-              {visit.notes ? (
-                <Text style={styles.historyLine}>Notes: {visit.notes}</Text>
-              ) : null}
-              <View style={styles.rowActions}>
-                <Button
-                  variant="outline"
-                  label="Edit"
-                  accessibilityLabel={`Edit visit on ${visit.visited_on}`}
-                  disabled={!selectedMember?.active || submitting || deleting}
-                  onPress={() => startEdit(visit)}
-                />
-                <Button
-                  variant="destructive"
-                  label="Delete"
-                  accessibilityLabel={`Delete visit on ${visit.visited_on}`}
-                  disabled={submitting || deleting}
-                  onPress={() => setDeleteTarget(visit)}
-                />
-              </View>
-            </View>
-          ))
-        : null}
+      {!listLoading ? (
+        <ManagerDataList testID="doctor-visit-data-list">
+          {visits.map((visit) => {
+            const cells = [
+              ...(visit.provider_name
+                ? [
+                    {
+                      key: 'provider',
+                      content: visit.provider_name,
+                      primary: true as const,
+                      accessibilityLabel: `Provider: ${visit.provider_name}`,
+                    },
+                  ]
+                : []),
+              ...(visit.reason
+                ? [
+                    {
+                      key: 'reason',
+                      content: visit.reason,
+                      accessibilityLabel: `Reason: ${visit.reason}`,
+                    },
+                  ]
+                : []),
+              ...(visit.notes
+                ? [
+                    {
+                      key: 'notes',
+                      content: visit.notes,
+                      accessibilityLabel: `Notes: ${visit.notes}`,
+                    },
+                  ]
+                : []),
+            ];
+            return (
+              <ManagerDataListRow
+                key={visit.id}
+                testID={`doctor-visit-row-${visit.id}`}
+                accessibilityLabel={`Doctor visit on ${visit.visited_on}`}
+                leading={visit.visited_on}
+                cells={cells}
+                actions={
+                  <>
+                    <Button
+                      variant="outline"
+                      label="Edit"
+                      accessibilityLabel={`Edit visit on ${visit.visited_on}`}
+                      disabled={!selectedMember?.active || submitting || deleting}
+                      onPress={() => startEdit(visit)}
+                    />
+                    <Button
+                      variant="destructive"
+                      label="Delete"
+                      accessibilityLabel={`Delete visit on ${visit.visited_on}`}
+                      disabled={submitting || deleting}
+                      onPress={() => setDeleteTarget(visit)}
+                    />
+                  </>
+                }
+              />
+            );
+          })}
+        </ManagerDataList>
+      ) : null}
     </View>
   );
 
