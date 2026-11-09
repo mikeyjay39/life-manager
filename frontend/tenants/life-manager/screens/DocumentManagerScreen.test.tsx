@@ -135,6 +135,7 @@ describe('DocumentManagerScreen', () => {
     expect(screen.getByLabelText('Create document section')).toBeTruthy();
     expect(screen.getByText('Create document')).toBeTruthy();
     expect(screen.getByLabelText('Add document')).toBeTruthy();
+    expect(screen.queryByLabelText('Manager results')).toBeNull();
     expect(screen.getByLabelText('Document list section')).toBeTruthy();
     expect(screen.getByText('Documents')).toBeTruthy();
     await waitFor(() => {

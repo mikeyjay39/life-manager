@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   TextInput,
@@ -46,6 +46,8 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 
 type DocumentCreateFormProps = {
   onDocumentCreated?: () => void;
+  /** Lets the parent block Cancel while a create request is in flight. */
+  onSubmittingChange?: (submitting: boolean) => void;
 };
 
 /**
@@ -63,6 +65,7 @@ type DocumentCreateFormProps = {
  */
 export default function DocumentCreateForm({
   onDocumentCreated,
+  onSubmittingChange,
 }: DocumentCreateFormProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -76,6 +79,16 @@ export default function DocumentCreateForm({
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
+
+  useEffect(() => {
+    onSubmittingChange?.(loading);
+  }, [loading, onSubmittingChange]);
+
+  useEffect(() => {
+    return () => {
+      onSubmittingChange?.(false);
+    };
+  }, [onSubmittingChange]);
 
   const styles = useMemo(
     () =>

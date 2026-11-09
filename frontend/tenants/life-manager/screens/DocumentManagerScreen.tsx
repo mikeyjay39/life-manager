@@ -32,6 +32,7 @@ export default function DocumentManagerScreen() {
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [listLoading, setListLoading] = useState(false);
   const [createMode, setCreateMode] = useState<ManagerFormMode>('collapsed');
+  const [createSubmitting, setCreateSubmitting] = useState(false);
 
   const bumpDocumentsRefresh = useCallback(() => {
     setDocumentsRefreshKey((key) => key + 1);
@@ -63,8 +64,16 @@ export default function DocumentManagerScreen() {
           addAccessibilityLabel="Add document"
           mode={createMode}
           onModeChange={setCreateMode}
+          onCancel={() => {
+            if (createSubmitting) {
+              return false;
+            }
+          }}
           form={
-            <DocumentCreateForm onDocumentCreated={handleDocumentCreated} />
+            <DocumentCreateForm
+              onDocumentCreated={handleDocumentCreated}
+              onSubmittingChange={setCreateSubmitting}
+            />
           }
           testID="document-create-form-vs-results"
         />
