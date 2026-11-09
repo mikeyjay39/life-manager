@@ -33,6 +33,16 @@ describe('typography scale', () => {
     }
   });
 
+  it('given pageTitle and sectionTitle when compared then page title outranks section title', () => {
+    // Given / When / Then — hierarchy for manager chrome.
+    expect(TYPE_SCALE.pageTitle.fontSize).toBeGreaterThan(
+      TYPE_SCALE.sectionTitle.fontSize
+    );
+    expect(Number(TYPE_SCALE.pageTitle.fontWeight)).toBeGreaterThan(
+      Number(TYPE_SCALE.sectionTitle.fontWeight)
+    );
+  });
+
   it('given productSansFamily when called then returns configured Fonts.sans', () => {
     expect(productSansFamily()).toBe(Fonts.sans);
   });

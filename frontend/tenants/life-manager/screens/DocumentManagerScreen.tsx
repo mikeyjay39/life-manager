@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentList from '@/tenants/life-manager/components/document-list';
 import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect-panel';
@@ -14,6 +12,7 @@ import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect
  * ```
  * User -> DocumentManagerScreen : open Documents menu
  * DocumentManagerScreen -> ManagerScrollView : quiet chrome (no parallax)
+ * DocumentManagerScreen -> ManagerSection : Documents
  * DocumentManagerScreen -> ProtonConnectPanel : render
  * DocumentManagerScreen -> DocumentCreateForm : render; onDocumentCreated
  * DocumentCreateForm -> API : POST /documents (same as old Home)
@@ -27,23 +26,13 @@ export default function DocumentManagerScreen() {
 
   return (
     <ManagerScrollView title="Document Manager">
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="Documents section">
-        <ThemedText type="subtitle">Documents</ThemedText>
+      <ManagerSection title="Documents" accessibilityLabel="Documents section">
         <ProtonConnectPanel />
         <DocumentCreateForm
           onDocumentCreated={() => setDocumentsRefreshKey((key) => key + 1)}
         />
         <DocumentList refreshKey={documentsRefreshKey} />
-      </ThemedView>
+      </ManagerSection>
     </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-});
