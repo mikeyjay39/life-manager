@@ -188,13 +188,12 @@ export default function CarChartsPanel({
 
   if (!selectedCar) {
     return (
-      <View accessibilityLabel="Charts need Car">
-        <ManagerSelectionContext
-          entityNoun="Car"
-          selectedLabel={null}
-          emptyHint="Choose a Car above to view charts."
-        />
-      </View>
+      <ManagerSelectionContext
+        entityNoun="Car"
+        selectedLabel={null}
+        emptyHint="Choose a Car above to view charts."
+        accessibilityLabel="Charts need Car"
+      />
     );
   }
 

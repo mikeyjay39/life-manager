@@ -216,13 +216,12 @@ export default function HealthChartsPanel({
 
   if (!healthMember) {
     return (
-      <View accessibilityLabel="Charts need HealthMember">
-        <ManagerSelectionContext
-          entityNoun="HealthMember"
-          selectedLabel={null}
-          emptyHint="Choose a HealthMember above to view charts."
-        />
-      </View>
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={null}
+        emptyHint="Choose a HealthMember above to view charts."
+        accessibilityLabel="Charts need HealthMember"
+      />
     );
   }
 

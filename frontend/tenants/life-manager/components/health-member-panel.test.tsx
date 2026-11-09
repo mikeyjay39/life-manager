@@ -278,7 +278,11 @@ describe('HealthMemberPanel', () => {
       expect(screen.queryByLabelText('Select HealthMember M')).toBeNull();
     });
     // And if M was selected, selection is cleared
-    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Create a HealthMember to manage vitals and visits.'
+      )
+    ).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/health-members/m-dep/deactivate',
       expect.objectContaining({ method: 'POST' })

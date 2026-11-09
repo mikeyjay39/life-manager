@@ -19,6 +19,8 @@ export type ManagerSelectionContextProps = {
   emptyHint?: string;
   /** Mark selected entity as inactive in copy. */
   inactive?: boolean;
+  /** Override computed accessibility label when needed. */
+  accessibilityLabel?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -40,6 +42,7 @@ export function ManagerSelectionContext({
   selectedLabel,
   emptyHint,
   inactive = false,
+  accessibilityLabel: accessibilityLabelProp,
   testID,
   style,
 }: ManagerSelectionContextProps) {
@@ -80,11 +83,13 @@ export function ManagerSelectionContext({
     [hasSelection, palette]
   );
 
-  const accessibilityLabel = hasSelection
+  const defaultAccessibilityLabel = hasSelection
     ? inactive
       ? `Selected ${entityNoun} ${selectedLabel} (inactive)`
       : `Selected ${entityNoun} ${selectedLabel}`
-    : `No ${entityNoun} selected`;
+    : emptyHint
+      ? `No ${entityNoun} selected. ${emptyHint}`
+      : `No ${entityNoun} selected`;
 
   const primaryText = hasSelection
     ? inactive
@@ -96,7 +101,7 @@ export function ManagerSelectionContext({
     <View
       style={[styles.root, hasSelection ? styles.selected : styles.empty, style]}
       accessibilityRole="text"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={accessibilityLabelProp ?? defaultAccessibilityLabel}
       testID={testID ?? 'manager-selection-context'}
     >
       <ThemedText type="body" style={styles.label}>

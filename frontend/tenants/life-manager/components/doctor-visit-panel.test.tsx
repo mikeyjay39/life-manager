@@ -92,14 +92,18 @@ describe('DoctorVisitPanel', () => {
   it('given no member when render then prompts to select', async () => {
     // Given no selected HealthMember
     renderPanel(null);
-    // Then the panel asks the user to select or create
-    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    // Then the panel asks the user to select a member
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Choose a HealthMember above to log doctor visits.'
+      )
+    ).toBeTruthy();
     expect(
       screen.getByText('Choose a HealthMember above to log doctor visits.')
     ).toBeTruthy();
     expect(
-      screen.getByText(/Select or create a HealthMember to log doctor visits/i)
-    ).toBeTruthy();
+      screen.queryByText(/Select or create a HealthMember to log doctor visits/i)
+    ).toBeNull();
     await waitFor(() => {
       expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
     });

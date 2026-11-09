@@ -30,7 +30,11 @@ describe('ManagerSelectionContext', () => {
       emptyHint: 'Choose a HealthMember above to enter vitals.',
     });
     // Then
-    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Choose a HealthMember above to enter vitals.'
+      )
+    ).toBeTruthy();
     expect(
       screen.getByText('Choose a HealthMember above to enter vitals.')
     ).toBeTruthy();

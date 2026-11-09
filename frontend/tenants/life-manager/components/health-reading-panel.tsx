@@ -528,7 +528,7 @@ export default function HealthReadingPanel({
     !selectedMember?.active || !unitPreferenceReady || submitting || deleting;
 
   const emptyMessage = !selectedMember
-    ? 'Select or create a HealthMember to enter vitals.'
+    ? ''
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add readings.'
       : listError

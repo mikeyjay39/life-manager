@@ -380,7 +380,11 @@ describe('CarPanel', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Select Car 2020 Honda Civic')).toBeNull();
     });
-    expect(screen.getByLabelText('No Car selected')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No Car selected. No cars yet. Add a car to manage maintenance later.'
+      )
+    ).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/cars/c-dep/deactivate',
       expect.objectContaining({ method: 'POST' })

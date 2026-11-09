@@ -575,7 +575,7 @@ export default function CarMaintenancePanel({
   const addDisabled = !selectedCar?.active || submitting || deleting;
 
   const emptyMessage = !selectedCar
-    ? 'Select or create a Car to log maintenance events.'
+    ? ''
     : !selectedCar.active
       ? 'Selected Car is inactive. You can edit or delete past events. Choose an active Car to add new ones.'
       : listError

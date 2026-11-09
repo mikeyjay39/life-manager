@@ -120,14 +120,18 @@ describe('CarMaintenancePanel', () => {
   it('given no Car when render then prompts to select and disables add', async () => {
     // Given no selected Car
     renderPanel(null);
-    // Then the empty state asks the user to select or create
-    expect(screen.getByLabelText('No Car selected')).toBeTruthy();
+    // Then the empty state asks the user to select a car
+    expect(
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to log maintenance events.'
+      )
+    ).toBeTruthy();
     expect(
       screen.getByText('Choose a Car above to log maintenance events.')
     ).toBeTruthy();
     expect(
-      screen.getByText('Select or create a Car to log maintenance events.')
-    ).toBeTruthy();
+      screen.queryByText('Select or create a Car to log maintenance events.')
+    ).toBeNull();
     expect(screen.getByLabelText('Add maintenance event')).toBeDisabled();
     expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
     await waitFor(() => {

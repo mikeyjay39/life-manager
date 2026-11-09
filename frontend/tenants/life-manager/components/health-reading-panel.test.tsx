@@ -174,13 +174,17 @@ describe('HealthReadingPanel', () => {
 
   it('given no member when rendering then prompts to select and skips list fetch', async () => {
     renderPanel(null);
-    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Choose a HealthMember above to enter vitals.'
+      )
+    ).toBeTruthy();
     expect(
       screen.getByText('Choose a HealthMember above to enter vitals.')
     ).toBeTruthy();
     expect(
-      screen.getByText('Select or create a HealthMember to enter vitals.')
-    ).toBeTruthy();
+      screen.queryByText('Select or create a HealthMember to enter vitals.')
+    ).toBeNull();
     expect(screen.getByLabelText('Add reading').props.accessibilityState).toMatchObject({
       disabled: true,
     });
@@ -416,7 +420,7 @@ describe('HealthReadingPanel', () => {
     const { rerender } = renderPanel(null);
 
     expect(
-      screen.getByText('Select or create a HealthMember to enter vitals.')
+      screen.getByText('Choose a HealthMember above to enter vitals.')
     ).toBeTruthy();
     expect(screen.queryByLabelText('Health reading form')).toBeNull();
 

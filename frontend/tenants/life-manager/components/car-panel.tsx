@@ -491,6 +491,27 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         pickerChipInactive: pickerChipStyles.chipInactive,
         pickerChipText: pickerChipStyles.chipText,
         pickerChipTextSelected: pickerChipStyles.chipTextSelected,
+        // Form field chips stay quieter than entity selection chips.
+        formFieldChip: {
+          borderWidth: 1,
+          borderColor: palette.border,
+          borderRadius: 8,
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          backgroundColor: palette.background,
+        },
+        formFieldChipSelected: {
+          borderColor: palette.tint,
+          backgroundColor: palette.surface,
+        },
+        formFieldChipText: {
+          color: palette.text,
+          fontSize: 15,
+        },
+        formFieldChipTextSelected: {
+          color: palette.tint,
+          fontWeight: '600',
+        },
         detailCard: {
           ...selectionSurfaceStyles.selectedSurface,
         },
@@ -1123,10 +1144,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
@@ -1141,10 +1162,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}

@@ -425,7 +425,7 @@ export default function DoctorVisitPanel({
     !selectedMember?.active || submitting || deleting;
 
   const emptyMessage = !selectedMember
-    ? 'Select or create a HealthMember to log doctor visits.'
+    ? ''
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add or edit visits.'
       : listError
