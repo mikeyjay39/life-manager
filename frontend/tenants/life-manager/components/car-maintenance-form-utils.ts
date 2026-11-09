@@ -3,6 +3,7 @@ import type {
   CreateCarMaintenanceEventCommand,
   UpdateCarMaintenanceEventCommand,
 } from '@/lib/api/types';
+import { formatUsdFromCents } from '@/lib/format/display';
 
 export const TITLE_MAX_LEN = 100;
 export const NOTES_MAX_LEN = 2000;
@@ -57,7 +58,7 @@ export function emptyCarMaintenanceForm(
   };
 }
 
-/** Format API cents for the cost field (blank when unset). */
+/** Format API cents for the cost field (blank when unset). Fixed decimals for edit. */
 export function formatCostCentsAsDollars(costCents: number | null): string {
   if (costCents == null) {
     return '';
@@ -65,12 +66,9 @@ export function formatCostCentsAsDollars(costCents: number | null): string {
   return (costCents / 100).toFixed(2);
 }
 
-/** Display cost in history when set. */
+/** Display cost in history when set (locale USD from cents). */
 export function formatCostCentsForDisplay(costCents: number | null): string | null {
-  if (costCents == null) {
-    return null;
-  }
-  return `$${(costCents / 100).toFixed(2)}`;
+  return formatUsdFromCents(costCents);
 }
 
 /**

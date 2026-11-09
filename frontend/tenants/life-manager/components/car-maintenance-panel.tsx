@@ -32,6 +32,11 @@ import type {
   CarMaintenanceEventDto,
   DocumentDto,
 } from '@/lib/api/types';
+import {
+  DISPLAY_EMPTY,
+  formatDisplayDate,
+  formatDisplayInteger,
+} from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import { parseOwnedDocumentDto } from './car-panel';
@@ -847,21 +852,23 @@ export default function CarMaintenancePanel({
             const title = event.title?.trim()
               ? event.title
               : MANAGER_DATA_EMPTY_CELL;
+            const odometerMiles = formatDisplayInteger(event.odometer_miles);
             const odometer =
-              event.odometer_miles != null
-                ? `${event.odometer_miles} mi`
+              odometerMiles != null
+                ? `${odometerMiles} mi`
                 : MANAGER_DATA_EMPTY_CELL;
-            const cost = costLabel ?? MANAGER_DATA_EMPTY_CELL;
+            const cost = costLabel ?? DISPLAY_EMPTY;
             const notes = event.notes?.trim()
               ? event.notes
               : MANAGER_DATA_EMPTY_CELL;
             const receipt = receiptTitle ?? MANAGER_DATA_EMPTY_CELL;
+            const occurredLabel = formatDisplayDate(event.occurred_on);
             return (
               <ManagerDataListRow
                 key={event.id}
                 testID={`car-maintenance-row-${event.id}`}
                 accessibilityLabel={`Maintenance event ${typeLabel} on ${event.occurred_on}`}
-                leading={event.occurred_on}
+                leading={occurredLabel}
                 cells={[
                   {
                     key: 'type',
@@ -880,8 +887,8 @@ export default function CarMaintenancePanel({
                     key: 'odometer',
                     content: odometer,
                     accessibilityLabel:
-                      event.odometer_miles != null
-                        ? `Odometer: ${event.odometer_miles} mi`
+                      odometerMiles != null
+                        ? `Odometer: ${odometerMiles} mi`
                         : 'Odometer: none',
                   },
                   {

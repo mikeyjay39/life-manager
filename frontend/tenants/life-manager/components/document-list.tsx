@@ -29,6 +29,7 @@ import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import type { ProtonPreviewResult } from '@/lib/proton-drive/types';
 import DocumentGrid, { DOCUMENT_GRID_WIDTH } from './document-grid';
 import DocumentProtonPreview from './document-proton-preview';
+import { formatDisplayDate as formatLocaleDisplayDate } from '@/lib/format/display';
 import {
   formatIsoDateForInput,
   parseOptionalDateInput,
@@ -63,10 +64,7 @@ export function parseDocumentDto(item: unknown): DocumentDto {
 }
 
 function formatDisplayDate(iso: string | null | undefined): string {
-  if (!iso) {
-    return '—';
-  }
-  return formatIsoDateForInput(iso);
+  return formatLocaleDisplayDate(iso);
 }
 
 async function assetToFile(asset: DocumentPickerAsset): Promise<File> {

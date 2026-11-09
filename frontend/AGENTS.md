@@ -20,6 +20,7 @@ Update this file and the hub when frontend conventions change.
 | `lib/api/generated/` | ts-rs output from Rust — **do not hand-edit** (see `generated/README.md`) |
 | `lib/health/` | Shared Health helpers: `units.ts` (metric/imperial preference + **client-side** conversion; API stays metric-only), `chart-series.ts` (readings → chart points) |
 | `lib/car/` | Shared Car helpers: `chart-series.ts` (maintenance events → odometer / cost / event_type chart series; miles only; USD from `cost_cents`) |
+| `lib/format/` | Shared locale display helpers: `display.ts` (dates, USD from `cost_cents`, integers). Locale follows device/browser; wire format stays `YYYY-MM-DD` / cents. |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
 | `constants/` | `theme.ts` — `defaultColors` / product `Fonts` (web sans stack); `config.ts` — `API_BASE_URL` |
 
@@ -135,6 +136,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (`ManagerFormVsResults`; create / edit / delete + ConfirmDialog; selected active HealthMember) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API |
+| Locale date/number display | `lib/format/display.ts` (`formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`); used in dense manager lists and read-only detail views (#202). Prefer these over ad-hoc `toLocaleDateString` / `$` string builds. |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
 | Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |
