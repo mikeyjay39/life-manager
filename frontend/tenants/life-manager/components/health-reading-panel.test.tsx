@@ -184,6 +184,19 @@ describe('HealthReadingPanel', () => {
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
   });
 
+  it('given empty list GET failure when loading then shows list error not empty success', async () => {
+    mockAuthenticatedFetch.mockResolvedValue(
+      new Response('upstream down', { status: 500 })
+    );
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Request failed \(500\)/)).toBeTruthy();
+    });
+    expect(screen.queryByText('No readings yet.')).toBeNull();
+  });
+
   it('given readings when rendering then form stays collapsed until Add reading', async () => {
     const existing = reading({
       id: 'r-list',

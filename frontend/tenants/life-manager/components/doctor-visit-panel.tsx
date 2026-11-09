@@ -516,12 +516,7 @@ export default function DoctorVisitPanel({
       {listLoading ? (
         <ActivityIndicator accessibilityLabel="Loading doctor visits" />
       ) : null}
-      {listError ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {listError}
-        </Text>
-      ) : null}
-      {!listLoading && !listError
+      {!listLoading
         ? visits.map((visit) => (
             <View
               key={visit.id}
@@ -563,22 +558,33 @@ export default function DoctorVisitPanel({
 
   return (
     <View style={styles.container} accessibilityLabel="Doctor visits panel">
-      {selectedMember && listLoading && visits.length === 0 ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+      {listError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {listError}
+        </Text>
       ) : null}
 
-      <ManagerFormVsResults
-        itemCount={visits.length}
-        addLabel="Add visit"
-        emptyMessage={emptyMessage}
-        addDisabled={addDisabled}
-        addAccessibilityLabel="Add visit"
-        mode={formMode}
-        onModeChange={handleFormModeChange}
-        form={visitForm}
-        results={visitResults}
-        testID="doctor-visits-form-vs-results"
-      />
+      {selectedMember && listLoading && visits.length === 0 ? (
+        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+      ) : (
+        <ManagerFormVsResults
+          itemCount={visits.length}
+          addLabel="Add visit"
+          emptyMessage={emptyMessage}
+          addDisabled={addDisabled}
+          addAccessibilityLabel="Add visit"
+          mode={formMode}
+          onModeChange={handleFormModeChange}
+          onCancel={() => {
+            if (submitting || deleting) {
+              return false;
+            }
+          }}
+          form={visitForm}
+          results={visitResults}
+          testID="doctor-visits-form-vs-results"
+        />
+      )}
 
       <ConfirmDialog
         visible={deleteTarget != null}

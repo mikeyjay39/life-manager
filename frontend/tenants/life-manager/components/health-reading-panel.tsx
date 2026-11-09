@@ -717,12 +717,7 @@ export default function HealthReadingPanel({
           accessibilityLabel="Loading readings"
         />
       ) : null}
-      {listError ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {listError}
-        </Text>
-      ) : null}
-      {!listLoading && !listError
+      {!listLoading
         ? readings.map((reading) => {
             const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
             const height = formatHeightDisplay(reading.height_cm, unitSystem);
@@ -805,25 +800,36 @@ export default function HealthReadingPanel({
         />
       </View>
 
+      {listError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {listError}
+        </Text>
+      ) : null}
+
       {selectedMember && listLoading && readings.length === 0 ? (
         <ActivityIndicator
           color={palette.tint}
           accessibilityLabel="Loading readings"
         />
-      ) : null}
-
-      <ManagerFormVsResults
-        itemCount={readings.length}
-        addLabel="Add reading"
-        emptyMessage={emptyMessage}
-        addDisabled={addDisabled}
-        addAccessibilityLabel="Add reading"
-        mode={formMode}
-        onModeChange={handleFormModeChange}
-        form={readingForm}
-        results={historyResults}
-        testID="health-readings-form-vs-results"
-      />
+      ) : (
+        <ManagerFormVsResults
+          itemCount={readings.length}
+          addLabel="Add reading"
+          emptyMessage={emptyMessage}
+          addDisabled={addDisabled}
+          addAccessibilityLabel="Add reading"
+          mode={formMode}
+          onModeChange={handleFormModeChange}
+          onCancel={() => {
+            if (submitting || deleting) {
+              return false;
+            }
+          }}
+          form={readingForm}
+          results={historyResults}
+          testID="health-readings-form-vs-results"
+        />
+      )}
 
       <ConfirmDialog
         visible={deleteTarget != null}
