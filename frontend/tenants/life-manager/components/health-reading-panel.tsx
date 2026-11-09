@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import {
+  MANAGER_DATA_EMPTY_CELL,
   ManagerDataList,
   ManagerDataListRow,
 } from '@/components/ui/manager-data-list';
@@ -697,7 +698,14 @@ export default function HealthReadingPanel({
         />
       ) : null}
       {!listLoading ? (
-        <ManagerDataList testID="health-reading-data-list">
+        <ManagerDataList
+          testID="health-reading-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'vitals', label: 'Vitals', primary: true },
+            { key: 'notes', label: 'Notes' },
+          ]}
+        >
           {readings.map((reading) => {
             const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
             const height = formatHeightDisplay(reading.height_cm, unitSystem);
@@ -714,34 +722,33 @@ export default function HealthReadingPanel({
                 ? `BMI ${reading.bmi}`
                 : null;
             const lines = [height, weight, bp, hr, bmi].filter(Boolean) as string[];
-            const cells = [
-              ...(lines.length > 0
-                ? [
-                    {
-                      key: 'vitals',
-                      content: lines.join(' · '),
-                      primary: true as const,
-                      accessibilityLabel: lines.join(' · '),
-                    },
-                  ]
-                : []),
-              ...(reading.notes
-                ? [
-                    {
-                      key: 'notes',
-                      content: reading.notes,
-                      accessibilityLabel: reading.notes,
-                    },
-                  ]
-                : []),
-            ];
+            const vitals = lines.length > 0 ? lines.join(' · ') : MANAGER_DATA_EMPTY_CELL;
+            const notes = reading.notes?.trim()
+              ? reading.notes
+              : MANAGER_DATA_EMPTY_CELL;
             return (
               <ManagerDataListRow
                 key={reading.id}
                 testID={`health-reading-row-${reading.id}`}
                 accessibilityLabel={`Reading on ${reading.recorded_on}`}
                 leading={reading.recorded_on}
-                cells={cells}
+                cells={[
+                  {
+                    key: 'vitals',
+                    content: vitals,
+                    primary: true,
+                    accessibilityLabel:
+                      lines.length > 0 ? vitals : 'Vitals: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel:
+                      reading.notes?.trim()
+                        ? reading.notes
+                        : 'Notes: none',
+                  },
+                ]}
                 actions={
                   <>
                     <Button

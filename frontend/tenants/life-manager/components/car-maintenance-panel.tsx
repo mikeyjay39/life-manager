@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import {
+  MANAGER_DATA_EMPTY_CELL,
   ManagerDataList,
   ManagerDataListRow,
 } from '@/components/ui/manager-data-list';
@@ -799,6 +800,15 @@ export default function CarMaintenancePanel({
         <ManagerDataList
           accessibilityLabel="Maintenance event list"
           testID="car-maintenance-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'type', label: 'Type', primary: true },
+            { key: 'title', label: 'Title' },
+            { key: 'odometer', label: 'Odometer' },
+            { key: 'cost', label: 'Cost' },
+            { key: 'notes', label: 'Notes' },
+            { key: 'receipt', label: 'Receipt' },
+          ]}
         >
           {events.map((event) => {
             const costLabel = formatCostCentsForDisplay(event.cost_cents);
@@ -806,66 +816,68 @@ export default function CarMaintenancePanel({
             const receiptTitle = event.document_id
               ? (documentTitleById.get(event.document_id) ?? event.document_id)
               : null;
-            const cells = [
-              {
-                key: 'type',
-                content: typeLabel,
-                primary: true as const,
-                accessibilityLabel: typeLabel,
-              },
-              ...(event.title
-                ? [
-                    {
-                      key: 'title',
-                      content: event.title,
-                      accessibilityLabel: `Title: ${event.title}`,
-                    },
-                  ]
-                : []),
-              ...(event.odometer_miles != null
-                ? [
-                    {
-                      key: 'odometer',
-                      content: `${event.odometer_miles} mi`,
-                      accessibilityLabel: `Odometer: ${event.odometer_miles} mi`,
-                    },
-                  ]
-                : []),
-              ...(costLabel
-                ? [
-                    {
-                      key: 'cost',
-                      content: costLabel,
-                      accessibilityLabel: `Cost ${costLabel}`,
-                    },
-                  ]
-                : []),
-              ...(event.notes
-                ? [
-                    {
-                      key: 'notes',
-                      content: event.notes,
-                      accessibilityLabel: `Notes: ${event.notes}`,
-                    },
-                  ]
-                : []),
-              ...(receiptTitle
-                ? [
-                    {
-                      key: 'receipt',
-                      content: receiptTitle,
-                      accessibilityLabel: `Receipt: ${receiptTitle}`,
-                    },
-                  ]
-                : []),
-            ];
+            const title = event.title?.trim()
+              ? event.title
+              : MANAGER_DATA_EMPTY_CELL;
+            const odometer =
+              event.odometer_miles != null
+                ? `${event.odometer_miles} mi`
+                : MANAGER_DATA_EMPTY_CELL;
+            const cost = costLabel ?? MANAGER_DATA_EMPTY_CELL;
+            const notes = event.notes?.trim()
+              ? event.notes
+              : MANAGER_DATA_EMPTY_CELL;
+            const receipt = receiptTitle ?? MANAGER_DATA_EMPTY_CELL;
             return (
               <ManagerDataListRow
                 key={event.id}
                 testID={`car-maintenance-row-${event.id}`}
                 accessibilityLabel={`Maintenance event ${typeLabel} on ${event.occurred_on}`}
                 leading={event.occurred_on}
-                cells={cells}
+                cells={[
+                  {
+                    key: 'type',
+                    content: typeLabel,
+                    primary: true,
+                    accessibilityLabel: typeLabel,
+                  },
+                  {
+                    key: 'title',
+                    content: title,
+                    accessibilityLabel: event.title?.trim()
+                      ? `Title: ${event.title}`
+                      : 'Title: none',
+                  },
+                  {
+                    key: 'odometer',
+                    content: odometer,
+                    accessibilityLabel:
+                      event.odometer_miles != null
+                        ? `Odometer: ${event.odometer_miles} mi`
+                        : 'Odometer: none',
+                  },
+                  {
+                    key: 'cost',
+                    content: cost,
+                    accessibilityLabel: costLabel
+                      ? `Cost ${costLabel}`
+                      : 'Cost: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel: event.notes?.trim()
+                      ? `Notes: ${event.notes}`
+                      : 'Notes: none',
+                  },
+                  {
+                    key: 'receipt',
+                    content: receipt,
+                    accessibilityLabel: receiptTitle
+                      ? `Receipt: ${receiptTitle}`
+                      : 'Receipt: none',
+                  },
+                ]}
                 actions={
                   <>
                     <Button

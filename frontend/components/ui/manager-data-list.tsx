@@ -17,10 +17,13 @@ import {
 } from '@/components/ui/manager-layout';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
+/** Empty dense-cell placeholder so column slots stay stable across rows. */
+export const MANAGER_DATA_EMPTY_CELL = '—';
+
 export type ManagerDataListCell = {
-  /** Stable key for React and tests. */
+  /** Stable key for React and tests. Must match a columnHeaders key when headers exist. */
   key: string;
-  /** Cell content (string or node). */
+  /** Cell content (string or node). Use MANAGER_DATA_EMPTY_CELL when absent. */
   content: React.ReactNode;
   /**
    * When true, use body text. When false/omitted, use muted meta typography.
@@ -33,10 +36,17 @@ export type ManagerDataListCell = {
   flex?: number;
 };
 
+export type ManagerDataListColumnHeader = {
+  key: string;
+  label: string;
+  primary?: boolean;
+  flex?: number;
+};
+
 export type ManagerDataListRowProps = {
   /** Leading column (usually a date). Renders as body text. */
   leading: React.ReactNode;
-  /** Aligned fields after the leading column. */
+  /** Aligned fields after the leading column (fixed keys; empty → MANAGER_DATA_EMPTY_CELL). */
   cells?: ManagerDataListCell[];
   /** Trailing row actions (edit/delete). Stay reachable on all widths. */
   actions?: React.ReactNode;
@@ -50,6 +60,10 @@ export type ManagerDataListProps = {
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** Label for the leading column in the optional header row. Default "Date". */
+  leadingHeader?: string;
+  /** Fixed column headers; keeps fields aligned and named for sighted users. */
+  columnHeaders?: ManagerDataListColumnHeader[];
   /**
    * Width at or below which cells stack under the leading column.
    * Default: MANAGER_DATA_STACK_BELOW.
@@ -65,6 +79,7 @@ const ManagerDataListLayoutContext = createContext(false);
  *
  * ```
  * Panel -> ManagerDataList : history / results region
+ * ManagerDataList -> header : optional fixed column labels
  * ManagerDataList -> ManagerDataListRow : dense row per item
  * alt wide viewport
  *   Row -> leading | cells | actions : one horizontal band
@@ -80,10 +95,13 @@ export function ManagerDataList({
   accessibilityLabel,
   style,
   testID,
+  leadingHeader = 'Date',
+  columnHeaders,
   stackBelowWidth = MANAGER_DATA_STACK_BELOW,
 }: ManagerDataListProps) {
   const { width } = useWindowDimensions();
   const stacked = width <= stackBelowWidth;
+  const showHeader = columnHeaders != null && columnHeaders.length > 0;
 
   return (
     <ManagerDataListLayoutContext.Provider value={stacked}>
@@ -92,9 +110,78 @@ export function ManagerDataList({
         accessibilityLabel={accessibilityLabel}
         testID={testID}
       >
+        {showHeader ? (
+          <ManagerDataListHeaderRow
+            leadingHeader={leadingHeader}
+            columnHeaders={columnHeaders}
+            testID={testID ? `${testID}-header` : undefined}
+          />
+        ) : null}
         {children}
       </View>
     </ManagerDataListLayoutContext.Provider>
+  );
+}
+
+type ManagerDataListHeaderRowProps = {
+  leadingHeader: string;
+  columnHeaders: ManagerDataListColumnHeader[];
+  testID?: string;
+};
+
+function ManagerDataListHeaderRow({
+  leadingHeader,
+  columnHeaders,
+  testID,
+}: ManagerDataListHeaderRowProps) {
+  const palette = useColorPalette();
+  const stacked = useContext(ManagerDataListLayoutContext);
+
+  const themed = useMemo(
+    () => ({
+      borderBottomColor: palette.border,
+    }),
+    [palette.border]
+  );
+
+  return (
+    <View
+      style={[
+        styles.row,
+        stacked ? styles.rowStacked : styles.rowWide,
+        themed,
+      ]}
+      accessibilityRole="header"
+      testID={testID}
+    >
+      <View style={stacked ? styles.leadingStacked : styles.leadingWide}>
+        <ThemedText type="meta" style={{ fontWeight: '600', color: palette.text }}>
+          {leadingHeader}
+        </ThemedText>
+      </View>
+      <View style={stacked ? styles.cellsStacked : styles.cellsWide}>
+        {columnHeaders.map((header) => (
+          <View
+            key={header.key}
+            style={[
+              styles.cell,
+              stacked ? styles.cellStacked : styles.cellWide,
+              { flex: stacked ? undefined : (header.flex ?? 1) },
+            ]}
+          >
+            <ThemedText
+              type="meta"
+              style={{ fontWeight: '600', color: palette.text }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {header.label}
+            </ThemedText>
+          </View>
+        ))}
+      </View>
+      {!stacked ? <View style={styles.actionsWide} /> : null}
+    </View>
   );
 }
 
@@ -247,6 +334,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: MANAGER_DATA_CELL_GAP,
     marginLeft: 'auto',
+    minWidth: 120,
   },
   actionsStacked: {
     width: '100%',

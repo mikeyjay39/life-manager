@@ -12,6 +12,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import {
+  MANAGER_DATA_EMPTY_CELL,
   ManagerDataList,
   ManagerDataListRow,
 } from '@/components/ui/manager-data-list';
@@ -496,45 +497,58 @@ export default function DoctorVisitPanel({
         <ActivityIndicator accessibilityLabel="Loading doctor visits" />
       ) : null}
       {!listLoading ? (
-        <ManagerDataList testID="doctor-visit-data-list">
+        <ManagerDataList
+          testID="doctor-visit-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'provider', label: 'Provider', primary: true },
+            { key: 'reason', label: 'Reason' },
+            { key: 'notes', label: 'Notes' },
+          ]}
+        >
           {visits.map((visit) => {
-            const cells = [
-              ...(visit.provider_name
-                ? [
-                    {
-                      key: 'provider',
-                      content: visit.provider_name,
-                      primary: true as const,
-                      accessibilityLabel: `Provider: ${visit.provider_name}`,
-                    },
-                  ]
-                : []),
-              ...(visit.reason
-                ? [
-                    {
-                      key: 'reason',
-                      content: visit.reason,
-                      accessibilityLabel: `Reason: ${visit.reason}`,
-                    },
-                  ]
-                : []),
-              ...(visit.notes
-                ? [
-                    {
-                      key: 'notes',
-                      content: visit.notes,
-                      accessibilityLabel: `Notes: ${visit.notes}`,
-                    },
-                  ]
-                : []),
-            ];
+            const provider = visit.provider_name?.trim()
+              ? visit.provider_name
+              : MANAGER_DATA_EMPTY_CELL;
+            const reason = visit.reason?.trim()
+              ? visit.reason
+              : MANAGER_DATA_EMPTY_CELL;
+            const notes = visit.notes?.trim()
+              ? visit.notes
+              : MANAGER_DATA_EMPTY_CELL;
             return (
               <ManagerDataListRow
                 key={visit.id}
                 testID={`doctor-visit-row-${visit.id}`}
                 accessibilityLabel={`Doctor visit on ${visit.visited_on}`}
                 leading={visit.visited_on}
-                cells={cells}
+                cells={[
+                  {
+                    key: 'provider',
+                    content: provider,
+                    primary: true,
+                    accessibilityLabel:
+                      visit.provider_name?.trim()
+                        ? `Provider: ${visit.provider_name}`
+                        : 'Provider: none',
+                  },
+                  {
+                    key: 'reason',
+                    content: reason,
+                    accessibilityLabel:
+                      visit.reason?.trim()
+                        ? `Reason: ${visit.reason}`
+                        : 'Reason: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel:
+                      visit.notes?.trim()
+                        ? `Notes: ${visit.notes}`
+                        : 'Notes: none',
+                  },
+                ]}
                 actions={
                   <>
                     <Button

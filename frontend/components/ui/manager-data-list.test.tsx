@@ -21,6 +21,11 @@ function renderList(stackBelowWidth: number) {
         accessibilityLabel="Sample history"
         testID="sample-list"
         stackBelowWidth={stackBelowWidth}
+        leadingHeader="Date"
+        columnHeaders={[
+          { key: 'primary', label: 'Vitals', primary: true },
+          { key: 'notes', label: 'Notes' },
+        ]}
       >
         <ManagerDataListRow
           testID="sample-row"
@@ -35,6 +40,16 @@ function renderList(stackBelowWidth: number) {
             },
           ]}
           actions={<Text accessibilityLabel="Edit sample row">Edit</Text>}
+        />
+        <ManagerDataListRow
+          testID="sample-row-empty"
+          accessibilityLabel="Row on 2026-03-02"
+          leading="2026-03-02"
+          cells={[
+            { key: 'primary', content: '—', primary: true },
+            { key: 'notes', content: '—', accessibilityLabel: 'Notes: none' },
+          ]}
+          actions={<Text accessibilityLabel="Edit empty row">Edit</Text>}
         />
       </ManagerDataList>
     </TenantThemeTestProvider>
@@ -97,5 +112,17 @@ describe('ManagerDataList', () => {
         }),
       ])
     );
+  });
+
+  it('given fixed column headers when a row omits values then empty slots keep alignment', () => {
+    // Given / When two rows with the same column keys
+    renderList(0);
+
+    // Then headers name the columns and empty cells still occupy slots
+    expect(screen.getByTestId('sample-list-header')).toBeTruthy();
+    expect(screen.getByText('Vitals')).toBeTruthy();
+    expect(screen.getByText('Notes')).toBeTruthy();
+    expect(screen.getByTestId('sample-row-empty-cells').children).toHaveLength(2);
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
   });
 });
