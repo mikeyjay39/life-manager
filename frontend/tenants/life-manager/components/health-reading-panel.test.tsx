@@ -145,6 +145,13 @@ function renderPanel(
   );
 }
 
+async function openAddReading() {
+  fireEvent.press(screen.getByLabelText('Add reading'));
+  await waitFor(() => {
+    expect(screen.getByLabelText('Health reading form')).toBeTruthy();
+  });
+}
+
 describe('HealthReadingPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -170,7 +177,32 @@ describe('HealthReadingPanel', () => {
     expect(
       screen.getByText('Select or create a HealthMember to enter vitals.')
     ).toBeTruthy();
+    expect(screen.getByLabelText('Add reading').props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    expect(screen.queryByLabelText('Health reading form')).toBeNull();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
+  });
+
+  it('given readings when rendering then form stays collapsed until Add reading', async () => {
+    const existing = reading({
+      id: 'r-list',
+      recorded_on: '2026-03-01',
+      weight_kg: 70,
+      notes: 'listed',
+    });
+    mockAuthenticatedFetch.mockResolvedValue(jsonResponse([existing]));
+
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('listed')).toBeTruthy();
+    });
+    expect(screen.getByLabelText('Add reading')).toBeTruthy();
+    expect(screen.queryByLabelText('Health reading form')).toBeNull();
+
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
   });
 
   it('given metric mode when submitting weight then POSTs weight_kg and refreshes history', async () => {
@@ -194,7 +226,8 @@ describe('HealthReadingPanel', () => {
       );
     });
 
-    // When filling metric weight and submitting
+    // When opening create, filling metric weight, and submitting
+    await openAddReading();
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70.5');
     fireEvent.press(screen.getByLabelText('Save health reading'));
 
@@ -238,8 +271,10 @@ describe('HealthReadingPanel', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in pounds')).toBeTruthy();
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in pounds')).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Height feet'), '5');
     fireEvent.changeText(screen.getByLabelText('Height inches'), '10.9');
@@ -300,8 +335,10 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Height in centimetres'), '180');
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
@@ -323,8 +360,9 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
 
     rerender(
@@ -339,8 +377,10 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
+      expect(screen.queryByLabelText('Health reading form')).toBeNull();
     });
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
   });
 
   it('given no member then first select keeps empty form ready without wipe race', async () => {
@@ -350,9 +390,7 @@ describe('HealthReadingPanel', () => {
     expect(
       screen.getByText('Select or create a HealthMember to enter vitals.')
     ).toBeTruthy();
-    expect(screen.getByLabelText('Weight in kilograms').props.editable).toBe(
-      false
-    );
+    expect(screen.queryByLabelText('Health reading form')).toBeNull();
 
     rerender(
       <TenantThemeTestProvider theme={defaultResolvedTheme}>
@@ -366,10 +404,12 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms').props.editable).toBe(
-        true
-      );
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in kilograms').props.editable).toBe(
+      true
+    );
   });
 
   it('given member A then null then B clears vitals from A', async () => {
@@ -379,8 +419,9 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
 
     rerender(
@@ -406,8 +447,10 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
+    expect(screen.getByLabelText('Weight in kilograms').props.value).toBe('');
   });
 
   it('given filled metric fields when unitSystem prop flips then converts form values', async () => {
@@ -417,8 +460,9 @@ describe('HealthReadingPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Weight in kilograms')).toBeTruthy();
+      expect(mockAuthenticatedFetch).toHaveBeenCalled();
     });
+    await openAddReading();
     fireEvent.changeText(screen.getByLabelText('Height in centimetres'), '180');
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
 
@@ -452,6 +496,7 @@ describe('HealthReadingPanel', () => {
     });
     mockAuthenticatedFetch.mockClear();
 
+    await openAddReading();
     fireEvent.press(screen.getByLabelText('Save health reading'));
 
     await waitFor(() => {
@@ -483,6 +528,7 @@ describe('HealthReadingPanel', () => {
       expect(screen.getByText('existing')).toBeTruthy();
     });
 
+    await openAddReading();
     fireEvent.changeText(screen.getByLabelText('Weight in kilograms'), '70');
     fireEvent.press(screen.getByLabelText('Save health reading'));
 

@@ -11,6 +11,11 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import { ManagerCta } from '@/components/ui/manager-cta';
+import {
+  ManagerFormVsResults,
+  type ManagerFormMode,
+} from '@/components/ui/manager-form-vs-results';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -46,14 +51,17 @@ function todayYmd(): string {
  * Log doctor visits and manage the list for the selected HealthMember.
  *
  * ```
- * User -> Panel : select member (parent) / fill form / submit | edit | delete
+ * User -> Panel : select member (parent) / Add visit | Edit | Delete
+ * Panel -> ManagerFormVsResults : collapsed until Add or Edit
  * Panel -> API : GET /doctor-visits?health_member_id=…
  * alt create
  *   Panel -> API : POST /doctor-visits
  *   Panel -> API : GET /doctor-visits (refresh)
+ *   Panel -> ManagerFormVsResults : collapse
  * else edit
  *   Panel -> API : PUT /doctor-visits/{id}
  *   Panel -> API : GET /doctor-visits (refresh)
+ *   Panel -> ManagerFormVsResults : collapse
  * else delete
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm
@@ -79,6 +87,7 @@ export default function DoctorVisitPanel({
   const [listError, setListError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<ManagerFormMode>('collapsed');
   const [deleteTarget, setDeleteTarget] = useState<DoctorVisitDto | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -164,6 +173,7 @@ export default function DoctorVisitPanel({
       setForm(emptyDoctorVisitForm(todayYmd()));
       setFormError(null);
       setEditingId(null);
+      setFormMode('collapsed');
       setDeleteTarget(null);
     }
     prevMemberIdRef.current = nextId;
@@ -235,18 +245,34 @@ export default function DoctorVisitPanel({
   const formLocked =
     !token || !selectedMember?.active || submitting || deleting;
   const canSubmit = Boolean(token) && Boolean(selectedMember?.active) && !submitting;
+  const isEditing = editingId != null;
 
-  const cancelEdit = () => {
+  const collapseForm = useCallback(() => {
     setEditingId(null);
     setForm(emptyDoctorVisitForm(todayYmd()));
     setFormError(null);
-  };
+    setFormMode('collapsed');
+  }, []);
+
+  const handleFormModeChange = useCallback((next: ManagerFormMode) => {
+    if (next === 'create') {
+      setEditingId(null);
+      setForm(emptyDoctorVisitForm(todayYmd()));
+      setFormError(null);
+    } else if (next === 'collapsed') {
+      setEditingId(null);
+      setForm(emptyDoctorVisitForm(todayYmd()));
+      setFormError(null);
+    }
+    setFormMode(next);
+  }, []);
 
   const startEdit = (visit: DoctorVisitDto) => {
     setDeleteTarget(null);
     setEditingId(visit.id);
     setForm(formFromDoctorVisitDto(visit));
     setFormError(null);
+    setFormMode('edit');
   };
 
   const handleSubmit = async () => {
@@ -290,7 +316,7 @@ export default function DoctorVisitPanel({
           );
         }
         if (selectedMemberIdRef.current === memberIdAtSubmit) {
-          cancelEdit();
+          collapseForm();
           await loadVisits();
         }
       } catch (err: unknown) {
@@ -328,6 +354,8 @@ export default function DoctorVisitPanel({
       }
       if (selectedMemberIdRef.current === memberIdAtSubmit) {
         setForm(emptyDoctorVisitForm(form.visitedOn || todayYmd()));
+        setFormMode('collapsed');
+        setEditingId(null);
         await loadVisits();
       }
     } catch (err: unknown) {
@@ -364,7 +392,7 @@ export default function DoctorVisitPanel({
       if (selectedMemberIdRef.current === memberIdAtDelete) {
         setDeleteTarget(null);
         if (editingId === target.id) {
-          cancelEdit();
+          collapseForm();
         }
         await loadVisits();
       } else {
@@ -392,24 +420,24 @@ export default function DoctorVisitPanel({
     );
   }
 
-  return (
-    <View style={styles.container} accessibilityLabel="Doctor visits panel">
-      {!selectedMember ? (
-        <ThemedText style={styles.hint}>
-          Select or create a HealthMember to log doctor visits.
-        </ThemedText>
-      ) : !selectedMember.active ? (
-        <ThemedText style={styles.hint}>
-          Selected HealthMember is inactive. Choose an active member to add or
-          edit visits.
-        </ThemedText>
-      ) : (
-        <ThemedText style={styles.hint}>
-          {editingId
-            ? `Editing visit for ${selectedMember.display_name}.`
-            : `Logging visits for ${selectedMember.display_name}.`}
-        </ThemedText>
-      )}
+  const addDisabled =
+    !selectedMember?.active || submitting || deleting;
+
+  const emptyMessage = !selectedMember
+    ? 'Select or create a HealthMember to log doctor visits.'
+    : !selectedMember.active
+      ? 'Selected HealthMember is inactive. Choose an active member to add or edit visits.'
+      : 'No visits yet.';
+
+  const formHint = selectedMember?.active
+    ? isEditing
+      ? `Editing visit for ${selectedMember.display_name}.`
+      : `Logging visits for ${selectedMember.display_name}.`
+    : null;
+
+  const visitForm = (
+    <View style={styles.container} accessibilityLabel="Doctor visit form">
+      {formHint ? <ThemedText style={styles.hint}>{formHint}</ThemedText> : null}
 
       <View style={styles.fieldBlock}>
         <FieldLabel label="Visit date" required />
@@ -469,74 +497,88 @@ export default function DoctorVisitPanel({
       ) : null}
 
       <View style={styles.formActions}>
-        <Button
+        <ManagerCta
           variant="primary"
-          label={editingId ? 'Save visit' : 'Add visit'}
-          accessibilityLabel={editingId ? 'Save visit' : 'Add visit'}
+          label="Save visit"
+          accessibilityLabel="Save visit"
           disabled={!canSubmit}
           onPress={() => {
             void handleSubmit();
           }}
         />
-        {editingId ? (
-          <Button
-            variant="outline"
-            label="Cancel edit"
-            accessibilityLabel="Cancel edit visit"
-            disabled={submitting}
-            onPress={cancelEdit}
-          />
-        ) : null}
       </View>
+    </View>
+  );
 
-      <View style={styles.historyHeader}>
-        <ThemedText type="defaultSemiBold">Visit history</ThemedText>
-        {listLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading doctor visits" />
-        ) : null}
-        {listError ? (
-          <Text style={styles.errorText} accessibilityRole="alert">
-            {listError}
-          </Text>
-        ) : null}
-        {!listLoading && !listError && selectedMember && visits.length === 0 ? (
-          <ThemedText style={styles.historyMuted}>No visits yet.</ThemedText>
-        ) : null}
-      </View>
+  const visitResults = (
+    <View style={styles.historyHeader} accessibilityLabel="Visit history">
+      <ThemedText type="defaultSemiBold">Visit history</ThemedText>
+      {listLoading ? (
+        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+      ) : null}
+      {listError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {listError}
+        </Text>
+      ) : null}
+      {!listLoading && !listError
+        ? visits.map((visit) => (
+            <View
+              key={visit.id}
+              style={styles.historyItem}
+              accessibilityLabel={`Doctor visit on ${visit.visited_on}`}>
+              <Text style={styles.historyDate}>{visit.visited_on}</Text>
+              {visit.provider_name ? (
+                <Text style={styles.historyLine}>
+                  Provider: {visit.provider_name}
+                </Text>
+              ) : null}
+              {visit.reason ? (
+                <Text style={styles.historyLine}>Reason: {visit.reason}</Text>
+              ) : null}
+              {visit.notes ? (
+                <Text style={styles.historyLine}>Notes: {visit.notes}</Text>
+              ) : null}
+              <View style={styles.rowActions}>
+                <Button
+                  variant="outline"
+                  label="Edit"
+                  accessibilityLabel={`Edit visit on ${visit.visited_on}`}
+                  disabled={!selectedMember?.active || submitting || deleting}
+                  onPress={() => startEdit(visit)}
+                />
+                <Button
+                  variant="destructive"
+                  label="Delete"
+                  accessibilityLabel={`Delete visit on ${visit.visited_on}`}
+                  disabled={submitting || deleting}
+                  onPress={() => setDeleteTarget(visit)}
+                />
+              </View>
+            </View>
+          ))
+        : null}
+    </View>
+  );
 
-      {visits.map((visit) => (
-        <View
-          key={visit.id}
-          style={styles.historyItem}
-          accessibilityLabel={`Doctor visit on ${visit.visited_on}`}>
-          <Text style={styles.historyDate}>{visit.visited_on}</Text>
-          {visit.provider_name ? (
-            <Text style={styles.historyLine}>Provider: {visit.provider_name}</Text>
-          ) : null}
-          {visit.reason ? (
-            <Text style={styles.historyLine}>Reason: {visit.reason}</Text>
-          ) : null}
-          {visit.notes ? (
-            <Text style={styles.historyLine}>Notes: {visit.notes}</Text>
-          ) : null}
-          <View style={styles.rowActions}>
-            <Button
-              variant="outline"
-              label="Edit"
-              accessibilityLabel={`Edit visit on ${visit.visited_on}`}
-              disabled={!selectedMember?.active || submitting || deleting}
-              onPress={() => startEdit(visit)}
-            />
-            <Button
-              variant="destructive"
-              label="Delete"
-              accessibilityLabel={`Delete visit on ${visit.visited_on}`}
-              disabled={submitting || deleting}
-              onPress={() => setDeleteTarget(visit)}
-            />
-          </View>
-        </View>
-      ))}
+  return (
+    <View style={styles.container} accessibilityLabel="Doctor visits panel">
+      {selectedMember && listLoading && visits.length === 0 ? (
+        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+      ) : null}
+
+      <ManagerFormVsResults
+        itemCount={visits.length}
+        addLabel="Add visit"
+        emptyMessage={emptyMessage}
+        addDisabled={addDisabled}
+        addAccessibilityLabel="Add visit"
+        mode={formMode}
+        onModeChange={handleFormModeChange}
+        form={visitForm}
+        results={visitResults}
+        testID="doctor-visits-form-vs-results"
+      />
 
       <ConfirmDialog
         visible={deleteTarget != null}
