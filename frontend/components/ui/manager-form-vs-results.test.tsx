@@ -177,4 +177,23 @@ describe('ManagerFormVsResults', () => {
 
     expect(onModeChange).toHaveBeenCalledWith('create');
   });
+
+  it('given create-only section when results omitted then no Manager results region', () => {
+    // Given / When — itemCount > 0 with no results slot (create-only)
+    render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <ManagerFormVsResults
+          itemCount={1}
+          addLabel="Add document"
+          emptyMessage="unused"
+          form={<Text>Create form fields</Text>}
+          testID="create-only"
+        />
+      </TenantThemeTestProvider>
+    );
+
+    // Then collapsed create shows Add without an empty results landmark
+    expect(screen.getByLabelText('Add document')).toBeTruthy();
+    expect(screen.queryByLabelText('Manager results')).toBeNull();
+  });
 });
