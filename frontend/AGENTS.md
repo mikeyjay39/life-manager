@@ -10,7 +10,7 @@ Update this file and the hub when frontend conventions change.
 |------|------|
 | `app/` | Expo Router shell (`(tabs)/`, `login.tsx`, `_layout.tsx`) — routes are shared across tenants |
 | `components/` | Shared UI; co-locate `*.test.tsx` |
-| `components/ui/` | Shared primitives (`button.tsx` for CTAs with hover/press colors; `manager-scroll-view.tsx` / `manager-page-header.tsx` / `manager-page-content.tsx` / `manager-section.tsx` / `manager-cta.tsx` + `manager-layout.ts` for quiet manager chrome, page width, section chrome, and constrained CTAs; `confirm-dialog.tsx` for themed confirmations; `date-picker.tsx` / `date-picker.web.tsx` for optional YYYY-MM-DD fields; `field-label.tsx` for form field labels; `text-input.tsx` / `text-input.web.tsx` for typed Car/Health fields — editable path keeps react-native `TextInput` (real `input`/`textarea` for Vimium); locked web fields render `View`+`Text` because Vimium matches every `textarea`) |
+| `components/ui/` | Shared primitives (`button.tsx` for CTAs with hover/press colors; `manager-scroll-view.tsx` / `manager-page-header.tsx` / `manager-page-content.tsx` / `manager-section.tsx` / `manager-cta.tsx` / `manager-form-vs-results.tsx` + `manager-layout.ts` for quiet manager chrome, page width, section chrome, constrained CTAs, and form-vs-results expand/collapse; `confirm-dialog.tsx` for themed confirmations; `date-picker.tsx` / `date-picker.web.tsx` for optional YYYY-MM-DD fields; `field-label.tsx` for form field labels; `text-input.tsx` / `text-input.web.tsx` for typed Car/Health fields — editable path keeps react-native `TextInput` (real `input`/`textarea` for Vimium); locked web fields render `View`+`Text` because Vimium matches every `textarea`) |
 | `components/auth/` | Shared auth UI (`login-form.tsx`, `signup-form.tsx`) |
 | `contexts/` | `AuthContext` (tenant-scoped token + login), `ProtonConnectContext` (web Proton Drive session) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
@@ -58,6 +58,8 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 **Manager layout primitives** (do not invent per-screen width/CTA stretch): `ManagerScrollView` is the quiet manager shell (sticky `AppMenuBar`, compact `ManagerPageHeader`, no parallax image); wrap body sections inside it. `ManagerPageContent` centers the page body (`maxWidth` from `manager-layout.ts`); `ManagerSection` renders title + body chrome via `useColorPalette` (border from `palette.icon`); `ManagerCta` wraps `Button` and caps width by default (`fullWidth` opt-in). Home may keep `ParallaxScrollView` + header assets.
 
 **Typography:** use `ThemedText` with roles `pageTitle`, `sectionTitle`, `body`, `meta` (legacy aliases `title` / `subtitle` / `default` still work). Scale and product sans live in `lib/tenant/theme/typography.ts` (`Fonts.sans`). Full manager UX docs: #188.
+
+**Manager form vs results** (adopt in later manager UX stories; do not rewire Health/Cars/Documents here): `ManagerFormVsResults` keeps results as the default focus, collapses create until Add, shows empty copy with one primary Add when `itemCount` is 0, and supports `create` / `edit` reuse of the same form surface. Cancel collapses; keep `mode` on `create`/`edit` when validation fails so the form stays open.
 
 Use `components/ui/field-label.tsx` for form field labels. Set `required` to show an asterisk. The accessible name is the label text plus `, required`.
 
@@ -111,6 +113,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Manager layout primitives | `components/ui/manager-scroll-view.tsx`, `manager-page-header.tsx`, `manager-page-content.tsx`, `manager-section.tsx`, `manager-cta.tsx`, `manager-layout.ts` |
+| Manager form vs results | `components/ui/manager-form-vs-results.tsx` (+ `manager-form-vs-results.test.tsx`); compose with `ManagerSection` / `ManagerCta` |
 | Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
 | Shared manager menu | `components/app-menu-bar.tsx` + `tenants/life-manager/manager-registry.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; active state from path. |
 | Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Owns Proton connect, create, list, preview, and delete (not Home). |
