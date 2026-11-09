@@ -579,7 +579,9 @@ export default function CarMaintenancePanel({
       ? 'Selected Car is inactive. You can edit or delete past events. Choose an active Car to add new ones.'
       : listError
         ? 'Maintenance events could not be loaded.'
-        : 'No maintenance events yet.';
+        : typeFilter
+          ? 'No matching maintenance events.'
+          : 'No maintenance events yet.';
 
   const formHint = !selectedCar
     ? null
@@ -788,8 +790,8 @@ export default function CarMaintenancePanel({
     </View>
   );
 
-  const historyResults = (
-    <View style={styles.historyHeader} accessibilityLabel="Maintenance history">
+  const typeFilterBar = selectedCar ? (
+    <View style={styles.historyHeader}>
       <ThemedText type="defaultSemiBold">Maintenance history</ThemedText>
       <View style={styles.picker} accessibilityLabel="Maintenance type filter">
         <Pressable
@@ -833,13 +835,13 @@ export default function CarMaintenancePanel({
           );
         })}
       </View>
+    </View>
+  ) : null;
+
+  const historyResults = (
+    <View accessibilityLabel="Maintenance history">
       {listLoading ? (
         <ActivityIndicator accessibilityLabel="Loading maintenance events" />
-      ) : null}
-      {listError ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {listError}
-        </Text>
       ) : null}
       {events.map((event) => {
         const costLabel = formatCostCentsForDisplay(event.cost_cents);
@@ -905,6 +907,8 @@ export default function CarMaintenancePanel({
           {listError}
         </Text>
       ) : null}
+
+      {typeFilterBar}
 
       {selectedCar &&
       listLoading &&
