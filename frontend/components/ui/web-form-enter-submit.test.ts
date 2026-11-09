@@ -51,6 +51,41 @@ describe('shouldSubmitWebFormEnter', () => {
       )
     ).toBe(false);
   });
+
+  it('given Enter on button when checked then does not submit', () => {
+    expect(
+      shouldSubmitWebFormEnter(
+        {
+          key: 'Enter',
+          target: { tagName: 'DIV', getAttribute: () => null },
+        },
+        'web'
+      )
+    ).toBe(false);
+  });
+
+  it('given Enter during IME composition when checked then does not submit', () => {
+    expect(
+      shouldSubmitWebFormEnter(
+        {
+          key: 'Enter',
+          isComposing: true,
+          target: { tagName: 'INPUT', getAttribute: () => 'text' },
+        },
+        'web'
+      )
+    ).toBe(false);
+    expect(
+      shouldSubmitWebFormEnter(
+        {
+          key: 'Enter',
+          keyCode: 229,
+          target: { tagName: 'INPUT', getAttribute: () => 'text' },
+        },
+        'web'
+      )
+    ).toBe(false);
+  });
 });
 
 describe('attachWebFormEnterSubmit', () => {

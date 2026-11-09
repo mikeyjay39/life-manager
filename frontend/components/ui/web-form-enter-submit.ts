@@ -3,12 +3,18 @@ import { Platform } from 'react-native';
 
 type WebKeyEvent = {
   key?: string;
+  keyCode?: number;
+  which?: number;
+  isComposing?: boolean;
   preventDefault?: () => void;
   metaKey?: boolean;
   ctrlKey?: boolean;
   target?: EventTarget | null;
   nativeEvent?: {
     key?: string;
+    keyCode?: number;
+    which?: number;
+    isComposing?: boolean;
     preventDefault?: () => void;
     metaKey?: boolean;
     ctrlKey?: boolean;
@@ -24,25 +30,58 @@ function readTarget(event: WebKeyEvent): EventTarget | null | undefined {
   return event.target ?? event.nativeEvent?.target;
 }
 
-function isMultilineField(target: EventTarget | null | undefined): boolean {
+function isImeComposing(event: WebKeyEvent): boolean {
+  if (event.isComposing === true || event.nativeEvent?.isComposing === true) {
+    return true;
+  }
+  // keyCode 229 = IME composition (legacy browsers / RN-web).
+  const code = event.keyCode ?? event.nativeEvent?.keyCode ?? event.which ?? event.nativeEvent?.which;
+  return code === 229;
+}
+
+function fieldKind(
+  target: EventTarget | null | undefined
+): 'single' | 'multiline' | 'other' {
   if (target == null || typeof target !== 'object') {
-    return false;
+    return 'other';
   }
   const el = target as {
     tagName?: string;
+    isContentEditable?: boolean;
     getAttribute?: (name: string) => string | null;
   };
   const tag = el.tagName?.toLowerCase();
-  if (tag === 'textarea') {
-    return true;
+  if (tag === 'textarea' || el.getAttribute?.('aria-multiline') === 'true') {
+    return 'multiline';
   }
-  return el.getAttribute?.('aria-multiline') === 'true';
+  if (tag === 'input') {
+    const type = (el.getAttribute?.('type') ?? 'text').toLowerCase();
+    // Skip non-text controls (button, checkbox, file, …).
+    if (
+      type === 'button' ||
+      type === 'submit' ||
+      type === 'reset' ||
+      type === 'checkbox' ||
+      type === 'radio' ||
+      type === 'file' ||
+      type === 'image' ||
+      type === 'color' ||
+      type === 'range'
+    ) {
+      return 'other';
+    }
+    return 'single';
+  }
+  if (el.isContentEditable === true) {
+    return 'multiline';
+  }
+  return 'other';
 }
 
 /**
  * Decide whether Enter should submit a manager form on web.
- * Single-line Enter submits. Multiline Enter inserts a newline.
- * Multiline Ctrl/Cmd+Enter submits.
+ * Only text fields submit. Multiline Enter inserts a newline.
+ * Multiline Ctrl/Cmd+Enter submits. Skip IME composition and buttons.
  */
 export function shouldSubmitWebFormEnter(
   event: WebKeyEvent,
@@ -54,9 +93,16 @@ export function shouldSubmitWebFormEnter(
   if (readKey(event) !== 'Enter') {
     return false;
   }
+  if (isImeComposing(event)) {
+    return false;
+  }
+  const kind = fieldKind(readTarget(event));
+  if (kind === 'other') {
+    return false;
+  }
   const meta = event.metaKey ?? event.nativeEvent?.metaKey ?? false;
   const ctrl = event.ctrlKey ?? event.nativeEvent?.ctrlKey ?? false;
-  if (isMultilineField(readTarget(event))) {
+  if (kind === 'multiline') {
     return meta || ctrl;
   }
   return true;
