@@ -530,7 +530,9 @@ export default function HealthReadingPanel({
     ? 'Select or create a HealthMember to enter vitals.'
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add readings.'
-      : 'No readings yet.';
+      : listError
+        ? 'Readings could not be loaded.'
+        : 'No readings yet.';
 
   const formHint = !selectedMember
     ? null

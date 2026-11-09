@@ -427,7 +427,9 @@ export default function DoctorVisitPanel({
     ? 'Select or create a HealthMember to log doctor visits.'
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add or edit visits.'
-      : 'No visits yet.';
+      : listError
+        ? 'Visits could not be loaded.'
+        : 'No visits yet.';
 
   const formHint = selectedMember?.active
     ? isEditing
