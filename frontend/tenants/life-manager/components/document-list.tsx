@@ -21,6 +21,7 @@ import {
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
 import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerStickyFilterChrome } from '@/components/ui/manager-sticky-filter-chrome';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
@@ -785,6 +786,15 @@ export default function DocumentList({
     />
   ) : null;
 
+  const stickySearch = (
+    <ManagerStickyFilterChrome
+      accessibilityLabel="Document title search"
+      testID="document-title-search-chrome"
+    >
+      {searchField}
+    </ManagerStickyFilterChrome>
+  );
+
   const emptyHint = debouncedTitleContains
     ? 'No matching documents.'
     : 'No documents yet.';
@@ -803,6 +813,9 @@ export default function DocumentList({
   return (
     <View style={styles.container}>
       {selected == null ? feedbackBanner : null}
+      {toolbar}
+      {/* Sticky search sits outside horizontal table scroll so page scroll can pin it. */}
+      {stickySearch}
       {hasTable ? (
         <ScrollView
           horizontal
@@ -812,16 +825,11 @@ export default function DocumentList({
           testID="documents-table-scroll"
         >
           <View style={styles.tableBlock} testID="documents-table-block">
-            {toolbar}
-            {searchField}
             <DocumentGrid documents={documents} onRowPress={setSelected} />
           </View>
         </ScrollView>
       ) : (
         <>
-          {toolbar}
-          {searchField}
-
           {!token ? (
             <Text style={styles.hint}>Sign in to see your documents.</Text>
           ) : loading && documents.length === 0 ? (
