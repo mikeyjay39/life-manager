@@ -111,7 +111,11 @@ describe('CarChartsPanel', () => {
 
   it('prompts when no Car is selected', () => {
     renderPanel(null);
-    expect(screen.getByLabelText('Charts need Car')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to view charts.'
+      )
+    ).toBeTruthy();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
   });
 

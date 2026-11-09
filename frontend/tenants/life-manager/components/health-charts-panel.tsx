@@ -220,7 +220,6 @@ export default function HealthChartsPanel({
         entityNoun="HealthMember"
         selectedLabel={null}
         emptyHint="Choose a HealthMember above to view charts."
-        accessibilityLabel="Charts need HealthMember"
       />
     );
   }

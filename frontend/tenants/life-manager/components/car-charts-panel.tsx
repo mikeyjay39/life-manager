@@ -192,7 +192,6 @@ export default function CarChartsPanel({
         entityNoun="Car"
         selectedLabel={null}
         emptyHint="Choose a Car above to view charts."
-        accessibilityLabel="Charts need Car"
       />
     );
   }
