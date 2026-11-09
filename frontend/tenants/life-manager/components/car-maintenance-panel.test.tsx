@@ -121,6 +121,10 @@ describe('CarMaintenancePanel', () => {
     // Given no selected Car
     renderPanel(null);
     // Then the empty state asks the user to select or create
+    expect(screen.getByLabelText('No Car selected')).toBeTruthy();
+    expect(
+      screen.getByText('Choose a Car above to log maintenance events.')
+    ).toBeTruthy();
     expect(
       screen.getByText('Select or create a Car to log maintenance events.')
     ).toBeTruthy();
@@ -138,6 +142,16 @@ describe('CarMaintenancePanel', () => {
           typeof path === 'string' && path.startsWith('/car-maintenance-events')
       )
     ).toBe(false);
+  });
+
+  it('Scenario: Dependent maintenance shows selection context', async () => {
+    // Given a Car is selected
+    renderPanel(activeCar);
+    // Then maintenance shows Selected: without re-opening the picker alone
+    await waitFor(() => {
+      expect(screen.getByLabelText('Selected Car Daily')).toBeTruthy();
+    });
+    expect(screen.getByText('Selected: Daily')).toBeTruthy();
   });
 
   it('given events when rendering then form stays collapsed until Add event', async () => {

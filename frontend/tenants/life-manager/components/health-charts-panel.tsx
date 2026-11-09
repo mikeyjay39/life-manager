@@ -10,6 +10,7 @@ import {
 import { LineChart } from 'react-native-gifted-charts';
 
 import { Button } from '@/components/ui/button';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto } from '@/lib/api/types';
@@ -215,16 +216,23 @@ export default function HealthChartsPanel({
 
   if (!healthMember) {
     return (
-      <Text
-        style={{ color: palette.icon }}
-        accessibilityLabel="Charts need HealthMember">
-        Select a HealthMember to view charts.
-      </Text>
+      <View accessibilityLabel="Charts need HealthMember">
+        <ManagerSelectionContext
+          entityNoun="HealthMember"
+          selectedLabel={null}
+          emptyHint="Choose a HealthMember above to view charts."
+        />
+      </View>
     );
   }
 
   return (
     <View style={styles.root} accessibilityLabel="Health charts panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={healthMember.display_name}
+        inactive={!healthMember.active}
+      />
       <Text style={[styles.memberHint, { color: palette.icon }]}>
         Charts for {healthMember.display_name} (last 12 months)
       </Text>

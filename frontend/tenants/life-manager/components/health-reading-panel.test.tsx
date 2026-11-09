@@ -174,6 +174,10 @@ describe('HealthReadingPanel', () => {
 
   it('given no member when rendering then prompts to select and skips list fetch', async () => {
     renderPanel(null);
+    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    expect(
+      screen.getByText('Choose a HealthMember above to enter vitals.')
+    ).toBeTruthy();
     expect(
       screen.getByText('Select or create a HealthMember to enter vitals.')
     ).toBeTruthy();
@@ -182,6 +186,17 @@ describe('HealthReadingPanel', () => {
     });
     expect(screen.queryByLabelText('Health reading form')).toBeNull();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalled();
+  });
+
+  it('Scenario: Dependent section shows selection context', async () => {
+    // Given a HealthMember is selected
+    renderPanel(member({ id: 'm1', display_name: 'Alex' }));
+    // When I view Vitals
+    // Then I can see which member the vitals apply to
+    await waitFor(() => {
+      expect(screen.getByLabelText('Selected HealthMember Alex')).toBeTruthy();
+    });
+    expect(screen.getByText('Selected: Alex')).toBeTruthy();
   });
 
   it('given empty list GET failure when loading then shows list error not empty success', async () => {

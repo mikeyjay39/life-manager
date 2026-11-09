@@ -16,6 +16,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -778,6 +779,13 @@ export default function HealthReadingPanel({
 
   return (
     <View style={styles.container} accessibilityLabel="Health readings panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={selectedMember?.display_name ?? null}
+        inactive={selectedMember ? !selectedMember.active : false}
+        emptyHint="Choose a HealthMember above to enter vitals."
+      />
+
       <View style={styles.unitRow}>
         <ThemedText>Units</ThemedText>
         <Button

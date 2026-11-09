@@ -301,6 +301,44 @@ describe('CarPanel', () => {
     });
   });
 
+  it('Scenario: Selected car uses shared selected styles', async () => {
+    // Given two cars exist
+    const civic = car({
+      id: 'c1',
+      make: 'Honda',
+      model: 'Civic',
+      year: 2020,
+    });
+    const focus = car({
+      id: 'c2',
+      make: 'Ford',
+      model: 'Focus',
+      year: 2015,
+    });
+    mockInitialLoads([civic, focus]);
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Car 2020 Honda Civic')).toBeTruthy();
+    });
+
+    // When I select one
+    fireEvent.press(screen.getByLabelText('Select Car 2020 Honda Civic'));
+
+    // Then the selected car uses shared selected styles
+    const selectedChip = screen.getByLabelText('Select Car 2020 Honda Civic');
+    const unselectedChip = screen.getByLabelText('Select Car 2015 Ford Focus');
+    expect(selectedChip.props.accessibilityState).toMatchObject({ selected: true });
+    expect(unselectedChip.props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+    expect(selectedChip.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ borderLeftWidth: 4 }),
+      ])
+    );
+    expect(screen.getByText('Selected: 2020 Honda Civic')).toBeTruthy();
+  });
+
   it('Scenario: Deactivate Car — leaves default active picker', async () => {
     // Given active Car C is selected
     const c = car({
