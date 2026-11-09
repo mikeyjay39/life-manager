@@ -7,7 +7,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
-import { withAlpha } from '@/lib/tenant/theme/color-utils';
 import {
   isManagerRouteActive,
   resolveRegisteredManagerMenuItems,
@@ -66,9 +65,9 @@ export default function AppMenuBar() {
       StyleSheet.create({
         container: {
           flexDirection: 'row',
-          backgroundColor: palette.background,
+          backgroundColor: palette.surface,
           borderBottomWidth: 1,
-          borderBottomColor: withAlpha(palette.icon, 0.35),
+          borderBottomColor: palette.border,
           ...(Platform.OS === 'web'
             ? ({
                 position: 'sticky',

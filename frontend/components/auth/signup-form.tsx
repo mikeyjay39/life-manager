@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field-label';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
-const ERROR_COLOR = '#c00';
 const MIN_PASSWORD_LEN = 8;
 
 type FieldErrors = {
@@ -118,14 +117,14 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
           fieldErrors.email ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: fieldErrors.email ? ERROR_COLOR : palette.icon,
+            borderColor: fieldErrors.email ? palette.danger : palette.border,
             color: palette.text,
           },
         ]}
         value={email}
         onChangeText={handleEmailChange}
         placeholder="Enter your email"
-        placeholderTextColor={palette.icon}
+        placeholderTextColor={palette.muted}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
@@ -136,7 +135,9 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         accessibilityState={{ invalid: !!fieldErrors.email }}
       />
       {fieldErrors.email ? (
-        <ThemedText style={styles.errorText}>{fieldErrors.email}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+          {fieldErrors.email}
+        </ThemedText>
       ) : null}
 
       <FieldLabel label="Password" required style={styles.label} />
@@ -146,14 +147,14 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
           fieldErrors.password ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: fieldErrors.password ? ERROR_COLOR : palette.icon,
+            borderColor: fieldErrors.password ? palette.danger : palette.border,
             color: palette.text,
           },
         ]}
         value={password}
         onChangeText={handlePasswordChange}
         placeholder="Choose a password"
-        placeholderTextColor={palette.icon}
+        placeholderTextColor={palette.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -164,7 +165,9 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         accessibilityState={{ invalid: !!fieldErrors.password }}
       />
       {fieldErrors.password ? (
-        <ThemedText style={styles.errorText}>{fieldErrors.password}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+          {fieldErrors.password}
+        </ThemedText>
       ) : null}
 
       <FieldLabel label="Confirm password" required style={styles.label} />
@@ -174,14 +177,14 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
           fieldErrors.confirmPassword ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: fieldErrors.confirmPassword ? ERROR_COLOR : palette.icon,
+            borderColor: fieldErrors.confirmPassword ? palette.danger : palette.border,
             color: palette.text,
           },
         ]}
         value={confirmPassword}
         onChangeText={handleConfirmPasswordChange}
         placeholder="Re-enter your password"
-        placeholderTextColor={palette.icon}
+        placeholderTextColor={palette.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -198,11 +201,16 @@ export function SignupForm({ onSubmit, loading: externalLoading = false }: Signu
         accessibilityState={{ invalid: !!fieldErrors.confirmPassword }}
       />
       {fieldErrors.confirmPassword ? (
-        <ThemedText style={styles.errorText}>{fieldErrors.confirmPassword}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+          {fieldErrors.confirmPassword}
+        </ThemedText>
       ) : null}
 
       {submitError ? (
-        <ThemedText accessibilityRole="alert" style={styles.submitErrorText}>
+        <ThemedText
+          accessibilityRole="alert"
+          style={[styles.submitErrorText, { color: palette.danger }]}
+        >
           {submitError}
         </ThemedText>
       ) : null}
@@ -243,12 +251,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: ERROR_COLOR,
     marginBottom: 14,
   },
   submitErrorText: {
     fontSize: 14,
-    color: ERROR_COLOR,
     marginBottom: 8,
     textAlign: 'center',
   },

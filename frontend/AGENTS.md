@@ -48,7 +48,7 @@ Provider order: `TenantProvider` → `TenantThemeProvider` → `AuthProvider` �
 
 Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspecified values use app defaults from `lib/tenant/theme/defaults.ts`:
 
-- **Colors:** `theme.light` / `theme.dark` partial overrides merged over `defaultColors`
+- **Colors:** `theme.light` / `theme.dark` partial overrides merged over `defaultColors` (includes semantic tokens `surface`, `border`, `muted`, `success`, `warning`, `danger`; unspecified keys keep defaults)
 - **Copy:** `theme.copy.loginSubtitle`, `theme.copy.homeTitleSuffix`
 - **Assets:** `theme.assets.logo`, `theme.assets.headerImage` (`require()` tenant assets from `tenants/<id>/assets/` or shared `@/assets/images/`)
 - **Header:** `theme.headerBackground` for parallax screens
@@ -63,7 +63,7 @@ Light/dark **mode** is resolved by `useColorScheme()` (`hooks/use-color-scheme.t
 
 | Hook | Use for |
 |------|---------|
-| `useColorPalette()` | Current scheme palette (`tint`, `onTint`, `background`, `text`, …) |
+| `useColorPalette()` | Current scheme palette (`tint`, `onTint`, `background`, `text`, `surface`, `border`, `muted`, `success`, `warning`, `danger`, …) |
 | `useThemeColor(props, name)` | Themed text/view color with optional per-mode overrides |
 | `useTenantBranding()` | Resolved copy, assets, header background |
 | `useNavigationTheme()` | React Navigation theme (primary = tenant tint) |

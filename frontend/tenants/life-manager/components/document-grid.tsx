@@ -123,7 +123,7 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
       StyleSheet.create({
         grid: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 4,
           overflow: 'hidden',
         },
