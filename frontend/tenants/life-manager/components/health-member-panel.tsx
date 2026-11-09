@@ -113,15 +113,11 @@ export default function HealthMemberPanel({
 }: HealthMemberPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
-  const {
-    feedback: actionFeedback,
-    showSuccess,
-    dismiss: dismissActionFeedback,
-  } = useManagerFeedback();
+  const { feedback, showSuccess, showError, dismiss, clearError } =
+    useManagerFeedback();
 
   const [members, setMembers] = useState<HealthMemberDto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -356,11 +352,11 @@ export default function HealthMemberPanel({
         return;
       }
       setMembers([]);
-      setError(null);
+      clearError();
       return;
     }
     setLoading(true);
-    setError(null);
+    clearError();
     try {
       const path = includeInactive
         ? '/health-members?include_inactive=true'
@@ -391,13 +387,13 @@ export default function HealthMemberPanel({
       }
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load HealthMembers';
-      setError(msg);
+      showError(msg);
     } finally {
       if (generation === loadGenerationRef.current) {
         setLoading(false);
       }
     }
-  }, [token, includeInactive, handleUnauthorized, syncSelectionToList]);
+  }, [token, includeInactive, handleUnauthorized, syncSelectionToList, clearError, showError]);
 
   useEffect(() => {
     void load();
@@ -495,7 +491,6 @@ export default function HealthMemberPanel({
       if (created?.id) {
         selectMember(created);
       }
-      setError(null);
       showSuccess(
         created?.display_name
           ? `HealthMember "${created.display_name}" created.`
@@ -575,7 +570,6 @@ export default function HealthMemberPanel({
       if (updated?.id) {
         selectMember(updated);
       }
-      setError(null);
       showSuccess(
         updated?.display_name
           ? `HealthMember "${updated.display_name}" updated.`
@@ -635,7 +629,7 @@ export default function HealthMemberPanel({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to deactivate HealthMember';
-      setError(msg);
+      showError(msg);
       setDeactivateTarget(null);
     } finally {
       setDeactivating(false);
@@ -647,7 +641,7 @@ export default function HealthMemberPanel({
       return;
     }
     setReactivatingId(member.id);
-    setError(null);
+    clearError();
     try {
       const payload: UpdateHealthMemberCommand = {
         display_name: member.display_name,
@@ -679,7 +673,7 @@ export default function HealthMemberPanel({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to reactivate HealthMember';
-      setError(msg);
+      showError(msg);
     } finally {
       setReactivatingId(null);
     }
@@ -741,17 +735,11 @@ export default function HealthMemberPanel({
         />
       </View>
 
-      {error ? (
+      {feedback ? (
         <ManagerFeedbackBanner
-          tone="error"
-          message={error}
-          onDismiss={() => setError(null)}
-        />
-      ) : actionFeedback ? (
-        <ManagerFeedbackBanner
-          tone={actionFeedback.tone}
-          message={actionFeedback.message}
-          onDismiss={dismissActionFeedback}
+          tone={feedback.tone}
+          message={feedback.message}
+          onDismiss={dismiss}
         />
       ) : null}
 

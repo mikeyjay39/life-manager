@@ -409,18 +409,14 @@ function DocumentLinkPicker({
 export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
-  const {
-    feedback: actionFeedback,
-    showSuccess,
-    dismiss: dismissActionFeedback,
-  } = useManagerFeedback();
+  const { feedback, showSuccess, showError, dismiss, clearError } =
+    useManagerFeedback();
 
   const [cars, setCars] = useState<CarDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -709,11 +705,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         return;
       }
       setCars([]);
-      setError(null);
+      clearError();
       return;
     }
     setLoading(true);
-    setError(null);
+    clearError();
     try {
       const path = includeInactive ? '/cars?include_inactive=true' : '/cars';
       const response = await authenticatedFetch(path, {
@@ -742,13 +738,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       }
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load Cars';
-      setError(msg);
+      showError(msg);
     } finally {
       if (generation === loadGenerationRef.current) {
         setLoading(false);
       }
     }
-  }, [token, includeInactive, handleUnauthorized, syncSelectionToList]);
+  }, [token, includeInactive, handleUnauthorized, syncSelectionToList, clearError, showError]);
 
   useEffect(() => {
     void load();
@@ -838,7 +834,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (created?.id) {
         selectCar(created);
       }
-      setError(null);
       showSuccess(
         created?.display_name
           ? `Car "${created.display_name}" created.`
@@ -905,7 +900,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (updated?.id) {
         selectCar(updated);
       }
-      setError(null);
       showSuccess(
         updated?.display_name
           ? `Car "${updated.display_name}" updated.`
@@ -963,7 +957,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       console.error(err);
       const msg =
         err instanceof Error ? err.message : 'Failed to deactivate Car';
-      setError(msg);
+      showError(msg);
       setDeactivateTarget(null);
     } finally {
       setDeactivating(false);
@@ -999,7 +993,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete Car';
-      setError(msg);
+      showError(msg);
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
@@ -1011,7 +1005,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       return;
     }
     setReactivatingId(car.id);
-    setError(null);
+    clearError();
     try {
       const payload: UpdateCarCommand = {
         make: car.make,
@@ -1046,7 +1040,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       console.error(err);
       const msg =
         err instanceof Error ? err.message : 'Failed to reactivate Car';
-      setError(msg);
+      showError(msg);
     } finally {
       setReactivatingId(null);
     }
@@ -1229,17 +1223,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         />
       </View>
 
-      {error ? (
+      {feedback ? (
         <ManagerFeedbackBanner
-          tone="error"
-          message={error}
-          onDismiss={() => setError(null)}
-        />
-      ) : actionFeedback ? (
-        <ManagerFeedbackBanner
-          tone={actionFeedback.tone}
-          message={actionFeedback.message}
-          onDismiss={dismissActionFeedback}
+          tone={feedback.tone}
+          message={feedback.message}
+          onDismiss={dismiss}
         />
       ) : null}
 
