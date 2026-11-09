@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -16,6 +15,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -713,66 +713,61 @@ export default function HealthReadingPanel({
           {actionError}
         </Text>
       ) : null}
-      {listLoading ? (
-        <ActivityIndicator
-          color={palette.tint}
-          accessibilityLabel="Loading readings"
-        />
+      {listLoading && readings.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
       ) : null}
-      {!listLoading
-        ? readings.map((reading) => {
-            const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
-            const height = formatHeightDisplay(reading.height_cm, unitSystem);
-            const bp =
-              reading.systolic_mm_hg != null && reading.diastolic_mm_hg != null
-                ? `${reading.systolic_mm_hg}/${reading.diastolic_mm_hg} mmHg`
-                : null;
-            const hr =
-              reading.heart_rate_bpm != null
-                ? `${reading.heart_rate_bpm} bpm`
-                : null;
-            const bmi =
-              reading.bmi != null && Number.isFinite(reading.bmi)
-                ? `BMI ${reading.bmi}`
-                : null;
-            const lines = [height, weight, bp, hr, bmi].filter(Boolean);
-            return (
-              <View
-                key={reading.id}
-                style={styles.historyItem}
-                accessibilityLabel={`Reading on ${reading.recorded_on}`}>
-                <Text style={styles.historyDate}>{reading.recorded_on}</Text>
-                {lines.length > 0 ? (
-                  <Text style={styles.historyLine}>{lines.join(' · ')}</Text>
-                ) : null}
-                {reading.notes ? (
-                  <Text style={styles.historyMuted}>{reading.notes}</Text>
-                ) : null}
-                <View style={styles.historyActions}>
-                  <Button
-                    variant="secondary"
-                    label="Edit"
-                    accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
-                    disabled={submitting || deleting}
-                    onPress={() => startEdit(reading)}
-                    style={styles.historyActionButton}
-                  />
-                  <Button
-                    variant="destructive"
-                    label="Delete"
-                    accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
-                    disabled={submitting || deleting}
-                    onPress={() => {
-                      setActionError(null);
-                      setDeleteTarget(reading);
-                    }}
-                    style={styles.historyActionButton}
-                  />
-                </View>
-              </View>
-            );
-          })
-        : null}
+      {readings.map((reading) => {
+        const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
+        const height = formatHeightDisplay(reading.height_cm, unitSystem);
+        const bp =
+          reading.systolic_mm_hg != null && reading.diastolic_mm_hg != null
+            ? `${reading.systolic_mm_hg}/${reading.diastolic_mm_hg} mmHg`
+            : null;
+        const hr =
+          reading.heart_rate_bpm != null
+            ? `${reading.heart_rate_bpm} bpm`
+            : null;
+        const bmi =
+          reading.bmi != null && Number.isFinite(reading.bmi)
+            ? `BMI ${reading.bmi}`
+            : null;
+        const lines = [height, weight, bp, hr, bmi].filter(Boolean);
+        return (
+          <View
+            key={reading.id}
+            style={styles.historyItem}
+            accessibilityLabel={`Reading on ${reading.recorded_on}`}>
+            <Text style={styles.historyDate}>{reading.recorded_on}</Text>
+            {lines.length > 0 ? (
+              <Text style={styles.historyLine}>{lines.join(' · ')}</Text>
+            ) : null}
+            {reading.notes ? (
+              <Text style={styles.historyMuted}>{reading.notes}</Text>
+            ) : null}
+            <View style={styles.historyActions}>
+              <Button
+                variant="secondary"
+                label="Edit"
+                accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
+                disabled={submitting || deleting}
+                onPress={() => startEdit(reading)}
+                style={styles.historyActionButton}
+              />
+              <Button
+                variant="destructive"
+                label="Delete"
+                accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
+                disabled={submitting || deleting}
+                onPress={() => {
+                  setActionError(null);
+                  setDeleteTarget(reading);
+                }}
+                style={styles.historyActionButton}
+              />
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 
@@ -812,10 +807,7 @@ export default function HealthReadingPanel({
       listLoading &&
       readings.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator
-          color={palette.tint}
-          accessibilityLabel="Loading readings"
-        />
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
       ) : (
         <ManagerFormVsResults
           itemCount={readings.length}

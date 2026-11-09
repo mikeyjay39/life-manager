@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -801,8 +802,8 @@ export default function CarMaintenancePanel({
             );
           })}
         </View>
-        {listLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading maintenance events" />
+        {listLoading && events.length === 0 ? (
+          <ManagerListSkeleton accessibilityLabel="Loading maintenance events" />
         ) : null}
         {listError ? (
           <Text style={styles.errorText} accessibilityRole="alert">

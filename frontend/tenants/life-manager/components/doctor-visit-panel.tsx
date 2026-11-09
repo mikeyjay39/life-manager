@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -16,6 +15,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -515,46 +515,44 @@ export default function DoctorVisitPanel({
   const visitResults = (
     <View style={styles.historyHeader} accessibilityLabel="Visit history">
       <ThemedText type="defaultSemiBold">Visit history</ThemedText>
-      {listLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+      {listLoading && visits.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
       ) : null}
-      {!listLoading
-        ? visits.map((visit) => (
-            <View
-              key={visit.id}
-              style={styles.historyItem}
-              accessibilityLabel={`Doctor visit on ${visit.visited_on}`}>
-              <Text style={styles.historyDate}>{visit.visited_on}</Text>
-              {visit.provider_name ? (
-                <Text style={styles.historyLine}>
-                  Provider: {visit.provider_name}
-                </Text>
-              ) : null}
-              {visit.reason ? (
-                <Text style={styles.historyLine}>Reason: {visit.reason}</Text>
-              ) : null}
-              {visit.notes ? (
-                <Text style={styles.historyLine}>Notes: {visit.notes}</Text>
-              ) : null}
-              <View style={styles.rowActions}>
-                <Button
-                  variant="outline"
-                  label="Edit"
-                  accessibilityLabel={`Edit visit on ${visit.visited_on}`}
-                  disabled={!selectedMember?.active || submitting || deleting}
-                  onPress={() => startEdit(visit)}
-                />
-                <Button
-                  variant="destructive"
-                  label="Delete"
-                  accessibilityLabel={`Delete visit on ${visit.visited_on}`}
-                  disabled={submitting || deleting}
-                  onPress={() => setDeleteTarget(visit)}
-                />
-              </View>
-            </View>
-          ))
-        : null}
+      {visits.map((visit) => (
+        <View
+          key={visit.id}
+          style={styles.historyItem}
+          accessibilityLabel={`Doctor visit on ${visit.visited_on}`}>
+          <Text style={styles.historyDate}>{visit.visited_on}</Text>
+          {visit.provider_name ? (
+            <Text style={styles.historyLine}>
+              Provider: {visit.provider_name}
+            </Text>
+          ) : null}
+          {visit.reason ? (
+            <Text style={styles.historyLine}>Reason: {visit.reason}</Text>
+          ) : null}
+          {visit.notes ? (
+            <Text style={styles.historyLine}>Notes: {visit.notes}</Text>
+          ) : null}
+          <View style={styles.rowActions}>
+            <Button
+              variant="outline"
+              label="Edit"
+              accessibilityLabel={`Edit visit on ${visit.visited_on}`}
+              disabled={!selectedMember?.active || submitting || deleting}
+              onPress={() => startEdit(visit)}
+            />
+            <Button
+              variant="destructive"
+              label="Delete"
+              accessibilityLabel={`Delete visit on ${visit.visited_on}`}
+              disabled={submitting || deleting}
+              onPress={() => setDeleteTarget(visit)}
+            />
+          </View>
+        </View>
+      ))}
     </View>
   );
 
@@ -570,7 +568,7 @@ export default function DoctorVisitPanel({
       listLoading &&
       visits.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
       ) : (
         <ManagerFormVsResults
           itemCount={visits.length}
