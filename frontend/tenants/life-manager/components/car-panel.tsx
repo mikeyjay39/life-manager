@@ -18,6 +18,7 @@ import {
   ManagerFeedbackBanner,
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
+import { ManagerSection } from '@/components/ui/manager-section';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -461,12 +462,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         errorText: {
           fontSize: 14,
           color: '#c62828',
-        },
-        toolbar: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 12,
         },
         includeRow: {
           flexDirection: 'row',
@@ -1171,16 +1166,43 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
 
   if (!token) {
     return (
-      <View style={styles.container}>
+      <ManagerSection title="Cars" accessibilityLabel="Cars section">
         <ThemedText style={styles.hint}>Sign in to manage Cars.</ThemedText>
-      </View>
+      </ManagerSection>
     );
   }
 
   const selectedLabel = selected ? carDisplayLabel(selected) : null;
 
   return (
-    <View style={styles.container}>
+    <ManagerSection
+      title="Cars"
+      accessibilityLabel="Cars section"
+      primaryAction={{
+        label: 'Create Car',
+        onPress: openCreateModal,
+        accessibilityLabel: 'Create Car',
+      }}
+      secondaryActions={[
+        {
+          label: loading ? 'Refreshing…' : 'Refresh',
+          onPress: () => void load(),
+          disabled: loading,
+          accessibilityLabel: 'Refresh Cars',
+        },
+      ]}
+      toolbarExtra={
+        <View style={styles.includeRow}>
+          <Text style={styles.includeLabel}>Include inactive</Text>
+          <Switch
+            value={includeInactive}
+            onValueChange={setIncludeInactive}
+            accessibilityLabel="Include inactive Cars"
+          />
+        </View>
+      }
+    >
+      <View style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText
           style={styles.selectedName}
@@ -1196,31 +1218,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             No cars yet. Add a car to manage maintenance later.
           </ThemedText>
         ) : null}
-      </View>
-
-      <View style={styles.toolbar}>
-        <Button
-          label="Create Car"
-          onPress={openCreateModal}
-          accessibilityLabel="Create Car"
-          style={styles.actionButton}
-        />
-        <View style={styles.includeRow}>
-          <Text style={styles.includeLabel}>Include inactive</Text>
-          <Switch
-            value={includeInactive}
-            onValueChange={setIncludeInactive}
-            accessibilityLabel="Include inactive Cars"
-          />
-        </View>
-        <Button
-          variant="outline"
-          label={loading ? 'Refreshing…' : 'Refresh'}
-          onPress={() => void load()}
-          disabled={loading}
-          accessibilityLabel="Refresh Cars"
-          style={styles.actionButton}
-        />
       </View>
 
       {feedback ? (
@@ -1504,6 +1501,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         }}
         onConfirm={() => void handleDeleteConfirm()}
       />
-    </View>
+      </View>
+    </ManagerSection>
   );
 }

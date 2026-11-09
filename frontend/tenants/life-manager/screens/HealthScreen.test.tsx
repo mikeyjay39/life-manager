@@ -116,20 +116,29 @@ describe('HealthScreen', () => {
     );
   });
 
-  it('shows Health Manager with members, vitals form, charts, and doctor visits', () => {
+  it('shows Health Manager with shared section chrome and collapsed create forms', () => {
     // Given the Health Manager screen
     // When the screen renders
     renderHealthScreen();
-    // Then title, members, vitals, charts, and doctor visits are visible
+    // Then title and shared section chrome are visible
     expect(screen.getByText('Health Manager')).toBeTruthy();
     expect(screen.getByLabelText('HealthMembers section')).toBeTruthy();
+    expect(screen.getByText('HealthMembers')).toBeTruthy();
     expect(screen.getByLabelText('Create HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Vitals section')).toBeTruthy();
+    expect(screen.getByText('Vitals')).toBeTruthy();
     expect(screen.getByLabelText('Health readings panel')).toBeTruthy();
+    // And vitals create stays collapsed until Add reading
+    expect(screen.getByLabelText('Add reading')).toBeTruthy();
+    expect(screen.queryByLabelText('Health reading form')).toBeNull();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
+    expect(screen.getByText('Charts')).toBeTruthy();
     expect(screen.getByLabelText('Charts need HealthMember')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits section')).toBeTruthy();
+    expect(screen.getByText('Doctor visits')).toBeTruthy();
     expect(screen.getByLabelText('Doctor visits panel')).toBeTruthy();
+    expect(screen.getByLabelText('Add visit')).toBeTruthy();
+    expect(screen.queryByLabelText('Doctor visit form')).toBeNull();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();
     expect(screen.queryByText(/Create document/i)).toBeNull();

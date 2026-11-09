@@ -13,10 +13,10 @@ import CarPanel from '@/tenants/life-manager/components/car-panel';
  * ```
  * User -> CarScreen : open Car Manager
  * CarScreen -> ManagerScrollView : quiet chrome (no parallax)
- * CarScreen -> ManagerSection : Cars / Maintenance / Charts
- * CarScreen -> CarPanel : render; onSelectedCarChange
+ * CarScreen -> CarPanel : ManagerSection + Create/Refresh toolbar
  * CarPanel -> API : GET/POST/PUT/DELETE /cars; GET /documents
  * CarPanel -> CarScreen : selected car | null
+ * CarScreen -> ManagerSection : Maintenance / Charts chrome
  * CarScreen -> CarMaintenancePanel : selectedCar + onEventsChanged
  * CarMaintenancePanel -> API : GET/POST/PUT/DELETE /car-maintenance-events; GET /documents
  * CarMaintenancePanel -> CarScreen : onEventsChanged (bump refreshKey)
@@ -34,13 +34,12 @@ export default function CarScreen() {
 
   return (
     <ManagerScrollView title="Car Manager">
-      <ManagerSection title="Cars" accessibilityLabel="Cars section">
-        <CarPanel onSelectedCarChange={setSelectedCar} />
-      </ManagerSection>
+      <CarPanel onSelectedCarChange={setSelectedCar} />
 
       <ManagerSection
         title="Maintenance"
-        accessibilityLabel="Maintenance section">
+        accessibilityLabel="Maintenance section"
+      >
         <CarMaintenancePanel
           selectedCar={selectedCar}
           onEventsChanged={handleEventsChanged}

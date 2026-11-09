@@ -83,10 +83,6 @@ function defaultAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}): Retur
   } as ReturnType<typeof useAuth>;
 }
 
-function openCreateModal() {
-  fireEvent.press(screen.getByLabelText('Create document'));
-}
-
 function submitForm() {
   fireEvent.press(screen.getByLabelText('Submit'));
 }
@@ -120,26 +116,20 @@ describe('DocumentCreateForm', () => {
     );
   });
 
-  it('does not show form fields until the modal is opened', () => {
+  it('shows inline form fields when mounted', () => {
+    // Given the create form is expanded by the parent
+    // When it mounts
     renderDocumentCreateForm();
-    expect(screen.queryByPlaceholderText('Document title')).toBeNull();
-    openCreateModal();
+    // Then fields are visible for submit
+    expect(screen.getByLabelText('Document create form')).toBeTruthy();
     expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
-  });
-
-  it('closes the modal on Cancel without submitting', () => {
-    renderDocumentCreateForm();
-    openCreateModal();
-    fillRequiredFields();
-    fireEvent.press(screen.getByLabelText('Cancel'));
-    expect(screen.queryByPlaceholderText('Document title')).toBeNull();
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Document content')).toBeTruthy();
+    expect(screen.getByLabelText('Submit')).toBeTruthy();
   });
 
   it('shows inline error when there is no token', () => {
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
     renderDocumentCreateForm();
-    openCreateModal();
     submitForm();
     expect(screen.getByText('No authentication token available.')).toBeTruthy();
     expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
@@ -148,7 +138,6 @@ describe('DocumentCreateForm', () => {
 
   it('shows validation error when title or content is missing', () => {
     renderDocumentCreateForm();
-    openCreateModal();
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     submitForm();
     expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
@@ -158,7 +147,6 @@ describe('DocumentCreateForm', () => {
 
   it('submits document with POST and bearer token when valid', async () => {
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -175,7 +163,6 @@ describe('DocumentCreateForm', () => {
   it('shows inline error banner when response is not ok', async () => {
     mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -188,7 +175,6 @@ describe('DocumentCreateForm', () => {
     // Given
     mockApiFetch.mockResolvedValue(new Response('upload rejected', { status: 500 }));
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
 
     // When
@@ -206,7 +192,6 @@ describe('DocumentCreateForm', () => {
     // Given
     mockApiFetch.mockRejectedValue(new Error('Network request failed'));
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
 
     // When
@@ -222,7 +207,6 @@ describe('DocumentCreateForm', () => {
     // Given
     mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -241,7 +225,6 @@ describe('DocumentCreateForm', () => {
     // Given
     mockApiFetch.mockResolvedValueOnce(new Response('first fail', { status: 400 }));
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -256,9 +239,9 @@ describe('DocumentCreateForm', () => {
     );
     submitForm();
 
-    // Then — modal closes (success clears error)
+    // Then — fields reset after success
     await waitFor(() => {
-      expect(screen.queryByPlaceholderText('Document title')).toBeNull();
+      expect(screen.getByPlaceholderText('Document title').props.value).toBe('');
     });
     expect(screen.queryByText(/first fail/)).toBeNull();
   });
@@ -266,7 +249,6 @@ describe('DocumentCreateForm', () => {
   it('passes a brief success message when response contains id', async () => {
     const onDocumentCreated = vi.fn();
     renderDocumentCreateForm({ onDocumentCreated });
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -274,21 +256,22 @@ describe('DocumentCreateForm', () => {
     });
   });
 
-  it('closes the modal after a successful submit', async () => {
+  it('resets fields after a successful submit', async () => {
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalled();
     });
-    expect(screen.queryByPlaceholderText('Document title')).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Document title').props.value).toBe('');
+    });
+    expect(screen.getByPlaceholderText('Document content').props.value).toBe('');
   });
 
   it('calls onDocumentCreated once when create succeeds', async () => {
     const onDocumentCreated = vi.fn();
     renderDocumentCreateForm({ onDocumentCreated });
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -299,7 +282,6 @@ describe('DocumentCreateForm', () => {
   it('does not call onDocumentCreated on validation error', () => {
     const onDocumentCreated = vi.fn();
     renderDocumentCreateForm({ onDocumentCreated });
-    openCreateModal();
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     submitForm();
     expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
@@ -310,7 +292,6 @@ describe('DocumentCreateForm', () => {
     const onDocumentCreated = vi.fn();
     mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
     renderDocumentCreateForm({ onDocumentCreated });
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -321,7 +302,6 @@ describe('DocumentCreateForm', () => {
 
   it('submits null dates when issue and expire fields are empty', async () => {
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
@@ -335,7 +315,6 @@ describe('DocumentCreateForm', () => {
   it('given picked issue and expire dates when submitted then sends API datetime format', async () => {
     // Given
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     // When — pick via DatePicker (mocked community picker confirms 2024-06-01)
     fireEvent.press(screen.getByLabelText('Issue date'));
@@ -355,7 +334,6 @@ describe('DocumentCreateForm', () => {
   it('given a picked issue date when cleared then submits null issued_date', async () => {
     // Given
     renderDocumentCreateForm();
-    openCreateModal();
     fillRequiredFields();
     fireEvent.press(screen.getByLabelText('Issue date'));
     fireEvent.press(screen.getByLabelText('Confirm picked date'));
