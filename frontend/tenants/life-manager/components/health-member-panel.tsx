@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CreateHealthMemberCommand,
@@ -394,6 +395,8 @@ export default function HealthMemberPanel({
     setCreateVisible(false);
     resetCreateForm();
   };
+
+  useWebEscapeClose(createVisible, closeCreateModal);
 
   const startEdit = () => {
     if (!selected) {

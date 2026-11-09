@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
 import { ManagerFeedbackBanner } from '@/components/ui/manager-feedback';
+import { webFormEnterSubmitProps } from '@/components/ui/web-form-enter-submit';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
@@ -340,7 +341,13 @@ export default function DocumentCreateForm({
   };
 
   return (
-    <View style={styles.container} accessibilityLabel="Document create form">
+    <View
+      style={styles.container}
+      accessibilityLabel="Document create form"
+      {...webFormEnterSubmitProps(() => {
+        void handleSubmit();
+      })}
+    >
       <FieldLabel label="Title" required style={styles.label} />
       <TextInput
         style={styles.input}

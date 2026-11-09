@@ -23,6 +23,7 @@ import {
 import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
 import type { DocumentDto, UpdateDocumentCommand } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
@@ -390,6 +391,9 @@ export default function DocumentList({
     setDeleting(false);
     dismiss();
   }, [dismiss]);
+
+  // Skip while ConfirmDialog owns Escape (delete confirm).
+  useWebEscapeClose(selected !== null && !deleteDialogVisible, closeModal);
 
   useEffect(() => {
     if (!selected || isEditing || !isProtonStorage || !selected.storage) {

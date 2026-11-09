@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import type { ResolvedManagerTile } from '@/tenants/life-manager/manager-registry';
 import {
@@ -52,9 +53,10 @@ export function ManagerHubTile({ tile, onPressAvailable }: ManagerHubTileProps) 
           onPressAvailable(tile.route);
         }
       }}
-      style={({ pressed }) => [
+      style={({ pressed, focused }) => [
         styles.tile,
         isAvailable && pressed ? { opacity: 0.75 } : null,
+        webFocusRingStyle(focused, palette.tint),
       ]}>
       <IconSymbol
         name={tile.icon}

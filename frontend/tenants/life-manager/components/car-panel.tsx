@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CarDto,
@@ -769,6 +770,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setCreateVisible(false);
     resetCreateForm();
   };
+
+  useWebEscapeClose(createVisible, closeCreateModal);
 
   const openCreateModal = () => {
     resetCreateForm();

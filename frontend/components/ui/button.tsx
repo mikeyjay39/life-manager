@@ -11,6 +11,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { mixTowardBlack, withAlpha } from '@/lib/tenant/theme/color-utils';
 
@@ -131,7 +132,7 @@ export function Button({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
-      style={({ pressed, hovered }) => [
+      style={({ pressed, hovered, focused }) => [
         styles.base,
         variant === 'outline' && {
           borderWidth: StyleSheet.hairlineWidth,
@@ -142,6 +143,7 @@ export function Button({
           opacity: isDisabled ? 0.6 : 1,
         },
         webCursorStyle,
+        webFocusRingStyle(focused, palette.tint),
         style,
       ]}
     >

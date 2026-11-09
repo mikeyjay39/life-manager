@@ -4,6 +4,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ManagerCta } from '@/components/ui/manager-cta';
 import { MANAGER_SECTION_GAP } from '@/components/ui/manager-layout';
+import { webFormEnterSubmitProps } from '@/components/ui/web-form-enter-submit';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 /** Collapsed browse, create entry, or edit reuse of the same form surface. */
@@ -38,6 +39,11 @@ export type ManagerFormVsResultsProps = {
   addDisabled?: boolean;
   addAccessibilityLabel?: string;
   cancelAccessibilityLabel?: string;
+  /**
+   * Web: Enter in the open form submits (single-line fields).
+   * Multiline fields keep Enter as newline; Ctrl/Cmd+Enter submits.
+   */
+  onEnterSubmit?: () => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -83,6 +89,7 @@ export function ManagerFormVsResults({
   addDisabled = false,
   addAccessibilityLabel,
   cancelAccessibilityLabel,
+  onEnterSubmit,
   style,
   testID,
 }: ManagerFormVsResultsProps) {
@@ -126,6 +133,7 @@ export function ManagerFormVsResults({
           style={styles.formRegion}
           accessibilityLabel="Manager form"
           testID={testID ? `${testID}-form` : undefined}
+          {...(onEnterSubmit ? webFormEnterSubmitProps(onEnterSubmit) : {})}
         >
           {form}
           <ManagerCta

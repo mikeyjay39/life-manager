@@ -1,10 +1,11 @@
 import { BlurView } from 'expo-blur';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const BLUR_INTENSITY = 40;
@@ -34,7 +35,12 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const palette = useColorPalette();
   const colorScheme = useColorScheme() ?? 'light';
-  const handleRequestClose = onRequestClose ?? onCancel;
+  const handleRequestClose = useCallback(() => {
+    (onRequestClose ?? onCancel)();
+  }, [onRequestClose, onCancel]);
+
+  // Esc dismisses without confirming (web keyboard).
+  useWebEscapeClose(visible, handleRequestClose);
 
   const styles = useMemo(
     () =>

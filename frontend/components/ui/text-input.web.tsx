@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
+import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import type { TextInputProps } from './text-input-types';
 
@@ -19,6 +22,7 @@ export type { TextInputProps };
  * [*] --> Editable : editable true -> RN TextInput (real input/textarea)
  * [*] --> LockedDisplay : editable false -> View + Text (not a Vimium target)
  * Editable --> Typed : onChangeText
+ * Editable --> Focused : web focus ring via tint outline
  * LockedDisplay --> [*] : show value or placeholder
  *
  * Editable path keeps react-native TextInput so controlled typing works
@@ -43,6 +47,8 @@ export function TextInput({
   maxLength,
   testID,
 }: TextInputProps) {
+  const palette = useColorPalette();
+  const [focused, setFocused] = useState(false);
   const flat = useMemo(
     () => (StyleSheet.flatten(style) ?? {}) as TextStyle,
     [style]
@@ -87,7 +93,7 @@ export function TextInput({
       placeholder={placeholder}
       placeholderTextColor={placeholderTextColor}
       accessibilityLabel={accessibilityLabel}
-      style={style}
+      style={[style, webFocusRingStyle(focused, palette.tint)]}
       multiline={multiline}
       editable={editable}
       keyboardType={keyboardType}
@@ -97,6 +103,8 @@ export function TextInput({
       secureTextEntry={secureTextEntry}
       maxLength={maxLength}
       testID={testID}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
     />
   );
 }

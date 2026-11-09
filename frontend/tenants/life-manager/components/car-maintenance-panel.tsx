@@ -969,6 +969,9 @@ export default function CarMaintenancePanel({
             }
           }}
           form={eventForm}
+          onEnterSubmit={() => {
+            void handleSubmit();
+          }}
           results={historyResults}
           testID="car-maintenance-form-vs-results"
         />

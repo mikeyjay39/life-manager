@@ -838,6 +838,9 @@ export default function HealthReadingPanel({
             }
           }}
           form={readingForm}
+          onEnterSubmit={() => {
+            void handleSubmit();
+          }}
           results={historyResults}
           testID="health-readings-form-vs-results"
         />
