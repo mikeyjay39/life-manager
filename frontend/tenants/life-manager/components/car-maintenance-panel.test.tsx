@@ -412,6 +412,8 @@ describe('CarMaintenancePanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
     });
+    expect(screen.getByTestId('car-maintenance-type-filter-chrome')).toBeTruthy();
+    expect(screen.getByLabelText('Maintenance type filter')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Filter Tire events'));
 

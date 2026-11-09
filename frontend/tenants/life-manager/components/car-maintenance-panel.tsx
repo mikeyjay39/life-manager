@@ -22,6 +22,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerStickyFilterChrome } from '@/components/ui/manager-sticky-filter-chrome';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -772,48 +773,53 @@ export default function CarMaintenancePanel({
   const typeFilterBar = selectedCar ? (
     <View style={styles.historyHeader}>
       <ThemedText type="sectionTitle">Maintenance history</ThemedText>
-      <View style={styles.picker} accessibilityLabel="Maintenance type filter">
-        <Pressable
-          onPress={() => setTypeFilter(null)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: typeFilter == null }}
-          accessibilityLabel="Filter all event types"
-          style={[
-            styles.pickerChip,
-            typeFilter == null && styles.pickerChipSelected,
-          ]}>
-          <Text
+      <ManagerStickyFilterChrome
+        accessibilityLabel="Maintenance type filter"
+        testID="car-maintenance-type-filter-chrome"
+      >
+        <View style={styles.picker}>
+          <Pressable
+            onPress={() => setTypeFilter(null)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: typeFilter == null }}
+            accessibilityLabel="Filter all event types"
             style={[
-              styles.pickerChipText,
-              typeFilter == null && styles.pickerChipTextSelected,
+              styles.pickerChip,
+              typeFilter == null && styles.pickerChipSelected,
             ]}>
-            All
-          </Text>
-        </Pressable>
-        {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
-          const isSelected = typeFilter === type;
-          return (
-            <Pressable
-              key={`filter-${type}`}
-              onPress={() => setTypeFilter(type)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
+            <Text
               style={[
-                styles.pickerChip,
-                isSelected && styles.pickerChipSelected,
+                styles.pickerChipText,
+                typeFilter == null && styles.pickerChipTextSelected,
               ]}>
-              <Text
+              All
+            </Text>
+          </Pressable>
+          {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
+            const isSelected = typeFilter === type;
+            return (
+              <Pressable
+                key={`filter-${type}`}
+                onPress={() => setTypeFilter(type)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
                 style={[
-                  styles.pickerChipText,
-                  isSelected && styles.pickerChipTextSelected,
+                  styles.pickerChip,
+                  isSelected && styles.pickerChipSelected,
                 ]}>
-                {EVENT_TYPE_LABELS[type]}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+                <Text
+                  style={[
+                    styles.pickerChipText,
+                    isSelected && styles.pickerChipTextSelected,
+                  ]}>
+                  {EVENT_TYPE_LABELS[type]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ManagerStickyFilterChrome>
     </View>
   ) : null;
 

@@ -1,4 +1,5 @@
 import {
+  APP_MENU_BAR_STICKY_OFFSET,
   MANAGER_CONTENT_GAP,
   MANAGER_CONTENT_MAX_WIDTH,
   MANAGER_CTA_MAX_WIDTH,
@@ -16,6 +17,11 @@ import {
 } from '@/components/ui/manager-layout';
 
 describe('manager-layout constants', () => {
+  it('given AppMenuBar sticky offset when read then it clears the menu bar height', () => {
+    // Given / When / Then — filter chrome sticks below icon + label + padding + border.
+    expect(APP_MENU_BAR_STICKY_OFFSET).toBe(61);
+  });
+
   it('given shared layout tokens when read then content max width exceeds CTA max width', () => {
     // Given / When / Then — content column stays wider than a single CTA.
     expect(MANAGER_CONTENT_MAX_WIDTH).toBeGreaterThan(MANAGER_CTA_MAX_WIDTH);

@@ -5,6 +5,12 @@
  * Do not add per-screen marginBottom between adjacent sections.
  */
 
+/**
+ * Web CSS sticky `top` for chrome under AppMenuBar.
+ * Matches icon 24 + gap 4 + label 12 + vertical padding 20 + border 1.
+ */
+export const APP_MENU_BAR_STICKY_OFFSET = 61;
+
 /** Max width of the centered manager content column on wide viewports. */
 export const MANAGER_CONTENT_MAX_WIDTH = 720;
 
