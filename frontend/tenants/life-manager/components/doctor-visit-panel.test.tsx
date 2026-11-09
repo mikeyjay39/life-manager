@@ -147,8 +147,12 @@ describe('DoctorVisitPanel', () => {
       );
     });
 
-    fireEvent.changeText(screen.getByLabelText('Visit notes'), 'checkup');
     fireEvent.press(screen.getByLabelText('Add visit'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Doctor visit form')).toBeTruthy();
+    });
+    fireEvent.changeText(screen.getByLabelText('Visit notes'), 'checkup');
+    fireEvent.press(screen.getByLabelText('Save visit'));
 
     await waitFor(() => {
       expect(mockAuthenticatedFetch).toHaveBeenCalledWith(

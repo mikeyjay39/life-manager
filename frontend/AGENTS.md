@@ -59,7 +59,7 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 
 **Typography:** use `ThemedText` with roles `pageTitle`, `sectionTitle`, `body`, `meta` (legacy aliases `title` / `subtitle` / `default` still work). Page titles outrank section titles via that scale. Scale and product sans live in `lib/tenant/theme/typography.ts` (`Fonts.sans`). Full manager UX docs: #188.
 
-**Manager form vs results** (adopt in later manager UX stories; do not rewire Health/Cars/Documents here): `ManagerFormVsResults` keeps results as the default focus, collapses create until Add, shows empty copy with one primary Add when `itemCount` is 0, and supports `create` / `edit` reuse of the same form surface. Cancel collapses; keep `mode` on `create`/`edit` when validation fails so the form stays open.
+**Manager form vs results:** `ManagerFormVsResults` keeps results as the default focus, collapses create until Add, shows empty copy with one primary Add when `itemCount` is 0, and supports `create` / `edit` reuse of the same form surface. Cancel collapses; keep `mode` on `create`/`edit` when validation fails so the form stays open. Health Manager vitals and doctor visits use this pattern (#185). Cars/Documents adopt in later manager UX stories.
 
 Use `components/ui/field-label.tsx` for form field labels. Set `required` to show an asterisk. The accessible name is the label text plus `, required`.
 
@@ -123,8 +123,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car; `onEventsChanged` refreshes charts) |
 | Car charts | `tenants/life-manager/components/car-charts-panel.tsx` + `lib/car/chart-series.ts` (`react-native-gifted-charts` LineChart / BarChart; odometer miles, event_type counts, cost USD; empty states; optional miles-since-oil callout) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
-| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
-| Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (create / edit / delete + ConfirmDialog; selected active HealthMember) |
+| Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (`ManagerFormVsResults`; metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
+| Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (`ManagerFormVsResults`; create / edit / delete + ConfirmDialog; selected active HealthMember) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |

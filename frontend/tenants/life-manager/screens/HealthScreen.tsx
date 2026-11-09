@@ -14,7 +14,7 @@ import HealthMemberPanel from '@/tenants/life-manager/components/health-member-p
 import HealthReadingPanel from '@/tenants/life-manager/components/health-reading-panel';
 
 /**
- * Health Manager shell. Child stories fill each section.
+ * Health Manager shell. Child panels own each section body.
  *
  * ```
  * User -> HealthScreen : open Health
@@ -24,11 +24,13 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * HealthMemberPanel -> HealthScreen : selected member | null
  * HealthScreen -> ManagerSection : Vitals / Charts / Doctor visits chrome
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
+ * HealthReadingPanel -> ManagerFormVsResults : collapsed create; Add reading on demand
  * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
  * HealthReadingPanel -> API : list / create / update / delete readings
  * HealthReadingPanel -> HealthScreen : onReadingsChanged (bump refreshKey)
  * HealthChartsPanel -> API : list readings for charts
  * HealthScreen -> DoctorVisitPanel : selectedMember
+ * DoctorVisitPanel -> ManagerFormVsResults : collapsed create; Add visit on demand
  * DoctorVisitPanel -> API : list / create / update / delete visits
  * ```
  */
