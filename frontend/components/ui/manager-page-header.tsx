@@ -34,11 +34,13 @@ export function ManagerPageHeader({
 
   return (
     <View style={[styles.root, style]} testID={testID}>
-      <ThemedText type="title" accessibilityRole="header">
+      <ThemedText type="pageTitle" accessibilityRole="header">
         {title}
       </ThemedText>
       {subtitle ? (
-        <ThemedText style={{ color: palette.muted }}>{subtitle}</ThemedText>
+        <ThemedText type="meta" style={{ color: palette.muted }}>
+          {subtitle}
+        </ThemedText>
       ) : null}
     </View>
   );

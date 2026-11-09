@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import type { HealthMemberDto } from '@/lib/api/types';
 import {
   loadUnitPreference,
@@ -22,6 +20,7 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * User -> HealthScreen : open Health
  * HealthScreen -> ManagerScrollView : quiet chrome (no parallax)
  * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
+ * HealthScreen -> ManagerSection : HealthMembers / Vitals / Charts / Doctor visits
  * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
  * HealthMemberPanel -> HealthScreen : selected member | null
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
@@ -70,15 +69,13 @@ export default function HealthScreen() {
 
   return (
     <ManagerScrollView title="Health Manager">
-      <ThemedView
-        style={styles.section}
+      <ManagerSection
+        title="HealthMembers"
         accessibilityLabel="HealthMembers section">
-        <ThemedText type="subtitle">HealthMembers</ThemedText>
         <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView style={styles.section} accessibilityLabel="Vitals section">
-        <ThemedText type="subtitle">Vitals</ThemedText>
+      <ManagerSection title="Vitals" accessibilityLabel="Vitals section">
         <HealthReadingPanel
           selectedMember={selectedMember}
           unitSystem={unitSystem}
@@ -86,10 +83,9 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           onReadingsChanged={handleReadingsChanged}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView style={styles.section} accessibilityLabel="Charts section">
-        <ThemedText type="subtitle">Charts</ThemedText>
+      <ManagerSection title="Charts" accessibilityLabel="Charts section">
         <HealthChartsPanel
           healthMember={selectedMember}
           unitSystem={unitSystem}
@@ -97,21 +93,13 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           refreshKey={readingsRefreshKey}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView
-        style={styles.section}
+      <ManagerSection
+        title="Doctor visits"
         accessibilityLabel="Doctor visits section">
-        <ThemedText type="subtitle">Doctor visits</ThemedText>
         <DoctorVisitPanel selectedMember={selectedMember} />
-      </ThemedView>
+      </ManagerSection>
     </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-});
