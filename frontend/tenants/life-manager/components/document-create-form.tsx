@@ -4,7 +4,6 @@ import {
   TextInput,
   Text,
   StyleSheet,
-  Alert,
   TouchableOpacity,
   Platform,
 } from 'react-native';
@@ -13,6 +12,7 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import { ManagerFeedbackBanner } from '@/components/ui/manager-feedback';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
@@ -45,7 +45,8 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 }
 
 type DocumentCreateFormProps = {
-  onDocumentCreated?: () => void;
+  /** Fires after a successful create with a short success message. */
+  onDocumentCreated?: (successMessage: string) => void;
   /** Lets the parent block Cancel while a create request is in flight. */
   onSubmittingChange?: (submitting: boolean) => void;
 };
@@ -57,10 +58,10 @@ type DocumentCreateFormProps = {
  * ```
  * [*] --> clear submitError
  *     --> validate fields
- *         | invalid --> showSubmitError (inline + Alert) --> [*]
+ *         | invalid --> showSubmitError (inline banner) --> [*]
  *         | valid --> POST (multipart or Proton JSON)
  *             | fail --> showSubmitError; keep form open --> [*]
- *             | ok --> clear error; onDocumentCreated; success Alert --> [*]
+ *             | ok --> clear error; onDocumentCreated(message) --> [*]
  * ```
  */
 export default function DocumentCreateForm({
@@ -174,9 +175,8 @@ export default function DocumentCreateForm({
     setSubmitError(null);
   };
 
-  const showSubmitError = (alertTitle: string, message: string) => {
+  const showSubmitError = (message: string) => {
     setSubmitError(message);
-    Alert.alert(alertTitle, message);
   };
 
   const pickFile = async () => {
@@ -197,16 +197,16 @@ export default function DocumentCreateForm({
     setSubmitError(null);
 
     if (!token) {
-      showSubmitError('Error', 'No authentication token available.');
+      showSubmitError('No authentication token available.');
       return;
     }
     if (!title.trim() || !content.trim()) {
-      showSubmitError('Error', 'Please enter a title and content.');
+      showSubmitError('Please enter a title and content.');
       return;
     }
 
     if (isWeb && pickedFile && !protonSession) {
-      showSubmitError('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
+      showSubmitError('Connect Proton Drive before uploading a file on web.');
       return;
     }
 
@@ -214,13 +214,13 @@ export default function DocumentCreateForm({
 
     const issuedDate = parseOptionalDateInput(issuedDateInput);
     if (!issuedDate.ok) {
-      showSubmitError('Error', 'Issue date must be in YYYY-MM-DD format.');
+      showSubmitError('Issue date must be in YYYY-MM-DD format.');
       return;
     }
 
     const expireDate = parseOptionalDateInput(expireDateInput);
     if (!expireDate.ok) {
-      showSubmitError('Error', 'Expire date must be in YYYY-MM-DD format.');
+      showSubmitError('Expire date must be in YYYY-MM-DD format.');
       return;
     }
 
@@ -264,18 +264,17 @@ export default function DocumentCreateForm({
           );
         }
 
-        let message = 'Document created and file stored in Proton Drive.';
+        let message = 'Document created.';
         try {
           const data = JSON.parse(bodyText) as DocumentDto;
           if (data.id) {
-            message = `Created document "${data.title ?? title.trim()}" (${data.id}). File stored in Proton Drive.`;
+            message = `Document "${data.title ?? title.trim()}" created.`;
           }
         } catch {
           // use default message
         }
         resetForm();
-        onDocumentCreated?.();
-        Alert.alert('Success', message);
+        onDocumentCreated?.(message);
         return;
       }
 
@@ -320,22 +319,21 @@ export default function DocumentCreateForm({
         );
       }
 
-      let message = 'Document created successfully.';
+      let message = 'Document created.';
       try {
         const data = JSON.parse(bodyText) as DocumentDto;
         if (data.id) {
-          message = `Created document "${data.title ?? title.trim()}" (${data.id}).`;
+          message = `Document "${data.title ?? title.trim()}" created.`;
         }
       } catch {
         // use default message
       }
       resetForm();
-      onDocumentCreated?.();
-      Alert.alert('Success', message);
+      onDocumentCreated?.(message);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      showSubmitError('Error', msg);
+      showSubmitError(msg);
     } finally {
       setLoading(false);
     }
@@ -424,15 +422,12 @@ export default function DocumentCreateForm({
       </View>
 
       {submitError ? (
-        <View style={styles.errorBanner} accessibilityRole="alert">
-          <Text style={styles.errorText}>{submitError}</Text>
-          <TouchableOpacity
-            onPress={() => setSubmitError(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss error"
-          >
-            <Text style={styles.clearLink}>Dismiss</Text>
-          </TouchableOpacity>
+        <View style={styles.errorBanner}>
+          <ManagerFeedbackBanner
+            tone="error"
+            message={submitError}
+            onDismiss={() => setSubmitError(null)}
+          />
         </View>
       ) : null}
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
@@ -61,7 +60,9 @@ vi.mock('expo-document-picker', () => ({
 const mockUseAuth = vi.mocked(useAuth);
 const mockApiFetch = vi.mocked(apiFetch);
 
-function renderDocumentCreateForm(props: { onDocumentCreated?: () => void } = {}) {
+function renderDocumentCreateForm(
+  props: { onDocumentCreated?: (successMessage: string) => void } = {}
+) {
   return render(
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
       <DocumentCreateForm {...props} />
@@ -126,22 +127,21 @@ describe('DocumentCreateForm', () => {
     expect(screen.getByLabelText('Submit')).toBeTruthy();
   });
 
-  it('shows error alert when there is no token', () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
+  it('shows inline error when there is no token', () => {
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
     renderDocumentCreateForm();
     submitForm();
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'No authentication token available.');
+    expect(screen.getByText('No authentication token available.')).toBeTruthy();
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
-  it('shows validation alert when title or content is missing', () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
+  it('shows validation error when title or content is missing', () => {
     renderDocumentCreateForm();
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     submitForm();
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'Please enter a title and content.');
     expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
@@ -160,15 +160,15 @@ describe('DocumentCreateForm', () => {
     });
   });
 
-  it('shows error alert when response is not ok', async () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
+  it('shows inline error banner when response is not ok', async () => {
     mockApiFetch.mockResolvedValue(new Response('bad', { status: 400 }));
     renderDocumentCreateForm();
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Error', expect.stringContaining('400'));
+      expect(screen.getByText(/Request failed \(400\).*bad/)).toBeTruthy();
     });
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
   });
 
   it('given API failure when submitting then shows inline error in the form', async () => {
@@ -184,7 +184,7 @@ describe('DocumentCreateForm', () => {
     await waitFor(() => {
       expect(screen.getByText(/Request failed \(500\).*upload rejected/)).toBeTruthy();
     });
-    expect(screen.getByLabelText('Dismiss error')).toBeTruthy();
+    expect(screen.getByLabelText('Dismiss feedback')).toBeTruthy();
     expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
   });
 
@@ -214,11 +214,11 @@ describe('DocumentCreateForm', () => {
     });
 
     // When
-    fireEvent.press(screen.getByLabelText('Dismiss error'));
+    fireEvent.press(screen.getByLabelText('Dismiss feedback'));
 
     // Then
     expect(screen.queryByText(/Request failed \(400\)/)).toBeNull();
-    expect(screen.queryByLabelText('Dismiss error')).toBeNull();
+    expect(screen.queryByLabelText('Dismiss feedback')).toBeNull();
   });
 
   it('given inline error when user submits again then previous error clears before result', async () => {
@@ -246,16 +246,13 @@ describe('DocumentCreateForm', () => {
     expect(screen.queryByText(/first fail/)).toBeNull();
   });
 
-  it('shows success alert with id when response contains id', async () => {
-    const alertSpy = vi.spyOn(Alert, 'alert');
-    renderDocumentCreateForm();
+  it('passes a brief success message when response contains id', async () => {
+    const onDocumentCreated = vi.fn();
+    renderDocumentCreateForm({ onDocumentCreated });
     fillRequiredFields();
     submitForm();
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Success',
-        expect.stringContaining('550e8400-e29b-41d4-a716-446655440000')
-      );
+      expect(onDocumentCreated).toHaveBeenCalledWith('Document "My Title" created.');
     });
   });
 
@@ -284,11 +281,10 @@ describe('DocumentCreateForm', () => {
 
   it('does not call onDocumentCreated on validation error', () => {
     const onDocumentCreated = vi.fn();
-    const alertSpy = vi.spyOn(Alert, 'alert');
     renderDocumentCreateForm({ onDocumentCreated });
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
     submitForm();
-    expect(alertSpy).toHaveBeenCalledWith('Error', 'Please enter a title and content.');
+    expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
     expect(onDocumentCreated).not.toHaveBeenCalled();
   });
 

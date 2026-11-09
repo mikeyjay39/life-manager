@@ -1,6 +1,10 @@
 import { useCallback, useState } from 'react';
 
 import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
+import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
@@ -21,7 +25,7 @@ import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect
  * DocumentManagerScreen -> ManagerFormVsResults : collapsed until Add document
  * DocumentManagerScreen -> DocumentCreateForm : inline fields when expanded
  * DocumentCreateForm -> API : POST /documents (multipart or Proton JSON)
- * DocumentCreateForm -> DocumentManagerScreen : collapse + bump refreshKey
+ * DocumentCreateForm -> DocumentManagerScreen : collapse + bump refreshKey; showSuccess
  * DocumentManagerScreen -> ManagerSection : Documents list + Refresh
  * DocumentManagerScreen -> DocumentList : refreshKey; showToolbar false
  * DocumentList -> DocumentManagerScreen : onLoadingChange (disable Refresh)
@@ -33,15 +37,20 @@ export default function DocumentManagerScreen() {
   const [listLoading, setListLoading] = useState(false);
   const [createMode, setCreateMode] = useState<ManagerFormMode>('collapsed');
   const [createSubmitting, setCreateSubmitting] = useState(false);
+  const { feedback, showSuccess, dismiss } = useManagerFeedback();
 
   const bumpDocumentsRefresh = useCallback(() => {
     setDocumentsRefreshKey((key) => key + 1);
   }, []);
 
-  const handleDocumentCreated = useCallback(() => {
-    setCreateMode('collapsed');
-    bumpDocumentsRefresh();
-  }, [bumpDocumentsRefresh]);
+  const handleDocumentCreated = useCallback(
+    (successMessage: string) => {
+      setCreateMode('collapsed');
+      bumpDocumentsRefresh();
+      showSuccess(successMessage);
+    },
+    [bumpDocumentsRefresh, showSuccess]
+  );
 
   return (
     <ManagerScrollView title="Document Manager">
@@ -56,6 +65,13 @@ export default function DocumentManagerScreen() {
         title="Create document"
         accessibilityLabel="Create document section"
       >
+        {feedback ? (
+          <ManagerFeedbackBanner
+            tone={feedback.tone}
+            message={feedback.message}
+            onDismiss={dismiss}
+          />
+        ) : null}
         <ManagerFormVsResults
           // Create-only region: keep Add (not empty-state copy) when collapsed.
           itemCount={1}
