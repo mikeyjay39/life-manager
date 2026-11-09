@@ -92,7 +92,8 @@ export function ManagerFormVsResults({
   const mode = isControlled ? modeProp : uncontrolledMode;
   const isExpanded = mode === 'create' || mode === 'edit';
   const showEmpty = !isExpanded && itemCount === 0;
-  const showResults = itemCount > 0;
+  // Omit results when the caller leaves `results` unset (create-only sections).
+  const showResults = itemCount > 0 && results != null;
 
   const setMode = useCallback(
     (next: ManagerFormMode) => {

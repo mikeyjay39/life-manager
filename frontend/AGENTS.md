@@ -59,7 +59,7 @@ Optional `theme` block on `tenants/<id>/meta.ts` — all fields optional; unspec
 
 **Typography:** use `ThemedText` with roles `pageTitle`, `sectionTitle`, `body`, `meta` (legacy aliases `title` / `subtitle` / `default` still work). Page titles outrank section titles via that scale. Scale and product sans live in `lib/tenant/theme/typography.ts` (`Fonts.sans`). Full manager UX docs: #188.
 
-**Manager form vs results:** `ManagerFormVsResults` keeps results as the default focus, collapses create until Add, shows empty copy with one primary Add when `itemCount` is 0, and supports `create` / `edit` reuse of the same form surface. Cancel collapses; keep `mode` on `create`/`edit` when validation fails so the form stays open. Health Manager vitals and doctor visits use this pattern (#185). Cars/Documents adopt in later manager UX stories.
+**Manager form vs results:** `ManagerFormVsResults` keeps results as the default focus, collapses create until Add, shows empty copy with one primary Add when `itemCount` is 0, and supports `create` / `edit` reuse of the same form surface. Cancel collapses; keep `mode` on `create`/`edit` when validation fails so the form stays open. Health Manager vitals and doctor visits use this pattern (#185). Document Manager create uses it for on-demand Add (#187). Cars adopt in a later manager UX story.
 
 Use `components/ui/field-label.tsx` for form field labels. Set `required` to show an asterisk. The accessible name is the label text plus `, required`.
 
@@ -116,7 +116,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Manager form vs results | `components/ui/manager-form-vs-results.tsx` (+ `manager-form-vs-results.test.tsx`); compose with `ManagerSection` / `ManagerCta` |
 | Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
 | Shared manager menu | `components/app-menu-bar.tsx` + `tenants/life-manager/manager-registry.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; active state from path. |
-| Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Owns Proton connect, create, list, preview, and delete (not Home). |
+| Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Distinct sections: Proton setup, create (`ManagerFormVsResults` + inline `DocumentCreateForm`), and document list. Preview/delete stay on the list. Not on Home. |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via registry (Health). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via registry (Cars). Cars panel + maintenance panel + charts (not Home/Documents). |
 | Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
