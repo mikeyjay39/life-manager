@@ -46,6 +46,10 @@ export const defaultColors = {
 /** @deprecated Prefer useColorPalette() in UI code. Kept for tests and non-React modules. */
 export const Colors = defaultColors;
 
+/**
+ * Product font families. Manager UI uses `sans` only (not decorative display).
+ * Web: CSS sans stack with system fallbacks. Native: platform default family.
+ */
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
@@ -64,9 +68,10 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
+    /** Product sans for manager UI — system UI stack, not a display face. */
     sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
-});
+})!;

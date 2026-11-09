@@ -7,8 +7,10 @@ import {
   MANAGER_SECTION_PADDING,
 } from '@/components/ui/manager-layout';
 import { ManagerSection } from '@/components/ui/manager-section';
+import { Fonts } from '@/constants/theme';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
+import { TYPE_SCALE } from '@/lib/tenant/theme/typography';
 
 function renderSection(
   props: Partial<React.ComponentProps<typeof ManagerSection>> = {}
@@ -47,5 +49,15 @@ describe('ManagerSection', () => {
   it('given a custom accessibilityLabel when rendered then uses that label', () => {
     renderSection({ accessibilityLabel: 'Members chrome' });
     expect(screen.getByLabelText('Members chrome')).toBeTruthy();
+  });
+
+  it('given a section title when rendered then uses sectionTitle type scale', () => {
+    renderSection();
+    const title = screen.getByText('HealthMembers');
+    const style = title.props.style;
+    const flat = Array.isArray(style) ? Object.assign({}, ...style.flat(Infinity)) : style;
+    expect(flat.fontSize).toBe(TYPE_SCALE.sectionTitle.fontSize);
+    expect(flat.fontWeight).toBe(TYPE_SCALE.sectionTitle.fontWeight);
+    expect(flat.fontFamily).toBe(Fonts.sans);
   });
 });
