@@ -22,6 +22,7 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -553,7 +554,7 @@ export default function CarMaintenancePanel({
   const addDisabled = !selectedCar?.active || submitting || deleting;
 
   const emptyMessage = !selectedCar
-    ? 'Select or create a Car to log maintenance events.'
+    ? ''
     : !selectedCar.active
       ? 'Selected Car is inactive. You can edit or delete past events. Choose an active Car to add new ones.'
       : listError
@@ -932,6 +933,13 @@ export default function CarMaintenancePanel({
 
   return (
     <View style={styles.container} accessibilityLabel="Maintenance events panel">
+      <ManagerSelectionContext
+        entityNoun="Car"
+        selectedLabel={carLabel}
+        inactive={selectedCar ? !selectedCar.active : false}
+        emptyHint="Choose a Car above to log maintenance events."
+      />
+
       {listError ? (
         <Text style={styles.errorText} accessibilityRole="alert">
           {listError}

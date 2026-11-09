@@ -203,6 +203,7 @@ describe('HealthMemberPanel', () => {
     });
     fireEvent.press(screen.getByLabelText('Select HealthMember Morgan'));
     expect(screen.getByLabelText('Selected HealthMember Morgan')).toBeTruthy();
+    expect(screen.getByText('Selected: Morgan')).toBeTruthy();
 
     mockAuthenticatedFetch
       .mockResolvedValueOnce(jsonResponse(after))
@@ -218,10 +219,39 @@ describe('HealthMemberPanel', () => {
       expect(screen.getByLabelText('Select HealthMember Morgan Lee')).toBeTruthy();
     });
     expect(screen.getByLabelText('Selected HealthMember Morgan Lee')).toBeTruthy();
+    expect(screen.getByText('Selected: Morgan Lee')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/health-members/m1',
       expect.objectContaining({ method: 'PUT' })
     );
+  });
+
+  it('Scenario: Selected member uses shared selected styles', async () => {
+    // Given two HealthMembers exist
+    const alex = member({ id: 'm1', display_name: 'Alex' });
+    const sam = member({ id: 'm2', display_name: 'Sam' });
+    mockAuthenticatedFetch.mockResolvedValueOnce(jsonResponse([alex, sam]));
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select HealthMember Alex')).toBeTruthy();
+    });
+
+    // When I select Alex
+    fireEvent.press(screen.getByLabelText('Select HealthMember Alex'));
+
+    // Then Alex is selected and Sam is not
+    const selectedChip = screen.getByLabelText('Select HealthMember Alex');
+    const unselectedChip = screen.getByLabelText('Select HealthMember Sam');
+    expect(selectedChip.props.accessibilityState).toMatchObject({ selected: true });
+    expect(unselectedChip.props.accessibilityState).toMatchObject({
+      selected: false,
+    });
+    expect(selectedChip.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ borderLeftWidth: 4 }),
+      ])
+    );
+    expect(screen.getByText('Selected: Alex')).toBeTruthy();
   });
 
   it('Scenario: Deactivate with confirm — M leaves default active picker; selection cleared', async () => {
@@ -248,7 +278,11 @@ describe('HealthMemberPanel', () => {
       expect(screen.queryByLabelText('Select HealthMember M')).toBeNull();
     });
     // And if M was selected, selection is cleared
-    expect(screen.getByLabelText('No HealthMember selected')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No HealthMember selected. Create a HealthMember to manage vitals and visits.'
+      )
+    ).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/health-members/m-dep/deactivate',
       expect.objectContaining({ method: 'POST' })
