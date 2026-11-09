@@ -78,7 +78,14 @@ describe('ManagerScrollView', () => {
     expect(pageTitle.fontSize).toBeGreaterThan(sectionTitle.fontSize);
 
     // And adjacent sections share the page content gap token
-    expect(MANAGER_CONTENT_GAP).toBeGreaterThan(0);
+    const pageContent = screen.getByTestId('manager-page-content');
+    expect(pageContent.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          gap: MANAGER_CONTENT_GAP,
+        }),
+      ])
+    );
     expect(screen.getByTestId('section-a')).toBeTruthy();
     expect(screen.getByTestId('section-b')).toBeTruthy();
   });
