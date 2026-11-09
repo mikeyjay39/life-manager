@@ -46,4 +46,22 @@ describe('ConfirmDialog', () => {
     fireEvent.press(screen.getByLabelText('Log Out'));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it('given destructive dialog when confirm rendered then uses semantic danger fill', () => {
+    // Given a destructive ConfirmDialog
+    renderDialog({ confirmLabel: 'Delete', title: 'Delete item?' });
+
+    // Then the confirm control uses palette.danger (not a hard-coded red)
+    const confirm = screen.getByLabelText('Delete');
+    const styleProp = confirm.props.style;
+    const resolved =
+      typeof styleProp === 'function' ? styleProp({ pressed: false }) : styleProp;
+    expect(resolved).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: defaultResolvedTheme.colors.light.danger,
+        }),
+      ])
+    );
+  });
 });

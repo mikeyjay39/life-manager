@@ -144,7 +144,7 @@ export default function CarMaintenancePanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         fieldBlock: {
           gap: 4,
@@ -916,7 +916,7 @@ export default function CarMaintenancePanel({
                       onPress={() => startEdit(event)}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       accessibilityLabel={`Delete maintenance event ${event.id} on ${event.occurred_on}`}
                       disabled={!selectedCar || submitting || deleting}

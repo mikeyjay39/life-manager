@@ -67,7 +67,7 @@ export default function ProtonConnectPanel() {
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
           marginBottom: 8,
         },
         modalBackdrop: {

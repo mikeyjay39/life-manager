@@ -146,7 +146,7 @@ export default function HealthReadingPanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         unitRow: {
           flexDirection: 'row',
@@ -759,7 +759,7 @@ export default function HealthReadingPanel({
                       style={styles.historyActionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
                       disabled={submitting || deleting}
