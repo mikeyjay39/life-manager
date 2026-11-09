@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -19,7 +18,13 @@ import {
   ManagerFeedbackBanner,
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSection } from '@/components/ui/manager-section';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import {
+  createManagerPickerChipStyles,
+  createManagerSelectionSurfaceStyles,
+} from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -145,6 +150,15 @@ export default function HealthMemberPanel({
   const [deactivating, setDeactivating] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
+  const pickerChipStyles = useMemo(
+    () => createManagerPickerChipStyles(palette),
+    [palette]
+  );
+  const selectionSurfaceStyles = useMemo(
+    () => createManagerSelectionSurfaceStyles(palette),
+    [palette]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -153,11 +167,6 @@ export default function HealthMemberPanel({
         },
         headerRow: {
           gap: 4,
-        },
-        selectedName: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: palette.text,
         },
         hint: {
           fontSize: 14,
@@ -181,33 +190,13 @@ export default function HealthMemberPanel({
           flexWrap: 'wrap',
           gap: 8,
         },
-        pickerChip: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          backgroundColor: palette.background,
-        },
-        pickerChipSelected: {
-          borderColor: palette.tint,
-          backgroundColor: palette.tint,
-        },
-        pickerChipInactive: {
-          opacity: 0.7,
-          borderStyle: 'dashed',
-        },
-        pickerChipText: {
-          color: palette.text,
-          fontSize: 15,
-        },
-        pickerChipTextSelected: {
-          color: palette.onTint,
-          fontWeight: '600',
-        },
+        pickerChip: pickerChipStyles.chip,
+        pickerChipSelected: pickerChipStyles.chipSelected,
+        pickerChipInactive: pickerChipStyles.chipInactive,
+        pickerChipText: pickerChipStyles.chipText,
+        pickerChipTextSelected: pickerChipStyles.chipTextSelected,
         detailCard: {
-          gap: 8,
-          paddingTop: 4,
+          ...selectionSurfaceStyles.selectedSurface,
         },
         detailRow: {
           gap: 2,
@@ -286,7 +275,7 @@ export default function HealthMemberPanel({
           gap: 6,
         },
       }),
-    [palette]
+    [palette, pickerChipStyles, selectionSurfaceStyles]
   );
 
   const selected = useMemo(
@@ -714,22 +703,16 @@ export default function HealthMemberPanel({
     >
       <View style={styles.container}>
       <View style={styles.headerRow}>
-        <ThemedText
-          style={styles.selectedName}
-          accessibilityLabel={
-            selected
-              ? `Selected HealthMember ${selected.display_name}`
-              : 'No HealthMember selected'
-          }>
-          {selected
-            ? selected.display_name
-            : 'No member selected'}
-        </ThemedText>
-        {!selected && activeMembers.length === 0 ? (
-          <ThemedText style={styles.hint}>
-            Create a HealthMember to manage vitals and visits.
-          </ThemedText>
-        ) : null}
+        <ManagerSelectionContext
+          entityNoun="HealthMember"
+          selectedLabel={selected?.display_name ?? null}
+          inactive={selected ? !selected.active : false}
+          emptyHint={
+            activeMembers.length === 0
+              ? 'Create a HealthMember to manage vitals and visits.'
+              : 'Choose a HealthMember below for vitals and visits.'
+          }
+        />
       </View>
 
       {feedback ? (
@@ -741,7 +724,7 @@ export default function HealthMemberPanel({
       ) : null}
 
       {loading && members.length === 0 ? (
-        <ActivityIndicator color={palette.tint} accessibilityLabel="Loading HealthMembers" />
+        <ManagerListSkeleton accessibilityLabel="Loading HealthMembers" />
       ) : members.length === 0 ? (
         <ThemedText style={styles.hint}>
           {includeInactive

@@ -18,7 +18,13 @@ import {
   ManagerFeedbackBanner,
   useManagerFeedback,
 } from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSection } from '@/components/ui/manager-section';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import {
+  createManagerPickerChipStyles,
+  createManagerSelectionSurfaceStyles,
+} from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -441,6 +447,15 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [deleting, setDeleting] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
+  const pickerChipStyles = useMemo(
+    () => createManagerPickerChipStyles(palette),
+    [palette]
+  );
+  const selectionSurfaceStyles = useMemo(
+    () => createManagerSelectionSurfaceStyles(palette),
+    [palette]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -449,11 +464,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         },
         headerRow: {
           gap: 4,
-        },
-        selectedName: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: palette.text,
         },
         hint: {
           fontSize: 14,
@@ -477,33 +487,34 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           flexWrap: 'wrap',
           gap: 8,
         },
-        pickerChip: {
+        pickerChip: pickerChipStyles.chip,
+        pickerChipSelected: pickerChipStyles.chipSelected,
+        pickerChipInactive: pickerChipStyles.chipInactive,
+        pickerChipText: pickerChipStyles.chipText,
+        pickerChipTextSelected: pickerChipStyles.chipTextSelected,
+        // Form field chips stay quieter than entity selection chips.
+        formFieldChip: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           paddingVertical: 8,
           paddingHorizontal: 12,
           backgroundColor: palette.background,
         },
-        pickerChipSelected: {
+        formFieldChipSelected: {
           borderColor: palette.tint,
-          backgroundColor: palette.tint,
+          backgroundColor: palette.surface,
         },
-        pickerChipInactive: {
-          opacity: 0.7,
-          borderStyle: 'dashed',
-        },
-        pickerChipText: {
+        formFieldChipText: {
           color: palette.text,
           fontSize: 15,
         },
-        pickerChipTextSelected: {
-          color: palette.onTint,
+        formFieldChipTextSelected: {
+          color: palette.tint,
           fontWeight: '600',
         },
         detailCard: {
-          gap: 8,
-          paddingTop: 4,
+          ...selectionSurfaceStyles.selectedSurface,
         },
         detailRow: {
           gap: 2,
@@ -586,7 +597,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           marginBottom: 8,
         },
       }),
-    [palette]
+    [palette, pickerChipStyles, selectionSurfaceStyles]
   );
 
   const selected = useMemo(
@@ -1134,10 +1145,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
@@ -1152,10 +1163,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
@@ -1204,20 +1215,16 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     >
       <View style={styles.container}>
       <View style={styles.headerRow}>
-        <ThemedText
-          style={styles.selectedName}
-          accessibilityLabel={
-            selected
-              ? `Selected Car ${selectedLabel}`
-              : 'No Car selected'
-          }>
-          {selected ? selectedLabel : 'No car selected'}
-        </ThemedText>
-        {!selected && activeCars.length === 0 ? (
-          <ThemedText style={styles.hint}>
-            No cars yet. Add a car to manage maintenance later.
-          </ThemedText>
-        ) : null}
+        <ManagerSelectionContext
+          entityNoun="Car"
+          selectedLabel={selected ? selectedLabel : null}
+          inactive={selected ? !selected.active : false}
+          emptyHint={
+            activeCars.length === 0
+              ? 'No cars yet. Add a car to manage maintenance later.'
+              : 'Choose a Car below for maintenance and charts.'
+          }
+        />
       </View>
 
       {feedback ? (
@@ -1229,7 +1236,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       ) : null}
 
       {loading && cars.length === 0 ? (
-        <ActivityIndicator color={palette.tint} accessibilityLabel="Loading Cars" />
+        <ManagerListSkeleton accessibilityLabel="Loading Cars" />
       ) : cars.length === 0 ? (
         <ThemedText style={styles.hint} accessibilityLabel="Cars empty state">
           {includeInactive

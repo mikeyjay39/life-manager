@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -21,6 +20,8 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -213,7 +214,7 @@ export default function HealthReadingPanel({
     prevUnitSystemRef.current = unitSystem;
   }, [unitSystem]);
 
-  // Clear vitals when leaving a concrete member (A→B or A→null→B).
+  // Clear vitals and history when leaving a concrete member (A→B or A→null→B).
   // Do not clear on the first select (null→A).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
@@ -225,6 +226,8 @@ export default function HealthReadingPanel({
       setFormMode('collapsed');
       setActionError(null);
       setDeleteTarget(null);
+      setReadings([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
@@ -505,7 +508,7 @@ export default function HealthReadingPanel({
     !selectedMember?.active || !unitPreferenceReady || submitting || deleting;
 
   const emptyMessage = !selectedMember
-    ? 'Select or create a HealthMember to enter vitals.'
+    ? ''
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add readings.'
       : listError
@@ -691,13 +694,9 @@ export default function HealthReadingPanel({
           {actionError}
         </Text>
       ) : null}
-      {listLoading ? (
-        <ActivityIndicator
-          color={palette.tint}
-          accessibilityLabel="Loading readings"
-        />
-      ) : null}
-      {!listLoading ? (
+      {listLoading && readings.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
+      ) : (
         <ManagerDataList
           testID="health-reading-data-list"
           leadingHeader="Date"
@@ -776,12 +775,19 @@ export default function HealthReadingPanel({
             );
           })}
         </ManagerDataList>
-      ) : null}
+      )}
     </View>
   );
 
   return (
     <View style={styles.container} accessibilityLabel="Health readings panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={selectedMember?.display_name ?? null}
+        inactive={selectedMember ? !selectedMember.active : false}
+        emptyHint="Choose a HealthMember above to enter vitals."
+      />
+
       <View style={styles.unitRow}>
         <ThemedText>Units</ThemedText>
         <Button
@@ -816,10 +822,7 @@ export default function HealthReadingPanel({
       listLoading &&
       readings.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator
-          color={palette.tint}
-          accessibilityLabel="Loading readings"
-        />
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
       ) : (
         <ManagerFormVsResults
           itemCount={readings.length}

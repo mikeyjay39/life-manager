@@ -154,6 +154,29 @@ describe('DocumentList', () => {
     expect(screen.queryByTestId('document-title-search-chrome')).toBeNull();
   });
 
+  it('given empty list when fetch is in flight then shows loading skeletons', async () => {
+    // Given
+    let resolveFetch!: (value: Response) => void;
+    mockAuthenticatedFetch.mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+
+    // When
+    renderDocumentList();
+
+    // Then
+    expect(screen.getByLabelText('Loading document list')).toBeTruthy();
+    expect(screen.getByTestId('manager-list-skeleton')).toBeTruthy();
+
+    resolveFetch(new Response(JSON.stringify([]), { status: 200 }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Loading document list')).toBeNull();
+    });
+    expect(screen.getByText('No documents yet.')).toBeTruthy();
+  });
+
   it('loads and lists document titles in the spreadsheet grid', async () => {
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(

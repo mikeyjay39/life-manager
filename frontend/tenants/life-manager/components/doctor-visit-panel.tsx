@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -21,6 +20,8 @@ import {
   ManagerFormVsResults,
   type ManagerFormMode,
 } from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -143,7 +144,7 @@ export default function DoctorVisitPanel({
     [palette]
   );
 
-  // Clear form when leaving a concrete member (A→B or A→null).
+  // Clear form and history when leaving a concrete member (A→B or A→null).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
     const nextId = selectedMember?.id ?? null;
@@ -153,6 +154,8 @@ export default function DoctorVisitPanel({
       setEditingId(null);
       setFormMode('collapsed');
       setDeleteTarget(null);
+      setVisits([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
@@ -402,7 +405,7 @@ export default function DoctorVisitPanel({
     !selectedMember?.active || submitting || deleting;
 
   const emptyMessage = !selectedMember
-    ? 'Select or create a HealthMember to log doctor visits.'
+    ? ''
     : !selectedMember.active
       ? 'Selected HealthMember is inactive. Choose an active member to add or edit visits.'
       : listError
@@ -493,10 +496,9 @@ export default function DoctorVisitPanel({
   const visitResults = (
     <View style={styles.historyHeader} accessibilityLabel="Visit history">
       <ThemedText type="sectionTitle">Visit history</ThemedText>
-      {listLoading ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
-      ) : null}
-      {!listLoading ? (
+      {listLoading && visits.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
+      ) : (
         <ManagerDataList
           testID="doctor-visit-data-list"
           leadingHeader="Date"
@@ -571,12 +573,19 @@ export default function DoctorVisitPanel({
             );
           })}
         </ManagerDataList>
-      ) : null}
+      )}
     </View>
   );
 
   return (
     <View style={styles.container} accessibilityLabel="Doctor visits panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={selectedMember?.display_name ?? null}
+        inactive={selectedMember ? !selectedMember.active : false}
+        emptyHint="Choose a HealthMember above to log doctor visits."
+      />
+
       {listError ? (
         <Text style={styles.errorText} accessibilityRole="alert">
           {listError}
@@ -587,7 +596,7 @@ export default function DoctorVisitPanel({
       listLoading &&
       visits.length === 0 &&
       formMode === 'collapsed' ? (
-        <ActivityIndicator accessibilityLabel="Loading doctor visits" />
+        <ManagerListSkeleton accessibilityLabel="Loading doctor visits" />
       ) : (
         <ManagerFormVsResults
           itemCount={visits.length}
