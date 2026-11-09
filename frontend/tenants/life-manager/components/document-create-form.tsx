@@ -150,7 +150,7 @@ export default function DocumentCreateForm({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         actions: {
           flexDirection: 'row',

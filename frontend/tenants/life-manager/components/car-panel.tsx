@@ -471,7 +471,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         includeRow: {
           flexDirection: 'row',
@@ -1384,14 +1384,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
                       accessibilityLabel="Deactivate Car"
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
                       accessibilityLabel="Delete Car"
@@ -1413,7 +1413,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
                       accessibilityLabel="Delete Car"

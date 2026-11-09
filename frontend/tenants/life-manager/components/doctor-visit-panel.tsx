@@ -114,7 +114,7 @@ export default function DoctorVisitPanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         fieldBlock: {
           gap: 4,
@@ -561,7 +561,7 @@ export default function DoctorVisitPanel({
                       onPress={() => startEdit(visit)}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       accessibilityLabel={`Delete visit on ${visit.visited_on}`}
                       disabled={submitting || deleting}
