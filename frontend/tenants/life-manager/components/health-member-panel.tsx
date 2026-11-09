@@ -174,7 +174,7 @@ export default function HealthMemberPanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         includeRow: {
           flexDirection: 'row',
@@ -855,7 +855,7 @@ export default function HealthMemberPanel({
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
                       accessibilityLabel="Deactivate HealthMember"

@@ -1023,12 +1023,13 @@ export default function DocumentList({
                   />
                   <View style={styles.modalActionDivider} />
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     label={deleting ? 'Deleting…' : 'Delete'}
                     onPress={() => setDeleteDialogVisible(true)}
                     disabled={deleting}
                     accessibilityLabel="Delete document"
                     style={styles.modalActionButton}
+                    labelStyle={styles.modalActionText}
                   />
                   <View style={styles.modalActionDivider} />
                   <Button

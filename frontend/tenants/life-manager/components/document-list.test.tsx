@@ -915,6 +915,7 @@ describe('DocumentList Proton preview and download', () => {
   });
 
   it('given open modal when delete is pressed then shows confirmation dialog', async () => {
+    // Given a listed document is open in the detail modal
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(
         JSON.stringify([
@@ -928,12 +929,20 @@ describe('DocumentList Proton preview and download', () => {
       expect(screen.getByText('Doc A')).toBeTruthy();
     });
     fireEvent.press(screen.getByLabelText('Open document Doc A'));
+
+    // When the secondary Delete control is pressed
     fireEvent.press(screen.getByLabelText('Delete document'));
 
+    // Then ConfirmDialog appears before any delete API call
     expect(screen.getByText('Delete document?')).toBeTruthy();
     expect(
       screen.getByText(/Delete "Doc A" from Life Manager\? This cannot be undone\./)
     ).toBeTruthy();
+    expect(screen.getByLabelText('Delete')).toBeTruthy();
+    expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/documents/'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
   });
 
   it('given delete confirmation when cancel is pressed then does not call delete API', async () => {

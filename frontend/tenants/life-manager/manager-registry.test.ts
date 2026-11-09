@@ -1,9 +1,28 @@
 import {
+  LIFE_MANAGER_MANAGERS,
   isManagerRouteActive,
   resolveManagerTiles,
   resolveRegisteredManagerMenuItems,
 } from '@/tenants/life-manager/manager-registry';
 import type { TenantScreens } from '@/lib/tenant/types';
+
+describe('LIFE_MANAGER_MANAGERS', () => {
+  it('exposes Documents, Health, and Cars labels with a shared icon set', () => {
+    // Given the life-manager registry
+    // When entries are read
+    // Then hub and menu share Documents / Health / Cars labels and IconSymbol names
+    expect(LIFE_MANAGER_MANAGERS.map((entry) => entry.label)).toEqual([
+      'Documents',
+      'Health',
+      'Cars',
+    ]);
+    expect(LIFE_MANAGER_MANAGERS.map((entry) => entry.icon)).toEqual([
+      'doc.fill',
+      'heart.fill',
+      'car.fill',
+    ]);
+  });
+});
 
 describe('resolveManagerTiles', () => {
   it('marks Documents available and Health/Cars Coming soon when only Documents is registered', () => {

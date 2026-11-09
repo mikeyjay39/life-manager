@@ -40,9 +40,23 @@ describe('Button', () => {
     expect(screen.getByText('Refresh')).toBeTruthy();
   });
 
-  it('given destructive variant when rendered then shows label', () => {
-    renderButton({ variant: 'destructive', label: 'Delete' });
+  it('given destructive variant when rendered then shows label and danger fill', () => {
+    renderButton({
+      variant: 'destructive',
+      label: 'Delete',
+      accessibilityLabel: 'Delete',
+    });
     expect(screen.getByText('Delete')).toBeTruthy();
+    const styleProp = screen.getByLabelText('Delete').props.style;
+    const resolved =
+      typeof styleProp === 'function' ? styleProp({ pressed: false }) : styleProp;
+    expect(resolved).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: defaultResolvedTheme.colors.light.danger,
+        }),
+      ])
+    );
   });
 
   it('given outline variant when rendered then shows label', () => {
