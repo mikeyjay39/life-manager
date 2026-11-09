@@ -18,6 +18,7 @@ import CarPanel from '@/tenants/life-manager/components/car-panel';
  * CarPanel -> CarScreen : selected car | null
  * CarScreen -> ManagerSection : Maintenance / Charts chrome
  * CarScreen -> CarMaintenancePanel : selectedCar + onEventsChanged
+ * CarMaintenancePanel -> ManagerFormVsResults : collapsed create; Add event on demand
  * CarMaintenancePanel -> API : GET/POST/PUT/DELETE /car-maintenance-events; GET /documents
  * CarMaintenancePanel -> CarScreen : onEventsChanged (bump refreshKey)
  * CarScreen -> CarChartsPanel : selectedCar + refreshKey
