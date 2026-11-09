@@ -566,7 +566,10 @@ export default function DoctorVisitPanel({
         </Text>
       ) : null}
 
-      {selectedMember && listLoading && visits.length === 0 ? (
+      {selectedMember &&
+      listLoading &&
+      visits.length === 0 &&
+      formMode === 'collapsed' ? (
         <ActivityIndicator accessibilityLabel="Loading doctor visits" />
       ) : (
         <ManagerFormVsResults

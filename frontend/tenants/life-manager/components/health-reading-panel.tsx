@@ -808,7 +808,10 @@ export default function HealthReadingPanel({
         </Text>
       ) : null}
 
-      {selectedMember && listLoading && readings.length === 0 ? (
+      {selectedMember &&
+      listLoading &&
+      readings.length === 0 &&
+      formMode === 'collapsed' ? (
         <ActivityIndicator
           color={palette.tint}
           accessibilityLabel="Loading readings"
