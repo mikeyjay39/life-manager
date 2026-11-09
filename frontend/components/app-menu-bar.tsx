@@ -12,6 +12,10 @@ import {
   resolveRegisteredManagerMenuItems,
   type ManagerIconName,
 } from '@/tenants/life-manager/manager-registry';
+import {
+  MANAGER_MENU_ICON_SIZE,
+  createManagerMenuItemChrome,
+} from '@/tenants/life-manager/manager-nav-chrome';
 
 type MenuIcon = 'house.fill' | ManagerIconName | 'rectangle.portrait.and.arrow.right';
 
@@ -60,6 +64,11 @@ export default function AppMenuBar() {
   const isHomeActive =
     pathname === '/' || pathname === '/(tabs)' || pathname.endsWith('/index');
 
+  const menuChrome = useMemo(
+    () => createManagerMenuItemChrome(palette),
+    [palette]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -76,19 +85,12 @@ export default function AppMenuBar() {
               } as const)
             : {}),
         },
-        item: {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 10,
-          gap: 4,
-        },
-        label: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        item: menuChrome.item,
+        itemActive: menuChrome.itemActive,
+        label: menuChrome.label,
+        labelActive: menuChrome.labelActive,
       }),
-    [palette]
+    [palette, menuChrome]
   );
 
   const handleConfirmLogout = () => {
@@ -137,17 +139,26 @@ export default function AppMenuBar() {
     <>
       <View style={styles.container}>
         {items.map((item) => {
-          const color = item.isActive ? palette.tint : palette.icon;
+          const isActive = item.isActive === true;
+          const iconColor = isActive
+            ? menuChrome.iconColorActive
+            : menuChrome.iconColor;
           return (
             <Pressable
               key={item.key}
               onPress={item.onPress}
               accessibilityRole="button"
               accessibilityLabel={item.accessibilityLabel}
-              accessibilityState={{ selected: item.isActive === true }}
-              style={styles.item}>
-              <IconSymbol name={item.icon} size={24} color={color} />
-              <Text style={[styles.label, { color }]}>{item.label}</Text>
+              accessibilityState={{ selected: isActive }}
+              style={[styles.item, isActive ? styles.itemActive : null]}>
+              <IconSymbol
+                name={item.icon}
+                size={MANAGER_MENU_ICON_SIZE}
+                color={iconColor}
+              />
+              <Text style={[styles.label, isActive ? styles.labelActive : null]}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}

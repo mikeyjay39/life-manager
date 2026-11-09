@@ -35,7 +35,7 @@ Use `@/` path alias (`tsconfig.json`).
 - `useTenant()` exposes `tenant.displayName`, `tenant.screens.Home`, optional `tenant.screens.Documents`, optional `tenant.screens.Health`, optional `tenant.screens.Car`, and `tenant.apiV1Prefix`.
 - **Home** is the manager hub (icon tiles only). Document create/list/Proton live under **Document Manager** (`screens.Documents`), not on Home.
 - Optional `screens.Documents` / `Health` / `Car` register manager routes (life-manager; test-tenant omits them).
-- Hub tiles and `AppMenuBar` manager links both read `tenants/life-manager/manager-registry.ts` (`LIFE_MANAGER_MANAGERS`). Hub may show Coming soon; the menu lists only registered managers. Always keep **Home** and **Log Out**. Documents label is **Documents**.
+- Hub tiles and `AppMenuBar` manager links both read `tenants/life-manager/manager-registry.ts` (`LIFE_MANAGER_MANAGERS`) for labels/icons/routes. Shared sizes and active/Coming-soon chrome live in `tenants/life-manager/manager-nav-chrome.ts` (menu active = tint weight + soft tint fill; hub Coming soon stays quieter). Hub may show Coming soon; the menu lists only registered managers. Always keep **Home** and **Log Out**. Documents label is **Documents**.
 - test-tenant has no optional screens → menu is **Home** + **Log Out** only.
 - Follow-up: if the menu bar gets crowded with more managers, consider compact overflow; do not add a hamburger in MVP unless needed.
 - Local dev options: [../docs/development_faq.md](../docs/development_faq.md#multi-tenant-frontend-dev).
@@ -122,8 +122,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Manager selection clarity | `components/ui/manager-selection.ts` + `manager-selection-context.tsx`; used by HealthMember/Car pickers and dependent panels (#198) |
 | Manager success/error feedback | `components/ui/manager-feedback.tsx` (+ `manager-feedback.test.tsx`); use in Documents/Health/Cars create and update flows |
 | Manager list loading skeletons | `components/ui/manager-list-skeleton.tsx` (+ `manager-list-skeleton.test.tsx`); use for initial empty→loading Documents/Health/Cars lists (keep button `loading` spinners for submit) |
-| Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
-| Shared manager menu | `components/app-menu-bar.tsx` + `tenants/life-manager/manager-registry.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; active state from path. |
+| Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `manager-nav-chrome.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
+| Shared manager menu | `components/app-menu-bar.tsx` + `manager-registry.ts` + `manager-nav-chrome.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; shared active tint fill/weight from path. |
 | Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Distinct sections: Proton setup, create (`ManagerFormVsResults` + inline `DocumentCreateForm`), and document list. Preview/delete stay on the list. Not on Home. |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via registry (Health). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via registry (Cars). Cars panel + maintenance panel + charts (not Home/Documents). |
