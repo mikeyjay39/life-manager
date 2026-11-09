@@ -2,15 +2,21 @@ import { mergeTenantTheme } from '@/lib/tenant/theme/merge-theme';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 import {
   LIFE_MANAGER_BRAND_SKY,
-  LIFE_MANAGER_BRAND_SKY_DARK,
-  LIFE_MANAGER_ON_TINT_LIGHT,
+  LIFE_MANAGER_BRAND_TINT_DARK,
+  LIFE_MANAGER_BRAND_TINT_LIGHT,
   lifeManagerTenantMeta,
 } from '@/tenants/life-manager/meta';
 
 const DEFAULT_TEAL_TINT = '#0a7ea4';
 
 function relativeLuminance(hex: string): number {
-  const normalized = hex.replace(/^#/, '');
+  let normalized = hex.replace(/^#/, '');
+  if (normalized.length === 3) {
+    normalized = normalized
+      .split('')
+      .map((digit) => digit + digit)
+      .join('');
+  }
   const channels = [0, 2, 4].map((offset) => {
     const channel = parseInt(normalized.slice(offset, offset + 2), 16) / 255;
     return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
@@ -26,7 +32,7 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe('life-manager brand theme', () => {
-  it('given life-manager meta when theme merges then tint is logo sky blue not default teal', () => {
+  it('given life-manager meta when theme merges then tint is logo sky family not default teal', () => {
     // Given
     const theme = lifeManagerTenantMeta.theme;
 
@@ -34,12 +40,12 @@ describe('life-manager brand theme', () => {
     const merged = mergeTenantTheme(theme);
 
     // Then
-    expect(merged.colors.light.tint).toBe(LIFE_MANAGER_BRAND_SKY);
-    expect(merged.colors.light.tabIconSelected).toBe(LIFE_MANAGER_BRAND_SKY);
+    expect(merged.colors.light.tint).toBe(LIFE_MANAGER_BRAND_TINT_LIGHT);
+    expect(merged.colors.light.tabIconSelected).toBe(LIFE_MANAGER_BRAND_TINT_LIGHT);
     expect(merged.colors.light.tint).not.toBe(DEFAULT_TEAL_TINT);
     expect(merged.headerBackground.light).toBe(LIFE_MANAGER_BRAND_SKY);
-    expect(merged.colors.dark.tint).toBe(LIFE_MANAGER_BRAND_SKY_DARK);
-    expect(merged.colors.dark.tabIconSelected).toBe(LIFE_MANAGER_BRAND_SKY_DARK);
+    expect(merged.colors.dark.tint).toBe(LIFE_MANAGER_BRAND_TINT_DARK);
+    expect(merged.colors.dark.tabIconSelected).toBe(LIFE_MANAGER_BRAND_TINT_DARK);
     expect(merged.colors.dark.tint).not.toBe(DEFAULT_TEAL_TINT);
   });
 
@@ -63,8 +69,16 @@ describe('life-manager brand theme', () => {
     const onTint = merged.colors.light.onTint;
     const tint = merged.colors.light.tint;
 
-    // Then — WCAG AA normal text needs 4.5:1
-    expect(onTint).toBe(LIFE_MANAGER_ON_TINT_LIGHT);
+    // Then — WCAG AA normal text needs 4.5:1 (default onTint is white)
+    expect(onTint).toBe(defaultResolvedTheme.colors.light.onTint);
     expect(contrastRatio(onTint, tint)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('given life-manager light tint when used as foreground on white then contrast stays readable', () => {
+    // Given / When
+    const merged = mergeTenantTheme(lifeManagerTenantMeta.theme);
+
+    // Then — tint also colors links and selected icons on light backgrounds
+    expect(contrastRatio(merged.colors.light.tint, '#ffffff')).toBeGreaterThanOrEqual(4.5);
   });
 });

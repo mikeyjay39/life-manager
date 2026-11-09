@@ -1,11 +1,14 @@
 import type { TenantMeta } from '@/lib/tenant/types';
 
-/** Sky-blue from logo/header (`assets/logo.jpeg`, `header-banner.jpeg`). */
+/** Header / logo sky (`assets/logo.jpeg`, `header-banner.jpeg`). */
 export const LIFE_MANAGER_BRAND_SKY = '#56C4F5';
+/**
+ * Light chrome tint: logo sky deepened so the same token works as
+ * button fill (with white onTint) and as link/icon foreground on white.
+ */
+export const LIFE_MANAGER_BRAND_TINT_LIGHT = '#307890';
 /** Softened sky for dark mode chrome (same family, less neon on dark surfaces). */
-export const LIFE_MANAGER_BRAND_SKY_DARK = '#5AB4D9';
-/** Label/icon color on light brand tint — white fails contrast on `#56C4F5`. */
-export const LIFE_MANAGER_ON_TINT_LIGHT = '#11181C';
+export const LIFE_MANAGER_BRAND_TINT_DARK = '#5AB4D9';
 
 export const lifeManagerTenantMeta: TenantMeta = {
   id: 'life-manager',
@@ -16,13 +19,12 @@ export const lifeManagerTenantMeta: TenantMeta = {
   theme: {
     headerBackground: { light: LIFE_MANAGER_BRAND_SKY, dark: '#1D3D47' },
     light: {
-      tint: LIFE_MANAGER_BRAND_SKY,
-      tabIconSelected: LIFE_MANAGER_BRAND_SKY,
-      onTint: LIFE_MANAGER_ON_TINT_LIGHT,
+      tint: LIFE_MANAGER_BRAND_TINT_LIGHT,
+      tabIconSelected: LIFE_MANAGER_BRAND_TINT_LIGHT,
     },
     dark: {
-      tint: LIFE_MANAGER_BRAND_SKY_DARK,
-      tabIconSelected: LIFE_MANAGER_BRAND_SKY_DARK,
+      tint: LIFE_MANAGER_BRAND_TINT_DARK,
+      tabIconSelected: LIFE_MANAGER_BRAND_TINT_DARK,
     },
     copy: {
       loginSubtitle: 'Sign in to continue',
