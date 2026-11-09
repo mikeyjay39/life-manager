@@ -1,8 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import DocumentGrid from './document-grid';
+import { MANAGER_DATA_ROW_PADDING_Y } from '@/components/ui/manager-layout';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
+import { TYPE_SCALE } from '@/lib/tenant/theme/typography';
 import type { DocumentDto } from '@/lib/api/types';
 
 vi.mock('@/components/ui/icon-symbol', () => ({
@@ -128,5 +130,25 @@ describe('DocumentGrid', () => {
     expect(getRowTitles()).toEqual(['Alpha', 'Beta']);
     expect(screen.getByLabelText('Sort by Tags, ascending')).toBeTruthy();
     expect(screen.queryByLabelText('Sort by Title, descending')).toBeNull();
+  });
+
+  it('given dense tokens when rendered then title stays body and meta columns use muted meta', () => {
+    // Given / When a document row with title and content
+    renderDocumentGrid([shortRow]);
+
+    // Then title uses body scale; secondary cells use muted meta
+    const title = screen.getByText('Short');
+    const titleStyle = Array.isArray(title.props.style)
+      ? Object.assign({}, ...title.props.style)
+      : title.props.style;
+    expect(titleStyle.fontSize).toBe(TYPE_SCALE.body.fontSize);
+
+    const content = screen.getByText('Hi');
+    const contentStyle = Array.isArray(content.props.style)
+      ? Object.assign({}, ...content.props.style)
+      : content.props.style;
+    expect(contentStyle.fontSize).toBe(TYPE_SCALE.meta.fontSize);
+    expect(contentStyle.color).toBe(defaultResolvedTheme.colors.light.muted);
+    expect(MANAGER_DATA_ROW_PADDING_Y).toBeLessThan(10);
   });
 });

@@ -10,6 +10,11 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  MANAGER_DATA_EMPTY_CELL,
+  ManagerDataList,
+  ManagerDataListRow,
+} from '@/components/ui/manager-data-list';
 import { ManagerCta } from '@/components/ui/manager-cta';
 import {
   ManagerFormVsResults,
@@ -187,34 +192,7 @@ export default function HealthReadingPanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 4,
-        },
-        historyItem: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          padding: 10,
-          gap: 4,
-          backgroundColor: palette.background,
-        },
-        historyDate: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: palette.text,
-        },
-        historyLine: {
-          fontSize: 14,
-          color: palette.text,
-        },
-        historyMuted: {
-          fontSize: 13,
-          color: palette.icon,
-        },
-        historyActions: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
           gap: 8,
-          marginTop: 4,
         },
         historyActionButton: {
           paddingVertical: 6,
@@ -709,7 +687,7 @@ export default function HealthReadingPanel({
 
   const historyResults = (
     <View style={styles.historyHeader} accessibilityLabel="Reading history">
-      <ThemedText type="defaultSemiBold">History</ThemedText>
+      <ThemedText type="sectionTitle">History</ThemedText>
       {actionError ? (
         <Text style={styles.errorText} accessibilityRole="alert">
           {actionError}
@@ -717,59 +695,86 @@ export default function HealthReadingPanel({
       ) : null}
       {listLoading && readings.length === 0 ? (
         <ManagerListSkeleton accessibilityLabel="Loading readings" />
-      ) : null}
-      {readings.map((reading) => {
-        const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
-        const height = formatHeightDisplay(reading.height_cm, unitSystem);
-        const bp =
-          reading.systolic_mm_hg != null && reading.diastolic_mm_hg != null
-            ? `${reading.systolic_mm_hg}/${reading.diastolic_mm_hg} mmHg`
-            : null;
-        const hr =
-          reading.heart_rate_bpm != null
-            ? `${reading.heart_rate_bpm} bpm`
-            : null;
-        const bmi =
-          reading.bmi != null && Number.isFinite(reading.bmi)
-            ? `BMI ${reading.bmi}`
-            : null;
-        const lines = [height, weight, bp, hr, bmi].filter(Boolean);
-        return (
-          <View
-            key={reading.id}
-            style={styles.historyItem}
-            accessibilityLabel={`Reading on ${reading.recorded_on}`}>
-            <Text style={styles.historyDate}>{reading.recorded_on}</Text>
-            {lines.length > 0 ? (
-              <Text style={styles.historyLine}>{lines.join(' · ')}</Text>
-            ) : null}
-            {reading.notes ? (
-              <Text style={styles.historyMuted}>{reading.notes}</Text>
-            ) : null}
-            <View style={styles.historyActions}>
-              <Button
-                variant="secondary"
-                label="Edit"
-                accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
-                disabled={submitting || deleting}
-                onPress={() => startEdit(reading)}
-                style={styles.historyActionButton}
+      ) : (
+        <ManagerDataList
+          testID="health-reading-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'vitals', label: 'Vitals', primary: true },
+            { key: 'notes', label: 'Notes' },
+          ]}
+        >
+          {readings.map((reading) => {
+            const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
+            const height = formatHeightDisplay(reading.height_cm, unitSystem);
+            const bp =
+              reading.systolic_mm_hg != null && reading.diastolic_mm_hg != null
+                ? `${reading.systolic_mm_hg}/${reading.diastolic_mm_hg} mmHg`
+                : null;
+            const hr =
+              reading.heart_rate_bpm != null
+                ? `${reading.heart_rate_bpm} bpm`
+                : null;
+            const bmi =
+              reading.bmi != null && Number.isFinite(reading.bmi)
+                ? `BMI ${reading.bmi}`
+                : null;
+            const lines = [height, weight, bp, hr, bmi].filter(Boolean) as string[];
+            const vitals = lines.length > 0 ? lines.join(' · ') : MANAGER_DATA_EMPTY_CELL;
+            const notes = reading.notes?.trim()
+              ? reading.notes
+              : MANAGER_DATA_EMPTY_CELL;
+            return (
+              <ManagerDataListRow
+                key={reading.id}
+                testID={`health-reading-row-${reading.id}`}
+                accessibilityLabel={`Reading on ${reading.recorded_on}`}
+                leading={reading.recorded_on}
+                cells={[
+                  {
+                    key: 'vitals',
+                    content: vitals,
+                    primary: true,
+                    accessibilityLabel:
+                      lines.length > 0 ? vitals : 'Vitals: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel:
+                      reading.notes?.trim()
+                        ? reading.notes
+                        : 'Notes: none',
+                  },
+                ]}
+                actions={
+                  <>
+                    <Button
+                      variant="secondary"
+                      label="Edit"
+                      accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
+                      disabled={submitting || deleting}
+                      onPress={() => startEdit(reading)}
+                      style={styles.historyActionButton}
+                    />
+                    <Button
+                      variant="destructive"
+                      label="Delete"
+                      accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
+                      disabled={submitting || deleting}
+                      onPress={() => {
+                        setActionError(null);
+                        setDeleteTarget(reading);
+                      }}
+                      style={styles.historyActionButton}
+                    />
+                  </>
+                }
               />
-              <Button
-                variant="destructive"
-                label="Delete"
-                accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
-                disabled={submitting || deleting}
-                onPress={() => {
-                  setActionError(null);
-                  setDeleteTarget(reading);
-                }}
-                style={styles.historyActionButton}
-              />
-            </View>
-          </View>
-        );
-      })}
+            );
+          })}
+        </ManagerDataList>
+      )}
     </View>
   );
 
