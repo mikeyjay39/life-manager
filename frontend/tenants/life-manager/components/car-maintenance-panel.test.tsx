@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { CarDto } from '@/lib/api/types';
+import { formatUsdFromCents } from '@/lib/format/display';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
@@ -179,7 +180,9 @@ describe('CarMaintenancePanel', () => {
     renderPanel();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
+      expect(
+        screen.getByLabelText(`Cost ${formatUsdFromCents(5999)}`)
+      ).toBeTruthy();
     });
     // Then history is visible without an always-open create form
     expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
@@ -293,7 +296,9 @@ describe('CarMaintenancePanel', () => {
     expect(body.cost_cents).toBe(5999);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
+      expect(
+        screen.getByLabelText(`Cost ${formatUsdFromCents(5999)}`)
+      ).toBeTruthy();
     });
   });
 
@@ -428,7 +433,9 @@ describe('CarMaintenancePanel', () => {
     renderPanel();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Cost $59.99')).toBeTruthy();
+      expect(
+        screen.getByLabelText(`Cost ${formatUsdFromCents(5999)}`)
+      ).toBeTruthy();
     });
 
     fireEvent.press(screen.getByLabelText('Filter Tire events'));
@@ -462,7 +469,9 @@ describe('CarMaintenancePanel', () => {
     renderPanel(inactiveCar);
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Cost $100.00')).toBeTruthy();
+      expect(
+        screen.getByLabelText(`Cost ${formatUsdFromCents(10000)}`)
+      ).toBeTruthy();
     });
     expect(screen.getByLabelText('Add maintenance event')).toBeDisabled();
     expect(

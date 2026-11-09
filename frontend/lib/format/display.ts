@@ -1,4 +1,3 @@
-import { MANAGER_DATA_EMPTY_CELL } from '@/components/ui/manager-data-list';
 import { resolveRuntimeLocale } from '@/lib/health/units';
 
 /**
@@ -18,7 +17,7 @@ import { resolveRuntimeLocale } from '@/lib/health/units';
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** Shared empty marker for missing dates and numbers in manager UI. */
-export const DISPLAY_EMPTY = MANAGER_DATA_EMPTY_CELL;
+export const DISPLAY_EMPTY = '—';
 
 /**
  * Locale tag for display formatters.
@@ -84,7 +83,7 @@ export function formatDisplayDate(
   }
   const parsed = parseWireDate(value);
   if (parsed == null) {
-    return value.trim();
+    return DISPLAY_EMPTY;
   }
   return parsed.toLocaleDateString(resolveDisplayLocale(locale));
 }

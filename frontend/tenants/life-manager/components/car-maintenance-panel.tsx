@@ -33,7 +33,6 @@ import type {
   DocumentDto,
 } from '@/lib/api/types';
 import {
-  DISPLAY_EMPTY,
   formatDisplayDate,
   formatDisplayInteger,
 } from '@/lib/format/display';
@@ -857,7 +856,7 @@ export default function CarMaintenancePanel({
               odometerMiles != null
                 ? `${odometerMiles} mi`
                 : MANAGER_DATA_EMPTY_CELL;
-            const cost = costLabel ?? DISPLAY_EMPTY;
+            const cost = costLabel ?? MANAGER_DATA_EMPTY_CELL;
             const notes = event.notes?.trim()
               ? event.notes
               : MANAGER_DATA_EMPTY_CELL;

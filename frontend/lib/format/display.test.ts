@@ -53,9 +53,11 @@ describe('formatDisplayDate', () => {
     expect(shown).not.toBe(wire);
   });
 
-  it('given null date when formatted then shows em dash', () => {
+  it('given null or invalid date when formatted then shows em dash', () => {
     expect(formatDisplayDate(null)).toBe(DISPLAY_EMPTY);
     expect(formatDisplayDate('')).toBe(DISPLAY_EMPTY);
+    expect(formatDisplayDate('not-a-date')).toBe(DISPLAY_EMPTY);
+    expect(formatDisplayDate('2026-13-40')).toBe(DISPLAY_EMPTY);
   });
 
   it('given ISO datetime when formatted then uses locale date', () => {
