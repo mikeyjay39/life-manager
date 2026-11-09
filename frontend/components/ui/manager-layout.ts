@@ -23,6 +23,9 @@ export const MANAGER_SECTION_PADDING = 16;
 /** Gap between section title and body. */
 export const MANAGER_SECTION_GAP = 12;
 
+/** Gap between title and actions, and between toolbar controls. */
+export const MANAGER_SECTION_TOOLBAR_GAP = 8;
+
 /** Default max width for primary/secondary manager CTAs. */
 export const MANAGER_CTA_MAX_WIDTH = 280;
 

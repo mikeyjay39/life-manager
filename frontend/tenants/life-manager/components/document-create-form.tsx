@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import {
   View,
   TextInput,
@@ -48,9 +48,19 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 
 type DocumentCreateFormProps = {
   onDocumentCreated?: () => void;
+  /**
+   * When true, omit the standalone Create button.
+   * The section toolbar owns the primary Add control.
+   */
+  hideTrigger?: boolean;
 };
 
-export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreateFormProps) {
+export type DocumentCreateFormHandle = {
+  open: () => void;
+};
+
+const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFormProps>(
+  function DocumentCreateForm({ onDocumentCreated, hideTrigger = false }, ref) {
   const [modalVisible, setModalVisible] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -64,6 +74,10 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
+
+  useImperativeHandle(ref, () => ({
+    open: () => setModalVisible(true),
+  }));
 
   const styles = useMemo(
     () =>
@@ -360,12 +374,14 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
 
   return (
     <View style={styles.container}>
-      <Button
-        label="Create document"
-        onPress={() => setModalVisible(true)}
-        disabled={loading}
-        accessibilityLabel="Create document"
-      />
+      {hideTrigger ? null : (
+        <Button
+          label="Create document"
+          onPress={() => setModalVisible(true)}
+          disabled={loading}
+          accessibilityLabel="Create document"
+        />
+      )}
 
       <Modal
         visible={modalVisible}
@@ -495,4 +511,6 @@ export default function DocumentCreateForm({ onDocumentCreated }: DocumentCreate
       </Modal>
     </View>
   );
-}
+});
+
+export default DocumentCreateForm;

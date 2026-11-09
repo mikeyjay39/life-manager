@@ -1,9 +1,7 @@
 import { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import type { CarDto } from '@/lib/api/types';
 import CarChartsPanel from '@/tenants/life-manager/components/car-charts-panel';
 import CarMaintenancePanel from '@/tenants/life-manager/components/car-maintenance-panel';
@@ -15,9 +13,10 @@ import CarPanel from '@/tenants/life-manager/components/car-panel';
  * ```
  * User -> CarScreen : open Car Manager
  * CarScreen -> ManagerScrollView : quiet chrome (no parallax)
- * CarScreen -> CarPanel : render; onSelectedCarChange
+ * CarScreen -> CarPanel : ManagerSection + Create/Refresh toolbar
  * CarPanel -> API : GET/POST/PUT/DELETE /cars; GET /documents
  * CarPanel -> CarScreen : selected car | null
+ * CarScreen -> ManagerSection : Maintenance / Charts chrome
  * CarScreen -> CarMaintenancePanel : selectedCar + onEventsChanged
  * CarMaintenancePanel -> API : GET/POST/PUT/DELETE /car-maintenance-events; GET /documents
  * CarMaintenancePanel -> CarScreen : onEventsChanged (bump refreshKey)
@@ -35,35 +34,24 @@ export default function CarScreen() {
 
   return (
     <ManagerScrollView title="Car Manager">
-      <ThemedView style={styles.section} accessibilityLabel="Cars section">
-        <ThemedText type="subtitle">Cars</ThemedText>
-        <CarPanel onSelectedCarChange={setSelectedCar} />
-      </ThemedView>
+      <CarPanel onSelectedCarChange={setSelectedCar} />
 
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="Maintenance section">
-        <ThemedText type="subtitle">Maintenance</ThemedText>
+      <ManagerSection
+        title="Maintenance"
+        accessibilityLabel="Maintenance section"
+      >
         <CarMaintenancePanel
           selectedCar={selectedCar}
           onEventsChanged={handleEventsChanged}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView style={styles.section} accessibilityLabel="Charts section">
-        <ThemedText type="subtitle">Charts</ThemedText>
+      <ManagerSection title="Charts" accessibilityLabel="Charts section">
         <CarChartsPanel
           selectedCar={selectedCar}
           refreshKey={eventsRefreshKey}
         />
-      </ThemedView>
+      </ManagerSection>
     </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-});

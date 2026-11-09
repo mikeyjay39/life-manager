@@ -85,6 +85,11 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 type DocumentListProps = {
   refreshKey?: number;
   onDocumentUpdated?: () => void;
+  /**
+   * When false, omit the list header toolbar.
+   * The parent ManagerSection owns title + Refresh.
+   */
+  showToolbar?: boolean;
 };
 
 const TITLE_SEARCH_DEBOUNCE_MS = 300;
@@ -92,6 +97,7 @@ const TITLE_SEARCH_DEBOUNCE_MS = 300;
 export default function DocumentList({
   refreshKey = 0,
   onDocumentUpdated,
+  showToolbar = true,
 }: DocumentListProps) {
   const { token, handleUnauthorized } = useAuth();
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
@@ -712,11 +718,11 @@ export default function DocumentList({
     setPickedFile(result.assets[0]);
   };
 
-  const toolbar = (
+  const toolbar = showToolbar ? (
     <View style={styles.toolbarRow}>
       <Text style={styles.sectionTitle}>Your documents</Text>
       <Button
-        variant="secondary"
+        variant="outline"
         label={loading ? 'Loading…' : 'Refresh'}
         onPress={() => void load()}
         disabled={loading || !token}
@@ -725,7 +731,7 @@ export default function DocumentList({
         labelStyle={styles.refreshButtonText}
       />
     </View>
-  );
+  ) : null;
 
   const searchField = token ? (
     <TextInput

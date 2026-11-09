@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import type { HealthMemberDto } from '@/lib/api/types';
 import {
   loadUnitPreference,
@@ -22,8 +20,9 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * User -> HealthScreen : open Health
  * HealthScreen -> ManagerScrollView : quiet chrome (no parallax)
  * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
- * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
+ * HealthScreen -> HealthMemberPanel : ManagerSection + Create/Refresh toolbar
  * HealthMemberPanel -> HealthScreen : selected member | null
+ * HealthScreen -> ManagerSection : Vitals / Charts / Doctor visits chrome
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
  * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
  * HealthReadingPanel -> API : list / create / update / delete readings
@@ -70,15 +69,9 @@ export default function HealthScreen() {
 
   return (
     <ManagerScrollView title="Health Manager">
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="HealthMembers section">
-        <ThemedText type="subtitle">HealthMembers</ThemedText>
-        <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
-      </ThemedView>
+      <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
 
-      <ThemedView style={styles.section} accessibilityLabel="Vitals section">
-        <ThemedText type="subtitle">Vitals</ThemedText>
+      <ManagerSection title="Vitals" accessibilityLabel="Vitals section">
         <HealthReadingPanel
           selectedMember={selectedMember}
           unitSystem={unitSystem}
@@ -86,10 +79,9 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           onReadingsChanged={handleReadingsChanged}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView style={styles.section} accessibilityLabel="Charts section">
-        <ThemedText type="subtitle">Charts</ThemedText>
+      <ManagerSection title="Charts" accessibilityLabel="Charts section">
         <HealthChartsPanel
           healthMember={selectedMember}
           unitSystem={unitSystem}
@@ -97,21 +89,14 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           refreshKey={readingsRefreshKey}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="Doctor visits section">
-        <ThemedText type="subtitle">Doctor visits</ThemedText>
+      <ManagerSection
+        title="Doctor visits"
+        accessibilityLabel="Doctor visits section"
+      >
         <DoctorVisitPanel selectedMember={selectedMember} />
-      </ThemedView>
+      </ManagerSection>
     </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-});

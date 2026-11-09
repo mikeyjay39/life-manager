@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import { ManagerSection } from '@/components/ui/manager-section';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -160,12 +161,6 @@ export default function HealthMemberPanel({
         errorText: {
           fontSize: 14,
           color: '#c62828',
-        },
-        toolbar: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 12,
         },
         includeRow: {
           flexDirection: 'row',
@@ -666,16 +661,43 @@ export default function HealthMemberPanel({
 
   if (!token) {
     return (
-      <View style={styles.container}>
+      <ManagerSection title="HealthMembers" accessibilityLabel="HealthMembers section">
         <ThemedText style={styles.hint}>
           Sign in to manage HealthMembers.
         </ThemedText>
-      </View>
+      </ManagerSection>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ManagerSection
+      title="HealthMembers"
+      accessibilityLabel="HealthMembers section"
+      primaryAction={{
+        label: 'Create HealthMember',
+        onPress: () => setCreateVisible(true),
+        accessibilityLabel: 'Create HealthMember',
+      }}
+      secondaryActions={[
+        {
+          label: loading ? 'Refreshing…' : 'Refresh',
+          onPress: () => void load(),
+          disabled: loading,
+          accessibilityLabel: 'Refresh HealthMembers',
+        },
+      ]}
+      toolbarExtra={
+        <View style={styles.includeRow}>
+          <Text style={styles.includeLabel}>Include inactive</Text>
+          <Switch
+            value={includeInactive}
+            onValueChange={setIncludeInactive}
+            accessibilityLabel="Include inactive HealthMembers"
+          />
+        </View>
+      }
+    >
+      <View style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText
           style={styles.selectedName}
@@ -693,31 +715,6 @@ export default function HealthMemberPanel({
             Create a HealthMember to manage vitals and visits.
           </ThemedText>
         ) : null}
-      </View>
-
-      <View style={styles.toolbar}>
-        <Button
-          label="Create HealthMember"
-          onPress={() => setCreateVisible(true)}
-          accessibilityLabel="Create HealthMember"
-          style={styles.actionButton}
-        />
-        <View style={styles.includeRow}>
-          <Text style={styles.includeLabel}>Include inactive</Text>
-          <Switch
-            value={includeInactive}
-            onValueChange={setIncludeInactive}
-            accessibilityLabel="Include inactive HealthMembers"
-          />
-        </View>
-        <Button
-          variant="outline"
-          label={loading ? 'Refreshing…' : 'Refresh'}
-          onPress={() => void load()}
-          disabled={loading}
-          accessibilityLabel="Refresh HealthMembers"
-          style={styles.actionButton}
-        />
       </View>
 
       {error ? (
@@ -966,6 +963,7 @@ export default function HealthMemberPanel({
         }}
         onConfirm={() => void handleDeactivateConfirm()}
       />
-    </View>
+      </View>
+    </ManagerSection>
   );
 }
