@@ -83,7 +83,8 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
     () =>
       StyleSheet.create({
         container: {
-          marginTop: 8,
+          // No top margin when the section toolbar owns Create (modal-only mount).
+          marginTop: hideTrigger ? 0 : 8,
         },
         label: {
           fontSize: 16,
@@ -176,7 +177,7 @@ const DocumentCreateForm = forwardRef<DocumentCreateFormHandle, DocumentCreateFo
           paddingVertical: 12,
         },
       }),
-    [palette]
+    [palette, hideTrigger]
   );
 
   const resetForm = () => {

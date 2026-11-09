@@ -20,11 +20,13 @@ import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect
  * DocumentCreateForm -> API : POST /documents
  * DocumentCreateForm -> DocumentManagerScreen : bump refreshKey
  * DocumentManagerScreen -> DocumentList : refreshKey; showToolbar false
+ * DocumentList -> DocumentManagerScreen : onLoadingChange (disable Refresh)
  * DocumentList -> API : GET/PUT/DELETE /documents; Proton preview
  * ```
  */
 export default function DocumentManagerScreen() {
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
+  const [listLoading, setListLoading] = useState(false);
   const createFormRef = useRef<DocumentCreateFormHandle>(null);
 
   const bumpDocumentsRefresh = useCallback(() => {
@@ -43,9 +45,12 @@ export default function DocumentManagerScreen() {
         }}
         secondaryActions={[
           {
-            label: 'Refresh',
+            label: listLoading ? 'Loading…' : 'Refresh',
             onPress: bumpDocumentsRefresh,
-            accessibilityLabel: 'Refresh documents',
+            disabled: listLoading,
+            accessibilityLabel: listLoading
+              ? 'Loading documents'
+              : 'Refresh documents',
           },
         ]}
       >
@@ -55,7 +60,11 @@ export default function DocumentManagerScreen() {
           hideTrigger
           onDocumentCreated={bumpDocumentsRefresh}
         />
-        <DocumentList refreshKey={documentsRefreshKey} showToolbar={false} />
+        <DocumentList
+          refreshKey={documentsRefreshKey}
+          showToolbar={false}
+          onLoadingChange={setListLoading}
+        />
       </ManagerSection>
     </ManagerScrollView>
   );

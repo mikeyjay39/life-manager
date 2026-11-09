@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -90,6 +90,8 @@ type DocumentListProps = {
    * The parent ManagerSection owns title + Refresh.
    */
   showToolbar?: boolean;
+  /** Reports list load busy state so a parent section Refresh can disable. */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 const TITLE_SEARCH_DEBOUNCE_MS = 300;
@@ -98,6 +100,7 @@ export default function DocumentList({
   refreshKey = 0,
   onDocumentUpdated,
   showToolbar = true,
+  onLoadingChange,
 }: DocumentListProps) {
   const { token, handleUnauthorized } = useAuth();
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
@@ -296,11 +299,14 @@ export default function DocumentList({
    * DocumentList --> User : update grid
    * ```
    */
+  const loadGenerationRef = useRef(0);
+
   const load = useCallback(async () => {
     if (!token) {
       setDocuments([]);
       return;
     }
+    const generation = ++loadGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -315,6 +321,9 @@ export default function DocumentList({
         onUnauthorized: handleUnauthorized,
       });
       const bodyText = await response.text();
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       if (!response.ok) {
         throw new Error(
           bodyText
@@ -329,11 +338,16 @@ export default function DocumentList({
       const rows: DocumentDto[] = data.map(parseDocumentDto);
       setDocuments(rows);
     } catch (err: unknown) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load documents');
       setDocuments([]);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [token, handleUnauthorized, debouncedTitleContains]);
 
@@ -347,6 +361,10 @@ export default function DocumentList({
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
 
   const closeModal = useCallback(() => {
     setSelected(null);
