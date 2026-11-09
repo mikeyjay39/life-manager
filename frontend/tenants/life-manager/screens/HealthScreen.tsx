@@ -20,9 +20,9 @@ import HealthReadingPanel from '@/tenants/life-manager/components/health-reading
  * User -> HealthScreen : open Health
  * HealthScreen -> ManagerScrollView : quiet chrome (no parallax)
  * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
- * HealthScreen -> ManagerSection : HealthMembers / Vitals / Charts / Doctor visits
- * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
+ * HealthScreen -> HealthMemberPanel : ManagerSection + Create/Refresh toolbar
  * HealthMemberPanel -> HealthScreen : selected member | null
+ * HealthScreen -> ManagerSection : Vitals / Charts / Doctor visits chrome
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
  * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
  * HealthReadingPanel -> API : list / create / update / delete readings
@@ -69,11 +69,7 @@ export default function HealthScreen() {
 
   return (
     <ManagerScrollView title="Health Manager">
-      <ManagerSection
-        title="HealthMembers"
-        accessibilityLabel="HealthMembers section">
-        <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
-      </ManagerSection>
+      <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
 
       <ManagerSection title="Vitals" accessibilityLabel="Vitals section">
         <HealthReadingPanel
@@ -97,7 +93,8 @@ export default function HealthScreen() {
 
       <ManagerSection
         title="Doctor visits"
-        accessibilityLabel="Doctor visits section">
+        accessibilityLabel="Doctor visits section"
+      >
         <DoctorVisitPanel selectedMember={selectedMember} />
       </ManagerSection>
     </ManagerScrollView>
