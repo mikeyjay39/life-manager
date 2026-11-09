@@ -304,9 +304,12 @@ export default function DocumentList({
   const load = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
     if (!token) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setDocuments([]);
-      setLoading(false);
       setError(null);
+      setLoading(false);
       return;
     }
     setLoading(true);
