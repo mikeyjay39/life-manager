@@ -1,5 +1,8 @@
 /**
  * Shared sizing for manager page shells and CTAs.
+ *
+ * Density: stack sections with MANAGER_CONTENT_GAP only.
+ * Do not add per-screen marginBottom between adjacent sections.
  */
 
 /** Max width of the centered manager content column on wide viewports. */
@@ -8,17 +11,17 @@ export const MANAGER_CONTENT_MAX_WIDTH = 720;
 /** Horizontal inset inside the manager content column. */
 export const MANAGER_CONTENT_PADDING_X = 16;
 
-/** Vertical gap between stacked manager sections. */
-export const MANAGER_CONTENT_GAP = 16;
+/** Vertical gap between stacked manager sections (shared section gap). */
+export const MANAGER_CONTENT_GAP = 12;
 
 /** Vertical padding around the quiet manager page body. */
-export const MANAGER_PAGE_PADDING_Y = 16;
+export const MANAGER_PAGE_PADDING_Y = 12;
 
 /** Gap between page title and optional subtitle in quiet chrome. */
 export const MANAGER_PAGE_HEADER_GAP = 4;
 
 /** Padding inside a manager section chrome. */
-export const MANAGER_SECTION_PADDING = 16;
+export const MANAGER_SECTION_PADDING = 12;
 
 /** Gap between section title and body. */
 export const MANAGER_SECTION_GAP = 12;

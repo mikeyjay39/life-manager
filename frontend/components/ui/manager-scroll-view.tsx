@@ -41,7 +41,7 @@ export function ManagerScrollView({
       accessibilityLabel={`${title} page`}>
       <AppMenuBar />
       <ThemedView style={styles.content}>
-        <ManagerPageContent>
+        <ManagerPageContent testID="manager-page-content">
           <ManagerPageHeader title={title} subtitle={subtitle} />
           {children}
         </ManagerPageContent>
