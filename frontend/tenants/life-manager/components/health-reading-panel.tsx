@@ -26,6 +26,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
+import { formatDisplayDate } from '@/lib/format/display';
 import {
   formatHeightDisplay,
   formatWeightDisplay,
@@ -725,12 +726,13 @@ export default function HealthReadingPanel({
             const notes = reading.notes?.trim()
               ? reading.notes
               : MANAGER_DATA_EMPTY_CELL;
+            const recordedLabel = formatDisplayDate(reading.recorded_on);
             return (
               <ManagerDataListRow
                 key={reading.id}
                 testID={`health-reading-row-${reading.id}`}
                 accessibilityLabel={`Reading on ${reading.recorded_on}`}
-                leading={reading.recorded_on}
+                leading={recordedLabel}
                 cells={[
                   {
                     key: 'vitals',

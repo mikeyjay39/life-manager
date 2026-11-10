@@ -1,9 +1,10 @@
 import type { SortingFn, SortingState } from '@tanstack/react-table';
 import type { DocumentDto } from '@/lib/api/types';
+import { DISPLAY_EMPTY, formatDisplayDate } from '@/lib/format/display';
 
 export type DocumentColumnKey = Exclude<keyof DocumentDto, 'id'>;
 
-const EMPTY_CELL = '—';
+const EMPTY_CELL = DISPLAY_EMPTY;
 
 export function compareLocaleText(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: 'base' });
@@ -115,14 +116,7 @@ export function formatDocumentTags(tags: string[]): string {
 }
 
 export function formatDocumentDate(value: string | null): string {
-  if (value == null || value === '') {
-    return EMPTY_CELL;
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleDateString();
+  return formatDisplayDate(value);
 }
 
 export function formatDocumentCellValue(doc: DocumentDto, key: DocumentColumnKey): string {

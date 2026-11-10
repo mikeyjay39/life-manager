@@ -21,7 +21,7 @@ Update this file and the hub when frontend conventions change.
 | `lib/api/generated/` | ts-rs output from Rust — **do not hand-edit** (see `generated/README.md`) |
 | `lib/health/` | Shared Health helpers: `units.ts` (metric/imperial preference + **client-side** conversion; API stays metric-only), `chart-series.ts` (readings → chart points) |
 | `lib/car/` | Shared Car helpers: `chart-series.ts` (maintenance events → odometer / cost / event_type chart series; miles only; USD from `cost_cents`) |
-| `lib/format/` | Locale display helpers: `display.ts` (dates, USD from `cost_cents`, integers). Wire format stays `YYYY-MM-DD` / cents (lands with #202) |
+| `lib/format/` | Shared locale display helpers: `display.ts` (dates, USD from `cost_cents`, integers). Locale follows device/browser; wire format stays `YYYY-MM-DD` / cents. |
 | `tenants/<id>/` | Tenant-owned screens, components, and `config.ts` |
 | `constants/` | `theme.ts` — `defaultColors` / product `Fonts` (web sans stack); `config.ts` — `API_BASE_URL` |
 
@@ -141,7 +141,7 @@ Convention (#201): interactive controls show a visible tint focus ring on web (`
 
 ### Locale date and number formatting
 
-Convention (helpers land with #202): for manager lists and read-only detail views, prefer `lib/format/display.ts` — `formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`. Locale follows the device/browser (`navigator.language`, then `Intl`); pass an explicit locale in tests. Wire/API values stay `YYYY-MM-DD` and cents. Do not build ad-hoc `$` strings or raw `toLocaleDateString` in manager rows. Car cost currency stays USD; grouping/symbol follow locale. Empty/missing values use the shared em dash (`DISPLAY_EMPTY`). Action accessibility labels may keep wire ISO dates for stable targeting.
+For manager lists and read-only detail views, prefer `lib/format/display.ts` — `formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`. Locale follows the device/browser (`navigator.language`, then `Intl`); pass an explicit locale in tests. Wire/API values stay `YYYY-MM-DD` and cents. Do not build ad-hoc `$` strings or raw `toLocaleDateString` in manager rows. Car cost currency stays USD; grouping/symbol follow locale. Empty/missing values use the shared em dash (`DISPLAY_EMPTY`). Action accessibility labels may keep wire ISO dates for stable targeting.
 
 ## API and auth
 
@@ -187,7 +187,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Manager success/error feedback | `components/ui/manager-feedback.tsx` (+ test); Documents/Health/Cars create and update flows |
 | Manager list loading skeletons | `components/ui/manager-list-skeleton.tsx` (+ test); initial empty→loading lists (keep button `loading` for submit) |
 | Web keyboard and focus | `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts` (#201); Button / menu / hub / fields / ConfirmDialog |
-| Locale date/number display | `lib/format/display.ts` (`formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`; lands with #202); dense lists and read-only detail |
+| Locale date/number display | `lib/format/display.ts` (`formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`); dense lists and read-only detail (#202) |
 | Destructive confirms | `components/ui/confirm-dialog.tsx`; outline triggers + `destructive` confirm; Documents/Health/Cars delete/deactivate |
 | Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `manager-nav-chrome.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
 | Shared manager menu | `components/app-menu-bar.tsx` + `manager-registry.ts` + `manager-nav-chrome.ts` (`resolveRegisteredManagerMenuItems`). Home + registered managers + Log Out; shared active tint fill/weight from path. |
@@ -201,7 +201,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (`ManagerFormVsResults`; metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (`ManagerFormVsResults`; create / edit / delete + ConfirmDialog; selected active HealthMember) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
-| Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display (that module lands with #202) |
+| Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
 | Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |

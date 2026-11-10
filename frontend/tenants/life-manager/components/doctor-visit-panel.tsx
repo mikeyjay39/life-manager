@@ -26,6 +26,7 @@ import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { DoctorVisitDto, HealthMemberDto } from '@/lib/api/types';
+import { formatDisplayDate } from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import {
@@ -518,12 +519,13 @@ export default function DoctorVisitPanel({
             const notes = visit.notes?.trim()
               ? visit.notes
               : MANAGER_DATA_EMPTY_CELL;
+            const visitedLabel = formatDisplayDate(visit.visited_on);
             return (
               <ManagerDataListRow
                 key={visit.id}
                 testID={`doctor-visit-row-${visit.id}`}
                 accessibilityLabel={`Doctor visit on ${visit.visited_on}`}
-                leading={visit.visited_on}
+                leading={visitedLabel}
                 cells={[
                   {
                     key: 'provider',

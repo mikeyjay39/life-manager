@@ -34,6 +34,7 @@ import type {
   HealthMemberDto,
   UpdateHealthMemberCommand,
 } from '@/lib/api/types';
+import { formatDisplayDate } from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const DISPLAY_NAME_MAX_LEN = 100;
@@ -834,7 +835,7 @@ export default function HealthMemberPanel({
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Birth date</Text>
                 <Text style={styles.detailValue}>
-                  {formatBirthDateForInput(selected.birth_date) || '—'}
+                  {formatDisplayDate(selected.birth_date)}
                 </Text>
               </View>
               <View style={styles.detailRow}>
