@@ -26,13 +26,19 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return;
 
-    // Public auth routes: login, signup, verify-email, forgot-password, reset-password
-    // (any segment outside (tabs)/modal stays reachable while logged out).
-    const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'modal';
+    // Public auth routes stay reachable while logged out (login, signup, email flows).
+    // Email deep links (verify / reset / forgot) must also stay reachable when a JWT
+    // is already stored so ?token= is not dropped before the screen can run.
+    const route = segments[0];
+    const inAuthGroup = route === '(tabs)' || route === 'modal';
+    const isEmailAuthDeepLink =
+      route === 'verify-email' ||
+      route === 'forgot-password' ||
+      route === 'reset-password';
 
     if (!isAuthenticated && inAuthGroup) {
       router.replace('/login');
-    } else if (isAuthenticated && !inAuthGroup) {
+    } else if (isAuthenticated && !inAuthGroup && !isEmailAuthDeepLink) {
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, segments, router]);
