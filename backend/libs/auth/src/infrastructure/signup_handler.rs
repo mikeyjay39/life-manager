@@ -121,6 +121,8 @@ mod tests {
                 "life-manager".to_string(),
             )),
             pool,
+            email_sender: Arc::new(crate::infrastructure::log_only_email_sender::LogOnlyEmailSender),
+            app_public_base_url: None,
         };
         let req = SignupRequest {
             email: "existing@example.com".to_string(),
