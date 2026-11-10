@@ -6,7 +6,7 @@ use crate::domain::{
     email_token::EmailTokenError,
     email_token_purpose::EmailTokenPurpose,
     email_token_service::EmailTokenService,
-    principal::{PrincipalRepository, PrincipalWriteError, UpdatePasswordError},
+    principal::{PrincipalRepository, PrincipalWriteError},
     verify_email_request::VerifyEmailResponse,
 };
 

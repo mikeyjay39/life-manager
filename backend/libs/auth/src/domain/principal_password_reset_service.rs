@@ -441,6 +441,14 @@ mod tests {
             row.consumed_at = Some(consumed_at);
             Ok(())
         }
+
+        async fn delete_all_for_user(&self, user_id: Uuid) -> Result<(), EmailTokenError> {
+            self.rows
+                .lock()
+                .unwrap()
+                .retain(|row| row.user_id != user_id);
+            Ok(())
+        }
     }
 
     fn given_service(
