@@ -24,4 +24,7 @@ pub trait EmailTokenRepository: Sync + Send {
         id: Uuid,
         consumed_at: NaiveDateTime,
     ) -> Result<(), EmailTokenError>;
+
+    /// Deletes all email tokens for a user (rollback after failed verify mail).
+    async fn delete_all_for_user(&self, user_id: Uuid) -> Result<(), EmailTokenError>;
 }

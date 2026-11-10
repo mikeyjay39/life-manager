@@ -17,3 +17,5 @@ pub mod principal_password_reset_service;
 pub mod principal_signup_service;
 pub mod signup_request;
 pub mod signup_service;
+pub mod verify_email_request;
+pub mod verify_email_service;

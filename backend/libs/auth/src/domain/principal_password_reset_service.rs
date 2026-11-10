@@ -247,7 +247,10 @@ mod tests {
         email_token::{EmailTokenError, EmailTokenRecord, NewEmailToken},
         email_token_repository::EmailTokenRepository,
         opaque_token_hasher::{OpaqueTokenGenerator, OpaqueTokenHasher},
-        principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
+        principal::{
+            CreateUserError, Principal, PrincipalRepository, PrincipalWriteError,
+            UpdatePasswordError,
+        },
     };
 
     struct StubPrincipal {
@@ -298,8 +301,8 @@ mod tests {
             _password_hash: &str,
             _tenant: &str,
             _active: bool,
-        ) -> Result<(), CreateUserError> {
-            Ok(())
+        ) -> Result<Uuid, CreateUserError> {
+            Ok(Uuid::new_v4())
         }
 
         async fn update_password(
@@ -317,6 +320,21 @@ mod tests {
         async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError> {
             let guard = self.active.lock().unwrap();
             Ok(guard.as_ref().is_some_and(|p| p.id == user_id))
+        }
+
+        async fn set_user_active_by_id(
+            &self,
+            _user_id: Uuid,
+            _active: bool,
+        ) -> Result<(), PrincipalWriteError> {
+            Ok(())
+        }
+
+        async fn delete_user_by_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<(), PrincipalWriteError> {
+            Ok(())
         }
     }
 

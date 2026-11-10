@@ -11,6 +11,7 @@ use crate::{
         password_reset_handler::{password_reset_confirm, password_reset_request},
         signup_handler::signup,
         test_protected_endpoint_handler::test_protected_endpoint,
+        verify_email_handler::verify_email,
     },
 };
 
@@ -22,6 +23,7 @@ where
     Router::new()
         .route("/login", post(login))
         .route("/signup", post(signup))
+        .route("/verify-email", post(verify_email))
         .route("/password-reset/request", post(password_reset_request))
         .route("/password-reset/confirm", post(password_reset_confirm))
         .route("/protected", get(test_protected_endpoint))

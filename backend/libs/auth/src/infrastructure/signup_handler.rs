@@ -4,12 +4,16 @@ use backend_utils::{AppError, AppResponse};
 
 use crate::AuthState;
 use crate::domain::signup_request::{SignupRequest, SignupResponse};
+use crate::domain::signup_service::SignupError;
 
-/// Registers a new inactive user for the tenant mount.
-/// +--------+     +-----------------------+     +---------------------+     +--------+
-/// | Client |---->| PrincipalSignupService |---->| INSERT active=false |---->| 201    |
-/// |        |     | (validate email/pw)    |     | tenant = mount      |     | message|
-/// +--------+     +-----------------------+     +---------------------+     +--------+
+/// Registers a new inactive user and sends a signup verify email.
+/// +--------+     +-----------------------+     +---------------------+     +---------------+
+/// | Client |---->| PrincipalSignupService |---->| INSERT active=false |---->| issue token   |
+/// |        |     | (validate email/pw)    |     | tenant = mount      |     | EmailSender   |
+/// +--------+     +-----------------------+     +---------------------+     +-------+-------+
+///                                                                               |
+///                                              +-- send ok -------------------->+--> 201
+///                                              +-- send fail --> rollback user --> 503
 pub async fn signup(
     State(auth_state): State<AuthState>,
     Json(req): Json<SignupRequest>,
@@ -21,7 +25,10 @@ pub async fn signup(
         .signup_service
         .signup(&req)
         .await
-        .map_err(AppError::Validation)?;
+        .map_err(|err| match err {
+            SignupError::Validation(msg) => AppError::Validation(msg),
+            SignupError::EmailSendFailed(msg) => AppError::ServiceUnavailable(msg),
+        })?;
 
     AppResponse::created(response)
 }
@@ -36,19 +43,28 @@ mod tests {
     use crate::{
         AuthStateBuilder,
         domain::{
+            email_token_service::EmailTokenService,
             password_reset_request::{
                 PasswordResetConfirmRequest, PasswordResetConfirmResponse,
                 PasswordResetRequestRequest, PasswordResetRequestResponse,
             },
             password_reset_service::PasswordResetService,
-            principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
+            principal::{
+                CreateUserError, Principal, PrincipalRepository, PrincipalWriteError,
+                UpdatePasswordError,
+            },
             principal_login_service::PrincipalLoginService,
             principal_signup_service::PrincipalSignupService,
             signup_request::SignupRequest,
+            verify_email_service::PrincipalVerifyEmailService,
         },
         infrastructure::{
-            argon_password_hasher::ArgonPasswordHasher, db::test_pool,
+            argon_password_hasher::ArgonPasswordHasher,
+            db::test_pool,
+            email_token_orm_collection::EmailTokenOrmCollection,
+            log_only_email_sender::LogOnlyEmailSender,
             principal_orm_collection::PrincipalOrmCollection,
+            sha256_token_hasher::{OsRngOpaqueTokenGenerator, Sha256TokenHasher},
         },
     };
 
@@ -58,6 +74,7 @@ mod tests {
             std::env::set_var("JWT_SECRET", "test-secret");
             std::env::set_var("ADMIN_USERNAME", "admin");
             std::env::set_var("ADMIN_PASSWORD", "password");
+            std::env::set_var("APP_PUBLIC_BASE_URL", "http://localhost:8081");
         });
     }
 
@@ -84,7 +101,7 @@ mod tests {
             .expect("Signup should succeed");
 
         // Then
-        assert!(response.data.message.contains("activate"));
+        assert!(response.data.message.contains("Check your email"));
     }
 
     #[derive(Clone)]
@@ -102,7 +119,7 @@ mod tests {
             _password_hash: &str,
             _tenant: &str,
             _active: bool,
-        ) -> Result<(), CreateUserError> {
+        ) -> Result<uuid::Uuid, CreateUserError> {
             Err(CreateUserError::DuplicateUsername)
         }
 
@@ -114,11 +131,23 @@ mod tests {
             Ok(())
         }
 
-        async fn is_active(
+        async fn is_active(&self, _user_id: uuid::Uuid) -> Result<bool, UpdatePasswordError> {
+            Ok(true)
+        }
+
+        async fn set_user_active_by_id(
             &self,
             _user_id: uuid::Uuid,
-        ) -> Result<bool, UpdatePasswordError> {
-            Ok(true)
+            _active: bool,
+        ) -> Result<(), PrincipalWriteError> {
+            Ok(())
+        }
+
+        async fn delete_user_by_id(
+            &self,
+            _user_id: uuid::Uuid,
+        ) -> Result<(), PrincipalWriteError> {
+            Ok(())
         }
     }
 
@@ -146,6 +175,13 @@ mod tests {
         init_test_env();
         // Given
         let pool = test_pool();
+        let email_token_service = Arc::new(EmailTokenService {
+            repository: Arc::new(EmailTokenOrmCollection::new(pool.clone())),
+            hasher: Arc::new(Sha256TokenHasher),
+            generator: Arc::new(OsRngOpaqueTokenGenerator),
+        });
+        let email_sender: Arc<dyn crate::domain::email_sender::EmailSender> =
+            Arc::new(LogOnlyEmailSender);
         let auth_state = AuthState {
             use_cases: Arc::new(crate::application::auth_use_cases::AuthUseCases::new(
                 Arc::new(PrincipalLoginService {
@@ -155,14 +191,21 @@ mod tests {
                 Arc::new(PrincipalSignupService {
                     principal_repository: Arc::new(DuplicateRepository),
                     password_hasher: Arc::new(ArgonPasswordHasher),
+                    email_token_service: email_token_service.clone(),
+                    email_sender: email_sender.clone(),
+                    app_public_base_url: Some("http://localhost:8081".to_string()),
                     tenant: "life-manager".to_string(),
+                }),
+                Arc::new(PrincipalVerifyEmailService {
+                    email_token_service,
+                    principal_repository: Arc::new(PrincipalOrmCollection::new(pool.clone())),
                 }),
                 Arc::new(UnusedPasswordResetService),
                 "life-manager".to_string(),
             )),
             pool,
-            email_sender: Arc::new(crate::infrastructure::log_only_email_sender::LogOnlyEmailSender),
-            app_public_base_url: None,
+            email_sender,
+            app_public_base_url: Some("http://localhost:8081".to_string()),
         };
         let req = SignupRequest {
             email: "existing@example.com".to_string(),
