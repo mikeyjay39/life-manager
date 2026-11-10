@@ -136,9 +136,9 @@ EXPO_PUBLIC_DEFAULT_TENANT=test-tenant EXPO_PUBLIC_API_BASE_URL=http://localhost
 
 JWT storage is scoped per tenant (`auth_token:<tenant-id>`) so switching tenants in dev does not reuse the wrong session.
 
-## User signup and manual activation
+## User signup and email verification
 
-New users sign up from the UI (`/signup`). The backend stores them as **inactive** (`auth_users.active = 0`); login returns 401 until you activate the account.
+Email verification is the **normal** activation path. New users sign up from the UI (`/signup`). The backend stores them as **inactive** (`auth_users.active = 0`), sends a verify link, and login returns 401 until the user completes verify-email. API detail: [agents/api.md](./agents/api.md#auth).
 
 ```mermaid
 flowchart TD
@@ -146,10 +146,45 @@ flowchart TD
   B --> C[Validate email and password]
   C --> D[Hash password]
   D --> E["INSERT auth_users active=false"]
-  E --> F[201 pending-approval message]
-  F --> G[Admin activates via sqlite3]
-  G --> H[Login succeeds]
+  E --> F[Issue signup_verify token]
+  F --> G[EmailSender send verify link]
+  G -->|ok| H[201 check-email message]
+  G -->|fail| I[Rollback user + 503]
+  H --> J[User opens /verify-email]
+  J --> K[POST .../auth/verify-email]
+  K --> L[Activate then consume token]
+  L --> M[Login succeeds]
 ```
+
+Password reset uses the same mail stack: `/forgot-password` → `POST .../auth/password-reset/request`, then `/reset-password` → `POST .../auth/password-reset/confirm`.
+
+### Auth email env vars
+
+Set these in git-crypt `.<profile>.env` (for example `.dev.env`, `.prod.env`). Do **not** put real API keys in docs or commits outside git-crypt.
+
+| Variable | Role |
+|----------|------|
+| `EMAIL_PROVIDER` | `log` (default; prints mail to logs) or `resend` (HTTPS send). Prod uses `resend`. |
+| `RESEND_API_KEY` | Resend secret. Required when `EMAIL_PROVIDER=resend`. Never log it. |
+| `EMAIL_FROM` | From address that Resend accepts for the verified domain (for example `noreply@life-manager.jeszenka.com`). |
+| `APP_PUBLIC_BASE_URL` | Public app origin for links in mail. Prod: `https://life-manager.jeszenka.com`. Dev may use a local origin when you test UI deep links. |
+
+Local stacks can keep `EMAIL_PROVIDER=log` so signup and reset work without Resend. Links still need a correct `APP_PUBLIC_BASE_URL` when you open them in a browser.
+
+### Resend ops checklist (humans)
+
+Agents do not create Resend accounts or change DNS. A human does these steps before prod mail is reliable:
+
+1. Create a Resend free account.
+2. Add domain `life-manager.jeszenka.com` in Resend and publish the SPF/DKIM (and related) DNS records Resend shows.
+3. **Verify DNS in Resend** after propagation. Do not treat live mail as ready until Resend marks the domain verified.
+4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack).
+5. Set `APP_PUBLIC_BASE_URL=https://life-manager.jeszenka.com` for prod so verify and reset links hit the public app.
+6. Apply auth migrations on each tenant DB after pull (humans run `diesel migration run`; agents do not). See [README.md](../README.md) Diesel setup.
+
+### Ops escape hatch (SQLite activation)
+
+Use manual SQLite activation **only** when email cannot activate a pending user (mail down, bad DNS, lost token). It is not the normal path. Agents must not run write SQL or migrations; a human applies activation locally.
 
 ```bash
 # Pending signups (dev DB from .dev.env)
@@ -160,8 +195,6 @@ sqlite3 ./data/dev-test.db \
 sqlite3 ./data/dev-test.db \
   "UPDATE auth_users SET active = 1 WHERE username = 'user@example.com';"
 ```
-
-Agents must not run write SQL or migrations; you apply activation locally.
 
 **Tenant theme overrides:** add or edit the optional `theme` block in `tenants/<id>/meta.ts` (e.g. `light: { tint: '#336699' }`). Reload the web app or restart Expo to pick up meta changes. Combine with `?tenant=<id>` when testing multiple tenants on localhost.
 
