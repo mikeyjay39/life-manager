@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 use uuid::Uuid;
 
 use crate::{
@@ -14,7 +14,8 @@ use crate::{
         email_token_service::EmailTokenService,
     },
     infrastructure::{
-        argon_password_hasher::ArgonPasswordHasher, auth_user_entity::NewAuthUserEntity,
+        argon_password_hasher::ArgonPasswordHasher,
+        auth_user_entity::{AuthUserEntity, NewAuthUserEntity},
         email_token_orm_collection::EmailTokenOrmCollection,
         sha256_token_hasher::{OsRngOpaqueTokenGenerator, Sha256TokenHasher},
     },
@@ -70,6 +71,80 @@ pub async fn set_user_active(
     .map_err(|err| anyhow::anyhow!("Failed to update auth user active flag: {err:?}"))?
     .context("Database error updating auth user active flag")?;
     Ok(())
+}
+
+pub async fn get_user_id_by_username(
+    pool: &Arc<Pool>,
+    username: &str,
+) -> anyhow::Result<Option<Uuid>> {
+    let username = username.to_string();
+    let conn = pool
+        .get()
+        .await
+        .context("Failed to get database connection from pool")?;
+    let entity = conn
+        .interact(move |conn| {
+            auth_users::table
+                .filter(auth_users::username.eq(username))
+                .select(AuthUserEntity::as_select())
+                .first::<AuthUserEntity>(conn)
+                .optional()
+        })
+        .await
+        .map_err(|err| anyhow::anyhow!("Failed to look up auth user: {err:?}"))?
+        .context("Database error looking up auth user")?;
+
+    match entity {
+        Some(row) => Ok(Some(
+            Uuid::parse_str(&row.id).context("Stored auth user id is not a UUID")?,
+        )),
+        None => Ok(None),
+    }
+}
+
+/// Issues a fresh signup_verify token for tests (replaces any unused token).
+pub async fn issue_signup_verify_token(
+    pool: &Arc<Pool>,
+    user_id: Uuid,
+    tenant: &str,
+) -> anyhow::Result<String> {
+    let service = EmailTokenService {
+        repository: Arc::new(EmailTokenOrmCollection::new(pool.clone())),
+        hasher: Arc::new(Sha256TokenHasher),
+        generator: Arc::new(OsRngOpaqueTokenGenerator),
+    };
+    service
+        .issue(user_id, tenant, EmailTokenPurpose::SignupVerify)
+        .await
+        .map_err(|err| anyhow::anyhow!("Failed to issue signup_verify token: {err:?}"))
+}
+
+/// Returns true when an unused signup_verify token exists for the user.
+pub async fn has_unused_signup_verify_token(
+    pool: &Arc<Pool>,
+    user_id: Uuid,
+) -> anyhow::Result<bool> {
+    use crate::schema::auth_email_tokens;
+
+    let user_id = user_id.to_string();
+    let purpose = EmailTokenPurpose::SignupVerify.as_str().to_string();
+    let conn = pool
+        .get()
+        .await
+        .context("Failed to get database connection from pool")?;
+    let count = conn
+        .interact(move |conn| {
+            auth_email_tokens::table
+                .filter(auth_email_tokens::user_id.eq(user_id))
+                .filter(auth_email_tokens::purpose.eq(purpose))
+                .filter(auth_email_tokens::consumed_at.is_null())
+                .count()
+                .get_result::<i64>(conn)
+        })
+        .await
+        .map_err(|err| anyhow::anyhow!("Failed to count email tokens: {err:?}"))?
+        .context("Database error counting email tokens")?;
+    Ok(count > 0)
 }
 
 /// Issue a raw `password_reset` token for integration/confirm tests.

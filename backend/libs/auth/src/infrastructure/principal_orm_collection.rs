@@ -7,7 +7,7 @@ use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, Select
 use uuid::Uuid;
 
 use crate::{
-    domain::principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
+    domain::principal::{CreateUserError, Principal, PrincipalRepository, PrincipalWriteError, UpdatePasswordError},
     infrastructure::auth_user_entity::{AuthUserEntity, NewAuthUserEntity},
     schema::auth_users,
 };
@@ -66,9 +66,10 @@ impl PrincipalRepository for PrincipalOrmCollection {
         password_hash: &str,
         tenant: &str,
         active: bool,
-    ) -> Result<(), CreateUserError> {
+    ) -> Result<Uuid, CreateUserError> {
+        let user_id = Uuid::new_v4();
         let new_user = NewAuthUserEntity {
-            id: Uuid::new_v4().to_string(),
+            id: user_id.to_string(),
             username: username.to_string(),
             password_hash: password_hash.to_string(),
             tenant: tenant.to_string(),
@@ -94,7 +95,7 @@ impl PrincipalRepository for PrincipalOrmCollection {
             })?;
 
         match result {
-            Ok(_) => Ok(()),
+            Ok(_) => Ok(user_id),
             Err(diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::UniqueViolation,
                 _,
@@ -167,6 +168,66 @@ impl PrincipalRepository for PrincipalOrmCollection {
             })?;
 
         Ok(active.unwrap_or(false))
+    }
+
+    async fn set_user_active_by_id(
+        &self,
+        user_id: Uuid,
+        active: bool,
+    ) -> Result<(), PrincipalWriteError> {
+        let user_id = user_id.to_string();
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            PrincipalWriteError::Database
+        })?;
+
+        let updated = conn
+            .interact(move |conn| {
+                diesel::update(auth_users::table.filter(auth_users::id.eq(user_id)))
+                    .set(auth_users::active.eq(active))
+                    .execute(conn)
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Database interact error: {}", e);
+                PrincipalWriteError::Database
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to update auth user active flag: {}", e);
+                PrincipalWriteError::Database
+            })?;
+
+        if updated == 0 {
+            return Err(PrincipalWriteError::NotFound);
+        }
+        Ok(())
+    }
+
+    async fn delete_user_by_id(&self, user_id: Uuid) -> Result<(), PrincipalWriteError> {
+        let user_id = user_id.to_string();
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            PrincipalWriteError::Database
+        })?;
+
+        let deleted = conn
+            .interact(move |conn| {
+                diesel::delete(auth_users::table.filter(auth_users::id.eq(user_id))).execute(conn)
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Database interact error: {}", e);
+                PrincipalWriteError::Database
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to delete auth user: {}", e);
+                PrincipalWriteError::Database
+            })?;
+
+        if deleted == 0 {
+            return Err(PrincipalWriteError::NotFound);
+        }
+        Ok(())
     }
 }
 

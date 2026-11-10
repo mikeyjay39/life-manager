@@ -154,6 +154,7 @@ pub async fn run_test_with_both_tenants_and_db_setup<Setup, SetupFut, F, Fut>(
         set_var("OLLAMA_URL", ollama.uri());
         set_var("DATABASE_URL", &life_manager_url);
         set_var("TEST_TENANT_DATABASE_URL", &test_tenant_url);
+        set_var("APP_PUBLIC_BASE_URL", "http://localhost:8081");
     }
 
     let server =
@@ -203,6 +204,7 @@ pub async fn run_test_with_test_profile_and_db_setup<Setup, SetupFut, F, Fut>(
     unsafe {
         set_var("OLLAMA_URL", ollama.uri());
         set_var("DATABASE_URL", &database_url);
+        set_var("APP_PUBLIC_BASE_URL", "http://localhost:8081");
     }
 
     let server = build_app_server_with_db_setup(&database_url, db_setup).await;

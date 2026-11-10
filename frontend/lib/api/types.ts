@@ -20,6 +20,8 @@ export type {
   PasswordResetRequestResponse,
   SignupRequest,
   SignupResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
 } from './generated';
 
 export type { CreateHealthReadingCommand } from './generated/life-manager/CreateHealthReadingCommand';

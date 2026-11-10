@@ -155,6 +155,32 @@ impl EmailTokenRepository for EmailTokenOrmCollection {
         }
         Ok(())
     }
+
+    async fn delete_all_for_user(&self, user_id: Uuid) -> Result<(), EmailTokenError> {
+        let user_id = user_id.to_string();
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            EmailTokenError::Database
+        })?;
+
+        conn.interact(move |conn| {
+            diesel::delete(
+                auth_email_tokens::table.filter(auth_email_tokens::user_id.eq(user_id)),
+            )
+            .execute(conn)
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!("Database interact error: {}", e);
+            EmailTokenError::Database
+        })?
+        .map_err(|e| {
+            tracing::error!("Failed to delete email tokens for user: {}", e);
+            EmailTokenError::Database
+        })?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

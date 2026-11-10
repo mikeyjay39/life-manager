@@ -10,6 +10,7 @@ use crate::{
     domain::principal_login_service::PrincipalLoginService,
     domain::principal_password_reset_service::PrincipalPasswordResetService,
     domain::principal_signup_service::PrincipalSignupService,
+    domain::verify_email_service::PrincipalVerifyEmailService,
     infrastructure::{
         argon_password_hasher::ArgonPasswordHasher, auth_user_seeder::ensure_default_admin_user,
         db::run_migrations, email_config::EmailConfig, email_sender_factory::build_email_sender,
@@ -23,7 +24,7 @@ use crate::{
 pub struct AuthState {
     pub(crate) use_cases: Arc<AuthUseCases>,
     pub pool: Arc<Pool>,
-    /// Outbound email port (log or Resend). Kept on state for other auth flows.
+    /// Outbound email port (log or Resend). Cloned into signup and password-reset use cases.
     #[allow(dead_code)]
     pub(crate) email_sender: Arc<dyn EmailSender>,
     /// Public app base URL for email links (`APP_PUBLIC_BASE_URL`).
@@ -52,7 +53,7 @@ impl AuthStateBuilder {
     ///         |
     ///         +--> EmailTokenService (SHA-256 hasher + ORM)
     ///         |
-    ///         +--> AuthUseCases { login, signup, password_reset }
+    ///         +--> AuthUseCases { login, signup, verify_email, password_reset }
     ///         |
     ///         +--> AuthState { use_cases, email_sender, app_public_base_url }
     /// ```
@@ -79,7 +80,14 @@ impl AuthStateBuilder {
                 Arc::new(PrincipalSignupService {
                     principal_repository: principal_repository.clone(),
                     password_hasher: password_hasher.clone(),
+                    email_token_service: email_token_service.clone(),
+                    email_sender: email_sender.clone(),
+                    app_public_base_url: app_public_base_url.clone(),
                     tenant: tenant.clone(),
+                }),
+                Arc::new(PrincipalVerifyEmailService {
+                    email_token_service: email_token_service.clone(),
+                    principal_repository: principal_repository.clone(),
                 }),
                 Arc::new(PrincipalPasswordResetService {
                     principal_repository,

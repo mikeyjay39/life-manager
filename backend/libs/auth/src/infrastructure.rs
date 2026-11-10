@@ -19,3 +19,4 @@ pub mod signup_handler;
 pub mod superuser_only_login_service;
 pub mod test_protected_endpoint_handler;
 pub mod test_support;
+pub mod verify_email_handler;

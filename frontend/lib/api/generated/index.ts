@@ -6,6 +6,8 @@ export type { PasswordResetRequestRequest } from './auth/PasswordResetRequestReq
 export type { PasswordResetRequestResponse } from './auth/PasswordResetRequestResponse';
 export type { SignupRequest } from './auth/SignupRequest';
 export type { SignupResponse } from './auth/SignupResponse';
+export type { VerifyEmailRequest } from './auth/VerifyEmailRequest';
+export type { VerifyEmailResponse } from './auth/VerifyEmailResponse';
 export type { CarDto } from './life-manager/CarDto';
 export type { CreateCarCommand } from './life-manager/CreateCarCommand';
 export type { CreateDocumentCommand } from './life-manager/CreateDocumentCommand';
