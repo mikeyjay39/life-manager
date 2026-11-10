@@ -139,6 +139,7 @@ SELECT username, tenant, created_at FROM auth_users WHERE active = 0;
 - Backend auth crate: `backend/libs/auth/` builds `AuthState` via `AuthStateBuilder`; life-manager composes it into `LifeManagerState` and wires `FromRef` via `libs/life-manager/src/infrastructure/auth_integration.rs`
 - Handlers receive `AuthUser` where required
 - Frontend: `useAuth()` + `authenticatedFetch` from `frontend/lib/api/client.ts` — do not hard-code origins in components
+- Frontend email flows (unauthenticated): `frontend/lib/auth/email-flows.ts` calls `POST .../auth/verify-email`, `.../password-reset/request`, and `.../password-reset/confirm`. Screens: `/verify-email`, `/forgot-password`, `/reset-password` (#219)
 
 ## Multipart document create
 

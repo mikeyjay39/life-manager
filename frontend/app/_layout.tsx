@@ -26,6 +26,8 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return;
 
+    // Public auth routes: login, signup, verify-email, forgot-password, reset-password
+    // (any segment outside (tabs)/modal stays reachable while logged out).
     const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'modal';
 
     if (!isAuthenticated && inAuthGroup) {
@@ -48,6 +50,9 @@ function RootLayoutNav() {
       <Stack>
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
