@@ -1,9 +1,14 @@
 pub mod auth_password_hasher;
 pub mod email_message;
 pub mod email_sender;
+pub mod email_token;
+pub mod email_token_purpose;
+pub mod email_token_repository;
+pub mod email_token_service;
 pub mod jwt_secret;
 pub mod login_request;
 pub mod login_service;
+pub mod opaque_token_hasher;
 pub mod principal;
 pub mod principal_login_service;
 pub mod principal_signup_service;
