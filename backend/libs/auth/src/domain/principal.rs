@@ -16,6 +16,12 @@ pub enum CreateUserError {
     Database,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UpdatePasswordError {
+    NotFound,
+    Database,
+}
+
 /**
  * Port for principal repository operations.
  */
@@ -30,4 +36,14 @@ pub trait PrincipalRepository: Sync + Send {
         tenant: &str,
         active: bool,
     ) -> Result<(), CreateUserError>;
+
+    /// Replace the password hash for a user id. Does not change `active`.
+    async fn update_password(
+        &self,
+        user_id: Uuid,
+        password_hash: &str,
+    ) -> Result<(), UpdatePasswordError>;
+
+    /// True when a user row exists and `active` is true.
+    async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError>;
 }

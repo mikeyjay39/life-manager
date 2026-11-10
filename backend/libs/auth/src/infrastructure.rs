@@ -10,6 +10,7 @@ pub mod email_token_entity;
 pub mod email_token_orm_collection;
 pub mod log_only_email_sender;
 pub mod login_handler;
+pub mod password_reset_handler;
 pub mod principal_orm_collection;
 pub mod resend_email_sender;
 pub mod resend_http_client;

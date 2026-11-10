@@ -10,9 +10,13 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /api/version` | Build/git revision string |
 | `POST /life-manager/api/v1/auth/login` | JWT login |
 | `POST /life-manager/api/v1/auth/signup` | Create inactive user (email stored as `username`); returns pending-approval message; no JWT |
+| `POST /life-manager/api/v1/auth/password-reset/request` | Request password reset `{ email }`; always same generic success; mail only for active users (`APP_PUBLIC_BASE_URL` link) |
+| `POST /life-manager/api/v1/auth/password-reset/confirm` | Confirm reset `{ token, new_password }`; updates hash; consumes one-time token |
 | `GET /life-manager/api/v1/auth/protected` | Auth smoke test |
 | `POST /test-tenant/api/v1/auth/login` | JWT login (test-tenant pilot) |
 | `POST /test-tenant/api/v1/auth/signup` | Create inactive user (test-tenant pilot) |
+| `POST /test-tenant/api/v1/auth/password-reset/request` | Password-reset request (test-tenant pilot) |
+| `POST /test-tenant/api/v1/auth/password-reset/confirm` | Password-reset confirm (test-tenant pilot) |
 | `GET /test-tenant/api/v1/auth/protected` | Auth smoke test (test-tenant pilot) |
 | `POST /life-manager/api/v1/documents/` | Multipart: `json` (CreateDocumentCommand) + `file` |
 | `POST /life-manager/api/v1/documents/json` | JSON body: CreateDocumentCommand with required `storage` (Proton Drive ref); no file/OCR — see [Proton upload workflow](../development_faq.md#upload-workflow) |
@@ -83,6 +87,8 @@ Nginx proxies each tenant hostname to its mount path (see `nginx/tenants.prod.js
 - Protected routes: `Authorization: Bearer <token>`
 - Login rejects unknown credentials, inactive users (`active = false`), and principals whose `tenant` does not match the tenant mount (e.g. `life-manager`)
 - Signup (`POST .../auth/signup`) accepts `{ email, password }`, stores the email in `auth_users.username`, inserts with `active = false`, and returns `201` with a pending-approval message (no JWT). Duplicate email → `400 validation_error`.
+- Password reset request (`POST .../auth/password-reset/request`) accepts `{ email }` and always returns the same generic success message. Mail is sent only when an **active** user exists for that email on the tenant mount. Unknown, inactive, or wrong-tenant emails get the same success with no mail. Link path: `{APP_PUBLIC_BASE_URL}/reset-password?token=...` (do not hard-code the origin).
+- Password reset confirm (`POST .../auth/password-reset/confirm`) accepts `{ token, new_password }` (min length same as signup). A valid `password_reset` token for a still-active user updates the password hash, consumes the token, and leaves `active` unchanged. Bad, expired, wrong-tenant, or inactive-user tokens return `400 validation_error` and do not change the hash.
 
 ```mermaid
 flowchart TD
@@ -93,6 +99,19 @@ flowchart TD
   E --> F[201 pending-approval message]
   F --> G[Admin activates via sqlite3]
   G --> H[Login succeeds]
+```
+
+```mermaid
+flowchart TD
+  R1[POST password-reset/request] --> R2{Active user for email?}
+  R2 -->|yes| R3[Issue password_reset token]
+  R3 --> R4[EmailSender with APP_PUBLIC_BASE_URL link]
+  R4 --> R5[Generic success]
+  R2 -->|no| R5
+  C1[POST password-reset/confirm] --> C2{Token valid?}
+  C2 -->|yes| C3[Update password hash + consume token]
+  C3 --> C4[Success]
+  C2 -->|no| C5[400 validation_error]
 ```
 
 - **Manual activation:** after signup, an admin activates the account in SQLite (agents do not run write SQL):

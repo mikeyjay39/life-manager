@@ -3,11 +3,11 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 use uuid::Uuid;
 
 use crate::{
-    domain::principal::{CreateUserError, Principal, PrincipalRepository},
+    domain::principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
     infrastructure::auth_user_entity::{AuthUserEntity, NewAuthUserEntity},
     schema::auth_users,
 };
@@ -104,6 +104,69 @@ impl PrincipalRepository for PrincipalOrmCollection {
                 Err(CreateUserError::Database)
             }
         }
+    }
+
+    async fn update_password(
+        &self,
+        user_id: Uuid,
+        password_hash: &str,
+    ) -> Result<(), UpdatePasswordError> {
+        let password_hash = password_hash.to_string();
+        let user_id_str = user_id.to_string();
+
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            UpdatePasswordError::Database
+        })?;
+
+        let rows = conn
+            .interact(move |conn| {
+                diesel::update(auth_users::table.filter(auth_users::id.eq(user_id_str)))
+                    .set(auth_users::password_hash.eq(password_hash))
+                    .execute(conn)
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Database interact error: {}", e);
+                UpdatePasswordError::Database
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to update password hash: {}", e);
+                UpdatePasswordError::Database
+            })?;
+
+        if rows == 0 {
+            return Err(UpdatePasswordError::NotFound);
+        }
+        Ok(())
+    }
+
+    async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError> {
+        let user_id_str = user_id.to_string();
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            UpdatePasswordError::Database
+        })?;
+
+        let active = conn
+            .interact(move |conn| {
+                auth_users::table
+                    .filter(auth_users::id.eq(user_id_str))
+                    .select(auth_users::active)
+                    .first::<bool>(conn)
+                    .optional()
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Database interact error: {}", e);
+                UpdatePasswordError::Database
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to read user active flag: {}", e);
+                UpdatePasswordError::Database
+            })?;
+
+        Ok(active.unwrap_or(false))
     }
 }
 
@@ -277,5 +340,35 @@ mod tests {
 
         // Then
         assert_eq!(result, Err(crate::domain::principal::CreateUserError::DuplicateUsername));
+    }
+
+    #[tokio::test]
+    async fn given_existing_user_when_updating_password_then_hash_changes() {
+        init_test_env();
+        // Given
+        let pool = fresh_test_pool();
+        run_migrations(pool.as_ref())
+            .await
+            .expect("run migrations");
+        let user_id = insert_auth_user(&pool, "pw@example.com", "oldpassword", "life-manager", true)
+            .await
+            .expect("insert user");
+        let repository = PrincipalOrmCollection::new(pool.clone());
+        let before = crate::infrastructure::test_support::get_password_hash(&pool, "pw@example.com")
+            .await
+            .expect("hash before");
+
+        // When
+        repository
+            .update_password(user_id, "new-hash-value")
+            .await
+            .expect("update password");
+
+        // Then
+        let after = crate::infrastructure::test_support::get_password_hash(&pool, "pw@example.com")
+            .await
+            .expect("hash after");
+        assert_ne!(before, after);
+        assert_eq!(after, "new-hash-value");
     }
 }

@@ -97,6 +97,21 @@ mod tests {
         ) -> Result<(), crate::domain::principal::CreateUserError> {
             Ok(())
         }
+
+        async fn update_password(
+            &self,
+            _user_id: uuid::Uuid,
+            _password_hash: &str,
+        ) -> Result<(), crate::domain::principal::UpdatePasswordError> {
+            Ok(())
+        }
+
+        async fn is_active(
+            &self,
+            _user_id: uuid::Uuid,
+        ) -> Result<bool, crate::domain::principal::UpdatePasswordError> {
+            Ok(true)
+        }
     }
 
     struct StubHasher {

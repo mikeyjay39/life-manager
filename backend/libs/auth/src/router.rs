@@ -7,7 +7,9 @@ use axum::{
 use crate::{
     AuthState,
     infrastructure::{
-        login_handler::login, signup_handler::signup,
+        login_handler::login,
+        password_reset_handler::{password_reset_confirm, password_reset_request},
+        signup_handler::signup,
         test_protected_endpoint_handler::test_protected_endpoint,
     },
 };
@@ -20,5 +22,7 @@ where
     Router::new()
         .route("/login", post(login))
         .route("/signup", post(signup))
+        .route("/password-reset/request", post(password_reset_request))
+        .route("/password-reset/confirm", post(password_reset_confirm))
         .route("/protected", get(test_protected_endpoint))
 }

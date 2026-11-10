@@ -14,6 +14,10 @@ export type {
   UpdateHealthMemberCommand,
   LoginRequest,
   LoginResponse,
+  PasswordResetConfirmRequest,
+  PasswordResetConfirmResponse,
+  PasswordResetRequestRequest,
+  PasswordResetRequestResponse,
   SignupRequest,
   SignupResponse,
 } from './generated';
