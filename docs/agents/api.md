@@ -86,12 +86,25 @@ Nginx proxies each tenant hostname to its mount path (see `nginx/tenants.prod.js
 
 ## Auth
 
+Normal signup path: **email verification, then login**. Manual SQLite activation is an ops escape hatch only — see [development FAQ](../development_faq.md#user-signup-and-email-verification).
+
 - Protected routes: `Authorization: Bearer <token>`
 - Login rejects unknown credentials, inactive users (`active = false`), and principals whose `tenant` does not match the tenant mount (e.g. `life-manager`)
 - Signup (`POST .../auth/signup`) accepts `{ email, password }`, stores the email in `auth_users.username`, inserts with `active = false`, issues a `signup_verify` token, and sends email via `EmailSender` with link `{APP_PUBLIC_BASE_URL}/verify-email?token=...`. Returns `201` with a check-email message (no JWT). Duplicate email → `400 validation_error`. If send fails after insert, the user (and tokens) are rolled back and the API returns `503 service_unavailable`.
-- Verify (`POST .../auth/verify-email`) accepts `{ token }`, sets `active = true` for a valid `signup_verify` token, then consumes the token, and returns a success message (**no JWT**). Invalid, expired, or reused token → `400 validation_error` and activates no user. Server faults → `500 internal_error`.
+- Verify (`POST .../auth/verify-email`) accepts `{ token }`, sets `active = true` for a valid `signup_verify` token, then consumes the token, and returns a success message (**no JWT**). Invalid, expired, or reused token → `400 validation_error` and activates no user. Server faults → `500 internal_error`. After verify, the user logs in with `POST .../auth/login`.
 - Password reset request (`POST .../auth/password-reset/request`) accepts `{ email }` and always returns the same generic success message. Mail is sent only when an **active** user exists for that email on the tenant mount. Unknown, inactive, or wrong-tenant emails get the same success with no mail. Link path: `{APP_PUBLIC_BASE_URL}/reset-password?token=...` (do not hard-code the origin).
 - Password reset confirm (`POST .../auth/password-reset/confirm`) accepts `{ token, new_password }` (min length same as signup). A valid `password_reset` token for a still-active user updates the password hash, consumes the token, and leaves `active` unchanged. Bad, expired, wrong-tenant, or inactive-user tokens return `400 validation_error` and do not change the hash.
+
+### Auth email env
+
+| Variable | Role |
+|----------|------|
+| `EMAIL_PROVIDER` | `log` (default) or `resend`. Prod uses `resend`. |
+| `RESEND_API_KEY` | Required when provider is `resend`. Do not put real keys in docs. |
+| `EMAIL_FROM` | From address for Resend (domain must be verified). |
+| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Required for signup (unset → `503`). Prod: `https://life-manager.jeszenka.com`. |
+
+Ops checklist (Resend account, DNS verify, git-crypt env): [development FAQ](../development_faq.md#resend-ops-checklist-humans).
 
 ```mermaid
 flowchart TD
