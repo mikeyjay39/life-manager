@@ -87,7 +87,7 @@ Do not invent per-screen width or full-bleed CTA stretch.
 | `ManagerPageHeader` | `pageTitle` role; subtitle uses `meta` |
 | `ManagerCta` | Wraps `Button`; caps width by default (`fullWidth` opt-in) |
 
-Stack sections as direct children of `ManagerPageContent`. Do not add per-screen `marginBottom` between sections. Prefer `ManagerSection` over one-off headers. Density tokens live in `manager-layout.ts` (`MANAGER_CONTENT_GAP`, `MANAGER_SECTION_PADDING`, `MANAGER_PAGE_PADDING_Y`, dense list tokens). Home may keep `ParallaxScrollView` + header assets.
+Stack sections as direct children of `ManagerPageContent`. Do not add per-screen `marginBottom` between sections. Prefer `ManagerSection` over one-off headers. Density tokens live in `manager-layout.ts` (`MANAGER_CONTENT_GAP`, `MANAGER_SECTION_PADDING`, `MANAGER_PAGE_PADDING_Y`, dense list tokens). Home may keep `ParallaxScrollView` + header assets, but wrap the body in `ManagerPageContent` so width centering matches managers.
 
 ### Quiet chrome
 

@@ -6,6 +6,7 @@ import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ManagerPageContent } from '@/components/ui/manager-page-content';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiV1, authenticatedFetch } from '@/lib/api/client';
 import { useTenant } from '@/lib/tenant/TenantContext';
@@ -70,21 +71,23 @@ export default function HomeScreen() {
       headerImage={
         <Image source={assets.headerImage} style={styles.reactLogo} />
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">
-          {tenant.displayName}
-          {copy.homeTitleSuffix}
-        </ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Multitenancy pilot</ThemedText>
-        <ThemedText>
-          This tenant uses a separate backend database and auth mount at{' '}
-          <ThemedText type="defaultSemiBold">{tenant.apiV1Prefix}</ThemedText>.
-        </ThemedText>
-        <ThemedText>{protectedStatus}</ThemedText>
-      </ThemedView>
+      <ManagerPageContent testID="home-page-content">
+        <ThemedView style={styles.titleContainer}>
+          <ThemedText type="title">
+            {tenant.displayName}
+            {copy.homeTitleSuffix}
+          </ThemedText>
+          <HelloWave />
+        </ThemedView>
+        <ThemedView style={styles.stepContainer}>
+          <ThemedText type="subtitle">Multitenancy pilot</ThemedText>
+          <ThemedText>
+            This tenant uses a separate backend database and auth mount at{' '}
+            <ThemedText type="defaultSemiBold">{tenant.apiV1Prefix}</ThemedText>.
+          </ThemedText>
+          <ThemedText>{protectedStatus}</ThemedText>
+        </ThemedView>
+      </ManagerPageContent>
     </ParallaxScrollView>
   );
 }

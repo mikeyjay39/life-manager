@@ -2,6 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import {
+  MANAGER_CONTENT_MAX_WIDTH,
+  MANAGER_CONTENT_PADDING_X,
+} from '@/components/ui/manager-layout';
 import { TenantTestProvider } from '@/lib/tenant/TenantContext';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
@@ -73,6 +77,24 @@ describe('HomeScreen', () => {
     expect(screen.queryByLabelText('Refresh documents')).toBeNull();
     expect(screen.queryByLabelText('Connect Proton Drive')).toBeNull();
     expect(screen.queryByLabelText('Documents section')).toBeNull();
+  });
+
+  it('centers hub body with the shared manager content column', () => {
+    // Given a signed-in Home hub
+    // When Home renders
+    renderHomeScreen(tenantDocumentsOnly);
+    // Then body uses ManagerPageContent width rules
+    const pageContent = screen.getByTestId('home-page-content');
+    expect(pageContent.props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          maxWidth: MANAGER_CONTENT_MAX_WIDTH,
+          alignSelf: 'center',
+          paddingHorizontal: MANAGER_CONTENT_PADDING_X,
+          width: '100%',
+        }),
+      ])
+    );
   });
 
   it('opens Document Manager when the Documents icon is pressed', () => {
