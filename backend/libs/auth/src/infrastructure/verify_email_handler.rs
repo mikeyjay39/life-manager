@@ -21,7 +21,15 @@ pub async fn verify_email(
         .verify_email_service
         .verify_email(&req.token)
         .await
-        .map_err(AppError::Validation)?;
+        .map_err(|err| match err {
+            crate::domain::verify_email_service::VerifyEmailError::Validation(msg) => {
+                AppError::Validation(msg)
+            }
+            crate::domain::verify_email_service::VerifyEmailError::Internal(msg) => {
+                tracing::error!("Verify-email internal failure: {msg}");
+                AppError::Internal(anyhow::anyhow!(msg))
+            }
+        })?;
 
     AppResponse::ok(response)
 }

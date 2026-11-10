@@ -10,20 +10,26 @@ use crate::domain::{
     verify_email_request::VerifyEmailResponse,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VerifyEmailError {
+    Validation(String),
+    Internal(String),
+}
+
 #[async_trait]
 pub trait VerifyEmailService: Sync + Send {
-    async fn verify_email(&self, token: &str) -> Result<VerifyEmailResponse, String>;
+    async fn verify_email(&self, token: &str) -> Result<VerifyEmailResponse, VerifyEmailError>;
 }
 
 /**
- * Consumes a signup_verify token and activates the user.
+ * Activates a user for a valid signup_verify token, then consumes the token.
  *
  * ```text
  *   Client          VerifyEmailService         EmailTokenService      PrincipalRepository
  *     |                      |                         |                       |
  *     | POST token           |                         |                       |
  *     |--------------------->|                         |                       |
- *     |                      | consume(SignupVerify)   |                       |
+ *     |                      | find_valid(SignupVerify)|                       |
  *     |                      |------------------------>|                       |
  *     |                      | record / Err            |                       |
  *     |                      |<------------------------|                       |
@@ -31,6 +37,8 @@ pub trait VerifyEmailService: Sync + Send {
  *     |                      |----------------------------------------------->|
  *     |                      | ok                      |                       |
  *     |                      |<-----------------------------------------------|
+ *     |                      | consume(SignupVerify)   |                       |
+ *     |                      |------------------------>|                       |
  *     | 200 message (no JWT) |                         |                       |
  *     |<---------------------|                         |                       |
  * ```
@@ -42,39 +50,59 @@ pub struct PrincipalVerifyEmailService {
 
 #[async_trait]
 impl VerifyEmailService for PrincipalVerifyEmailService {
-    async fn verify_email(&self, token: &str) -> Result<VerifyEmailResponse, String> {
+    async fn verify_email(&self, token: &str) -> Result<VerifyEmailResponse, VerifyEmailError> {
         let token = token.trim();
         if token.is_empty() {
-            return Err("Verification token is required.".to_string());
+            return Err(VerifyEmailError::Validation(
+                "Verification token is required.".to_string(),
+            ));
         }
 
         let record = self
             .email_token_service
-            .consume(token, EmailTokenPurpose::SignupVerify)
+            .find_valid(token, EmailTokenPurpose::SignupVerify)
             .await
             .map_err(|err| match err {
-                EmailTokenError::Expired => {
-                    "This verification link has expired. Please sign up again.".to_string()
-                }
-                EmailTokenError::InvalidOrUsed => {
-                    "This verification link is invalid or already used.".to_string()
-                }
-                EmailTokenError::Database => {
-                    "Could not verify email. Please try again later.".to_string()
-                }
+                EmailTokenError::Expired => VerifyEmailError::Validation(
+                    "This verification link has expired.".to_string(),
+                ),
+                EmailTokenError::InvalidOrUsed => VerifyEmailError::Validation(
+                    "This verification link is invalid or already used.".to_string(),
+                ),
+                EmailTokenError::Database => VerifyEmailError::Internal(
+                    "Could not verify email. Please try again later.".to_string(),
+                ),
             })?;
 
+        // Activate before consume so a later consume failure does not strand the account.
         self.principal_repository
             .set_user_active_by_id(record.user_id, true)
             .await
             .map_err(|err| match err {
-                PrincipalWriteError::NotFound => {
-                    "This verification link is invalid or already used.".to_string()
-                }
-                PrincipalWriteError::Database => {
-                    "Could not verify email. Please try again later.".to_string()
-                }
+                PrincipalWriteError::NotFound => VerifyEmailError::Validation(
+                    "This verification link is invalid or already used.".to_string(),
+                ),
+                PrincipalWriteError::Database => VerifyEmailError::Internal(
+                    "Could not verify email. Please try again later.".to_string(),
+                ),
             })?;
+
+        if let Err(err) = self
+            .email_token_service
+            .consume(token, EmailTokenPurpose::SignupVerify)
+            .await
+        {
+            match err {
+                EmailTokenError::InvalidOrUsed => {
+                    // Another request may have consumed the token after we activated.
+                }
+                other => {
+                    tracing::error!(
+                        "Activated user but failed to consume signup_verify token: {other:?}"
+                    );
+                }
+            }
+        }
 
         Ok(VerifyEmailResponse {
             message: "Email verified. You can sign in now.".to_string(),
@@ -182,6 +210,7 @@ mod tests {
 
     struct StubPrincipalRepo {
         activated: Mutex<Vec<Uuid>>,
+        fail_activate: bool,
     }
 
     #[async_trait]
@@ -217,6 +246,9 @@ mod tests {
             user_id: Uuid,
             active: bool,
         ) -> Result<(), PrincipalWriteError> {
+            if self.fail_activate {
+                return Err(PrincipalWriteError::Database);
+            }
             if active {
                 self.activated.lock().unwrap().push(user_id);
             }
@@ -228,7 +260,10 @@ mod tests {
         }
     }
 
-    fn given_service(raw: &str) -> (PrincipalVerifyEmailService, Arc<StubPrincipalRepo>, Uuid) {
+    fn given_service(
+        raw: &str,
+        fail_activate: bool,
+    ) -> (PrincipalVerifyEmailService, Arc<StubPrincipalRepo>, Uuid) {
         let user_id = Uuid::new_v4();
         let token_repo = Arc::new(StubTokenRepo::default());
         let now = Utc::now().naive_utc();
@@ -244,6 +279,7 @@ mod tests {
         });
         let principal_repository = Arc::new(StubPrincipalRepo {
             activated: Mutex::new(Vec::new()),
+            fail_activate,
         });
         let service = PrincipalVerifyEmailService {
             email_token_service: Arc::new(EmailTokenService {
@@ -261,7 +297,7 @@ mod tests {
     #[tokio::test]
     async fn given_valid_token_when_verifying_then_activates_user() {
         // Given
-        let (service, principals, user_id) = given_service("good-token");
+        let (service, principals, user_id) = given_service("good-token", false);
 
         // When
         let response = service
@@ -277,13 +313,30 @@ mod tests {
     #[tokio::test]
     async fn given_invalid_token_when_verifying_then_returns_error() {
         // Given
-        let (service, principals, _) = given_service("good-token");
+        let (service, principals, _) = given_service("good-token", false);
 
         // When
         let result = service.verify_email("bad-token").await;
 
         // Then
-        assert!(result.is_err());
+        assert!(matches!(result, Err(VerifyEmailError::Validation(_))));
         assert!(principals.activated.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_activate_db_failure_when_verifying_then_returns_internal_and_keeps_token() {
+        // Given
+        let (service, _, _) = given_service("good-token", true);
+
+        // When
+        let result = service.verify_email("good-token").await;
+
+        // Then
+        assert!(matches!(result, Err(VerifyEmailError::Internal(_))));
+        let retry = service.verify_email("good-token").await;
+        assert!(
+            matches!(retry, Err(VerifyEmailError::Internal(_))),
+            "token must remain usable after activate failure"
+        );
     }
 }

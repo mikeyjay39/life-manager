@@ -70,12 +70,12 @@ impl SignupService for PrincipalSignupService {
         let email = validate_email(&signup_req.email)?;
         validate_password(&signup_req.password)?;
 
-        let base_url = self.app_public_base_url.as_ref().ok_or_else(|| {
-            SignupError::EmailSendFailed(
-                "APP_PUBLIC_BASE_URL is not configured. Cannot send verification email."
-                    .to_string(),
-            )
-        })?;
+        let Some(base_url) = self.app_public_base_url.as_ref() else {
+            tracing::error!("APP_PUBLIC_BASE_URL is not configured; cannot send verification email");
+            return Err(SignupError::EmailSendFailed(
+                EMAIL_SEND_FAILED_MESSAGE.to_string(),
+            ));
+        };
 
         let password_hash = self
             .password_hasher
@@ -107,10 +107,7 @@ impl SignupService for PrincipalSignupService {
         let raw_token = match issue_result {
             Ok(raw) => raw,
             Err(_) => {
-                self.rollback_signup(user_id).await;
-                return Err(SignupError::EmailSendFailed(
-                    EMAIL_SEND_FAILED_MESSAGE.to_string(),
-                ));
+                return Err(self.fail_after_insert(user_id).await);
             }
         };
 
@@ -126,10 +123,7 @@ impl SignupService for PrincipalSignupService {
 
         if let Err(err) = self.email_sender.send(&message).await {
             tracing::error!("Signup verify email send failed: {err}");
-            self.rollback_signup(user_id).await;
-            return Err(SignupError::EmailSendFailed(
-                EMAIL_SEND_FAILED_MESSAGE.to_string(),
-            ));
+            return Err(self.fail_after_insert(user_id).await);
         }
 
         Ok(SignupResponse {
@@ -139,7 +133,18 @@ impl SignupService for PrincipalSignupService {
 }
 
 impl PrincipalSignupService {
-    async fn rollback_signup(&self, user_id: uuid::Uuid) {
+    async fn fail_after_insert(&self, user_id: uuid::Uuid) -> SignupError {
+        if self.rollback_signup(user_id).await {
+            SignupError::EmailSendFailed(EMAIL_SEND_FAILED_MESSAGE.to_string())
+        } else {
+            SignupError::EmailSendFailed(
+                "Could not complete signup. Please contact support or try again later.".to_string(),
+            )
+        }
+    }
+
+    /// Deletes tokens then the user. Returns true when the user row is gone.
+    async fn rollback_signup(&self, user_id: uuid::Uuid) -> bool {
         if let Err(err) = self
             .email_token_service
             .repository
@@ -147,10 +152,13 @@ impl PrincipalSignupService {
             .await
         {
             tracing::error!("Failed to delete signup tokens during rollback: {err:?}");
+            return false;
         }
         if let Err(err) = self.principal_repository.delete_user_by_id(user_id).await {
             tracing::error!("Failed to delete signup user during rollback: {err:?}");
+            return false;
         }
+        true
     }
 }
 
