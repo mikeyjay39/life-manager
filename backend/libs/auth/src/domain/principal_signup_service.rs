@@ -80,7 +80,7 @@ mod tests {
 
     use crate::domain::{
         auth_password_hasher::{AuthPasswordHasher, PasswordHashError},
-        principal::{CreateUserError, Principal, PrincipalRepository},
+        principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
     };
 
     use super::*;
@@ -109,6 +109,14 @@ mod tests {
             }
             *self.last_username.lock().unwrap() = Some(username.to_string());
             *self.last_active.lock().unwrap() = Some(active);
+            Ok(())
+        }
+
+        async fn update_password(
+            &self,
+            _user_id: uuid::Uuid,
+            _password_hash: &str,
+        ) -> Result<(), UpdatePasswordError> {
             Ok(())
         }
     }

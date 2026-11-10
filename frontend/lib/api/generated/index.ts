@@ -1,5 +1,9 @@
 export type { LoginRequest } from './auth/LoginRequest';
 export type { LoginResponse } from './auth/LoginResponse';
+export type { PasswordResetConfirmRequest } from './auth/PasswordResetConfirmRequest';
+export type { PasswordResetConfirmResponse } from './auth/PasswordResetConfirmResponse';
+export type { PasswordResetRequestRequest } from './auth/PasswordResetRequestRequest';
+export type { PasswordResetRequestResponse } from './auth/PasswordResetRequestResponse';
 export type { SignupRequest } from './auth/SignupRequest';
 export type { SignupResponse } from './auth/SignupResponse';
 export type { CarDto } from './life-manager/CarDto';

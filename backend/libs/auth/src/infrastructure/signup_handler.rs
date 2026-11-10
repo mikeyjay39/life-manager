@@ -36,13 +36,18 @@ mod tests {
     use crate::{
         AuthStateBuilder,
         domain::{
-            principal::{CreateUserError, Principal, PrincipalRepository},
+            password_reset_request::{
+                PasswordResetConfirmRequest, PasswordResetConfirmResponse,
+                PasswordResetRequestRequest, PasswordResetRequestResponse,
+            },
+            password_reset_service::PasswordResetService,
+            principal::{CreateUserError, Principal, PrincipalRepository, UpdatePasswordError},
+            principal_login_service::PrincipalLoginService,
             principal_signup_service::PrincipalSignupService,
             signup_request::SignupRequest,
         },
         infrastructure::{
-            argon_password_hasher::ArgonPasswordHasher,
-            db::test_pool,
+            argon_password_hasher::ArgonPasswordHasher, db::test_pool,
             principal_orm_collection::PrincipalOrmCollection,
         },
     };
@@ -100,6 +105,33 @@ mod tests {
         ) -> Result<(), CreateUserError> {
             Err(CreateUserError::DuplicateUsername)
         }
+
+        async fn update_password(
+            &self,
+            _user_id: uuid::Uuid,
+            _password_hash: &str,
+        ) -> Result<(), UpdatePasswordError> {
+            Ok(())
+        }
+    }
+
+    struct UnusedPasswordResetService;
+
+    #[async_trait::async_trait]
+    impl PasswordResetService for UnusedPasswordResetService {
+        async fn request_reset(
+            &self,
+            _req: &PasswordResetRequestRequest,
+        ) -> Result<PasswordResetRequestResponse, String> {
+            unreachable!("signup tests do not call password reset")
+        }
+
+        async fn confirm_reset(
+            &self,
+            _req: &PasswordResetConfirmRequest,
+        ) -> Result<PasswordResetConfirmResponse, String> {
+            unreachable!("signup tests do not call password reset")
+        }
     }
 
     #[tokio::test]
@@ -109,7 +141,7 @@ mod tests {
         let pool = test_pool();
         let auth_state = AuthState {
             use_cases: Arc::new(crate::application::auth_use_cases::AuthUseCases::new(
-                Arc::new(crate::domain::principal_login_service::PrincipalLoginService {
+                Arc::new(PrincipalLoginService {
                     principal_repository: Arc::new(PrincipalOrmCollection::new(pool.clone())),
                     password_hasher: Arc::new(ArgonPasswordHasher),
                 }),
@@ -118,6 +150,7 @@ mod tests {
                     password_hasher: Arc::new(ArgonPasswordHasher),
                     tenant: "life-manager".to_string(),
                 }),
+                Arc::new(UnusedPasswordResetService),
                 "life-manager".to_string(),
             )),
             pool,
