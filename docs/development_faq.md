@@ -150,7 +150,7 @@ flowchart TD
   F --> G[EmailSender send verify link]
   G -->|ok| H[201 check-email message]
   G -->|fail| I[Rollback user + 503]
-  H --> J[User opens /verify-email]
+  H --> J["User opens /verify-email?token=..."]
   J --> K[POST .../auth/verify-email]
   K --> L[Activate then consume token]
   L --> M[Login succeeds]
@@ -167,9 +167,9 @@ Set these in git-crypt `.<profile>.env` (for example `.dev.env`, `.prod.env`). D
 | `EMAIL_PROVIDER` | `log` (default; prints mail to logs) or `resend` (HTTPS send). Prod uses `resend`. |
 | `RESEND_API_KEY` | Resend secret. Required when `EMAIL_PROVIDER=resend`. Never log it. |
 | `EMAIL_FROM` | From address that Resend accepts for the verified domain (for example `noreply@life-manager.jeszenka.com`). |
-| `APP_PUBLIC_BASE_URL` | Public app origin for links in mail. Prod: `https://life-manager.jeszenka.com`. Dev may use a local origin when you test UI deep links. |
+| `APP_PUBLIC_BASE_URL` | Public app origin for links in mail. **Required for signup** even with `EMAIL_PROVIDER=log` (unset → signup `503`). Prod: `https://life-manager.jeszenka.com`. Dev may use a local origin for deep-link tests. |
 
-Local stacks can keep `EMAIL_PROVIDER=log` so signup and reset work without Resend. Links still need a correct `APP_PUBLIC_BASE_URL` when you open them in a browser.
+Local stacks can keep `EMAIL_PROVIDER=log` so mail is written to logs instead of Resend. You must still set `APP_PUBLIC_BASE_URL`; signup builds the verify link from it before send.
 
 ### Resend ops checklist (humans)
 
@@ -180,7 +180,7 @@ Agents do not create Resend accounts or change DNS. A human does these steps bef
 3. **Verify DNS in Resend** after propagation. Do not treat live mail as ready until Resend marks the domain verified.
 4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack).
 5. Set `APP_PUBLIC_BASE_URL=https://life-manager.jeszenka.com` for prod so verify and reset links hit the public app.
-6. Apply auth migrations on each tenant DB after pull (humans run `diesel migration run`; agents do not). See [README.md](../README.md) Diesel setup.
+6. After pull, apply both migration sets when you use the Diesel CLI (agents do not). From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
 
 ### Ops escape hatch (SQLite activation)
 

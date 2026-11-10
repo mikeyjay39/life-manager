@@ -102,7 +102,7 @@ Normal signup path: **email verification, then login**. Manual SQLite activation
 | `EMAIL_PROVIDER` | `log` (default) or `resend`. Prod uses `resend`. |
 | `RESEND_API_KEY` | Required when provider is `resend`. Do not put real keys in docs. |
 | `EMAIL_FROM` | From address for Resend (domain must be verified). |
-| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Prod: `https://life-manager.jeszenka.com`. |
+| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Required for signup (unset → `503`). Prod: `https://life-manager.jeszenka.com`. |
 
 Ops checklist (Resend account, DNS verify, git-crypt env): [development FAQ](../development_faq.md#resend-ops-checklist-humans).
 
