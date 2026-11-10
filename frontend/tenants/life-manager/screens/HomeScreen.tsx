@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ManagerPageContent } from '@/components/ui/manager-page-content';
 import { useTenant } from '@/lib/tenant/TenantContext';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import { ManagerHubTile } from '@/tenants/life-manager/components/manager-hub-tile';
@@ -39,26 +40,28 @@ export default function HomeScreen() {
           contentFit="cover"
         />
       }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">
-          {tenant.displayName}
-          {copy.homeTitleSuffix}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.hubSection} accessibilityLabel="Manager hub">
-        <ThemedText type="subtitle">Managers</ThemedText>
-        <View style={styles.tileGrid}>
-          {tiles.map((tile) => (
-            <ManagerHubTile
-              key={tile.id}
-              tile={tile}
-              onPressAvailable={(route) => {
-                router.replace(route);
-              }}
-            />
-          ))}
-        </View>
-      </ThemedView>
+      <ManagerPageContent testID="home-page-content">
+        <ThemedView style={styles.titleContainer}>
+          <ThemedText type="title">
+            {tenant.displayName}
+            {copy.homeTitleSuffix}
+          </ThemedText>
+        </ThemedView>
+        <ThemedView style={styles.hubSection} accessibilityLabel="Manager hub">
+          <ThemedText type="subtitle">Managers</ThemedText>
+          <View style={styles.tileGrid}>
+            {tiles.map((tile) => (
+              <ManagerHubTile
+                key={tile.id}
+                tile={tile}
+                onPressAvailable={(route) => {
+                  router.replace(route);
+                }}
+              />
+            ))}
+          </View>
+        </ThemedView>
+      </ManagerPageContent>
     </ParallaxScrollView>
   );
 }

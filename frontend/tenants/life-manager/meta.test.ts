@@ -1,6 +1,7 @@
 import { mergeTenantTheme } from '@/lib/tenant/theme/merge-theme';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 import {
+  LIFE_MANAGER_BRAND_HEADER_DARK,
   LIFE_MANAGER_BRAND_SKY,
   LIFE_MANAGER_BRAND_TINT_DARK,
   LIFE_MANAGER_BRAND_TINT_LIGHT,
@@ -8,6 +9,8 @@ import {
 } from '@/tenants/life-manager/meta';
 
 const DEFAULT_TEAL_TINT = '#0a7ea4';
+/** Prior deepen that drifted teal; brand tint must stay azure instead. */
+const PRIOR_TEALISH_TINT = '#307890';
 
 function relativeLuminance(hex: string): number {
   let normalized = hex.replace(/^#/, '');
@@ -31,6 +34,34 @@ function contrastRatio(foreground: string, background: string): number {
   return (luminances[0] + 0.05) / (luminances[1] + 0.05);
 }
 
+function hueDegrees(hex: string): number {
+  let normalized = hex.replace(/^#/, '');
+  if (normalized.length === 3) {
+    normalized = normalized
+      .split('')
+      .map((digit) => digit + digit)
+      .join('');
+  }
+  const [r, g, b] = [0, 2, 4].map(
+    (offset) => parseInt(normalized.slice(offset, offset + 2), 16) / 255
+  );
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) {
+    return 0;
+  }
+  const delta = max - min;
+  let hue = 0;
+  if (max === r) {
+    hue = (g - b) / delta;
+  } else if (max === g) {
+    hue = 2 + (b - r) / delta;
+  } else {
+    hue = 4 + (r - g) / delta;
+  }
+  return ((hue * 60) % 360 + 360) % 360;
+}
+
 describe('life-manager brand theme', () => {
   it('given life-manager meta when theme merges then tint is logo sky family not default teal', () => {
     // Given
@@ -43,10 +74,15 @@ describe('life-manager brand theme', () => {
     expect(merged.colors.light.tint).toBe(LIFE_MANAGER_BRAND_TINT_LIGHT);
     expect(merged.colors.light.tabIconSelected).toBe(LIFE_MANAGER_BRAND_TINT_LIGHT);
     expect(merged.colors.light.tint).not.toBe(DEFAULT_TEAL_TINT);
+    expect(merged.colors.light.tint).not.toBe(PRIOR_TEALISH_TINT);
     expect(merged.headerBackground.light).toBe(LIFE_MANAGER_BRAND_SKY);
+    expect(merged.headerBackground.dark).toBe(LIFE_MANAGER_BRAND_HEADER_DARK);
     expect(merged.colors.dark.tint).toBe(LIFE_MANAGER_BRAND_TINT_DARK);
     expect(merged.colors.dark.tabIconSelected).toBe(LIFE_MANAGER_BRAND_TINT_DARK);
     expect(merged.colors.dark.tint).not.toBe(DEFAULT_TEAL_TINT);
+    // Azure/blue family (logo ~204°), not cyan-teal (~185–195°)
+    expect(hueDegrees(merged.colors.light.tint)).toBeGreaterThanOrEqual(200);
+    expect(hueDegrees(merged.colors.light.tint)).toBeLessThan(220);
   });
 
   it('given tenant without tint overrides when theme merges then tint stays app default', () => {
