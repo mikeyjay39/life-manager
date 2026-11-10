@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/manager-form-vs-results';
 import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
 import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import { ManagerStickyFilterChrome } from '@/components/ui/manager-sticky-filter-chrome';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -197,7 +198,6 @@ export default function CarMaintenancePanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 8,
         },
       }),
     [palette]
@@ -775,10 +775,20 @@ export default function CarMaintenancePanel({
     </View>
   );
 
-  const typeFilterBar = selectedCar ? (
-    <View style={styles.historyHeader}>
-      <ThemedText type="sectionTitle">Maintenance history</ThemedText>
-      <View style={styles.picker} accessibilityLabel="Maintenance type filter">
+  // Sticky chrome must be a direct child of the panel container (sibling of
+  // results), not nested in a short header — CSS sticky stops at the parent box.
+  const typeFilterTitle = selectedCar ? (
+    <ThemedText type="sectionTitle" style={styles.historyHeader}>
+      Maintenance history
+    </ThemedText>
+  ) : null;
+
+  const typeFilterChrome = selectedCar ? (
+    <ManagerStickyFilterChrome
+      accessibilityLabel="Maintenance type filter"
+      testID="car-maintenance-type-filter-chrome"
+    >
+      <View style={styles.picker}>
         <Pressable
           onPress={() => setTypeFilter(null)}
           accessibilityRole="button"
@@ -820,7 +830,7 @@ export default function CarMaintenancePanel({
           );
         })}
       </View>
-    </View>
+    </ManagerStickyFilterChrome>
   ) : null;
 
   const historyResults = (
@@ -953,7 +963,8 @@ export default function CarMaintenancePanel({
         </Text>
       ) : null}
 
-      {typeFilterBar}
+      {typeFilterTitle}
+      {typeFilterChrome}
 
       {selectedCar &&
       listLoading &&

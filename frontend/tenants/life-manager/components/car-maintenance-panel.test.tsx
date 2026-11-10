@@ -437,6 +437,8 @@ describe('CarMaintenancePanel', () => {
         screen.getByLabelText(`Cost ${formatUsdFromCents(5999)}`)
       ).toBeTruthy();
     });
+    expect(screen.getByTestId('car-maintenance-type-filter-chrome')).toBeTruthy();
+    expect(screen.getByLabelText('Maintenance type filter')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Filter Tire events'));
 

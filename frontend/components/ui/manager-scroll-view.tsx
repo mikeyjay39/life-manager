@@ -22,7 +22,8 @@ export type ManagerScrollViewProps = PropsWithChildren<{
  * ManagerScrollView -> AppMenuBar : sticky under scroll top
  * ManagerScrollView -> ManagerPageHeader : title [+ subtitle]
  * ManagerScrollView -> ManagerPageContent : constrain body width
- * ManagerPageContent -> children : manager sections
+ * ManagerPageContent -> children : manager sections / sticky filter chrome
+ * note page body overflow visible so web CSS sticky filters can pin
  * ```
  */
 export function ManagerScrollView({
@@ -54,6 +55,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingVertical: MANAGER_PAGE_PADDING_Y,
-    overflow: 'hidden',
+    // Keep visible so ManagerStickyFilterChrome CSS sticky can stick under AppMenuBar.
+    overflow: 'visible',
   },
 });

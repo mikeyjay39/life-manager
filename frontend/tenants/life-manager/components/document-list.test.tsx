@@ -150,6 +150,8 @@ describe('DocumentList', () => {
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
     renderDocumentList();
     expect(screen.getByText('Sign in to see your documents.')).toBeTruthy();
+    // No empty sticky filter bar when signed out (no search field).
+    expect(screen.queryByTestId('document-title-search-chrome')).toBeNull();
   });
 
   it('given empty list when fetch is in flight then shows loading skeletons', async () => {
@@ -197,6 +199,8 @@ describe('DocumentList', () => {
     expect(screen.getByText('Issued')).toBeTruthy();
     expect(screen.getByText('Expires')).toBeTruthy();
     expect(screen.getByLabelText('Search documents by title')).toBeTruthy();
+    expect(screen.getByTestId('document-title-search-chrome')).toBeTruthy();
+    expect(screen.getByLabelText('Document title search')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/documents',
       expect.objectContaining({ method: 'GET', token: 'tok' })
