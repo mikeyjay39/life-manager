@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -11,10 +10,23 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  MANAGER_DATA_EMPTY_CELL,
+  ManagerDataList,
+  ManagerDataListRow,
+} from '@/components/ui/manager-data-list';
+import { ManagerCta } from '@/components/ui/manager-cta';
+import {
+  ManagerFormVsResults,
+  type ManagerFormMode,
+} from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { HealthMemberDto, HealthReadingDto } from '@/lib/api/types';
+import { formatDisplayDate } from '@/lib/format/display';
 import {
   formatHeightDisplay,
   formatWeightDisplay,
@@ -55,21 +67,22 @@ function todayYmd(): string {
  * Submit health readings and show history for the selected HealthMember.
  *
  * ```
- * User -> Panel : select member / toggle units / fill form / submit
+ * User -> Panel : select member / toggle units / Add reading | Edit | Delete
+ * Panel -> ManagerFormVsResults : collapsed until Add or Edit
  * Panel -> Parent : onUnitSystemChange (shared with charts)
  * Panel -> API : GET /health-readings?health_member_id=…
- * alt create (no edit target)
+ * alt create (form mode create)
  *   Panel -> Panel : convert imperial → metric if needed
  *   Panel -> API : POST /health-readings (metric fields only)
- * else edit
+ * else edit (form mode edit)
  *   Panel -> API : PUT /health-readings/{id} (metric fields only)
  * end
  * alt 2xx
  *   Panel -> API : GET /health-readings (refresh history)
  *   Panel -> Parent : onReadingsChanged (charts refresh)
- *   Panel -> Panel : clear vitals or exit edit; keep date on create
+ *   Panel -> ManagerFormVsResults : collapse; clear vitals (keep date on create)
  * else 4xx
- *   Panel -> User : show API error; list unchanged
+ *   Panel -> User : show API error; keep form open; list unchanged
  * end
  * alt delete
  *   Panel -> ConfirmDialog : show
@@ -102,6 +115,7 @@ export default function HealthReadingPanel({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingReadingId, setEditingReadingId] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<ManagerFormMode>('collapsed');
 
   const [readings, setReadings] = useState<HealthReadingDto[]>([]);
   const [listLoading, setListLoading] = useState(false);
@@ -133,7 +147,7 @@ export default function HealthReadingPanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         unitRow: {
           flexDirection: 'row',
@@ -180,34 +194,7 @@ export default function HealthReadingPanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 4,
-        },
-        historyItem: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          padding: 10,
-          gap: 4,
-          backgroundColor: palette.background,
-        },
-        historyDate: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: palette.text,
-        },
-        historyLine: {
-          fontSize: 14,
-          color: palette.text,
-        },
-        historyMuted: {
-          fontSize: 13,
-          color: palette.icon,
-        },
-        historyActions: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
           gap: 8,
-          marginTop: 4,
         },
         historyActionButton: {
           paddingVertical: 6,
@@ -228,7 +215,7 @@ export default function HealthReadingPanel({
     prevUnitSystemRef.current = unitSystem;
   }, [unitSystem]);
 
-  // Clear vitals when leaving a concrete member (A→B or A→null→B).
+  // Clear vitals and history when leaving a concrete member (A→B or A→null→B).
   // Do not clear on the first select (null→A).
   useEffect(() => {
     const previousId = prevMemberIdRef.current;
@@ -237,8 +224,11 @@ export default function HealthReadingPanel({
       setForm((prev) => emptyHealthReadingForm(prev.recordedOn));
       setFormError(null);
       setEditingReadingId(null);
+      setFormMode('collapsed');
       setActionError(null);
       setDeleteTarget(null);
+      setReadings([]);
+      setListError(null);
     }
     prevMemberIdRef.current = nextId;
   }, [selectedMember?.id]);
@@ -332,17 +322,33 @@ export default function HealthReadingPanel({
   const vitalsLocked =
     unitToggleLocked || (!isEditing && !selectedMember?.active);
 
+  const collapseForm = useCallback(() => {
+    setEditingReadingId(null);
+    setForm(emptyHealthReadingForm(todayYmd()));
+    setFormError(null);
+    setFormMode('collapsed');
+  }, []);
+
+  const handleFormModeChange = useCallback((next: ManagerFormMode) => {
+    if (next === 'create') {
+      setEditingReadingId(null);
+      setForm(emptyHealthReadingForm(todayYmd()));
+      setFormError(null);
+      setActionError(null);
+    } else if (next === 'collapsed') {
+      setEditingReadingId(null);
+      setForm(emptyHealthReadingForm(todayYmd()));
+      setFormError(null);
+    }
+    setFormMode(next);
+  }, []);
+
   const startEdit = (reading: HealthReadingDto) => {
     setEditingReadingId(reading.id);
     setForm(formFromHealthReading(reading, unitSystem));
     setFormError(null);
     setActionError(null);
-  };
-
-  const cancelEdit = () => {
-    setEditingReadingId(null);
-    setForm(emptyHealthReadingForm(todayYmd()));
-    setFormError(null);
+    setFormMode('edit');
   };
 
   const handleSubmit = async () => {
@@ -412,12 +418,12 @@ export default function HealthReadingPanel({
       // Skip clear/refresh when the selected member changed during the save.
       if (selectedMemberIdRef.current === memberIdAtSubmit) {
         if (editingId != null) {
-          setEditingReadingId(null);
-          setForm(emptyHealthReadingForm(todayYmd()));
+          collapseForm();
         } else {
           setForm((prev) => ({
             ...emptyHealthReadingForm(prev.recordedOn),
           }));
+          setFormMode('collapsed');
         }
         await loadReadings();
         notifyReadingsChanged();
@@ -451,8 +457,7 @@ export default function HealthReadingPanel({
     // Optimistic remove so a second confirm cannot revive the row after 404.
     setReadings((prev) => prev.filter((r) => r.id !== target.id));
     if (editingReadingId === target.id) {
-      setEditingReadingId(null);
-      setForm(emptyHealthReadingForm(todayYmd()));
+      collapseForm();
     }
     try {
       const response = await authenticatedFetch(
@@ -500,52 +505,26 @@ export default function HealthReadingPanel({
     );
   }
 
-  return (
-    <View style={styles.container} accessibilityLabel="Health readings panel">
-      <View style={styles.unitRow}>
-        <ThemedText>Units</ThemedText>
-        <Button
-          variant={unitSystem === 'metric' ? 'primary' : 'outline'}
-          label="Metric"
-          accessibilityLabel="Use metric units"
-          disabled={unitToggleLocked}
-          onPress={() => {
-            void setUnit('metric');
-          }}
-          style={styles.unitButton}
-        />
-        <Button
-          variant={unitSystem === 'imperial' ? 'primary' : 'outline'}
-          label="Imperial"
-          accessibilityLabel="Use imperial units"
-          disabled={unitToggleLocked}
-          onPress={() => {
-            void setUnit('imperial');
-          }}
-          style={styles.unitButton}
-        />
-      </View>
+  const addDisabled =
+    !selectedMember?.active || !unitPreferenceReady || submitting || deleting;
 
-      {!selectedMember ? (
-        <ThemedText style={styles.hint}>
-          Select or create a HealthMember to enter vitals.
-        </ThemedText>
-      ) : !selectedMember.active && !isEditing ? (
-        <ThemedText style={styles.hint}>
-          Selected HealthMember is inactive. Choose an active member to add
-          readings.
-        </ThemedText>
-      ) : isEditing ? (
-        <ThemedText style={styles.hint}>
-          Editing reading for {selectedMember.display_name}. API stores metric
-          values only.
-        </ThemedText>
-      ) : (
-        <ThemedText style={styles.hint}>
-          Recording for {selectedMember.display_name}. API stores metric values
-          only.
-        </ThemedText>
-      )}
+  const emptyMessage = !selectedMember
+    ? ''
+    : !selectedMember.active
+      ? 'Selected HealthMember is inactive. Choose an active member to add readings.'
+      : listError
+        ? 'Readings could not be loaded.'
+        : 'No readings yet.';
+
+  const formHint = !selectedMember
+    ? null
+    : isEditing
+      ? `Editing reading for ${selectedMember.display_name}. API stores metric values only.`
+      : `Recording for ${selectedMember.display_name}. API stores metric values only.`;
+
+  const readingForm = (
+    <View style={styles.container} accessibilityLabel="Health reading form">
+      {formHint ? <ThemedText style={styles.hint}>{formHint}</ThemedText> : null}
 
       <View style={styles.fieldBlock}>
         <FieldLabel label="Recorded date" required />
@@ -692,7 +671,7 @@ export default function HealthReadingPanel({
       ) : null}
 
       <View style={styles.submitRow}>
-        <Button
+        <ManagerCta
           label={isEditing ? 'Update reading' : 'Save reading'}
           accessibilityLabel={
             isEditing ? 'Update health reading' : 'Save health reading'
@@ -704,42 +683,30 @@ export default function HealthReadingPanel({
           }}
           style={styles.submitButton}
         />
-        {isEditing ? (
-          <Button
-            variant="outline"
-            label="Cancel edit"
-            accessibilityLabel="Cancel edit health reading"
-            disabled={submitting || deleting}
-            onPress={cancelEdit}
-            style={styles.submitButton}
-          />
-        ) : null}
       </View>
+    </View>
+  );
 
-      <View style={styles.historyHeader} accessibilityLabel="Reading history">
-        <ThemedText type="defaultSemiBold">History</ThemedText>
-        {actionError ? (
-          <Text style={styles.errorText} accessibilityRole="alert">
-            {actionError}
-          </Text>
-        ) : null}
-        {!selectedMember ? (
-          <ThemedText style={styles.hint}>
-            History appears after you select a HealthMember.
-          </ThemedText>
-        ) : listLoading ? (
-          <ActivityIndicator
-            color={palette.tint}
-            accessibilityLabel="Loading readings"
-          />
-        ) : listError ? (
-          <Text style={styles.errorText} accessibilityRole="alert">
-            {listError}
-          </Text>
-        ) : readings.length === 0 ? (
-          <ThemedText style={styles.hint}>No readings yet.</ThemedText>
-        ) : (
-          readings.map((reading) => {
+  const historyResults = (
+    <View style={styles.historyHeader} accessibilityLabel="Reading history">
+      <ThemedText type="sectionTitle">History</ThemedText>
+      {actionError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {actionError}
+        </Text>
+      ) : null}
+      {listLoading && readings.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
+      ) : (
+        <ManagerDataList
+          testID="health-reading-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'vitals', label: 'Vitals', primary: true },
+            { key: 'notes', label: 'Notes' },
+          ]}
+        >
+          {readings.map((reading) => {
             const weight = formatWeightDisplay(reading.weight_kg, unitSystem);
             const height = formatHeightDisplay(reading.height_cm, unitSystem);
             const bp =
@@ -754,45 +721,136 @@ export default function HealthReadingPanel({
               reading.bmi != null && Number.isFinite(reading.bmi)
                 ? `BMI ${reading.bmi}`
                 : null;
-            const lines = [height, weight, bp, hr, bmi].filter(Boolean);
+            const lines = [height, weight, bp, hr, bmi].filter(Boolean) as string[];
+            const vitals = lines.length > 0 ? lines.join(' · ') : MANAGER_DATA_EMPTY_CELL;
+            const notes = reading.notes?.trim()
+              ? reading.notes
+              : MANAGER_DATA_EMPTY_CELL;
+            const recordedLabel = formatDisplayDate(reading.recorded_on);
             return (
-              <View
+              <ManagerDataListRow
                 key={reading.id}
-                style={styles.historyItem}
-                accessibilityLabel={`Reading on ${reading.recorded_on}`}>
-                <Text style={styles.historyDate}>{reading.recorded_on}</Text>
-                {lines.length > 0 ? (
-                  <Text style={styles.historyLine}>{lines.join(' · ')}</Text>
-                ) : null}
-                {reading.notes ? (
-                  <Text style={styles.historyMuted}>{reading.notes}</Text>
-                ) : null}
-                <View style={styles.historyActions}>
-                  <Button
-                    variant="secondary"
-                    label="Edit"
-                    accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
-                    disabled={submitting || deleting}
-                    onPress={() => startEdit(reading)}
-                    style={styles.historyActionButton}
-                  />
-                  <Button
-                    variant="destructive"
-                    label="Delete"
-                    accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
-                    disabled={submitting || deleting}
-                    onPress={() => {
-                      setActionError(null);
-                      setDeleteTarget(reading);
-                    }}
-                    style={styles.historyActionButton}
-                  />
-                </View>
-              </View>
+                testID={`health-reading-row-${reading.id}`}
+                accessibilityLabel={`Reading on ${reading.recorded_on}`}
+                leading={recordedLabel}
+                cells={[
+                  {
+                    key: 'vitals',
+                    content: vitals,
+                    primary: true,
+                    accessibilityLabel:
+                      lines.length > 0 ? vitals : 'Vitals: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel:
+                      reading.notes?.trim()
+                        ? reading.notes
+                        : 'Notes: none',
+                  },
+                ]}
+                actions={
+                  <>
+                    <Button
+                      variant="secondary"
+                      label="Edit"
+                      accessibilityLabel={`Edit reading on ${reading.recorded_on}`}
+                      disabled={submitting || deleting}
+                      onPress={() => startEdit(reading)}
+                      style={styles.historyActionButton}
+                    />
+                    <Button
+                      variant="outline"
+                      label="Delete"
+                      accessibilityLabel={`Delete reading on ${reading.recorded_on}`}
+                      disabled={submitting || deleting}
+                      onPress={() => {
+                        setActionError(null);
+                        setDeleteTarget(reading);
+                      }}
+                      style={styles.historyActionButton}
+                    />
+                  </>
+                }
+              />
             );
-          })
-        )}
+          })}
+        </ManagerDataList>
+      )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container} accessibilityLabel="Health readings panel">
+      <ManagerSelectionContext
+        entityNoun="HealthMember"
+        selectedLabel={selectedMember?.display_name ?? null}
+        inactive={selectedMember ? !selectedMember.active : false}
+        emptyHint="Choose a HealthMember above to enter vitals."
+      />
+
+      <View style={styles.unitRow}>
+        <ThemedText>Units</ThemedText>
+        <Button
+          variant={unitSystem === 'metric' ? 'primary' : 'outline'}
+          label="Metric"
+          accessibilityLabel="Use metric units"
+          disabled={unitToggleLocked}
+          onPress={() => {
+            void setUnit('metric');
+          }}
+          style={styles.unitButton}
+        />
+        <Button
+          variant={unitSystem === 'imperial' ? 'primary' : 'outline'}
+          label="Imperial"
+          accessibilityLabel="Use imperial units"
+          disabled={unitToggleLocked}
+          onPress={() => {
+            void setUnit('imperial');
+          }}
+          style={styles.unitButton}
+        />
       </View>
+
+      {listError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {listError}
+        </Text>
+      ) : null}
+
+      {selectedMember &&
+      listLoading &&
+      readings.length === 0 &&
+      formMode === 'collapsed' ? (
+        <ManagerListSkeleton accessibilityLabel="Loading readings" />
+      ) : (
+        <ManagerFormVsResults
+          itemCount={readings.length}
+          addLabel="Add reading"
+          emptyMessage={emptyMessage}
+          addDisabled={addDisabled}
+          addAccessibilityLabel="Add reading"
+          mode={formMode}
+          onModeChange={handleFormModeChange}
+          onCancel={() => {
+            if (submitting || deleting) {
+              return false;
+            }
+          }}
+          form={readingForm}
+          onEnterSubmit={
+            canSubmit
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
+          results={historyResults}
+          testID="health-readings-form-vs-results"
+        />
+      )}
 
       <ConfirmDialog
         visible={deleteTarget != null}

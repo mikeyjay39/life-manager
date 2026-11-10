@@ -28,6 +28,7 @@ Personal/family life-management app. **Documents**, **Health Manager**, and **Ca
 | [docs/agents/api.md](docs/agents/api.md) | HTTP routes, auth, API base URL |
 | [docs/agents/testing.md](docs/agents/testing.md) | CI commands, BDD examples |
 | [frontend/README.md](frontend/README.md) | Frontend setup |
+| [frontend/AGENTS.md](frontend/AGENTS.md#manager-ux-conventions) | Manager UX conventions (layout, form-vs-results, tokens, type, chrome, feedback, lists, focus, locale) |
 
 ## Critical Rules
 

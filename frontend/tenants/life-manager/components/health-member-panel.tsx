@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -15,14 +14,27 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSection } from '@/components/ui/manager-section';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import {
+  createManagerPickerChipStyles,
+  createManagerSelectionSurfaceStyles,
+} from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CreateHealthMemberCommand,
   HealthMemberDto,
   UpdateHealthMemberCommand,
 } from '@/lib/api/types';
+import { formatDisplayDate } from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const DISPLAY_NAME_MAX_LEN = 100;
@@ -109,10 +121,11 @@ export default function HealthMemberPanel({
 }: HealthMemberPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
+  const { feedback, showSuccess, showError, dismiss, clearError } =
+    useManagerFeedback();
 
   const [members, setMembers] = useState<HealthMemberDto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -139,6 +152,15 @@ export default function HealthMemberPanel({
   const [deactivating, setDeactivating] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
+  const pickerChipStyles = useMemo(
+    () => createManagerPickerChipStyles(palette),
+    [palette]
+  );
+  const selectionSurfaceStyles = useMemo(
+    () => createManagerSelectionSurfaceStyles(palette),
+    [palette]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -148,24 +170,13 @@ export default function HealthMemberPanel({
         headerRow: {
           gap: 4,
         },
-        selectedName: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: palette.text,
-        },
         hint: {
           fontSize: 14,
           color: palette.icon,
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
-        },
-        toolbar: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 12,
+          color: palette.danger,
         },
         includeRow: {
           flexDirection: 'row',
@@ -181,33 +192,13 @@ export default function HealthMemberPanel({
           flexWrap: 'wrap',
           gap: 8,
         },
-        pickerChip: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          backgroundColor: palette.background,
-        },
-        pickerChipSelected: {
-          borderColor: palette.tint,
-          backgroundColor: palette.tint,
-        },
-        pickerChipInactive: {
-          opacity: 0.7,
-          borderStyle: 'dashed',
-        },
-        pickerChipText: {
-          color: palette.text,
-          fontSize: 15,
-        },
-        pickerChipTextSelected: {
-          color: palette.onTint,
-          fontWeight: '600',
-        },
+        pickerChip: pickerChipStyles.chip,
+        pickerChipSelected: pickerChipStyles.chipSelected,
+        pickerChipInactive: pickerChipStyles.chipInactive,
+        pickerChipText: pickerChipStyles.chipText,
+        pickerChipTextSelected: pickerChipStyles.chipTextSelected,
         detailCard: {
-          gap: 8,
-          paddingTop: 4,
+          ...selectionSurfaceStyles.selectedSurface,
         },
         detailRow: {
           gap: 2,
@@ -286,7 +277,7 @@ export default function HealthMemberPanel({
           gap: 6,
         },
       }),
-    [palette]
+    [palette, pickerChipStyles, selectionSurfaceStyles]
   );
 
   const selected = useMemo(
@@ -347,11 +338,11 @@ export default function HealthMemberPanel({
         return;
       }
       setMembers([]);
-      setError(null);
+      clearError();
       return;
     }
     setLoading(true);
-    setError(null);
+    clearError();
     try {
       const path = includeInactive
         ? '/health-members?include_inactive=true'
@@ -382,13 +373,13 @@ export default function HealthMemberPanel({
       }
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load HealthMembers';
-      setError(msg);
+      showError(msg);
     } finally {
       if (generation === loadGenerationRef.current) {
         setLoading(false);
       }
     }
-  }, [token, includeInactive, handleUnauthorized, syncSelectionToList]);
+  }, [token, includeInactive, handleUnauthorized, syncSelectionToList, clearError, showError]);
 
   useEffect(() => {
     void load();
@@ -401,10 +392,12 @@ export default function HealthMemberPanel({
     setCreateError(null);
   };
 
-  const closeCreateModal = () => {
+  const closeCreateModal = useCallback(() => {
     setCreateVisible(false);
     resetCreateForm();
-  };
+  }, []);
+
+  useWebEscapeClose(createVisible, closeCreateModal);
 
   const startEdit = () => {
     if (!selected) {
@@ -486,6 +479,11 @@ export default function HealthMemberPanel({
       if (created?.id) {
         selectMember(created);
       }
+      showSuccess(
+        created?.display_name
+          ? `HealthMember "${created.display_name}" created.`
+          : 'HealthMember created.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to create HealthMember';
@@ -560,6 +558,11 @@ export default function HealthMemberPanel({
       if (updated?.id) {
         selectMember(updated);
       }
+      showSuccess(
+        updated?.display_name
+          ? `HealthMember "${updated.display_name}" updated.`
+          : 'HealthMember updated.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to update HealthMember';
@@ -614,7 +617,7 @@ export default function HealthMemberPanel({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to deactivate HealthMember';
-      setError(msg);
+      showError(msg);
       setDeactivateTarget(null);
     } finally {
       setDeactivating(false);
@@ -626,7 +629,7 @@ export default function HealthMemberPanel({
       return;
     }
     setReactivatingId(member.id);
-    setError(null);
+    clearError();
     try {
       const payload: UpdateHealthMemberCommand = {
         display_name: member.display_name,
@@ -658,7 +661,7 @@ export default function HealthMemberPanel({
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to reactivate HealthMember';
-      setError(msg);
+      showError(msg);
     } finally {
       setReactivatingId(null);
     }
@@ -666,42 +669,32 @@ export default function HealthMemberPanel({
 
   if (!token) {
     return (
-      <View style={styles.container}>
+      <ManagerSection title="HealthMembers" accessibilityLabel="HealthMembers section">
         <ThemedText style={styles.hint}>
           Sign in to manage HealthMembers.
         </ThemedText>
-      </View>
+      </ManagerSection>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <ThemedText
-          style={styles.selectedName}
-          accessibilityLabel={
-            selected
-              ? `Selected HealthMember ${selected.display_name}`
-              : 'No HealthMember selected'
-          }>
-          {selected
-            ? selected.display_name
-            : 'No member selected'}
-        </ThemedText>
-        {!selected && activeMembers.length === 0 ? (
-          <ThemedText style={styles.hint}>
-            Create a HealthMember to manage vitals and visits.
-          </ThemedText>
-        ) : null}
-      </View>
-
-      <View style={styles.toolbar}>
-        <Button
-          label="Create HealthMember"
-          onPress={() => setCreateVisible(true)}
-          accessibilityLabel="Create HealthMember"
-          style={styles.actionButton}
-        />
+    <ManagerSection
+      title="HealthMembers"
+      accessibilityLabel="HealthMembers section"
+      primaryAction={{
+        label: 'Create HealthMember',
+        onPress: () => setCreateVisible(true),
+        accessibilityLabel: 'Create HealthMember',
+      }}
+      secondaryActions={[
+        {
+          label: loading ? 'Refreshing…' : 'Refresh',
+          onPress: () => void load(),
+          disabled: loading,
+          accessibilityLabel: 'Refresh HealthMembers',
+        },
+      ]}
+      toolbarExtra={
         <View style={styles.includeRow}>
           <Text style={styles.includeLabel}>Include inactive</Text>
           <Switch
@@ -710,24 +703,32 @@ export default function HealthMemberPanel({
             accessibilityLabel="Include inactive HealthMembers"
           />
         </View>
-        <Button
-          variant="outline"
-          label={loading ? 'Refreshing…' : 'Refresh'}
-          onPress={() => void load()}
-          disabled={loading}
-          accessibilityLabel="Refresh HealthMembers"
-          style={styles.actionButton}
+      }
+    >
+      <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <ManagerSelectionContext
+          entityNoun="HealthMember"
+          selectedLabel={selected?.display_name ?? null}
+          inactive={selected ? !selected.active : false}
+          emptyHint={
+            activeMembers.length === 0
+              ? 'Create a HealthMember to manage vitals and visits.'
+              : 'Choose a HealthMember below for vitals and visits.'
+          }
         />
       </View>
 
-      {error ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {error}
-        </Text>
+      {feedback ? (
+        <ManagerFeedbackBanner
+          tone={feedback.tone}
+          message={feedback.message}
+          onDismiss={dismiss}
+        />
       ) : null}
 
       {loading && members.length === 0 ? (
-        <ActivityIndicator color={palette.tint} accessibilityLabel="Loading HealthMembers" />
+        <ManagerListSkeleton accessibilityLabel="Loading HealthMembers" />
       ) : members.length === 0 ? (
         <ThemedText style={styles.hint}>
           {includeInactive
@@ -804,9 +805,11 @@ export default function HealthMemberPanel({
                 accessibilityLabel="Edit notes"
               />
               {editError ? (
-                <Text style={styles.errorText} accessibilityRole="alert">
-                  {editError}
-                </Text>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={editError}
+                  onDismiss={() => setEditError(null)}
+                />
               ) : null}
               <View style={styles.actionRow}>
                 <Button
@@ -832,7 +835,7 @@ export default function HealthMemberPanel({
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Birth date</Text>
                 <Text style={styles.detailValue}>
-                  {formatBirthDateForInput(selected.birth_date) || '—'}
+                  {formatDisplayDate(selected.birth_date)}
                 </Text>
               </View>
               <View style={styles.detailRow}>
@@ -856,7 +859,7 @@ export default function HealthMemberPanel({
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
                       accessibilityLabel="Deactivate HealthMember"
@@ -922,8 +925,12 @@ export default function HealthMemberPanel({
               />
             </ScrollView>
             {createError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{createError}</Text>
+              <View style={styles.errorBanner}>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={createError}
+                  onDismiss={() => setCreateError(null)}
+                />
               </View>
             ) : null}
             <View style={styles.modalActions}>
@@ -966,6 +973,7 @@ export default function HealthMemberPanel({
         }}
         onConfirm={() => void handleDeactivateConfirm()}
       />
-    </View>
+      </View>
+    </ManagerSection>
   );
 }

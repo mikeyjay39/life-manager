@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { router, usePathname } from 'expo-router';
 
@@ -7,15 +8,27 @@ import { useAuth } from '@/contexts/AuthContext';
 import { TenantTestProvider } from '@/lib/tenant/TenantContext';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
+import { withAlpha } from '@/lib/tenant/theme/color-utils';
 import type { TenantModule } from '@/lib/tenant/types';
 import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
+import {
+  MANAGER_MENU_ACTIVE_FILL_ALPHA,
+  MANAGER_MENU_ICON_SIZE,
+} from '@/tenants/life-manager/manager-nav-chrome';
+import { LIFE_MANAGER_MANAGERS } from '@/tenants/life-manager/manager-registry';
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
 vi.mock('@/components/ui/icon-symbol', () => ({
-  IconSymbol: () => null,
+  IconSymbol: ({
+    name,
+    size,
+  }: {
+    name: string;
+    size: number;
+  }) => <Text testID={`menu-icon-${name}`}>{String(size)}</Text>,
 }));
 
 vi.mock('expo-router', () => ({
@@ -175,6 +188,53 @@ describe('AppMenuBar', () => {
     expect(screen.getByLabelText('Home').props.accessibilityState).toMatchObject({
       selected: false,
     });
+  });
+
+  it('given Health when menu renders then Health uses the shared active tint fill', () => {
+    // Given pathname is Health
+    mockUsePathname.mockReturnValue('/health');
+    // When the menu renders
+    renderAppMenuBar();
+    // Then Health gets the shared active fill; Documents does not
+    const tint = defaultResolvedTheme.colors.light.tint;
+    const activeFill = withAlpha(tint, MANAGER_MENU_ACTIVE_FILL_ALPHA);
+    const resolveStyle = (styleProp: unknown) => {
+      const resolved =
+        typeof styleProp === 'function'
+          ? styleProp({ pressed: false, focused: false })
+          : styleProp;
+      return (Array.isArray(resolved) ? resolved : [resolved]).filter(Boolean);
+    };
+    const healthStyle = resolveStyle(screen.getByLabelText('Health').props.style);
+    const documentsStyle = resolveStyle(
+      screen.getByLabelText('Documents').props.style
+    );
+    expect(healthStyle).toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: activeFill })])
+    );
+    expect(documentsStyle).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ backgroundColor: activeFill })])
+    );
+  });
+
+  it('uses registry manager labels and the shared menu icon size', () => {
+    // Given registered managers
+    // When the menu renders
+    renderAppMenuBar(tenantWithOptionalScreens);
+    // Then labels match the registry and every menu icon uses the shared size
+    for (const entry of LIFE_MANAGER_MANAGERS) {
+      expect(screen.getByLabelText(entry.label)).toBeTruthy();
+      expect(screen.getByText(entry.label)).toBeTruthy();
+      expect(screen.getByTestId(`menu-icon-${entry.icon}`).props.children).toBe(
+        String(MANAGER_MENU_ICON_SIZE)
+      );
+    }
+    expect(screen.getByTestId('menu-icon-house.fill').props.children).toBe(
+      String(MANAGER_MENU_ICON_SIZE)
+    );
+    expect(
+      screen.getByTestId('menu-icon-rectangle.portrait.and.arrow.right').props.children
+    ).toBe(String(MANAGER_MENU_ICON_SIZE));
   });
 
   it('given Car screen when menu renders then Cars shows as active', () => {

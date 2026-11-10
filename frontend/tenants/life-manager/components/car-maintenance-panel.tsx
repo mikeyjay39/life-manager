@@ -12,6 +12,19 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  MANAGER_DATA_EMPTY_CELL,
+  ManagerDataList,
+  ManagerDataListRow,
+} from '@/components/ui/manager-data-list';
+import { ManagerCta } from '@/components/ui/manager-cta';
+import {
+  ManagerFormVsResults,
+  type ManagerFormMode,
+} from '@/components/ui/manager-form-vs-results';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import { ManagerStickyFilterChrome } from '@/components/ui/manager-sticky-filter-chrome';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -20,6 +33,10 @@ import type {
   CarMaintenanceEventDto,
   DocumentDto,
 } from '@/lib/api/types';
+import {
+  formatDisplayDate,
+  formatDisplayInteger,
+} from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import { parseOwnedDocumentDto } from './car-panel';
@@ -58,17 +75,21 @@ function todayYmd(): string {
  * Log maintenance events and manage history for the selected Car.
  *
  * ```
- * User -> Panel : select Car (parent) / fill form / submit | edit | delete
+ * User -> Panel : select Car (parent) / Add event | Edit | Delete
+ * Panel -> ManagerFormVsResults : collapsed until Add or Edit
+ * Panel -> ManagerDataList : dense history rows when events exist
  * Panel -> API : GET /documents
  * Panel -> API : GET /car-maintenance-events?car_id=…[&event_type=…]
- * alt create (active Car only)
+ * alt create (form mode create; active Car only)
  *   Panel -> API : POST /car-maintenance-events
  *   Panel -> API : GET /car-maintenance-events (refresh)
  *   Panel -> Parent : onEventsChanged (charts refresh)
- * else edit (allowed on inactive Car)
+ *   Panel -> ManagerFormVsResults : collapse
+ * else edit (form mode edit; allowed on inactive Car)
  *   Panel -> API : PUT /car-maintenance-events/{id}
  *   Panel -> API : GET /car-maintenance-events (refresh)
  *   Panel -> Parent : onEventsChanged (charts refresh)
+ *   Panel -> ManagerFormVsResults : collapse
  * else delete
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm
@@ -103,6 +124,7 @@ export default function CarMaintenancePanel({
   const [documentsError, setDocumentsError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formMode, setFormMode] = useState<ManagerFormMode>('collapsed');
   const [deleteTarget, setDeleteTarget] = useState<CarMaintenanceEventDto | null>(
     null
   );
@@ -127,7 +149,7 @@ export default function CarMaintenancePanel({
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
+          color: palette.danger,
         },
         fieldBlock: {
           gap: 4,
@@ -176,34 +198,6 @@ export default function CarMaintenancePanel({
         },
         historyHeader: {
           marginTop: 8,
-          gap: 4,
-        },
-        historyItem: {
-          borderWidth: 1,
-          borderColor: palette.icon,
-          borderRadius: 8,
-          padding: 10,
-          gap: 6,
-          backgroundColor: palette.background,
-        },
-        historyDate: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: palette.text,
-        },
-        historyLine: {
-          fontSize: 14,
-          color: palette.text,
-        },
-        historyMuted: {
-          fontSize: 13,
-          color: palette.icon,
-        },
-        rowActions: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: 8,
-          marginTop: 4,
         },
       }),
     [palette]
@@ -225,6 +219,7 @@ export default function CarMaintenancePanel({
       setForm(emptyCarMaintenanceForm(todayYmd()));
       setFormError(null);
       setEditingId(null);
+      setFormMode('collapsed');
       setDeleteTarget(null);
       setTypeFilter(null);
       setEvents([]);
@@ -355,29 +350,47 @@ export default function CarMaintenancePanel({
     void loadEvents();
   }, [loadEvents]);
 
+  const isEditing = editingId != null;
   const createLocked =
     !token || !selectedCar?.active || submitting || deleting;
   const formInputsLocked =
     !token ||
     !selectedCar ||
-    (createLocked && !editingId) ||
+    (createLocked && !isEditing) ||
     submitting ||
     deleting;
-  const canSubmitCreate = Boolean(token) && Boolean(selectedCar?.active) && !submitting;
-  const canSubmitEdit = Boolean(token) && Boolean(selectedCar) && !submitting;
-  const canSubmit = editingId ? canSubmitEdit : canSubmitCreate;
+  const canSubmitCreate =
+    Boolean(token) && Boolean(selectedCar?.active) && !submitting && !deleting;
+  const canSubmitEdit =
+    Boolean(token) && Boolean(selectedCar) && !submitting && !deleting;
+  const canSubmit = isEditing ? canSubmitEdit : canSubmitCreate;
 
-  const cancelEdit = () => {
+  const collapseForm = useCallback(() => {
     setEditingId(null);
     setForm(emptyCarMaintenanceForm(todayYmd()));
     setFormError(null);
-  };
+    setFormMode('collapsed');
+  }, []);
+
+  const handleFormModeChange = useCallback((next: ManagerFormMode) => {
+    if (next === 'create') {
+      setEditingId(null);
+      setForm(emptyCarMaintenanceForm(todayYmd()));
+      setFormError(null);
+    } else if (next === 'collapsed') {
+      setEditingId(null);
+      setForm(emptyCarMaintenanceForm(todayYmd()));
+      setFormError(null);
+    }
+    setFormMode(next);
+  }, []);
 
   const startEdit = (event: CarMaintenanceEventDto) => {
     setDeleteTarget(null);
     setEditingId(event.id);
     setForm(formFromCarMaintenanceEventDto(event));
     setFormError(null);
+    setFormMode('edit');
     void loadDocuments();
   };
 
@@ -421,7 +434,7 @@ export default function CarMaintenancePanel({
           );
         }
         if (selectedCarIdRef.current === carIdAtSubmit) {
-          cancelEdit();
+          collapseForm();
           await loadEvents();
           onEventsChanged?.();
         }
@@ -465,7 +478,7 @@ export default function CarMaintenancePanel({
         );
       }
       if (selectedCarIdRef.current === carIdAtSubmit) {
-        setForm(emptyCarMaintenanceForm(form.occurredOn || todayYmd()));
+        collapseForm();
         await loadEvents();
         onEventsChanged?.();
       }
@@ -491,7 +504,7 @@ export default function CarMaintenancePanel({
     // Optimistic remove so a second confirm cannot revive the row after 404.
     setEvents((prev) => prev.filter((e) => e.id !== target.id));
     if (editingId === target.id) {
-      cancelEdit();
+      collapseForm();
     }
     try {
       const response = await authenticatedFetch(
@@ -538,26 +551,32 @@ export default function CarMaintenancePanel({
     );
   }
 
-  return (
-    <View style={styles.container} accessibilityLabel="Maintenance events panel">
-      {!selectedCar ? (
-        <ThemedText
-          style={styles.hint}
-          accessibilityLabel="Maintenance select car prompt">
-          Select or create a Car to log maintenance events.
-        </ThemedText>
-      ) : !selectedCar.active && !editingId ? (
-        <ThemedText style={styles.hint}>
-          Selected Car is inactive. You can edit or delete past events. Choose an
-          active Car to add new ones.
-        </ThemedText>
-      ) : (
-        <ThemedText style={styles.hint}>
-          {editingId
-            ? `Editing event for ${selectedCar.display_name?.trim() || `${selectedCar.year} ${selectedCar.make} ${selectedCar.model}`}.`
-            : `Logging maintenance for ${selectedCar.display_name?.trim() || `${selectedCar.year} ${selectedCar.make} ${selectedCar.model}`}.`}
-        </ThemedText>
-      )}
+  const carLabel = selectedCar
+    ? selectedCar.display_name?.trim() ||
+      `${selectedCar.year} ${selectedCar.make} ${selectedCar.model}`
+    : null;
+
+  const addDisabled = !selectedCar?.active || submitting || deleting;
+
+  const emptyMessage = !selectedCar
+    ? ''
+    : !selectedCar.active
+      ? 'Selected Car is inactive. You can edit or delete past events. Choose an active Car to add new ones.'
+      : listError
+        ? 'Maintenance events could not be loaded.'
+        : typeFilter
+          ? 'No matching maintenance events.'
+          : 'No maintenance events yet.';
+
+  const formHint = !selectedCar
+    ? null
+    : isEditing
+      ? `Editing event for ${carLabel}.`
+      : `Logging maintenance for ${carLabel}.`;
+
+  const eventForm = (
+    <View style={styles.container} accessibilityLabel="Maintenance event form">
+      {formHint ? <ThemedText style={styles.hint}>{formHint}</ThemedText> : null}
 
       <View style={styles.fieldBlock}>
         <FieldLabel label="Event date" required />
@@ -582,7 +601,10 @@ export default function CarMaintenancePanel({
                 disabled={formInputsLocked}
                 onPress={() => updateField('eventType', type)}
                 accessibilityRole="button"
-                accessibilityState={{ selected: isSelected, disabled: formInputsLocked }}
+                accessibilityState={{
+                  selected: isSelected,
+                  disabled: formInputsLocked,
+                }}
                 accessibilityLabel={`Select event type ${EVENT_TYPE_LABELS[type]}`}
                 style={[
                   styles.pickerChip,
@@ -737,141 +759,244 @@ export default function CarMaintenancePanel({
       ) : null}
 
       <View style={styles.formActions}>
-        <Button
+        <ManagerCta
           variant="primary"
-          label={editingId ? 'Save event' : 'Add event'}
-          accessibilityLabel={editingId ? 'Save maintenance event' : 'Add maintenance event'}
+          label={isEditing ? 'Update event' : 'Save event'}
+          accessibilityLabel={
+            isEditing ? 'Update maintenance event' : 'Save maintenance event'
+          }
           disabled={!canSubmit || formInputsLocked}
+          loading={submitting}
           onPress={() => {
             void handleSubmit();
           }}
         />
-        {editingId ? (
-          <Button
-            variant="outline"
-            label="Cancel edit"
-            accessibilityLabel="Cancel edit maintenance event"
-            disabled={submitting}
-            onPress={cancelEdit}
-          />
-        ) : null}
       </View>
+    </View>
+  );
 
-      <View style={styles.historyHeader}>
-        <ThemedText type="defaultSemiBold">Maintenance history</ThemedText>
-        <View style={styles.picker} accessibilityLabel="Maintenance type filter">
-          <Pressable
-            onPress={() => setTypeFilter(null)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: typeFilter == null }}
-            accessibilityLabel="Filter all event types"
+  // Sticky chrome must be a direct child of the panel container (sibling of
+  // results), not nested in a short header — CSS sticky stops at the parent box.
+  const typeFilterTitle = selectedCar ? (
+    <ThemedText type="sectionTitle" style={styles.historyHeader}>
+      Maintenance history
+    </ThemedText>
+  ) : null;
+
+  const typeFilterChrome = selectedCar ? (
+    <ManagerStickyFilterChrome
+      accessibilityLabel="Maintenance type filter"
+      testID="car-maintenance-type-filter-chrome"
+    >
+      <View style={styles.picker}>
+        <Pressable
+          onPress={() => setTypeFilter(null)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: typeFilter == null }}
+          accessibilityLabel="Filter all event types"
+          style={[
+            styles.pickerChip,
+            typeFilter == null && styles.pickerChipSelected,
+          ]}>
+          <Text
             style={[
-              styles.pickerChip,
-              typeFilter == null && styles.pickerChipSelected,
+              styles.pickerChipText,
+              typeFilter == null && styles.pickerChipTextSelected,
             ]}>
-            <Text
+            All
+          </Text>
+        </Pressable>
+        {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
+          const isSelected = typeFilter === type;
+          return (
+            <Pressable
+              key={`filter-${type}`}
+              onPress={() => setTypeFilter(type)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
               style={[
-                styles.pickerChipText,
-                typeFilter == null && styles.pickerChipTextSelected,
+                styles.pickerChip,
+                isSelected && styles.pickerChipSelected,
               ]}>
-              All
-            </Text>
-          </Pressable>
-          {CAR_MAINTENANCE_EVENT_TYPES.map((type) => {
-            const isSelected = typeFilter === type;
-            return (
-              <Pressable
-                key={`filter-${type}`}
-                onPress={() => setTypeFilter(type)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Filter ${EVENT_TYPE_LABELS[type]} events`}
+              <Text
                 style={[
-                  styles.pickerChip,
-                  isSelected && styles.pickerChipSelected,
+                  styles.pickerChipText,
+                  isSelected && styles.pickerChipTextSelected,
                 ]}>
-                <Text
-                  style={[
-                    styles.pickerChipText,
-                    isSelected && styles.pickerChipTextSelected,
-                  ]}>
-                  {EVENT_TYPE_LABELS[type]}
-                </Text>
-              </Pressable>
+                {EVENT_TYPE_LABELS[type]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ManagerStickyFilterChrome>
+  ) : null;
+
+  const historyResults = (
+    <View accessibilityLabel="Maintenance history">
+      {listLoading && events.length === 0 ? (
+        <ManagerListSkeleton accessibilityLabel="Loading maintenance events" />
+      ) : null}
+      {events.length > 0 ? (
+        <ManagerDataList
+          accessibilityLabel="Maintenance event list"
+          testID="car-maintenance-data-list"
+          leadingHeader="Date"
+          columnHeaders={[
+            { key: 'type', label: 'Type', primary: true },
+            { key: 'title', label: 'Title' },
+            { key: 'odometer', label: 'Odometer' },
+            { key: 'cost', label: 'Cost' },
+            { key: 'notes', label: 'Notes' },
+            { key: 'receipt', label: 'Receipt' },
+          ]}
+        >
+          {events.map((event) => {
+            const costLabel = formatCostCentsForDisplay(event.cost_cents);
+            const typeLabel = eventTypeLabel(event.event_type);
+            const receiptTitle = event.document_id
+              ? (documentTitleById.get(event.document_id) ?? event.document_id)
+              : null;
+            const title = event.title?.trim()
+              ? event.title
+              : MANAGER_DATA_EMPTY_CELL;
+            const odometerMiles = formatDisplayInteger(event.odometer_miles);
+            const odometer =
+              odometerMiles != null
+                ? `${odometerMiles} mi`
+                : MANAGER_DATA_EMPTY_CELL;
+            const cost = costLabel ?? MANAGER_DATA_EMPTY_CELL;
+            const notes = event.notes?.trim()
+              ? event.notes
+              : MANAGER_DATA_EMPTY_CELL;
+            const receipt = receiptTitle ?? MANAGER_DATA_EMPTY_CELL;
+            const occurredLabel = formatDisplayDate(event.occurred_on);
+            return (
+              <ManagerDataListRow
+                key={event.id}
+                testID={`car-maintenance-row-${event.id}`}
+                accessibilityLabel={`Maintenance event ${typeLabel} on ${event.occurred_on}`}
+                leading={occurredLabel}
+                cells={[
+                  {
+                    key: 'type',
+                    content: typeLabel,
+                    primary: true,
+                    accessibilityLabel: typeLabel,
+                  },
+                  {
+                    key: 'title',
+                    content: title,
+                    accessibilityLabel: event.title?.trim()
+                      ? `Title: ${event.title}`
+                      : 'Title: none',
+                  },
+                  {
+                    key: 'odometer',
+                    content: odometer,
+                    accessibilityLabel:
+                      odometerMiles != null
+                        ? `Odometer: ${odometerMiles} mi`
+                        : 'Odometer: none',
+                  },
+                  {
+                    key: 'cost',
+                    content: cost,
+                    accessibilityLabel: costLabel
+                      ? `Cost ${costLabel}`
+                      : 'Cost: none',
+                  },
+                  {
+                    key: 'notes',
+                    content: notes,
+                    accessibilityLabel: event.notes?.trim()
+                      ? `Notes: ${event.notes}`
+                      : 'Notes: none',
+                  },
+                  {
+                    key: 'receipt',
+                    content: receipt,
+                    accessibilityLabel: receiptTitle
+                      ? `Receipt: ${receiptTitle}`
+                      : 'Receipt: none',
+                  },
+                ]}
+                actions={
+                  <>
+                    <Button
+                      variant="outline"
+                      label="Edit"
+                      accessibilityLabel={`Edit maintenance event ${event.id} on ${event.occurred_on}`}
+                      disabled={!selectedCar || submitting || deleting}
+                      onPress={() => startEdit(event)}
+                    />
+                    <Button
+                      variant="outline"
+                      label="Delete"
+                      accessibilityLabel={`Delete maintenance event ${event.id} on ${event.occurred_on}`}
+                      disabled={!selectedCar || submitting || deleting}
+                      onPress={() => setDeleteTarget(event)}
+                    />
+                  </>
+                }
+              />
             );
           })}
-        </View>
-        {listLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading maintenance events" />
-        ) : null}
-        {listError ? (
-          <Text style={styles.errorText} accessibilityRole="alert">
-            {listError}
-          </Text>
-        ) : null}
-        {!listLoading && !listError && selectedCar && events.length === 0 ? (
-          <ThemedText
-            style={styles.historyMuted}
-            accessibilityLabel="Maintenance history empty">
-            No maintenance events yet.
-          </ThemedText>
-        ) : null}
-      </View>
+        </ManagerDataList>
+      ) : null}
+    </View>
+  );
 
-      {events.map((event) => {
-        const costLabel = formatCostCentsForDisplay(event.cost_cents);
-        const typeLabel = eventTypeLabel(event.event_type);
-        return (
-          <View
-            key={event.id}
-            style={styles.historyItem}
-            accessibilityLabel={`Maintenance event ${typeLabel} on ${event.occurred_on}`}>
-            <Text style={styles.historyDate}>
-              {event.occurred_on} · {typeLabel}
-            </Text>
-            {event.title ? (
-              <Text style={styles.historyLine}>Title: {event.title}</Text>
-            ) : null}
-            {event.odometer_miles != null ? (
-              <Text style={styles.historyLine}>
-                Odometer: {event.odometer_miles} mi
-              </Text>
-            ) : null}
-            {costLabel ? (
-              <Text
-                style={styles.historyLine}
-                accessibilityLabel={`Cost ${costLabel}`}>
-                Cost: {costLabel}
-              </Text>
-            ) : null}
-            {event.notes ? (
-              <Text style={styles.historyLine}>Notes: {event.notes}</Text>
-            ) : null}
-            {event.document_id ? (
-              <Text style={styles.historyLine}>
-                Receipt:{' '}
-                {documentTitleById.get(event.document_id) ?? event.document_id}
-              </Text>
-            ) : null}
-            <View style={styles.rowActions}>
-              <Button
-                variant="outline"
-                label="Edit"
-                accessibilityLabel={`Edit maintenance event ${event.id} on ${event.occurred_on}`}
-                disabled={!selectedCar || submitting || deleting}
-                onPress={() => startEdit(event)}
-              />
-              <Button
-                variant="destructive"
-                label="Delete"
-                accessibilityLabel={`Delete maintenance event ${event.id} on ${event.occurred_on}`}
-                disabled={!selectedCar || submitting || deleting}
-                onPress={() => setDeleteTarget(event)}
-              />
-            </View>
-          </View>
-        );
-      })}
+  return (
+    <View style={styles.container} accessibilityLabel="Maintenance events panel">
+      <ManagerSelectionContext
+        entityNoun="Car"
+        selectedLabel={carLabel}
+        inactive={selectedCar ? !selectedCar.active : false}
+        emptyHint="Choose a Car above to log maintenance events."
+      />
+
+      {listError ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {listError}
+        </Text>
+      ) : null}
+
+      {typeFilterTitle}
+      {typeFilterChrome}
+
+      {selectedCar &&
+      listLoading &&
+      events.length === 0 &&
+      formMode === 'collapsed' ? (
+        <ManagerListSkeleton accessibilityLabel="Loading maintenance events" />
+      ) : (
+        <ManagerFormVsResults
+          itemCount={events.length}
+          addLabel="Add event"
+          emptyMessage={emptyMessage}
+          addDisabled={addDisabled}
+          addAccessibilityLabel="Add maintenance event"
+          mode={formMode}
+          onModeChange={handleFormModeChange}
+          onCancel={() => {
+            if (submitting || deleting) {
+              return false;
+            }
+          }}
+          form={eventForm}
+          onEnterSubmit={
+            canSubmit && !formInputsLocked
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
+          results={historyResults}
+          testID="car-maintenance-form-vs-results"
+        />
+      )}
 
       <ConfirmDialog
         visible={deleteTarget != null}

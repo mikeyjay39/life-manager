@@ -150,6 +150,31 @@ describe('DocumentList', () => {
     mockUseAuth.mockReturnValue(defaultAuth({ token: null, isAuthenticated: false }));
     renderDocumentList();
     expect(screen.getByText('Sign in to see your documents.')).toBeTruthy();
+    // No empty sticky filter bar when signed out (no search field).
+    expect(screen.queryByTestId('document-title-search-chrome')).toBeNull();
+  });
+
+  it('given empty list when fetch is in flight then shows loading skeletons', async () => {
+    // Given
+    let resolveFetch!: (value: Response) => void;
+    mockAuthenticatedFetch.mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+
+    // When
+    renderDocumentList();
+
+    // Then
+    expect(screen.getByLabelText('Loading document list')).toBeTruthy();
+    expect(screen.getByTestId('manager-list-skeleton')).toBeTruthy();
+
+    resolveFetch(new Response(JSON.stringify([]), { status: 200 }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Loading document list')).toBeNull();
+    });
+    expect(screen.getByText('No documents yet.')).toBeTruthy();
   });
 
   it('loads and lists document titles in the spreadsheet grid', async () => {
@@ -174,6 +199,8 @@ describe('DocumentList', () => {
     expect(screen.getByText('Issued')).toBeTruthy();
     expect(screen.getByText('Expires')).toBeTruthy();
     expect(screen.getByLabelText('Search documents by title')).toBeTruthy();
+    expect(screen.getByTestId('document-title-search-chrome')).toBeTruthy();
+    expect(screen.getByLabelText('Document title search')).toBeTruthy();
     expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
       '/documents',
       expect.objectContaining({ method: 'GET', token: 'tok' })
@@ -541,8 +568,9 @@ describe('DocumentList', () => {
     fireEvent.press(screen.getByLabelText('Save document'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('Error', expect.stringContaining('404'));
+      expect(screen.getByText(/Request failed \(404\)/)).toBeTruthy();
     });
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     expect(screen.getByLabelText('Save document')).toBeTruthy();
   });
 
@@ -887,6 +915,7 @@ describe('DocumentList Proton preview and download', () => {
   });
 
   it('given open modal when delete is pressed then shows confirmation dialog', async () => {
+    // Given a listed document is open in the detail modal
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(
         JSON.stringify([
@@ -900,12 +929,20 @@ describe('DocumentList Proton preview and download', () => {
       expect(screen.getByText('Doc A')).toBeTruthy();
     });
     fireEvent.press(screen.getByLabelText('Open document Doc A'));
+
+    // When the secondary Delete control is pressed
     fireEvent.press(screen.getByLabelText('Delete document'));
 
+    // Then ConfirmDialog appears before any delete API call
     expect(screen.getByText('Delete document?')).toBeTruthy();
     expect(
       screen.getByText(/Delete "Doc A" from Life Manager\? This cannot be undone\./)
     ).toBeTruthy();
+    expect(screen.getByLabelText('Delete')).toBeTruthy();
+    expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/documents/'),
+      expect.objectContaining({ method: 'DELETE' })
+    );
   });
 
   it('given delete confirmation when cancel is pressed then does not call delete API', async () => {
@@ -960,7 +997,10 @@ describe('DocumentList Proton preview and download', () => {
       );
     });
     expect(mockTrashProtonFile).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith('Success', 'Deleted document "Doc A".');
+    await waitFor(() => {
+      expect(screen.getByText('Document "Doc A" deleted.')).toBeTruthy();
+    });
+    expect(screen.getByTestId('manager-feedback-success')).toBeTruthy();
   });
 
   it('given proton storage and no session when delete is confirmed then blocks and does not call API', async () => {
@@ -986,11 +1026,12 @@ describe('DocumentList Proton preview and download', () => {
     fireEvent.press(screen.getByLabelText('Delete'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Proton Drive',
-        'Connect Proton Drive before deleting this document.'
-      );
+      expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
     });
+    expect(
+      screen.getByText('Connect Proton Drive before deleting this document.')
+    ).toBeTruthy();
+    expect(screen.queryByText('Delete document?')).toBeNull();
     expect(mockTrashProtonFile).not.toHaveBeenCalled();
     expect(mockAuthenticatedFetch).not.toHaveBeenCalledWith(
       expect.stringContaining('/documents/'),

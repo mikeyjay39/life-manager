@@ -1,41 +1,40 @@
-import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
 
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import type { HealthMemberDto } from '@/lib/api/types';
 import {
   loadUnitPreference,
   saveUnitPreference,
   type UnitSystem,
 } from '@/lib/health/units';
-import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 import DoctorVisitPanel from '@/tenants/life-manager/components/doctor-visit-panel';
 import HealthChartsPanel from '@/tenants/life-manager/components/health-charts-panel';
 import HealthMemberPanel from '@/tenants/life-manager/components/health-member-panel';
 import HealthReadingPanel from '@/tenants/life-manager/components/health-reading-panel';
 
 /**
- * Health Manager shell. Child stories fill each section.
+ * Health Manager shell. Child panels own each section body.
  *
  * ```
  * User -> HealthScreen : open Health
+ * HealthScreen -> ManagerScrollView : quiet chrome (no parallax)
  * HealthScreen -> PrefStore : loadUnitPreference (saved, else locale default)
- * HealthScreen -> HealthMemberPanel : render; onSelectedMemberChange
+ * HealthScreen -> HealthMemberPanel : ManagerSection + Create/Refresh toolbar
  * HealthMemberPanel -> HealthScreen : selected member | null
+ * HealthScreen -> ManagerSection : Vitals / Charts / Doctor visits chrome
  * HealthScreen -> HealthReadingPanel : selectedMember + shared unitSystem
+ * HealthReadingPanel -> ManagerFormVsResults : collapsed create; Add reading on demand
  * HealthScreen -> HealthChartsPanel : healthMember + shared unitSystem + refreshKey
  * HealthReadingPanel -> API : list / create / update / delete readings
  * HealthReadingPanel -> HealthScreen : onReadingsChanged (bump refreshKey)
  * HealthChartsPanel -> API : list readings for charts
  * HealthScreen -> DoctorVisitPanel : selectedMember
+ * DoctorVisitPanel -> ManagerFormVsResults : collapsed create; Add visit on demand
  * DoctorVisitPanel -> API : list / create / update / delete visits
  * ```
  */
 export default function HealthScreen() {
-  const { assets, headerBackground } = useTenantBranding();
   const [selectedMember, setSelectedMember] = useState<HealthMemberDto | null>(
     null
   );
@@ -71,30 +70,10 @@ export default function HealthScreen() {
   }, []);
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={headerBackground}
-      headerImage={
-        <Image
-          source={assets.headerImage}
-          style={styles.headerImage}
-          contentFit="cover"
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title" accessibilityRole="header">
-          Health Manager
-        </ThemedText>
-      </ThemedView>
+    <ManagerScrollView title="Health Manager">
+      <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
 
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="HealthMembers section">
-        <ThemedText type="subtitle">HealthMembers</ThemedText>
-        <HealthMemberPanel onSelectedMemberChange={setSelectedMember} />
-      </ThemedView>
-
-      <ThemedView style={styles.section} accessibilityLabel="Vitals section">
-        <ThemedText type="subtitle">Vitals</ThemedText>
+      <ManagerSection title="Vitals" accessibilityLabel="Vitals section">
         <HealthReadingPanel
           selectedMember={selectedMember}
           unitSystem={unitSystem}
@@ -102,10 +81,9 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           onReadingsChanged={handleReadingsChanged}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView style={styles.section} accessibilityLabel="Charts section">
-        <ThemedText type="subtitle">Charts</ThemedText>
+      <ManagerSection title="Charts" accessibilityLabel="Charts section">
         <HealthChartsPanel
           healthMember={selectedMember}
           unitSystem={unitSystem}
@@ -113,31 +91,14 @@ export default function HealthScreen() {
           unitPreferenceReady={unitPreferenceReady}
           refreshKey={readingsRefreshKey}
         />
-      </ThemedView>
+      </ManagerSection>
 
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="Doctor visits section">
-        <ThemedText type="subtitle">Doctor visits</ThemedText>
+      <ManagerSection
+        title="Doctor visits"
+        accessibilityLabel="Doctor visits section"
+      >
         <DoctorVisitPanel selectedMember={selectedMember} />
-      </ThemedView>
-    </ParallaxScrollView>
+      </ManagerSection>
+    </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-});

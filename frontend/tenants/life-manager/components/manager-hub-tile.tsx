@@ -2,9 +2,13 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
-import { withAlpha } from '@/lib/tenant/theme/color-utils';
 import type { ResolvedManagerTile } from '@/tenants/life-manager/manager-registry';
+import {
+  MANAGER_HUB_ICON_SIZE,
+  createManagerHubTileChrome,
+} from '@/tenants/life-manager/manager-nav-chrome';
 
 export type ManagerHubTileProps = {
   tile: ResolvedManagerTile;
@@ -13,45 +17,25 @@ export type ManagerHubTileProps = {
 
 /**
  * One hub launcher tile. Available tiles navigate; Coming soon tiles stay visible.
+ * Icons and labels come from manager-registry; sizes from manager-nav-chrome.
  */
 export function ManagerHubTile({ tile, onPressAvailable }: ManagerHubTileProps) {
   const palette = useColorPalette();
   const isAvailable = tile.status === 'available';
 
+  const chrome = useMemo(
+    () => createManagerHubTileChrome(palette, isAvailable),
+    [palette, isAvailable]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        tile: {
-          width: '30%',
-          minWidth: 96,
-          maxWidth: 140,
-          flexGrow: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 16,
-          paddingHorizontal: 8,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: withAlpha(palette.icon, isAvailable ? 0.35 : 0.2),
-          backgroundColor: isAvailable
-            ? withAlpha(palette.tint, 0.08)
-            : withAlpha(palette.icon, 0.06),
-          gap: 8,
-        },
-        label: {
-          fontSize: 14,
-          fontWeight: '600',
-          color: isAvailable ? palette.text : withAlpha(palette.text, 0.55),
-          textAlign: 'center',
-        },
-        status: {
-          fontSize: 11,
-          fontWeight: '500',
-          color: withAlpha(palette.icon, 0.85),
-          textAlign: 'center',
-        },
+        tile: chrome.tile,
+        label: chrome.label,
+        status: chrome.status,
       }),
-    [palette, isAvailable]
+    [chrome]
   );
 
   const accessibilityLabel = isAvailable
@@ -69,14 +53,15 @@ export function ManagerHubTile({ tile, onPressAvailable }: ManagerHubTileProps) 
           onPressAvailable(tile.route);
         }
       }}
-      style={({ pressed }) => [
+      style={({ pressed, focused }) => [
         styles.tile,
         isAvailable && pressed ? { opacity: 0.75 } : null,
+        webFocusRingStyle(focused, palette.tint),
       ]}>
       <IconSymbol
         name={tile.icon}
-        size={36}
-        color={isAvailable ? palette.tint : withAlpha(palette.icon, 0.55)}
+        size={MANAGER_HUB_ICON_SIZE}
+        color={chrome.iconColor}
       />
       <Text style={styles.label}>{tile.label}</Text>
       {!isAvailable ? (

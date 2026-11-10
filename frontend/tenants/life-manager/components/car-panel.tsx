@@ -14,8 +14,20 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerSection } from '@/components/ui/manager-section';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
+import {
+  createManagerPickerChipStyles,
+  createManagerSelectionSurfaceStyles,
+} from '@/components/ui/manager-selection';
 import { TextInput } from '@/components/ui/text-input';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CarDto,
@@ -405,13 +417,14 @@ function DocumentLinkPicker({
 export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const { token, handleUnauthorized } = useAuth();
   const palette = useColorPalette();
+  const { feedback, showSuccess, showError, dismiss, clearError } =
+    useManagerFeedback();
 
   const [cars, setCars] = useState<CarDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
@@ -435,6 +448,15 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [deleting, setDeleting] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
 
+  const pickerChipStyles = useMemo(
+    () => createManagerPickerChipStyles(palette),
+    [palette]
+  );
+  const selectionSurfaceStyles = useMemo(
+    () => createManagerSelectionSurfaceStyles(palette),
+    [palette]
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -444,24 +466,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         headerRow: {
           gap: 4,
         },
-        selectedName: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: palette.text,
-        },
         hint: {
           fontSize: 14,
           color: palette.icon,
         },
         errorText: {
           fontSize: 14,
-          color: '#c62828',
-        },
-        toolbar: {
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: 12,
+          color: palette.danger,
         },
         includeRow: {
           flexDirection: 'row',
@@ -477,33 +488,34 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           flexWrap: 'wrap',
           gap: 8,
         },
-        pickerChip: {
+        pickerChip: pickerChipStyles.chip,
+        pickerChipSelected: pickerChipStyles.chipSelected,
+        pickerChipInactive: pickerChipStyles.chipInactive,
+        pickerChipText: pickerChipStyles.chipText,
+        pickerChipTextSelected: pickerChipStyles.chipTextSelected,
+        // Form field chips stay quieter than entity selection chips.
+        formFieldChip: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           paddingVertical: 8,
           paddingHorizontal: 12,
           backgroundColor: palette.background,
         },
-        pickerChipSelected: {
+        formFieldChipSelected: {
           borderColor: palette.tint,
-          backgroundColor: palette.tint,
+          backgroundColor: palette.surface,
         },
-        pickerChipInactive: {
-          opacity: 0.7,
-          borderStyle: 'dashed',
-        },
-        pickerChipText: {
+        formFieldChipText: {
           color: palette.text,
           fontSize: 15,
         },
-        pickerChipTextSelected: {
-          color: palette.onTint,
+        formFieldChipTextSelected: {
+          color: palette.tint,
           fontWeight: '600',
         },
         detailCard: {
-          gap: 8,
-          paddingTop: 4,
+          ...selectionSurfaceStyles.selectedSurface,
         },
         detailRow: {
           gap: 2,
@@ -586,7 +598,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           marginBottom: 8,
         },
       }),
-    [palette]
+    [palette, pickerChipStyles, selectionSurfaceStyles]
   );
 
   const selected = useMemo(
@@ -700,11 +712,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         return;
       }
       setCars([]);
-      setError(null);
+      clearError();
       return;
     }
     setLoading(true);
-    setError(null);
+    clearError();
     try {
       const path = includeInactive ? '/cars?include_inactive=true' : '/cars';
       const response = await authenticatedFetch(path, {
@@ -733,13 +745,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       }
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to load Cars';
-      setError(msg);
+      showError(msg);
     } finally {
       if (generation === loadGenerationRef.current) {
         setLoading(false);
       }
     }
-  }, [token, includeInactive, handleUnauthorized, syncSelectionToList]);
+  }, [token, includeInactive, handleUnauthorized, syncSelectionToList, clearError, showError]);
 
   useEffect(() => {
     void load();
@@ -754,10 +766,12 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setCreateError(null);
   };
 
-  const closeCreateModal = () => {
+  const closeCreateModal = useCallback(() => {
     setCreateVisible(false);
     resetCreateForm();
-  };
+  }, []);
+
+  useWebEscapeClose(createVisible, closeCreateModal);
 
   const openCreateModal = () => {
     resetCreateForm();
@@ -829,6 +843,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (created?.id) {
         selectCar(created);
       }
+      showSuccess(
+        created?.display_name
+          ? `Car "${created.display_name}" created.`
+          : 'Car created.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to create Car';
@@ -890,6 +909,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (updated?.id) {
         selectCar(updated);
       }
+      showSuccess(
+        updated?.display_name
+          ? `Car "${updated.display_name}" updated.`
+          : 'Car updated.'
+      );
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to update Car';
@@ -942,7 +966,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       console.error(err);
       const msg =
         err instanceof Error ? err.message : 'Failed to deactivate Car';
-      setError(msg);
+      showError(msg);
       setDeactivateTarget(null);
     } finally {
       setDeactivating(false);
@@ -978,7 +1002,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete Car';
-      setError(msg);
+      showError(msg);
       setDeleteTarget(null);
     } finally {
       setDeleting(false);
@@ -990,7 +1014,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       return;
     }
     setReactivatingId(car.id);
-    setError(null);
+    clearError();
     try {
       const payload: UpdateCarCommand = {
         make: car.make,
@@ -1025,7 +1049,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       console.error(err);
       const msg =
         err instanceof Error ? err.message : 'Failed to reactivate Car';
-      setError(msg);
+      showError(msg);
     } finally {
       setReactivatingId(null);
     }
@@ -1124,10 +1148,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
@@ -1142,10 +1166,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
-          chipStyle={styles.pickerChip}
-          chipSelectedStyle={styles.pickerChipSelected}
-          chipTextStyle={styles.pickerChipText}
-          chipTextSelectedStyle={styles.pickerChipTextSelected}
+          chipStyle={styles.formFieldChip}
+          chipSelectedStyle={styles.formFieldChipSelected}
+          chipTextStyle={styles.formFieldChipText}
+          chipTextSelectedStyle={styles.formFieldChipTextSelected}
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
@@ -1156,40 +1180,32 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
 
   if (!token) {
     return (
-      <View style={styles.container}>
+      <ManagerSection title="Cars" accessibilityLabel="Cars section">
         <ThemedText style={styles.hint}>Sign in to manage Cars.</ThemedText>
-      </View>
+      </ManagerSection>
     );
   }
 
   const selectedLabel = selected ? carDisplayLabel(selected) : null;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <ThemedText
-          style={styles.selectedName}
-          accessibilityLabel={
-            selected
-              ? `Selected Car ${selectedLabel}`
-              : 'No Car selected'
-          }>
-          {selected ? selectedLabel : 'No car selected'}
-        </ThemedText>
-        {!selected && activeCars.length === 0 ? (
-          <ThemedText style={styles.hint}>
-            No cars yet. Add a car to manage maintenance later.
-          </ThemedText>
-        ) : null}
-      </View>
-
-      <View style={styles.toolbar}>
-        <Button
-          label="Create Car"
-          onPress={openCreateModal}
-          accessibilityLabel="Create Car"
-          style={styles.actionButton}
-        />
+    <ManagerSection
+      title="Cars"
+      accessibilityLabel="Cars section"
+      primaryAction={{
+        label: 'Create Car',
+        onPress: openCreateModal,
+        accessibilityLabel: 'Create Car',
+      }}
+      secondaryActions={[
+        {
+          label: loading ? 'Refreshing…' : 'Refresh',
+          onPress: () => void load(),
+          disabled: loading,
+          accessibilityLabel: 'Refresh Cars',
+        },
+      ]}
+      toolbarExtra={
         <View style={styles.includeRow}>
           <Text style={styles.includeLabel}>Include inactive</Text>
           <Switch
@@ -1198,24 +1214,32 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             accessibilityLabel="Include inactive Cars"
           />
         </View>
-        <Button
-          variant="outline"
-          label={loading ? 'Refreshing…' : 'Refresh'}
-          onPress={() => void load()}
-          disabled={loading}
-          accessibilityLabel="Refresh Cars"
-          style={styles.actionButton}
+      }
+    >
+      <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <ManagerSelectionContext
+          entityNoun="Car"
+          selectedLabel={selected ? selectedLabel : null}
+          inactive={selected ? !selected.active : false}
+          emptyHint={
+            activeCars.length === 0
+              ? 'No cars yet. Add a car to manage maintenance later.'
+              : 'Choose a Car below for maintenance and charts.'
+          }
         />
       </View>
 
-      {error ? (
-        <Text style={styles.errorText} accessibilityRole="alert">
-          {error}
-        </Text>
+      {feedback ? (
+        <ManagerFeedbackBanner
+          tone={feedback.tone}
+          message={feedback.message}
+          onDismiss={dismiss}
+        />
       ) : null}
 
       {loading && cars.length === 0 ? (
-        <ActivityIndicator color={palette.tint} accessibilityLabel="Loading Cars" />
+        <ManagerListSkeleton accessibilityLabel="Loading Cars" />
       ) : cars.length === 0 ? (
         <ThemedText style={styles.hint} accessibilityLabel="Cars empty state">
           {includeInactive
@@ -1262,9 +1286,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             <>
               {renderCarFormFields(editForm, setEditForm, 'edit')}
               {editError ? (
-                <Text style={styles.errorText} accessibilityRole="alert">
-                  {editError}
-                </Text>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={editError}
+                  onDismiss={() => setEditError(null)}
+                />
               ) : null}
               <View style={styles.actionRow}>
                 <Button
@@ -1361,14 +1387,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
                       accessibilityLabel="Deactivate Car"
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
                       accessibilityLabel="Delete Car"
@@ -1390,7 +1416,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       style={styles.actionButton}
                     />
                     <Button
-                      variant="destructive"
+                      variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
                       accessibilityLabel="Delete Car"
@@ -1418,8 +1444,12 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
               {renderCarFormFields(createForm, setCreateForm, 'create')}
             </ScrollView>
             {createError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
-                <Text style={styles.errorText}>{createError}</Text>
+              <View style={styles.errorBanner}>
+                <ManagerFeedbackBanner
+                  tone="error"
+                  message={createError}
+                  onDismiss={() => setCreateError(null)}
+                />
               </View>
             ) : null}
             <View style={styles.modalActions}>
@@ -1481,6 +1511,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         }}
         onConfirm={() => void handleDeleteConfirm()}
       />
-    </View>
+      </View>
+    </ManagerSection>
   );
 }

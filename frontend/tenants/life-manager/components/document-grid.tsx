@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import {
   createColumnHelper,
   flexRender,
@@ -10,10 +10,18 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import type { DocumentDto } from '@/lib/api/types';
+import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import {
+  MANAGER_DATA_CELL_GAP,
+  MANAGER_DATA_ROW_PADDING_X,
+  MANAGER_DATA_ROW_PADDING_Y,
+} from '@/components/ui/manager-layout';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import { withAlpha } from '@/lib/tenant/theme/color-utils';
 import { createDocumentSortingFns, formatDocumentCellValue } from './document-grid-utils';
+
+const PRIMARY_DOCUMENT_COLUMNS = new Set(['title']);
 
 export type DocumentGridProps = {
   documents: DocumentDto[];
@@ -123,7 +131,7 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
       StyleSheet.create({
         grid: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 4,
           overflow: 'hidden',
         },
@@ -140,8 +148,8 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
           backgroundColor: withAlpha(palette.icon, 0.06),
         },
         headerCell: {
-          paddingVertical: 10,
-          paddingHorizontal: 10,
+          paddingVertical: MANAGER_DATA_ROW_PADDING_Y,
+          paddingHorizontal: MANAGER_DATA_ROW_PADDING_X,
           borderRightWidth: StyleSheet.hairlineWidth,
           borderRightColor: palette.icon,
           flexShrink: 0,
@@ -149,27 +157,17 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
         headerCellContent: {
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 4,
-        },
-        headerCellText: {
-          fontSize: 13,
-          fontWeight: '700',
-          color: palette.text,
-          flexShrink: 1,
+          gap: MANAGER_DATA_CELL_GAP / 2,
         },
         sortIcon: {
           flexShrink: 0,
         },
         cell: {
-          paddingVertical: 10,
-          paddingHorizontal: 10,
+          paddingVertical: MANAGER_DATA_ROW_PADDING_Y,
+          paddingHorizontal: MANAGER_DATA_ROW_PADDING_X,
           borderRightWidth: StyleSheet.hairlineWidth,
           borderRightColor: palette.icon,
           flexShrink: 0,
-        },
-        cellText: {
-          fontSize: 14,
-          color: palette.text,
         },
       }),
     [palette]
@@ -195,11 +193,11 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
                   accessibilityLabel={sortAccessibilityLabel(headerLabel, sortDirection)}
                 >
                   <View style={styles.headerCellContent}>
-                    <Text style={styles.headerCellText}>
+                    <ThemedText type="meta" style={{ fontWeight: '700', color: palette.text }}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
-                    </Text>
+                    </ThemedText>
                     {sortDirection === 'asc' ? (
                       <IconSymbol
                         name="arrow.up"
@@ -230,16 +228,32 @@ export default function DocumentGrid({ documents, onRowPress }: DocumentGridProp
             accessibilityRole="button"
             accessibilityLabel={`Open document ${row.original.title || '(Untitled)'}`}
           >
-            {row.getVisibleCells().map((cell) => (
-              <View
-                key={cell.id}
-                style={[styles.cell, { width: cell.column.getSize() }]}
-              >
-                <Text style={styles.cellText} numberOfLines={1} ellipsizeMode="tail">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </Text>
-              </View>
-            ))}
+            {row.getVisibleCells().map((cell) => {
+              const isPrimary = PRIMARY_DOCUMENT_COLUMNS.has(cell.column.id);
+              const cellValue = flexRender(
+                cell.column.columnDef.cell,
+                cell.getContext()
+              );
+              return (
+                <View
+                  key={cell.id}
+                  style={[styles.cell, { width: cell.column.getSize() }]}
+                >
+                  <ThemedText
+                    type={isPrimary ? 'body' : 'meta'}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    accessibilityLabel={
+                      typeof cellValue === 'string' || typeof cellValue === 'number'
+                        ? String(cellValue)
+                        : undefined
+                    }
+                  >
+                    {cellValue}
+                  </ThemedText>
+                </View>
+              );
+            })}
           </TouchableOpacity>
         ))}
       </View>

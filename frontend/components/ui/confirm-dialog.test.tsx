@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react-native';
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
@@ -45,5 +46,68 @@ describe('ConfirmDialog', () => {
     const { onConfirm } = renderDialog();
     fireEvent.press(screen.getByLabelText('Log Out'));
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('given destructive dialog when confirm rendered then uses semantic danger fill', () => {
+    // Given a destructive ConfirmDialog
+    renderDialog({ confirmLabel: 'Delete', title: 'Delete item?' });
+
+    // Then the confirm control uses palette.danger (not a hard-coded red)
+    const confirm = screen.getByLabelText('Delete');
+    const styleProp = confirm.props.style;
+    const resolved =
+      typeof styleProp === 'function' ? styleProp({ pressed: false }) : styleProp;
+    expect(resolved).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: defaultResolvedTheme.colors.light.danger,
+        }),
+      ])
+    );
+  });
+
+  it('given visible dialog on web when Escape pressed then cancels without confirming', () => {
+    // Given
+    const originalOs = Platform.OS;
+    const listeners: ((event: { key: string; preventDefault: () => void }) => void)[] =
+      [];
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      get: () => 'web',
+    });
+    vi.stubGlobal('window', {
+      addEventListener: (
+        _type: string,
+        handler: (event: { key: string; preventDefault: () => void }) => void
+      ) => {
+        listeners.push(handler);
+      },
+      removeEventListener: (
+        _type: string,
+        handler: (event: { key: string; preventDefault: () => void }) => void
+      ) => {
+        const index = listeners.indexOf(handler);
+        if (index >= 0) {
+          listeners.splice(index, 1);
+        }
+      },
+    });
+    const { onConfirm, onCancel } = renderDialog();
+
+    // When
+    listeners.forEach((handler) =>
+      handler({ key: 'Escape', preventDefault: vi.fn() })
+    );
+
+    // Then
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    cleanup();
+    vi.unstubAllGlobals();
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      get: () => originalOs,
+    });
   });
 });

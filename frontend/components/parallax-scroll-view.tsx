@@ -9,6 +9,7 @@ import Animated, {
 
 import AppMenuBar from '@/components/app-menu-bar';
 import { ThemedView } from '@/components/themed-view';
+import { MANAGER_PAGE_PADDING_Y } from '@/components/ui/manager-layout';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -75,8 +76,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 32,
-    gap: 16,
+    paddingVertical: MANAGER_PAGE_PADDING_Y,
     overflow: 'hidden',
   },
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { render, screen, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,12 +11,19 @@ import type { TenantModule } from '@/lib/tenant/types';
 import { lifeManagerTenantMeta } from '@/tenants/life-manager/meta';
 import CarScreen from '@/tenants/life-manager/screens/CarScreen';
 
-vi.mock('@/components/parallax-scroll-view', () => ({
-  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-
-vi.mock('expo-image', () => ({
-  Image: () => null,
+vi.mock('@/components/ui/manager-scroll-view', () => ({
+  ManagerScrollView: ({
+    title,
+    children,
+  }: {
+    title: string;
+    children: React.ReactNode;
+  }) => (
+    <>
+      <Text>{title}</Text>
+      {children}
+    </>
+  ),
 }));
 
 vi.mock('@react-native-community/datetimepicker', async () => {
@@ -108,11 +116,11 @@ describe('CarScreen', () => {
     });
   });
 
-  it('shows Car Manager with Cars panel, maintenance panel, and charts', async () => {
+  it('shows Car Manager with shared section chrome and collapsed maintenance create', async () => {
     // Given the Car Manager screen
     // When the screen renders
     renderCarScreen();
-    // Then title and section shells are visible
+    // Then title and shared section chrome are visible
     expect(screen.getByText('Car Manager')).toBeTruthy();
     expect(screen.getByLabelText('Cars section')).toBeTruthy();
     await waitFor(() => {
@@ -121,9 +129,20 @@ describe('CarScreen', () => {
     expect(screen.getByLabelText('Cars empty state')).toBeTruthy();
     expect(screen.getByLabelText('Maintenance section')).toBeTruthy();
     expect(screen.getByLabelText('Maintenance events panel')).toBeTruthy();
-    expect(screen.getByLabelText('Maintenance select car prompt')).toBeTruthy();
+    // And maintenance create stays collapsed until Add event
+    expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
+    expect(
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to log maintenance events.'
+      )
+    ).toBeTruthy();
     expect(screen.getByLabelText('Charts section')).toBeTruthy();
-    expect(screen.getByLabelText('Charts need Car')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'No Car selected. Choose a Car above to view charts.'
+      )
+    ).toBeTruthy();
     // And Documents create/list UI is not present
     expect(screen.queryByText('Documents')).toBeNull();
     expect(screen.queryByText(/Create document/i)).toBeNull();

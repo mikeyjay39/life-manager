@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field-label';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
-const ERROR_COLOR = '#c00';
-
 type FieldErrors = {
   username?: string;
   password?: string;
@@ -87,14 +85,14 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
           fieldErrors.username ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: fieldErrors.username ? ERROR_COLOR : palette.icon,
+            borderColor: fieldErrors.username ? palette.danger : palette.border,
             color: palette.text,
           },
         ]}
         value={username}
         onChangeText={handleUsernameChange}
         placeholder="Enter your username"
-        placeholderTextColor={palette.icon}
+        placeholderTextColor={palette.muted}
         autoCapitalize="none"
         autoCorrect={false}
         editable={!isBusy}
@@ -106,7 +104,9 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         accessibilityState={{ invalid: !!fieldErrors.username }}
       />
       {fieldErrors.username ? (
-        <ThemedText style={styles.errorText}>{fieldErrors.username}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+          {fieldErrors.username}
+        </ThemedText>
       ) : null}
 
       <FieldLabel label="Password" required style={styles.label} />
@@ -116,14 +116,14 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
           fieldErrors.password ? styles.inputWithError : styles.inputDefaultSpacing,
           {
             backgroundColor: palette.background,
-            borderColor: fieldErrors.password ? ERROR_COLOR : palette.icon,
+            borderColor: fieldErrors.password ? palette.danger : palette.border,
             color: palette.text,
           },
         ]}
         value={password}
         onChangeText={handlePasswordChange}
         placeholder="Enter your password"
-        placeholderTextColor={palette.icon}
+        placeholderTextColor={palette.muted}
         secureTextEntry
         autoCapitalize="none"
         autoCorrect={false}
@@ -142,11 +142,16 @@ export function LoginForm({ onSubmit, loading: externalLoading = false }: LoginF
         accessibilityState={{ invalid: !!fieldErrors.password }}
       />
       {fieldErrors.password ? (
-        <ThemedText style={styles.errorText}>{fieldErrors.password}</ThemedText>
+        <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+          {fieldErrors.password}
+        </ThemedText>
       ) : null}
 
       {submitError ? (
-        <ThemedText accessibilityRole="alert" style={styles.submitErrorText}>
+        <ThemedText
+          accessibilityRole="alert"
+          style={[styles.submitErrorText, { color: palette.danger }]}
+        >
           {submitError}
         </ThemedText>
       ) : null}
@@ -187,12 +192,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: ERROR_COLOR,
     marginBottom: 14,
   },
   submitErrorText: {
     fontSize: 14,
-    color: ERROR_COLOR,
     marginBottom: 8,
     textAlign: 'center',
   },

@@ -1,75 +1,120 @@
-import { Image } from 'expo-image';
-import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
 
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
+import {
+  ManagerFormVsResults,
+  type ManagerFormMode,
+} from '@/components/ui/manager-form-vs-results';
+import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
+import { ManagerSection } from '@/components/ui/manager-section';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentList from '@/tenants/life-manager/components/document-list';
 import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect-panel';
 
 /**
- * Document Manager: Proton connect, create, list, preview, and delete.
+ * Document Manager: Proton setup, create on demand, and document list.
  *
  * ```
  * User -> DocumentManagerScreen : open Documents menu
- * DocumentManagerScreen -> ProtonConnectPanel : render
- * DocumentManagerScreen -> DocumentCreateForm : render; onDocumentCreated
- * DocumentCreateForm -> API : POST /documents (same as old Home)
- * DocumentCreateForm -> DocumentManagerScreen : bump refreshKey
- * DocumentManagerScreen -> DocumentList : refreshKey
+ * DocumentManagerScreen -> ManagerScrollView : quiet chrome (no parallax)
+ * DocumentManagerScreen -> ManagerSection : Proton setup (distinct)
+ * DocumentManagerScreen -> ManagerSection : Create document (form-vs-results)
+ * DocumentManagerScreen -> ManagerFormVsResults : collapsed until Add document
+ * DocumentManagerScreen -> DocumentCreateForm : inline fields when expanded
+ * DocumentCreateForm -> API : POST /documents (multipart or Proton JSON)
+ * DocumentCreateForm -> DocumentManagerScreen : collapse + bump refreshKey; showSuccess
+ * DocumentManagerScreen -> ManagerSection : Documents list + Refresh
+ * DocumentManagerScreen -> DocumentList : refreshKey; showToolbar false
+ * DocumentList -> DocumentManagerScreen : onLoadingChange (disable Refresh)
  * DocumentList -> API : GET/PUT/DELETE /documents; Proton preview
  * ```
  */
 export default function DocumentManagerScreen() {
-  const { assets, headerBackground } = useTenantBranding();
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
+  const [listLoading, setListLoading] = useState(false);
+  const [createMode, setCreateMode] = useState<ManagerFormMode>('collapsed');
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const { feedback, showSuccess, dismiss } = useManagerFeedback();
+
+  const bumpDocumentsRefresh = useCallback(() => {
+    setDocumentsRefreshKey((key) => key + 1);
+  }, []);
+
+  const handleDocumentCreated = useCallback(
+    (successMessage: string) => {
+      setCreateMode('collapsed');
+      bumpDocumentsRefresh();
+      showSuccess(successMessage);
+    },
+    [bumpDocumentsRefresh, showSuccess]
+  );
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={headerBackground}
-      headerImage={
-        <Image
-          source={assets.headerImage}
-          style={styles.headerImage}
-          contentFit="cover"
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title" accessibilityRole="header">
-          Document Manager
-        </ThemedText>
-      </ThemedView>
-
-      <ThemedView
-        style={styles.section}
-        accessibilityLabel="Documents section">
-        <ThemedText type="subtitle">Documents</ThemedText>
+    <ManagerScrollView title="Document Manager">
+      <ManagerSection
+        title="Proton Drive"
+        accessibilityLabel="Proton setup section"
+      >
         <ProtonConnectPanel />
-        <DocumentCreateForm
-          onDocumentCreated={() => setDocumentsRefreshKey((key) => key + 1)}
+      </ManagerSection>
+
+      <ManagerSection
+        title="Create document"
+        accessibilityLabel="Create document section"
+      >
+        {feedback ? (
+          <ManagerFeedbackBanner
+            tone={feedback.tone}
+            message={feedback.message}
+            onDismiss={dismiss}
+          />
+        ) : null}
+        <ManagerFormVsResults
+          // Create-only region: keep Add (not empty-state copy) when collapsed.
+          itemCount={1}
+          addLabel="Add document"
+          emptyMessage="No documents yet."
+          addAccessibilityLabel="Add document"
+          mode={createMode}
+          onModeChange={setCreateMode}
+          onCancel={() => {
+            if (createSubmitting) {
+              return false;
+            }
+          }}
+          form={
+            <DocumentCreateForm
+              onDocumentCreated={handleDocumentCreated}
+              onSubmittingChange={setCreateSubmitting}
+            />
+          }
+          testID="document-create-form-vs-results"
         />
-        <DocumentList refreshKey={documentsRefreshKey} />
-      </ThemedView>
-    </ParallaxScrollView>
+      </ManagerSection>
+
+      <ManagerSection
+        title="Documents"
+        accessibilityLabel="Document list section"
+        secondaryActions={[
+          {
+            label: listLoading ? 'Loading…' : 'Refresh',
+            onPress: bumpDocumentsRefresh,
+            disabled: listLoading,
+            accessibilityLabel: listLoading
+              ? 'Loading documents'
+              : 'Refresh documents',
+          },
+        ]}
+      >
+        <DocumentList
+          refreshKey={documentsRefreshKey}
+          showToolbar={false}
+          onLoadingChange={setListLoading}
+        />
+      </ManagerSection>
+    </ManagerScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  section: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-});

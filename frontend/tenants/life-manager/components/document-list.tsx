@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
   ScrollView,
-  ActivityIndicator,
   Platform,
   TextInput,
   Alert,
@@ -17,14 +16,22 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
+import {
+  ManagerFeedbackBanner,
+  useManagerFeedback,
+} from '@/components/ui/manager-feedback';
+import { ManagerListSkeleton } from '@/components/ui/manager-list-skeleton';
+import { ManagerStickyFilterChrome } from '@/components/ui/manager-sticky-filter-chrome';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
 import type { DocumentDto, UpdateDocumentCommand } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import type { ProtonPreviewResult } from '@/lib/proton-drive/types';
 import DocumentGrid, { DOCUMENT_GRID_WIDTH } from './document-grid';
 import DocumentProtonPreview from './document-proton-preview';
+import { formatDisplayDate as formatLocaleDisplayDate } from '@/lib/format/display';
 import {
   formatIsoDateForInput,
   parseOptionalDateInput,
@@ -59,10 +66,7 @@ export function parseDocumentDto(item: unknown): DocumentDto {
 }
 
 function formatDisplayDate(iso: string | null | undefined): string {
-  if (!iso) {
-    return '—';
-  }
-  return formatIsoDateForInput(iso);
+  return formatLocaleDisplayDate(iso);
 }
 
 async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
@@ -85,6 +89,13 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 type DocumentListProps = {
   refreshKey?: number;
   onDocumentUpdated?: () => void;
+  /**
+   * When false, omit the list header toolbar.
+   * The parent ManagerSection owns title + Refresh.
+   */
+  showToolbar?: boolean;
+  /** Reports list load busy state so a parent section Refresh can disable. */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 const TITLE_SEARCH_DEBOUNCE_MS = 300;
@@ -92,6 +103,8 @@ const TITLE_SEARCH_DEBOUNCE_MS = 300;
 export default function DocumentList({
   refreshKey = 0,
   onDocumentUpdated,
+  showToolbar = true,
+  onLoadingChange,
 }: DocumentListProps) {
   const { token, handleUnauthorized } = useAuth();
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
@@ -119,6 +132,7 @@ export default function DocumentList({
   const [cachedFullFileBlob, setCachedFullFileBlob] = useState<Blob | null>(null);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { feedback, showSuccess, showError, dismiss, clearError } = useManagerFeedback();
 
   const isProtonStorage =
     selected?.storage?.provider === 'proton_drive' && Boolean(selected.storage.share_id);
@@ -177,7 +191,7 @@ export default function DocumentList({
         },
         searchInput: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           color: palette.text,
@@ -186,11 +200,11 @@ export default function DocumentList({
         },
         hint: {
           fontSize: 14,
-          color: palette.icon,
+          color: palette.muted,
         },
         errorText: {
           fontSize: 14,
-          color: '#c00',
+          color: palette.danger,
         },
         modalBackdrop: {
           flex: 1,
@@ -199,8 +213,10 @@ export default function DocumentList({
           padding: 24,
         },
         modalCard: {
-          backgroundColor: palette.background,
+          backgroundColor: palette.surface,
           borderRadius: 12,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: palette.border,
           maxHeight: '80%',
           overflow: 'hidden',
         },
@@ -233,7 +249,7 @@ export default function DocumentList({
         },
         input: {
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           marginBottom: 8,
@@ -288,9 +304,17 @@ export default function DocumentList({
    * DocumentList --> User : update grid
    * ```
    */
+  const loadGenerationRef = useRef(0);
+
   const load = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     if (!token) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setDocuments([]);
+      setError(null);
+      setLoading(false);
       return;
     }
     setLoading(true);
@@ -307,6 +331,9 @@ export default function DocumentList({
         onUnauthorized: handleUnauthorized,
       });
       const bodyText = await response.text();
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       if (!response.ok) {
         throw new Error(
           bodyText
@@ -321,11 +348,16 @@ export default function DocumentList({
       const rows: DocumentDto[] = data.map(parseDocumentDto);
       setDocuments(rows);
     } catch (err: unknown) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       console.error(err);
       setError(err instanceof Error ? err.message : 'Failed to load documents');
       setDocuments([]);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [token, handleUnauthorized, debouncedTitleContains]);
 
@@ -340,6 +372,10 @@ export default function DocumentList({
     void load();
   }, [load, refreshKey]);
 
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
+
   const closeModal = useCallback(() => {
     setSelected(null);
     setIsEditing(false);
@@ -352,7 +388,11 @@ export default function DocumentList({
     setCachedFullFileBlob(null);
     setDeleteDialogVisible(false);
     setDeleting(false);
-  }, []);
+    dismiss();
+  }, [dismiss]);
+
+  // Skip while ConfirmDialog owns Escape (delete confirm).
+  useWebEscapeClose(selected !== null && !deleteDialogVisible, closeModal);
 
   useEffect(() => {
     if (!selected || isEditing || !isProtonStorage || !selected.storage) {
@@ -500,7 +540,8 @@ export default function DocumentList({
   const handleDeleteConfirm = async () => {
     if (!selected || !token || deleting) {
       if (!token) {
-        Alert.alert('Error', 'No authentication token available.');
+        setDeleteDialogVisible(false);
+        showError('No authentication token available.');
       }
       return;
     }
@@ -511,19 +552,21 @@ export default function DocumentList({
 
     if (hasProtonStorage) {
       if (!isWeb || !protonSupported) {
-        Alert.alert(
-          'Proton Drive',
+        setDeleteDialogVisible(false);
+        showError(
           'Proton-backed documents can only be deleted from the web app with Proton Drive connected.'
         );
         return;
       }
       if (!protonSession) {
-        Alert.alert('Proton Drive', 'Connect Proton Drive before deleting this document.');
+        setDeleteDialogVisible(false);
+        showError('Connect Proton Drive before deleting this document.');
         return;
       }
     }
 
     setDeleting(true);
+    clearError();
     try {
       if (hasProtonStorage && doc.storage) {
         const proton = await import('@/lib/proton-drive/load-proton.web');
@@ -548,11 +591,12 @@ export default function DocumentList({
       closeModal();
       onDocumentUpdated?.();
       await load();
-      Alert.alert('Success', `Deleted document "${doc.title}".`);
+      showSuccess(`Document "${doc.title}" deleted.`);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Failed to delete document';
-      Alert.alert('Error', msg);
+      setDeleteDialogVisible(false);
+      showError(msg);
     } finally {
       setDeleting(false);
     }
@@ -565,28 +609,29 @@ export default function DocumentList({
    *   metadata only            -> PUT /documents/json/{id}
    */
   const handleSave = async () => {
+    clearError();
     if (!token || !selected) {
-      Alert.alert('Error', 'No authentication token available.');
+      showError('No authentication token available.');
       return;
     }
     if (!editTitle.trim() || !editContent.trim()) {
-      Alert.alert('Error', 'Please enter a title and content.');
+      showError('Please enter a title and content.');
       return;
     }
     if (isWeb && pickedFile && !protonSession) {
-      Alert.alert('Proton Drive', 'Connect Proton Drive before uploading a file on web.');
+      showError('Connect Proton Drive before uploading a file on web.');
       return;
     }
 
     const tags = parseTags(editTagsInput);
     const issuedDate = parseOptionalDateInput(editIssuedDateInput);
     if (!issuedDate.ok) {
-      Alert.alert('Error', 'Issue date must be in YYYY-MM-DD format.');
+      showError('Issue date must be in YYYY-MM-DD format.');
       return;
     }
     const expireDate = parseOptionalDateInput(editExpireDateInput);
     if (!expireDate.ok) {
-      Alert.alert('Error', 'Expire date must be in YYYY-MM-DD format.');
+      showError('Expire date must be in YYYY-MM-DD format.');
       return;
     }
 
@@ -689,11 +734,11 @@ export default function DocumentList({
       setIsEditing(false);
       setPickedFile(null);
       onDocumentUpdated?.();
-      Alert.alert('Success', `Updated document "${updated.title}".`);
+      showSuccess(`Document "${updated.title}" updated.`);
     } catch (err: unknown) {
       console.error(err);
       const msg = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', msg);
+      showError(msg);
     } finally {
       setSaving(false);
     }
@@ -710,11 +755,11 @@ export default function DocumentList({
     setPickedFile(result.assets[0]);
   };
 
-  const toolbar = (
+  const toolbar = showToolbar ? (
     <View style={styles.toolbarRow}>
       <Text style={styles.sectionTitle}>Your documents</Text>
       <Button
-        variant="secondary"
+        variant="outline"
         label={loading ? 'Loading…' : 'Refresh'}
         onPress={() => void load()}
         disabled={loading || !token}
@@ -723,7 +768,7 @@ export default function DocumentList({
         labelStyle={styles.refreshButtonText}
       />
     </View>
-  );
+  ) : null;
 
   const searchField = token ? (
     <TextInput
@@ -739,14 +784,36 @@ export default function DocumentList({
     />
   ) : null;
 
+  const stickySearch = (
+    <ManagerStickyFilterChrome
+      accessibilityLabel="Document title search"
+      testID="document-title-search-chrome"
+    >
+      {searchField}
+    </ManagerStickyFilterChrome>
+  );
+
   const emptyHint = debouncedTitleContains
     ? 'No matching documents.'
     : 'No documents yet.';
 
   const hasTable = token && !error && documents.length > 0;
 
+  const feedbackBanner =
+    feedback != null ? (
+      <ManagerFeedbackBanner
+        tone={feedback.tone}
+        message={feedback.message}
+        onDismiss={dismiss}
+      />
+    ) : null;
+
   return (
     <View style={styles.container}>
+      {selected == null ? feedbackBanner : null}
+      {toolbar}
+      {/* Sticky search sits outside horizontal table scroll so page scroll can pin it. */}
+      {stickySearch}
       {hasTable ? (
         <ScrollView
           horizontal
@@ -756,20 +823,15 @@ export default function DocumentList({
           testID="documents-table-scroll"
         >
           <View style={styles.tableBlock} testID="documents-table-block">
-            {toolbar}
-            {searchField}
             <DocumentGrid documents={documents} onRowPress={setSelected} />
           </View>
         </ScrollView>
       ) : (
         <>
-          {toolbar}
-          {searchField}
-
           {!token ? (
             <Text style={styles.hint}>Sign in to see your documents.</Text>
           ) : loading && documents.length === 0 ? (
-            <ActivityIndicator size="small" color={palette.tint} />
+            <ManagerListSkeleton accessibilityLabel="Loading document list" />
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : (
@@ -907,6 +969,7 @@ export default function DocumentList({
                 </>
               )}
             </ScrollView>
+            {selected != null ? feedbackBanner : null}
             <View style={styles.modalActions}>
               {isEditing ? (
                 <>
@@ -962,12 +1025,13 @@ export default function DocumentList({
                   />
                   <View style={styles.modalActionDivider} />
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     label={deleting ? 'Deleting…' : 'Delete'}
                     onPress={() => setDeleteDialogVisible(true)}
                     disabled={deleting}
                     accessibilityLabel="Delete document"
                     style={styles.modalActionButton}
+                    labelStyle={styles.modalActionText}
                   />
                   <View style={styles.modalActionDivider} />
                   <Button

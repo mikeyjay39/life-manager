@@ -10,6 +10,7 @@ import {
 import { BarChart, LineChart } from 'react-native-gifted-charts';
 
 import { Button } from '@/components/ui/button';
+import { ManagerSelectionContext } from '@/components/ui/manager-selection-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
 import type { CarDto } from '@/lib/api/types';
@@ -187,16 +188,21 @@ export default function CarChartsPanel({
 
   if (!selectedCar) {
     return (
-      <Text
-        style={{ color: palette.icon }}
-        accessibilityLabel="Charts need Car">
-        Select a Car to view charts.
-      </Text>
+      <ManagerSelectionContext
+        entityNoun="Car"
+        selectedLabel={null}
+        emptyHint="Choose a Car above to view charts."
+      />
     );
   }
 
   return (
     <View style={styles.root} accessibilityLabel="Car charts panel">
+      <ManagerSelectionContext
+        entityNoun="Car"
+        selectedLabel={carDisplayLabel(selectedCar)}
+        inactive={!selectedCar.active}
+      />
       <Text style={[styles.memberHint, { color: palette.icon }]}>
         Charts for {carDisplayLabel(selectedCar)} (last 12 months)
       </Text>

@@ -78,9 +78,9 @@ export function useNavigationTheme(): NavigationTheme {
       ...base.colors,
       primary: palette.tint,
       background: palette.background,
-      card: palette.background,
+      card: palette.surface,
       text: palette.text,
-      border: palette.icon,
+      border: palette.border,
     },
   };
 }

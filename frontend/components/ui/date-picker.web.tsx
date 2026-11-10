@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import type { DatePickerProps } from './date-picker-types';
@@ -26,6 +27,7 @@ export function DatePicker({
   disabled = false,
 }: DatePickerProps) {
   const palette = useColorPalette();
+  const [fieldFocused, setFieldFocused] = useState(false);
 
   const styles = useMemo(
     () =>
@@ -41,7 +43,7 @@ export function DatePicker({
         field: {
           flex: 1,
           borderWidth: 1,
-          borderColor: palette.icon,
+          borderColor: palette.border,
           borderRadius: 8,
           padding: 10,
           backgroundColor: palette.background,
@@ -73,7 +75,12 @@ export function DatePicker({
           onChange: (event: { target: { value: string } }) => {
             onChange(event.target.value);
           },
-          style: styles.field as object,
+          onFocus: () => setFieldFocused(true),
+          onBlur: () => setFieldFocused(false),
+          style: {
+            ...(styles.field as object),
+            ...(webFocusRingStyle(fieldFocused, palette.tint) ?? {}),
+          },
         })}
         {value ? (
           <Pressable
@@ -81,7 +88,10 @@ export function DatePicker({
             accessibilityLabel={`Clear ${accessibilityLabel}`}
             disabled={disabled}
             onPress={() => onChange('')}
-            style={styles.clear}
+            style={({ focused }) => [
+              styles.clear,
+              webFocusRingStyle(focused, palette.tint),
+            ]}
           >
             <Text style={styles.clearText}>Clear</Text>
           </Pressable>

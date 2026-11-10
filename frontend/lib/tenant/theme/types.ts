@@ -8,6 +8,18 @@ export type ColorPalette = {
   icon: string;
   tabIconDefault: string;
   tabIconSelected: string;
+  /** Elevated panel / card fill behind content. */
+  surface: string;
+  /** Divider and control outline. */
+  border: string;
+  /** Secondary / de-emphasized text and chrome. */
+  muted: string;
+  /** Positive status and success feedback. */
+  success: string;
+  /** Caution status and warning feedback. */
+  warning: string;
+  /** Error status and destructive actions. */
+  danger: string;
 };
 
 export type ColorSchemePalettes = {
