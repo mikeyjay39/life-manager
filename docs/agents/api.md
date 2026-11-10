@@ -88,7 +88,7 @@ Nginx proxies each tenant hostname to its mount path (see `nginx/tenants.prod.js
 - Login rejects unknown credentials, inactive users (`active = false`), and principals whose `tenant` does not match the tenant mount (e.g. `life-manager`)
 - Signup (`POST .../auth/signup`) accepts `{ email, password }`, stores the email in `auth_users.username`, inserts with `active = false`, and returns `201` with a pending-approval message (no JWT). Duplicate email → `400 validation_error`.
 - Password reset request (`POST .../auth/password-reset/request`) accepts `{ email }` and always returns the same generic success message. Mail is sent only when an **active** user exists for that email on the tenant mount. Unknown, inactive, or wrong-tenant emails get the same success with no mail. Link path: `{APP_PUBLIC_BASE_URL}/reset-password?token=...` (do not hard-code the origin).
-- Password reset confirm (`POST .../auth/password-reset/confirm`) accepts `{ token, new_password }` (min length same as signup). A valid `password_reset` token updates the password hash, consumes the token, and leaves `active` unchanged. Bad or expired tokens return `400 validation_error` and do not change the hash.
+- Password reset confirm (`POST .../auth/password-reset/confirm`) accepts `{ token, new_password }` (min length same as signup). A valid `password_reset` token for a still-active user updates the password hash, consumes the token, and leaves `active` unchanged. Bad, expired, wrong-tenant, or inactive-user tokens return `400 validation_error` and do not change the hash.
 
 ```mermaid
 flowchart TD

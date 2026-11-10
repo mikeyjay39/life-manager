@@ -113,6 +113,13 @@ mod tests {
         ) -> Result<(), UpdatePasswordError> {
             Ok(())
         }
+
+        async fn is_active(
+            &self,
+            _user_id: uuid::Uuid,
+        ) -> Result<bool, UpdatePasswordError> {
+            Ok(true)
+        }
     }
 
     struct UnusedPasswordResetService;

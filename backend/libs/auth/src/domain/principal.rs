@@ -43,4 +43,7 @@ pub trait PrincipalRepository: Sync + Send {
         user_id: Uuid,
         password_hash: &str,
     ) -> Result<(), UpdatePasswordError>;
+
+    /// True when a user row exists and `active` is true.
+    async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError>;
 }

@@ -151,12 +151,12 @@ impl PasswordResetService for PrincipalPasswordResetService {
     ///     | confirm(token,pw)        |                                  |
     ///     |------------------------->|                                  |
     ///     |                          | validate password length         |
-    ///     |                          | consume(password_reset)          |
+    ///     |                          | find_valid(password_reset)       |
     ///     |                          |--------------------------------->|
-    ///     |                          | [bad/expired] -> error           |
-    ///     |                          | update_password hash             |
+    ///     |                          | tenant + still-active checks     |
+    ///     |                          | hash; mark_consumed; update hash |
     ///     |                          |--------------------------------->|
-    ///     | success                  |                                  |
+    ///     | success / invalid error  |                                  |
     ///     |<-------------------------|                                  |
     /// ```
     async fn confirm_reset(
@@ -170,20 +170,36 @@ impl PasswordResetService for PrincipalPasswordResetService {
             return Err(INVALID_TOKEN_MESSAGE.to_string());
         }
 
+        let map_token_err = |err: EmailTokenError| match err {
+            EmailTokenError::Expired | EmailTokenError::InvalidOrUsed => {
+                INVALID_TOKEN_MESSAGE.to_string()
+            }
+            EmailTokenError::Database => {
+                "Could not reset password. Please try again later.".to_string()
+            }
+        };
+
         let record = self
             .email_token_service
-            .consume(token, EmailTokenPurpose::PasswordReset)
+            .find_valid(token, EmailTokenPurpose::PasswordReset)
+            .await
+            .map_err(map_token_err)?;
+
+        if record.tenant != self.tenant {
+            return Err(INVALID_TOKEN_MESSAGE.to_string());
+        }
+
+        let is_active = self
+            .principal_repository
+            .is_active(record.user_id)
             .await
             .map_err(|err| match err {
-                EmailTokenError::Expired | EmailTokenError::InvalidOrUsed => {
-                    INVALID_TOKEN_MESSAGE.to_string()
-                }
-                EmailTokenError::Database => {
+                UpdatePasswordError::NotFound => INVALID_TOKEN_MESSAGE.to_string(),
+                UpdatePasswordError::Database => {
                     "Could not reset password. Please try again later.".to_string()
                 }
             })?;
-
-        if record.tenant != self.tenant {
+        if !is_active {
             return Err(INVALID_TOKEN_MESSAGE.to_string());
         }
 
@@ -191,6 +207,14 @@ impl PasswordResetService for PrincipalPasswordResetService {
             .password_hasher
             .hash_password(&req.new_password)
             .map_err(|_| "Could not reset password. Please try again later.".to_string())?;
+
+        // Consume before hash write so concurrent confirms keep one winner.
+        // Checks and hashing already passed so a rare post-consume DB failure
+        // needs a new reset request (prefer that over burning on validation).
+        self.email_token_service
+            .mark_consumed(record.id)
+            .await
+            .map_err(map_token_err)?;
 
         self.principal_repository
             .update_password(record.user_id, &password_hash)
@@ -288,6 +312,11 @@ mod tests {
                 .unwrap()
                 .push((user_id, password_hash.to_string()));
             Ok(())
+        }
+
+        async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError> {
+            let guard = self.active.lock().unwrap();
+            Ok(guard.as_ref().is_some_and(|p| p.id == user_id))
         }
     }
 

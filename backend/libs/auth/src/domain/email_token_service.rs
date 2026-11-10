@@ -110,6 +110,12 @@ impl EmailTokenService {
             ..record
         })
     }
+
+    /// Mark an already-validated token row as consumed. Fails if already used.
+    pub async fn mark_consumed(&self, id: Uuid) -> Result<(), EmailTokenError> {
+        let now = Utc::now().naive_utc();
+        self.repository.mark_consumed(id, now).await
+    }
 }
 
 #[cfg(test)]

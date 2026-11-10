@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::Utc;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 use uuid::Uuid;
 
 use crate::{
@@ -139,6 +139,34 @@ impl PrincipalRepository for PrincipalOrmCollection {
             return Err(UpdatePasswordError::NotFound);
         }
         Ok(())
+    }
+
+    async fn is_active(&self, user_id: Uuid) -> Result<bool, UpdatePasswordError> {
+        let user_id_str = user_id.to_string();
+        let conn = self.pool.get().await.map_err(|e| {
+            tracing::error!("Failed to get database connection from pool: {}", e);
+            UpdatePasswordError::Database
+        })?;
+
+        let active = conn
+            .interact(move |conn| {
+                auth_users::table
+                    .filter(auth_users::id.eq(user_id_str))
+                    .select(auth_users::active)
+                    .first::<bool>(conn)
+                    .optional()
+            })
+            .await
+            .map_err(|e| {
+                tracing::error!("Database interact error: {}", e);
+                UpdatePasswordError::Database
+            })?
+            .map_err(|e| {
+                tracing::error!("Failed to read user active flag: {}", e);
+                UpdatePasswordError::Database
+            })?;
+
+        Ok(active.unwrap_or(false))
     }
 }
 
