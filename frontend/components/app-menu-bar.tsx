@@ -4,6 +4,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { webFocusRingStyle } from '@/components/ui/web-focus-ring';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
@@ -150,7 +151,11 @@ export default function AppMenuBar() {
               accessibilityRole="button"
               accessibilityLabel={item.accessibilityLabel}
               accessibilityState={{ selected: isActive }}
-              style={[styles.item, isActive ? styles.itemActive : null]}>
+              style={({ focused }) => [
+                styles.item,
+                isActive ? styles.itemActive : null,
+                webFocusRingStyle(focused, palette.tint),
+              ]}>
               <IconSymbol
                 name={item.icon}
                 size={MANAGER_MENU_ICON_SIZE}

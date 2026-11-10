@@ -198,14 +198,21 @@ describe('AppMenuBar', () => {
     // Then Health gets the shared active fill; Documents does not
     const tint = defaultResolvedTheme.colors.light.tint;
     const activeFill = withAlpha(tint, MANAGER_MENU_ACTIVE_FILL_ALPHA);
-    const healthStyle = screen.getByLabelText('Health').props.style;
-    const documentsStyle = screen.getByLabelText('Documents').props.style;
-    const flatten = (style: unknown) =>
-      (Array.isArray(style) ? style : [style]).filter(Boolean);
-    expect(flatten(healthStyle)).toEqual(
+    const resolveStyle = (styleProp: unknown) => {
+      const resolved =
+        typeof styleProp === 'function'
+          ? styleProp({ pressed: false, focused: false })
+          : styleProp;
+      return (Array.isArray(resolved) ? resolved : [resolved]).filter(Boolean);
+    };
+    const healthStyle = resolveStyle(screen.getByLabelText('Health').props.style);
+    const documentsStyle = resolveStyle(
+      screen.getByLabelText('Documents').props.style
+    );
+    expect(healthStyle).toEqual(
       expect.arrayContaining([expect.objectContaining({ backgroundColor: activeFill })])
     );
-    expect(flatten(documentsStyle)).not.toEqual(
+    expect(documentsStyle).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ backgroundColor: activeFill })])
     );
   });

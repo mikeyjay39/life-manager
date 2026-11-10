@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react-native';
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
@@ -63,5 +64,50 @@ describe('ConfirmDialog', () => {
         }),
       ])
     );
+  });
+
+  it('given visible dialog on web when Escape pressed then cancels without confirming', () => {
+    // Given
+    const originalOs = Platform.OS;
+    const listeners: ((event: { key: string; preventDefault: () => void }) => void)[] =
+      [];
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      get: () => 'web',
+    });
+    vi.stubGlobal('window', {
+      addEventListener: (
+        _type: string,
+        handler: (event: { key: string; preventDefault: () => void }) => void
+      ) => {
+        listeners.push(handler);
+      },
+      removeEventListener: (
+        _type: string,
+        handler: (event: { key: string; preventDefault: () => void }) => void
+      ) => {
+        const index = listeners.indexOf(handler);
+        if (index >= 0) {
+          listeners.splice(index, 1);
+        }
+      },
+    });
+    const { onConfirm, onCancel } = renderDialog();
+
+    // When
+    listeners.forEach((handler) =>
+      handler({ key: 'Escape', preventDefault: vi.fn() })
+    );
+
+    // Then
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    cleanup();
+    vi.unstubAllGlobals();
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      get: () => originalOs,
+    });
   });
 });

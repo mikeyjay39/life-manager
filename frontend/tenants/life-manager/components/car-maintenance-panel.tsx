@@ -986,6 +986,13 @@ export default function CarMaintenancePanel({
             }
           }}
           form={eventForm}
+          onEnterSubmit={
+            canSubmit && !formInputsLocked
+              ? () => {
+                  void handleSubmit();
+                }
+              : undefined
+          }
           results={historyResults}
           testID="car-maintenance-form-vs-results"
         />

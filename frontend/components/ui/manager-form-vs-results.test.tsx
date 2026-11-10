@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import {
   ManagerFormVsResults,
@@ -195,5 +194,26 @@ describe('ManagerFormVsResults', () => {
     // Then collapsed create shows Add without an empty results landmark
     expect(screen.getByLabelText('Add document')).toBeTruthy();
     expect(screen.queryByLabelText('Manager results')).toBeNull();
+  });
+
+  it('given open form when rendered then exposes Manager form for Enter capture', () => {
+    // Given / When — capture listener needs a mounted form region (DOM on web).
+    render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <ManagerFormVsResults
+          itemCount={1}
+          addLabel="Add member"
+          emptyMessage="No members yet."
+          defaultMode="create"
+          onEnterSubmit={vi.fn()}
+          form={<Text>Create form fields</Text>}
+          results={<Text>Results list</Text>}
+          testID="form-vs-results"
+        />
+      </TenantThemeTestProvider>
+    );
+
+    // Then
+    expect(screen.getByLabelText('Manager form')).toBeTruthy();
   });
 });

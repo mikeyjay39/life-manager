@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field-label';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 const THIRD_PARTY_DISCLOSURE =
@@ -113,10 +114,12 @@ export default function ProtonConnectPanel() {
     setErrorMessage(null);
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModalVisible(false);
     clearSensitiveFields();
-  };
+  }, []);
+
+  useWebEscapeClose(modalVisible, closeModal);
 
   const handleConnect = async () => {
     if (!email.trim() || !password) {

@@ -10,10 +10,10 @@ Update this file and the hub when frontend conventions change.
 |------|------|
 | `app/` | Expo Router shell (`(tabs)/`, `login.tsx`, `_layout.tsx`) — routes are shared across tenants |
 | `components/` | Shared UI; co-locate `*.test.tsx` |
-| `components/ui/` | Shared primitives: `button.tsx`, manager layout/form/list/feedback helpers (see **Manager UX conventions**), `confirm-dialog.tsx`, `date-picker.tsx` / `date-picker.web.tsx`, `field-label.tsx`, `text-input.tsx` / `text-input.web.tsx` (editable web keeps real `input`/`textarea` for Vimium; locked web fields use `View`+`Text`). Web focus helpers (`web-focus-ring.ts`, `web-form-enter-submit.ts`) land with #201 |
+| `components/ui/` | Shared primitives: `button.tsx`, manager layout/form/list/feedback helpers (see **Manager UX conventions**), `confirm-dialog.tsx`, `date-picker.tsx` / `date-picker.web.tsx`, `field-label.tsx`, `text-input.tsx` / `text-input.web.tsx` (editable web keeps real `input`/`textarea` for Vimium; locked web fields use `View`+`Text`). Web focus helpers (`web-focus-ring.ts`, `web-form-enter-submit.ts`) — #201 |
 | `components/auth/` | Shared auth UI (`login-form.tsx`, `signup-form.tsx`) |
 | `contexts/` | `AuthContext` (tenant-scoped token + login), `ProtonConnectContext` (web Proton Drive session) |
-| `hooks/` | Top-level hooks (not under `components/`). `use-web-escape-close.ts` — web Escape closes ConfirmDialog / manager Modals (lands with #201; import `@/hooks/use-web-escape-close`) |
+| `hooks/` | Top-level hooks (not under `components/`). `use-web-escape-close.ts` — web Escape closes ConfirmDialog / manager Modals (#201; import `@/hooks/use-web-escape-close`) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
 | `lib/proton-drive/` | Web-only Proton Drive SDK integration (`index.web.ts`); native stub in `index.ts` |
 | `lib/tenant/theme/` | Theme types, defaults, typography scale (`typography.ts`), `mergeTenantTheme()`, `TenantThemeProvider` |
@@ -137,7 +137,7 @@ Prefer `confirm-dialog.tsx` over `Alert.alert` / `window.confirm` (themed, blurr
 
 ### Web keyboard and focus
 
-Convention (helpers land with #201): interactive controls show a visible tint focus ring on web (`webFocusRingStyle` on `Button`, menu items, hub tiles, web `TextInput`, web date fields). `ConfirmDialog` and other manager Modals close on Escape via `useWebEscapeClose` (cancel path; does not confirm). Manager forms: `ManagerFormVsResults` `onEnterSubmit` (and Document create) use capture-phase Enter submit so fields that stopPropagation still submit. Multiline: Enter inserts a newline; Ctrl/Cmd+Enter submits. Gate `onEnterSubmit` with the same disabled/loading rules as the Save button. Native keeps existing press behavior. Modules: `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts`.
+Convention (#201): interactive controls show a visible tint focus ring on web (`webFocusRingStyle` on `Button`, menu items, hub tiles, web `TextInput`, web date fields). `ConfirmDialog` and other manager Modals close on Escape via `useWebEscapeClose` (cancel path; does not confirm). Manager forms: `ManagerFormVsResults` `onEnterSubmit` (and Document create) use capture-phase Enter submit so fields that stopPropagation still submit. Multiline: Enter inserts a newline; Ctrl/Cmd+Enter submits. Gate `onEnterSubmit` with the same disabled/loading rules as the Save button. Native keeps existing press behavior. Modules: `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts`.
 
 ### Locale date and number formatting
 
@@ -186,7 +186,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Manager selection clarity | `components/ui/manager-selection.ts` + `manager-selection-context.tsx`; HealthMember/Car pickers and dependent panels |
 | Manager success/error feedback | `components/ui/manager-feedback.tsx` (+ test); Documents/Health/Cars create and update flows |
 | Manager list loading skeletons | `components/ui/manager-list-skeleton.tsx` (+ test); initial empty→loading lists (keep button `loading` for submit) |
-| Web keyboard and focus | `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts` (land with #201); Button / menu / hub / fields / ConfirmDialog |
+| Web keyboard and focus | `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts` (#201); Button / menu / hub / fields / ConfirmDialog |
 | Locale date/number display | `lib/format/display.ts` (`formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`); dense lists and read-only detail (#202) |
 | Destructive confirms | `components/ui/confirm-dialog.tsx`; outline triggers + `destructive` confirm; Documents/Health/Cars delete/deactivate |
 | Home hub (manager launcher) | `tenants/life-manager/screens/HomeScreen.tsx` + `manager-registry.ts` + `manager-nav-chrome.ts` + `components/manager-hub-tile.tsx`; route `app/(tabs)/index.tsx`. Icon tiles only (Documents/Health/Cars); Coming soon when screen not registered; no create/list/Proton on Home. |
