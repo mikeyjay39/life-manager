@@ -3,10 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{
-    connection::Connection, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
-    SelectableHelper,
-};
+use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
 use uuid::Uuid;
 
 use crate::{
