@@ -202,7 +202,6 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Doctor visit diary | `tenants/life-manager/components/doctor-visit-panel.tsx` + `doctor-visit-form-utils.ts` (`ManagerFormVsResults`; create / edit / delete + ConfirmDialog; selected active HealthMember) |
 | Health charts | `tenants/life-manager/components/health-charts-panel.tsx` + `lib/health/chart-series.ts` + `lib/health/units.ts` (`react-native-gifted-charts` for Expo RN + web) |
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display |
-| Locale date/number display | `lib/format/display.ts` (`formatDisplayDate`, `formatUsdFromCents`, `formatDisplayInteger`, `DISPLAY_EMPTY`); used in dense manager lists and read-only detail views (#202). Prefer these over ad-hoc `toLocaleDateString` / `$` string builds. |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
 | Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |
