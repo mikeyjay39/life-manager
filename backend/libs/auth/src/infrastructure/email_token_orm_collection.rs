@@ -3,7 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{
+    connection::Connection, ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl,
+    SelectableHelper,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -29,43 +32,10 @@ impl EmailTokenOrmCollection {
 
 #[async_trait]
 impl EmailTokenRepository for EmailTokenOrmCollection {
-    async fn invalidate_unused_for(
-        &self,
-        user_id: Uuid,
-        purpose: EmailTokenPurpose,
-        consumed_at: NaiveDateTime,
-    ) -> Result<(), EmailTokenError> {
-        let user_id = user_id.to_string();
-        let purpose = purpose.as_str().to_string();
-        let conn = self.pool.get().await.map_err(|e| {
-            tracing::error!("Failed to get database connection from pool: {}", e);
-            EmailTokenError::Database
-        })?;
-
-        conn.interact(move |conn| {
-            diesel::update(
-                auth_email_tokens::table
-                    .filter(auth_email_tokens::user_id.eq(user_id))
-                    .filter(auth_email_tokens::purpose.eq(purpose))
-                    .filter(auth_email_tokens::consumed_at.is_null()),
-            )
-            .set(auth_email_tokens::consumed_at.eq(Some(consumed_at)))
-            .execute(conn)
-        })
-        .await
-        .map_err(|e| {
-            tracing::error!("Database interact error: {}", e);
-            EmailTokenError::Database
-        })?
-        .map_err(|e| {
-            tracing::error!("Failed to invalidate email tokens: {}", e);
-            EmailTokenError::Database
-        })?;
-
-        Ok(())
-    }
-
-    async fn insert(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+    async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+        let consumed_at = token.created_at;
+        let user_id = token.user_id.to_string();
+        let purpose = token.purpose.as_str().to_string();
         let entity = NewEmailTokenEntity {
             id: token.id.to_string(),
             user_id: token.user_id.to_string(),
@@ -83,9 +53,21 @@ impl EmailTokenRepository for EmailTokenOrmCollection {
         })?;
 
         conn.interact(move |conn| {
-            diesel::insert_into(auth_email_tokens::table)
-                .values(&entity)
-                .execute(conn)
+            conn.immediate_transaction(|conn| {
+                diesel::update(
+                    auth_email_tokens::table
+                        .filter(auth_email_tokens::user_id.eq(user_id))
+                        .filter(auth_email_tokens::purpose.eq(purpose))
+                        .filter(auth_email_tokens::consumed_at.is_null()),
+                )
+                .set(auth_email_tokens::consumed_at.eq(Some(consumed_at)))
+                .execute(conn)?;
+
+                diesel::insert_into(auth_email_tokens::table)
+                    .values(&entity)
+                    .execute(conn)?;
+                Ok::<(), diesel::result::Error>(())
+            })
         })
         .await
         .map_err(|e| {
@@ -93,7 +75,7 @@ impl EmailTokenRepository for EmailTokenOrmCollection {
             EmailTokenError::Database
         })?
         .map_err(|e| {
-            tracing::error!("Failed to insert email token: {}", e);
+            tracing::error!("Failed to issue email token: {}", e);
             EmailTokenError::Database
         })?;
 
@@ -186,7 +168,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::email_token_service::EmailTokenService,
+        domain::{
+            email_token_service::EmailTokenService,
+            opaque_token_hasher::OpaqueTokenHasher,
+        },
         infrastructure::{
             db::{fresh_test_pool, run_migrations},
             sha256_token_hasher::{OsRngOpaqueTokenGenerator, Sha256TokenHasher},

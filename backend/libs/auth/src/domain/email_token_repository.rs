@@ -10,15 +10,8 @@ use crate::domain::{
 /// Port for auth email token persistence.
 #[async_trait]
 pub trait EmailTokenRepository: Sync + Send {
-    /// Mark unused tokens for this user+purpose as consumed so they cannot be used.
-    async fn invalidate_unused_for(
-        &self,
-        user_id: Uuid,
-        purpose: EmailTokenPurpose,
-        consumed_at: NaiveDateTime,
-    ) -> Result<(), EmailTokenError>;
-
-    async fn insert(&self, token: NewEmailToken) -> Result<(), EmailTokenError>;
+    /// Invalidate unused tokens for user+purpose, then insert the new row, in one transaction.
+    async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError>;
 
     async fn find_by_hash_and_purpose(
         &self,

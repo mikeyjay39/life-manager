@@ -11,3 +11,8 @@ CREATE TABLE auth_email_tokens (
 
 CREATE INDEX idx_auth_email_tokens_user_purpose
     ON auth_email_tokens(user_id, purpose);
+
+-- At most one unconsumed token per user+purpose (enforces invalidate-prior).
+CREATE UNIQUE INDEX idx_auth_email_tokens_one_active
+    ON auth_email_tokens(user_id, purpose)
+    WHERE consumed_at IS NULL;

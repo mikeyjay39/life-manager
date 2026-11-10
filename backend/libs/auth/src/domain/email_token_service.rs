@@ -18,9 +18,8 @@ use crate::domain::{
  *     |                            |                                 |
  *     | issue(user, purpose)       |                                 |
  *     |--------------------------->|                                 |
- *     |                            | invalidate unused (user+purpose)|
- *     |                            |-------------------------------->|
- *     |                            | insert(hash, expires_at)        |
+ *     |                            | issue_replacing_unused (txn)    |
+ *     |                            |  invalidate + insert            |
  *     |                            |-------------------------------->|
  *     | raw opaque token           |                                 |
  *     |<---------------------------|                                 |
@@ -53,16 +52,12 @@ impl EmailTokenService {
         purpose: EmailTokenPurpose,
     ) -> Result<String, EmailTokenError> {
         let now = Utc::now().naive_utc();
-        self.repository
-            .invalidate_unused_for(user_id, purpose, now)
-            .await?;
-
         let raw = self.generator.generate_raw_token();
         let token_hash = self.hasher.hash_token(&raw);
         let expires_at = now + purpose.default_ttl();
 
         self.repository
-            .insert(NewEmailToken {
+            .issue_replacing_unused(NewEmailToken {
                 id: Uuid::new_v4(),
                 user_id,
                 tenant: tenant.to_string(),
@@ -149,29 +144,26 @@ mod tests {
     #[derive(Default)]
     struct StubRepo {
         rows: Mutex<Vec<EmailTokenRecord>>,
-        invalidated: Mutex<Vec<(Uuid, EmailTokenPurpose)>>,
+        issue_calls: Mutex<Vec<(Uuid, EmailTokenPurpose)>>,
     }
 
     #[async_trait]
     impl EmailTokenRepository for StubRepo {
-        async fn invalidate_unused_for(
-            &self,
-            user_id: Uuid,
-            purpose: EmailTokenPurpose,
-            consumed_at: chrono::NaiveDateTime,
-        ) -> Result<(), EmailTokenError> {
-            self.invalidated.lock().unwrap().push((user_id, purpose));
+        async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+            self.issue_calls
+                .lock()
+                .unwrap()
+                .push((token.user_id, token.purpose));
             let mut rows = self.rows.lock().unwrap();
             for row in rows.iter_mut() {
-                if row.user_id == user_id && row.purpose == purpose && row.consumed_at.is_none() {
-                    row.consumed_at = Some(consumed_at);
+                if row.user_id == token.user_id
+                    && row.purpose == token.purpose
+                    && row.consumed_at.is_none()
+                {
+                    row.consumed_at = Some(token.created_at);
                 }
             }
-            Ok(())
-        }
-
-        async fn insert(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
-            self.rows.lock().unwrap().push(EmailTokenRecord {
+            rows.push(EmailTokenRecord {
                 id: token.id,
                 user_id: token.user_id,
                 tenant: token.tenant,
@@ -246,7 +238,7 @@ mod tests {
         let delta = rows[0].expires_at - rows[0].created_at;
         assert_eq!(delta, Duration::hours(24));
         assert_eq!(
-            repo.invalidated.lock().unwrap().as_slice(),
+            repo.issue_calls.lock().unwrap().as_slice(),
             &[(user_id, EmailTokenPurpose::SignupVerify)]
         );
     }
