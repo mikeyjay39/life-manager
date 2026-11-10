@@ -39,7 +39,7 @@ pub fn build_email_sender(config: &EmailConfig) -> anyhow::Result<Arc<dyn EmailS
             Ok(Arc::new(ResendEmailSender::new(
                 api_key,
                 email_from,
-                Arc::new(ReqwestResendHttpClient::new()),
+                Arc::new(ReqwestResendHttpClient::new()?),
             )))
         }
     }

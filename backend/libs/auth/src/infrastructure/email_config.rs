@@ -11,12 +11,28 @@ pub enum EmailProvider {
 }
 
 /// Env-backed email settings for auth composition.
-#[derive(Debug, Clone)]
+///
+/// Custom `Debug` redacts `RESEND_API_KEY`.
+#[derive(Clone)]
 pub struct EmailConfig {
     pub provider: EmailProvider,
     pub resend_api_key: Option<Zeroizing<String>>,
     pub email_from: Option<String>,
     pub app_public_base_url: Option<String>,
+}
+
+impl std::fmt::Debug for EmailConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EmailConfig")
+            .field("provider", &self.provider)
+            .field(
+                "resend_api_key",
+                &self.resend_api_key.as_ref().map(|_| "[redacted]"),
+            )
+            .field("email_from", &self.email_from)
+            .field("app_public_base_url", &self.app_public_base_url)
+            .finish()
+    }
 }
 
 impl EmailConfig {
@@ -29,8 +45,15 @@ impl EmailConfig {
         let provider = parse_provider(&provider_raw)?;
 
         let resend_api_key = match env::var("RESEND_API_KEY") {
-            Ok(value) if !value.trim().is_empty() => Some(Zeroizing::new(value)),
-            Ok(_) | Err(env::VarError::NotPresent) => None,
+            Ok(value) => {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(Zeroizing::new(trimmed.to_string()))
+                }
+            }
+            Err(env::VarError::NotPresent) => None,
             Err(err) => {
                 return Err(err).context("Failed to read RESEND_API_KEY env var");
             }
@@ -73,8 +96,15 @@ fn parse_provider(raw: &str) -> anyhow::Result<EmailProvider> {
 
 fn optional_non_empty_env(name: &str) -> anyhow::Result<Option<String>> {
     match env::var(name) {
-        Ok(value) if !value.trim().is_empty() => Ok(Some(value)),
-        Ok(_) | Err(env::VarError::NotPresent) => Ok(None),
+        Ok(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+        Err(env::VarError::NotPresent) => Ok(None),
         Err(err) => Err(err).with_context(|| format!("Failed to read {name} env var")),
     }
 }
@@ -133,5 +163,21 @@ mod tests {
         };
         // When / Then
         config.validate().expect("valid resend config");
+    }
+
+    #[test]
+    fn given_api_key_when_debug_formatting_then_redacts_secret() {
+        // Given
+        let config = EmailConfig {
+            provider: EmailProvider::Resend,
+            resend_api_key: Some(Zeroizing::new("re_secret_value".to_string())),
+            email_from: Some("noreply@example.com".to_string()),
+            app_public_base_url: None,
+        };
+        // When
+        let debug = format!("{config:?}");
+        // Then
+        assert!(debug.contains("[redacted]"));
+        assert!(!debug.contains("re_secret_value"));
     }
 }

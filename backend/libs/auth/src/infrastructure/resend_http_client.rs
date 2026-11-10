@@ -1,5 +1,10 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use serde_json::Value;
+
+/// Bound Resend HTTP calls so a hung provider cannot stall workers forever.
+const RESEND_HTTP_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Minimal HTTP response for Resend JSON posts.
 #[derive(Debug, Clone)]
@@ -25,16 +30,13 @@ pub struct ReqwestResendHttpClient {
 }
 
 impl ReqwestResendHttpClient {
-    pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
-    }
-}
-
-impl Default for ReqwestResendHttpClient {
-    fn default() -> Self {
-        Self::new()
+    pub fn new() -> anyhow::Result<Self> {
+        let client = reqwest::Client::builder()
+            .timeout(RESEND_HTTP_TIMEOUT)
+            .connect_timeout(RESEND_HTTP_TIMEOUT)
+            .build()
+            .map_err(|err| anyhow::anyhow!("Failed to build Resend HTTP client: {err}"))?;
+        Ok(Self { client })
     }
 }
 
