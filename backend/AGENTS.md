@@ -128,3 +128,4 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 | CarMaintenanceEvent router | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_router.rs` |
 | CarMaintenanceEvent integration | `tests/car_maintenance_events_tests.rs` |
 | Multitenancy pilot | `tests/test_tenant_auth_tests.rs`, `libs/test-tenant/` |
+| Auth email tokens (issue / find_valid / consume; hash only) | `libs/auth/src/domain/email_token_service.rs`, `libs/auth/src/infrastructure/email_token_orm_collection.rs`, migration `libs/auth/migrations/2026-11-10-000000_create_auth_email_tokens/` |
