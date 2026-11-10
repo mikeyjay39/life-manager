@@ -177,8 +177,8 @@ Agents do not create Resend accounts or change DNS. A human does these steps bef
 
 1. Create a Resend free account.
 2. Add domain `life-manager.jeszenka.com` in Resend and publish the SPF/DKIM (and related) DNS records Resend shows.
-3. **Verify DNS in Resend** after propagation. Do not treat live mail as ready until Resend marks the domain verified.
-4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack).
+3. **Verify DNS in Resend** after propagation. **Status (2026-11-10):** Resend marks `life-manager.jeszenka.com` as verified. Re-check in Resend if you change DNS later.
+4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack). Human already set encrypted env for this delivery.
 5. Set `APP_PUBLIC_BASE_URL=https://life-manager.jeszenka.com` for prod so verify and reset links hit the public app.
 6. After pull, apply both migration sets when you use the Diesel CLI (agents do not). From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
 
