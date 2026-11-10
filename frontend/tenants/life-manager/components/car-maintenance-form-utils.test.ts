@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatUsdFromCents } from '@/lib/format/display';
+
 import {
   buildCreateCarMaintenanceEventCommand,
   buildUpdateCarMaintenanceEventCommand,
@@ -74,7 +76,8 @@ describe('car-maintenance-form-utils', () => {
     expect(formatCostCentsAsDollars(null)).toBe('');
     expect(formatCostCentsAsDollars(5999)).toBe('59.99');
     expect(formatCostCentsForDisplay(null)).toBeNull();
-    expect(formatCostCentsForDisplay(5999)).toBe('$59.99');
+    expect(formatCostCentsForDisplay(5999)).toBe(formatUsdFromCents(5999));
+    expect(formatUsdFromCents(5999, 'en-US')).toBe('$59.99');
   });
 
   it('given dto when formFromCarMaintenanceEventDto then fields map', () => {

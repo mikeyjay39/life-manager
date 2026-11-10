@@ -16,10 +16,11 @@ import {
   MANAGER_DATA_ROW_PADDING_Y,
   MANAGER_DATA_STACK_BELOW,
 } from '@/components/ui/manager-layout';
+import { DISPLAY_EMPTY } from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 /** Empty dense-cell placeholder so column slots stay stable across rows. */
-export const MANAGER_DATA_EMPTY_CELL = '—';
+export const MANAGER_DATA_EMPTY_CELL = DISPLAY_EMPTY;
 
 export type ManagerDataListCell = {
   /** Stable key for React and tests. Must match a columnHeaders key when headers exist. */

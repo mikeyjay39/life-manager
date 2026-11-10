@@ -78,6 +78,9 @@ describe('document cell formatters', () => {
     expect(formatDocumentDate('2024-06-01T00:00:00')).toBe(
       new Date('2024-06-01T00:00:00').toLocaleDateString()
     );
+    expect(formatDocumentDate('2026-01-15')).toBe(
+      new Date(2026, 0, 15).toLocaleDateString()
+    );
   });
 
   it('formats full document row values', () => {
