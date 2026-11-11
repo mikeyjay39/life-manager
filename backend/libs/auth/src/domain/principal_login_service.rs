@@ -94,8 +94,38 @@ mod tests {
             _password_hash: &str,
             _tenant: &str,
             _active: bool,
-        ) -> Result<(), crate::domain::principal::CreateUserError> {
+        ) -> Result<Uuid, crate::domain::principal::CreateUserError> {
+            Ok(Uuid::new_v4())
+        }
+
+        async fn set_user_active_by_id(
+            &self,
+            _user_id: Uuid,
+            _active: bool,
+        ) -> Result<(), crate::domain::principal::PrincipalWriteError> {
             Ok(())
+        }
+
+        async fn delete_user_by_id(
+            &self,
+            _user_id: Uuid,
+        ) -> Result<(), crate::domain::principal::PrincipalWriteError> {
+            Ok(())
+        }
+
+        async fn update_password(
+            &self,
+            _user_id: uuid::Uuid,
+            _password_hash: &str,
+        ) -> Result<(), crate::domain::principal::UpdatePasswordError> {
+            Ok(())
+        }
+
+        async fn is_active(
+            &self,
+            _user_id: uuid::Uuid,
+        ) -> Result<bool, crate::domain::principal::UpdatePasswordError> {
+            Ok(true)
         }
     }
 

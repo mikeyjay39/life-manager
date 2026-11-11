@@ -9,10 +9,16 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `GET /api/health` | Returns `"up"` |
 | `GET /api/version` | Build/git revision string |
 | `POST /life-manager/api/v1/auth/login` | JWT login |
-| `POST /life-manager/api/v1/auth/signup` | Create inactive user (email stored as `username`); returns pending-approval message; no JWT |
+| `POST /life-manager/api/v1/auth/signup` | Create inactive user (email stored as `username`); issues `signup_verify` token; sends verify email via `EmailSender` with `{APP_PUBLIC_BASE_URL}/verify-email?token=...`; returns check-email message; no JWT. Send failure after insert rolls back the user and returns `503 service_unavailable`. |
+| `POST /life-manager/api/v1/auth/verify-email` | Body `{ token }`. Sets `active=true` for a valid `signup_verify` token, then consumes it; returns success message; **no JWT**. Invalid/expired/used → `400 validation_error`. Server fault → `500`. |
+| `POST /life-manager/api/v1/auth/password-reset/request` | Request password reset `{ email }`; always same generic success; mail only for active users (`APP_PUBLIC_BASE_URL` link) |
+| `POST /life-manager/api/v1/auth/password-reset/confirm` | Confirm reset `{ token, new_password }`; updates hash; consumes one-time token |
 | `GET /life-manager/api/v1/auth/protected` | Auth smoke test |
 | `POST /test-tenant/api/v1/auth/login` | JWT login (test-tenant pilot) |
-| `POST /test-tenant/api/v1/auth/signup` | Create inactive user (test-tenant pilot) |
+| `POST /test-tenant/api/v1/auth/signup` | Create inactive user (test-tenant pilot); same verify-email flow as life-manager |
+| `POST /test-tenant/api/v1/auth/verify-email` | Same as life-manager verify-email (test-tenant pilot) |
+| `POST /test-tenant/api/v1/auth/password-reset/request` | Password-reset request (test-tenant pilot) |
+| `POST /test-tenant/api/v1/auth/password-reset/confirm` | Password-reset confirm (test-tenant pilot) |
 | `GET /test-tenant/api/v1/auth/protected` | Auth smoke test (test-tenant pilot) |
 | `POST /life-manager/api/v1/documents/` | Multipart: `json` (CreateDocumentCommand) + `file` |
 | `POST /life-manager/api/v1/documents/json` | JSON body: CreateDocumentCommand with required `storage` (Proton Drive ref); no file/OCR — see [Proton upload workflow](../development_faq.md#upload-workflow) |
@@ -80,9 +86,25 @@ Nginx proxies each tenant hostname to its mount path (see `nginx/tenants.prod.js
 
 ## Auth
 
+Normal signup path: **email verification, then login**. Manual SQLite activation is an ops escape hatch only — see [development FAQ](../development_faq.md#user-signup-and-email-verification).
+
 - Protected routes: `Authorization: Bearer <token>`
 - Login rejects unknown credentials, inactive users (`active = false`), and principals whose `tenant` does not match the tenant mount (e.g. `life-manager`)
-- Signup (`POST .../auth/signup`) accepts `{ email, password }`, stores the email in `auth_users.username`, inserts with `active = false`, and returns `201` with a pending-approval message (no JWT). Duplicate email → `400 validation_error`.
+- Signup (`POST .../auth/signup`) accepts `{ email, password }`, stores the email in `auth_users.username`, inserts with `active = false`, issues a `signup_verify` token, and sends email via `EmailSender` with link `{APP_PUBLIC_BASE_URL}/verify-email?token=...`. Returns `201` with a check-email message (no JWT). Duplicate email → `400 validation_error`. If send fails after insert, the user (and tokens) are rolled back and the API returns `503 service_unavailable`.
+- Verify (`POST .../auth/verify-email`) accepts `{ token }`, sets `active = true` for a valid `signup_verify` token, then consumes the token, and returns a success message (**no JWT**). Invalid, expired, or reused token → `400 validation_error` and activates no user. Server faults → `500 internal_error`. After verify, the user logs in with `POST .../auth/login`.
+- Password reset request (`POST .../auth/password-reset/request`) accepts `{ email }` and always returns the same generic success message. Mail is sent only when an **active** user exists for that email on the tenant mount. Unknown, inactive, or wrong-tenant emails get the same success with no mail. Link path: `{APP_PUBLIC_BASE_URL}/reset-password?token=...` (do not hard-code the origin).
+- Password reset confirm (`POST .../auth/password-reset/confirm`) accepts `{ token, new_password }` (min length same as signup). A valid `password_reset` token for a still-active user updates the password hash, consumes the token, and leaves `active` unchanged. Bad, expired, wrong-tenant, or inactive-user tokens return `400 validation_error` and do not change the hash.
+
+### Auth email env
+
+| Variable | Role |
+|----------|------|
+| `EMAIL_PROVIDER` | `log` (default) or `resend`. Prod uses `resend`. |
+| `RESEND_API_KEY` | Required when provider is `resend`. Do not put real keys in docs. |
+| `EMAIL_FROM` | From address for Resend (domain must be verified). |
+| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Required for signup (unset → `503`). Prod: `https://life-manager.jeszenka.com`. |
+
+Ops checklist (Resend account, DNS verify, git-crypt env): [development FAQ](../development_faq.md#resend-ops-checklist-humans).
 
 ```mermaid
 flowchart TD
@@ -90,12 +112,30 @@ flowchart TD
   B --> C[Validate email and password]
   C --> D[Hash password]
   D --> E["INSERT auth_users active=false"]
-  E --> F[201 pending-approval message]
-  F --> G[Admin activates via sqlite3]
-  G --> H[Login succeeds]
+  E --> F[Issue signup_verify token]
+  F --> G[EmailSender send verify link]
+  G -->|ok| H[201 check-email message]
+  G -->|fail| I[Rollback user + 503]
+  H --> J[User opens link / frontend]
+  J --> K[POST .../auth/verify-email]
+  K --> L[Activate then consume token]
+  L --> M[Login succeeds]
 ```
 
-- **Manual activation:** after signup, an admin activates the account in SQLite (agents do not run write SQL):
+```mermaid
+flowchart TD
+  R1[POST password-reset/request] --> R2{Active user for email?}
+  R2 -->|yes| R3[Issue password_reset token]
+  R3 --> R4[EmailSender with APP_PUBLIC_BASE_URL link]
+  R4 --> R5[Generic success]
+  R2 -->|no| R5
+  C1[POST password-reset/confirm] --> C2{Token valid?}
+  C2 -->|yes| C3[Update password hash + consume token]
+  C3 --> C4[Success]
+  C2 -->|no| C5[400 validation_error]
+```
+
+- **Ops escape hatch:** manual SQLite activation may still activate a pending user (agents do not run write SQL):
 
 ```bash
 # Dev DB path from .dev.env
@@ -112,6 +152,7 @@ SELECT username, tenant, created_at FROM auth_users WHERE active = 0;
 - Backend auth crate: `backend/libs/auth/` builds `AuthState` via `AuthStateBuilder`; life-manager composes it into `LifeManagerState` and wires `FromRef` via `libs/life-manager/src/infrastructure/auth_integration.rs`
 - Handlers receive `AuthUser` where required
 - Frontend: `useAuth()` + `authenticatedFetch` from `frontend/lib/api/client.ts` — do not hard-code origins in components
+- Frontend email flows (unauthenticated): `frontend/lib/auth/email-flows.ts` calls `POST .../auth/verify-email`, `.../password-reset/request`, and `.../password-reset/confirm`. Screens: `/verify-email`, `/forgot-password`, `/reset-password` (#219)
 
 ## Multipart document create
 

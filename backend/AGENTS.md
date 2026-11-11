@@ -36,7 +36,7 @@ Rust **edition 2024** (`Cargo.toml`).
 |-------|------|
 | **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
 | **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
-| **`auth`** | Shared authentication (`libs/auth/`) |
+| **`auth`** | Shared authentication (`libs/auth/`); `EmailSender` port with log / Resend adapters via `EMAIL_PROVIDER` |
 | **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; own SQLite pool via `TEST_TENANT_DATABASE_URL` |
 
@@ -56,6 +56,14 @@ Applies within **`libs/life-manager/src/`**:
 
 New features: `domain` / `application` first, then `infrastructure/<feature>/` (see `infrastructure/document/`).
 
+## Auth email (port)
+
+- Domain port: `EmailSender` + `EmailMessage` in `libs/auth/src/domain/`
+- Adapters: `LogOnlyEmailSender` (default) and `ResendEmailSender` in `libs/auth/src/infrastructure/`
+- Env (no hard-coded domain): `EMAIL_PROVIDER` (`log` \| `resend`, default `log`), `RESEND_API_KEY`, `EMAIL_FROM`, `APP_PUBLIC_BASE_URL`
+- `AuthStateBuilder` loads config and stores `email_sender` + `app_public_base_url` on `AuthState`
+- Do not log `RESEND_API_KEY`; log adapter redacts body content
+
 ## API wiring
 
 - `backend/src/lib.rs`: stateless `/api/health`, `/api/version`; nest tenants via `TenantMount::mount`
@@ -72,7 +80,7 @@ Rust is the source of truth for **HTTP contract types** (request/response DTOs).
 
 | Crate | Annotated types | Output |
 |-------|-----------------|--------|
-| `auth` | `LoginRequest`, `LoginResponse` in `domain/login_request.rs`; `SignupRequest`, `SignupResponse` in `domain/signup_request.rs` | `frontend/lib/api/generated/auth/` |
+| `auth` | `LoginRequest`, `LoginResponse` in `domain/login_request.rs`; `SignupRequest`, `SignupResponse` in `domain/signup_request.rs`; `VerifyEmailRequest`, `VerifyEmailResponse` in `domain/verify_email_request.rs`; `PasswordResetRequestRequest`, `PasswordResetRequestResponse`, `PasswordResetConfirmRequest`, `PasswordResetConfirmResponse` in `domain/password_reset_request.rs` | `frontend/lib/api/generated/auth/` |
 | `life-manager` | `DocumentDto`, `CreateDocumentCommand`, `DocumentStorageRefDto`, `GetDocumentsQueryParams` in `infrastructure/document/`; `HealthMemberDto`, `CreateHealthMemberCommand`, `UpdateHealthMemberCommand`, `GetHealthMembersQueryParams` in `infrastructure/health_member/`; `HealthReadingDto`, `CreateHealthReadingCommand`, `UpdateHealthReadingCommand`, `GetHealthReadingsQueryParams` in `infrastructure/health/`; `DoctorVisitDto`, `CreateDoctorVisitCommand`, `UpdateDoctorVisitCommand`, `GetDoctorVisitsQueryParams` in `infrastructure/doctor_visit/`; `CarDto`, `CreateCarCommand`, `UpdateCarCommand`, `GetCarsQueryParams` in `infrastructure/car/`; `CarMaintenanceEventDto`, `CreateCarMaintenanceEventCommand`, `UpdateCarMaintenanceEventCommand`, `GetCarMaintenanceEventsQueryParams` in `infrastructure/car_maintenance_event/` | `frontend/lib/api/generated/life-manager/` |
 
 **Do not** export domain aggregates (e.g. `Document` with `user_id`) or server-only types (e.g. JWT `Claims`).
@@ -120,3 +128,4 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 | CarMaintenanceEvent router | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_router.rs` |
 | CarMaintenanceEvent integration | `tests/car_maintenance_events_tests.rs` |
 | Multitenancy pilot | `tests/test_tenant_auth_tests.rs`, `libs/test-tenant/` |
+| Auth email tokens (issue / find_valid / consume; hash only) | `libs/auth/src/domain/email_token_service.rs`, `libs/auth/src/infrastructure/email_token_orm_collection.rs`, migration `libs/auth/migrations/2026-11-10-000000_create_auth_email_tokens/` |
