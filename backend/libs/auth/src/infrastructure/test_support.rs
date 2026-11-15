@@ -1,4 +1,8 @@
-//! Helpers for integration tests in `backend/tests/`. Not used in production handlers.
+//! Helpers for integration tests in `backend/tests/` and auth unit tests.
+//!
+//! Compile-time guard: this module is only built when `cfg(test)` (auth unit tests)
+//! or the `test-support` feature is enabled. The production `auth` dependency must
+//! omit that feature so these helpers are not in the release binary.
 
 use std::sync::Arc;
 

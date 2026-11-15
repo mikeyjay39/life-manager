@@ -6,6 +6,12 @@ edition = "2024"
 [lints]
 workspace = true
 
+[features]
+default = []
+# Integration-test helpers (`test_support`). Not for the production binary.
+# Unit tests inside this crate also see the module via `cfg(test)`.
+test-support = []
+
 [dependencies]
 anyhow = { workspace = true }
 argon2 = { workspace = true }

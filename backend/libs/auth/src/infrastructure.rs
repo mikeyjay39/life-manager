@@ -18,5 +18,6 @@ pub mod sha256_token_hasher;
 pub mod signup_handler;
 pub mod superuser_only_login_service;
 pub mod test_protected_endpoint_handler;
+#[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 pub mod verify_email_handler;

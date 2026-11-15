@@ -37,7 +37,7 @@ Rust **edition 2024** (`Cargo.toml`).
 | **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
 | **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
 | **`backend-utils`** | Shared HTTP helpers (`AppError` / `AppResult`) and value objects such as `EmailAddress` (`libs/common/backend-utils`) |
-| **`auth`** | Shared authentication (`libs/auth/`); `EmailSender` port with log / Resend adapters via `EMAIL_PROVIDER` |
+| **`auth`** | Shared authentication (`libs/auth/`); `EmailSender` port with log / Resend adapters via `EMAIL_PROVIDER`. Test helpers: feature `test-support` (or `cfg(test)`); do not enable on the prod binary dep |
 | **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; own SQLite pool via `TEST_TENANT_DATABASE_URL` |
 

@@ -53,7 +53,7 @@ tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "jso
 uuid = { workspace = true }
 
 [dev-dependencies]
-auth = { path = "libs/auth" }
+auth = { path = "libs/auth", features = ["test-support"] }
 axum-test = "18.1.0"
 chrono = "0.4"
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
