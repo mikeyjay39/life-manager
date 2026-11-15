@@ -16,6 +16,8 @@ pub enum AppError {
     Internal(#[from] anyhow::Error),
     #[error("Unauthorized")]
     Unauthorized,
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
 }
 
 #[derive(Serialize)]
@@ -38,6 +40,11 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized", self.to_string()),
+            AppError::ServiceUnavailable(msg) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "service_unavailable",
+                msg,
+            ),
         };
         let body = ErrorResponse {
             error: error_type.to_string(),
@@ -135,5 +142,16 @@ mod tests {
             AppError::internal_err_from_msg("handler failed"),
             AppError::Internal(_)
         ));
+    }
+
+    #[tokio::test]
+    async fn given_service_unavailable_when_into_response_then_returns_503_json() {
+        let response =
+            AppError::ServiceUnavailable("try again later".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+        let json = response_json(response).await;
+        assert_eq!(json["error"], "service_unavailable");
+        assert_eq!(json["message"], "try again later");
     }
 }

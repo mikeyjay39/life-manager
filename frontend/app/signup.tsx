@@ -9,10 +9,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTenant } from '@/lib/tenant/TenantContext';
 import { useTenantBranding } from '@/lib/tenant/TenantThemeContext';
 
+const CHECK_EMAIL_FALLBACK =
+  'Account created. Check your email to verify your account before you sign in.';
+
 /**
  * Signup flow:
  *   User -> SignupForm -> AuthContext.signup -> POST /auth/signup
- *   Success -> pending approval message -> link back to login
+ *   Success -> check-email message -> link back to login
  */
 export default function SignupScreen() {
   const { signup, isAuthenticated } = useAuth();
@@ -28,8 +31,8 @@ export default function SignupScreen() {
 
   const handleSubmit = async (email: string, password: string) => {
     const result = await signup(email, password);
-    if (result.success && result.message) {
-      setSuccessMessage(result.message);
+    if (result.success) {
+      setSuccessMessage(result.message ?? CHECK_EMAIL_FALLBACK);
     }
     return result;
   };
@@ -40,7 +43,7 @@ export default function SignupScreen() {
         <View style={styles.content}>
           <Image source={assets.logo} style={styles.logo} accessibilityIgnoresInvertColors />
           <ThemedText type="title" style={styles.title}>
-            Account Created
+            Check your email
           </ThemedText>
           <ThemedText style={styles.successMessage}>{successMessage}</ThemedText>
           <Link href="/login" style={styles.link}>

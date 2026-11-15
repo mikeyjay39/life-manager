@@ -8,10 +8,11 @@ Update this file and the hub when frontend conventions change.
 
 | Path | Role |
 |------|------|
-| `app/` | Expo Router shell (`(tabs)/`, `login.tsx`, `_layout.tsx`) — routes are shared across tenants |
+| `app/` | Expo Router shell (`(tabs)/`, `login.tsx`, `signup.tsx`, `verify-email.tsx`, `forgot-password.tsx`, `reset-password.tsx`, `_layout.tsx`) — routes are shared across tenants |
 | `components/` | Shared UI; co-locate `*.test.tsx` |
 | `components/ui/` | Shared primitives: `button.tsx`, manager layout/form/list/feedback helpers (see **Manager UX conventions**), `confirm-dialog.tsx`, `date-picker.tsx` / `date-picker.web.tsx`, `field-label.tsx`, `text-input.tsx` / `text-input.web.tsx` (editable web keeps real `input`/`textarea` for Vimium; locked web fields use `View`+`Text`). Web focus helpers (`web-focus-ring.ts`, `web-form-enter-submit.ts`) — #201 |
-| `components/auth/` | Shared auth UI (`login-form.tsx`, `signup-form.tsx`) |
+| `components/auth/` | Shared auth UI (`login-form.tsx`, `signup-form.tsx`, `verify-email-panel.tsx`, `forgot-password-form.tsx`, `reset-password-form.tsx`) |
+| `lib/auth/` | Token storage plus unauthenticated email flows (`email-flows.ts`: verify / password-reset request+confirm) |
 | `contexts/` | `AuthContext` (tenant-scoped token + login), `ProtonConnectContext` (web Proton Drive session) |
 | `hooks/` | Top-level hooks (not under `components/`). `use-web-escape-close.ts` — web Escape closes ConfirmDialog / manager Modals (#201; import `@/hooks/use-web-escape-close`) |
 | `lib/tenant/` | Tenant registry, resolution, `TenantProvider`, `useTenant()` |
@@ -178,6 +179,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant config | `tenants/life-manager/meta.ts` (hostnames, API prefix, optional `theme`) |
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
+| Verify / forgot / reset password UI | `components/auth/verify-email-panel.tsx`, `forgot-password-form.tsx`, `reset-password-form.tsx`; routes `app/verify-email.tsx`, `forgot-password.tsx`, `reset-password.tsx`; API helpers `lib/auth/email-flows.ts` (#219) |
 | Manager UX conventions (docs) | This file — **Manager UX conventions** (layout, form-vs-results, tokens, type, quiet chrome, feedback, dense lists, skeletons, sticky filters, selection, icons, destructive confirms, focus, locale) |
 | Manager layout primitives | `components/ui/manager-scroll-view.tsx`, `manager-page-header.tsx`, `manager-page-content.tsx`, `manager-section.tsx`, `manager-cta.tsx`, `manager-layout.ts` |
 | Dense manager data lists | `components/ui/manager-data-list.tsx` (+ test); history rows in `health-reading-panel.tsx`, `doctor-visit-panel.tsx`, `car-maintenance-panel.tsx`; shared tokens also in `document-grid.tsx` |

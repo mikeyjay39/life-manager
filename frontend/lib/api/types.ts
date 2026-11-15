@@ -14,8 +14,14 @@ export type {
   UpdateHealthMemberCommand,
   LoginRequest,
   LoginResponse,
+  PasswordResetConfirmRequest,
+  PasswordResetConfirmResponse,
+  PasswordResetRequestRequest,
+  PasswordResetRequestResponse,
   SignupRequest,
   SignupResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
 } from './generated';
 
 export type { CreateHealthReadingCommand } from './generated/life-manager/CreateHealthReadingCommand';

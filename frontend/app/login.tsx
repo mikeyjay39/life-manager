@@ -45,7 +45,11 @@ export default function LoginScreen() {
 
           <LoginForm onSubmit={handleSubmit} />
 
-          <Link href="/signup" style={styles.link}>
+          <Link href="/forgot-password" style={styles.link}>
+            <ThemedText type="link">Forgot password?</ThemedText>
+          </Link>
+
+          <Link href="/signup" style={styles.secondaryLink}>
             <ThemedText type="link">Create an account</ThemedText>
           </Link>
         </View>
@@ -87,6 +91,10 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 24,
+    alignSelf: 'center',
+  },
+  secondaryLink: {
+    marginTop: 16,
     alignSelf: 'center',
   },
 });

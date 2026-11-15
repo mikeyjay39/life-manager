@@ -1,7 +1,13 @@
 export type { LoginRequest } from './auth/LoginRequest';
 export type { LoginResponse } from './auth/LoginResponse';
+export type { PasswordResetConfirmRequest } from './auth/PasswordResetConfirmRequest';
+export type { PasswordResetConfirmResponse } from './auth/PasswordResetConfirmResponse';
+export type { PasswordResetRequestRequest } from './auth/PasswordResetRequestRequest';
+export type { PasswordResetRequestResponse } from './auth/PasswordResetRequestResponse';
 export type { SignupRequest } from './auth/SignupRequest';
 export type { SignupResponse } from './auth/SignupResponse';
+export type { VerifyEmailRequest } from './auth/VerifyEmailRequest';
+export type { VerifyEmailResponse } from './auth/VerifyEmailResponse';
 export type { CarDto } from './life-manager/CarDto';
 export type { CreateCarCommand } from './life-manager/CreateCarCommand';
 export type { CreateDocumentCommand } from './life-manager/CreateDocumentCommand';

@@ -194,6 +194,8 @@ See **`docker-compose.yml`** header comments and **`nginx/generated/tenant-serve
 
 Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Pull requests whose **base** is **`main`** run tests only. PRs into other base branches do not start this workflow. A push to **`main`** runs tests, then builds and pushes each prod image to ECR only when its source tree changed (`backend/**`, `frontend/**`, `nginx/**`, `observability/**`); Lightsail deploy always runs after that job.
 
+**Manual relaunch:** [`.github/workflows/deploy-lightsail.yml`](../.github/workflows/deploy-lightsail.yml) — **Actions → Deploy Lightsail → Run workflow**. It SSHs to Lightsail, `git pull origin main`, and runs [`scripts/deploy-prod-lightsail.sh`](../scripts/deploy-prod-lightsail.sh) (pulls existing ECR `:latest`; does not rebuild images or run tests).
+
 ```mermaid
 sequenceDiagram
   participant Dev as Developer
