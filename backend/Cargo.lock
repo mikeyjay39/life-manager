@@ -194,6 +194,7 @@ dependencies = [
  "tracing-test",
  "ts-rs",
  "uuid",
+ "wiremock",
  "zeroize",
 ]
 
