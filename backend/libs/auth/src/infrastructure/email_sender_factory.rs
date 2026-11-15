@@ -25,22 +25,15 @@ use super::{
 ///                            Resend emails API
 /// ```
 pub fn build_email_sender(config: &EmailConfig) -> anyhow::Result<Arc<dyn EmailSender>> {
-    match config.provider {
+    match &config.provider {
         EmailProvider::Log => Ok(Arc::new(LogOnlyEmailSender)),
-        EmailProvider::Resend => {
-            let api_key = config
-                .resend_api_key
-                .clone()
-                .ok_or_else(|| anyhow::anyhow!("RESEND_API_KEY must be set when EMAIL_PROVIDER is resend"))?;
-            let email_from = config
-                .email_from
-                .clone()
-                .ok_or_else(|| anyhow::anyhow!("EMAIL_FROM must be set when EMAIL_PROVIDER is resend"))?;
-            Ok(Arc::new(ResendEmailSender::new(
-                api_key,
-                email_from,
-                Arc::new(ReqwestResendHttpClient::new()?),
-            )))
-        }
+        EmailProvider::Resend {
+            api_key,
+            email_from,
+        } => Ok(Arc::new(ResendEmailSender::new(
+            api_key.clone(),
+            email_from.clone(),
+            Arc::new(ReqwestResendHttpClient::new()?),
+        ))),
     }
 }

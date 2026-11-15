@@ -4,35 +4,38 @@ use anyhow::{Context, bail};
 use zeroize::Zeroizing;
 
 /// Supported outbound email providers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Resend credentials live on the `Resend` variant so a Resend config without
+/// an API key or from-address cannot be constructed.
+#[derive(Clone, PartialEq, Eq)]
 pub enum EmailProvider {
     Log,
-    Resend,
+    Resend {
+        api_key: Zeroizing<String>,
+        email_from: String,
+    },
+}
+
+impl std::fmt::Debug for EmailProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Log => f.write_str("Log"),
+            Self::Resend { email_from, .. } => f
+                .debug_struct("Resend")
+                .field("api_key", &"[redacted]")
+                .field("email_from", email_from)
+                .finish(),
+        }
+    }
 }
 
 /// Env-backed email settings for auth composition.
 ///
-/// Custom `Debug` redacts `RESEND_API_KEY`.
-#[derive(Clone)]
+/// Custom `Debug` redacts `RESEND_API_KEY` via [`EmailProvider`].
+#[derive(Clone, Debug)]
 pub struct EmailConfig {
     pub provider: EmailProvider,
-    pub resend_api_key: Option<Zeroizing<String>>,
-    pub email_from: Option<String>,
     pub app_public_base_url: Option<String>,
-}
-
-impl std::fmt::Debug for EmailConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EmailConfig")
-            .field("provider", &self.provider)
-            .field(
-                "resend_api_key",
-                &self.resend_api_key.as_ref().map(|_| "[redacted]"),
-            )
-            .field("email_from", &self.email_from)
-            .field("app_public_base_url", &self.app_public_base_url)
-            .finish()
-    }
 }
 
 impl EmailConfig {
@@ -42,54 +45,34 @@ impl EmailConfig {
     /// need no Resend credentials.
     pub fn from_env() -> anyhow::Result<Self> {
         let provider_raw = env::var("EMAIL_PROVIDER").unwrap_or_else(|_| "log".to_string());
-        let provider = parse_provider(&provider_raw)?;
+        let provider_kind = parse_provider_kind(&provider_raw)?;
 
-        let resend_api_key = match env::var("RESEND_API_KEY") {
-            Ok(value) => {
-                let trimmed = value.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(Zeroizing::new(trimmed.to_string()))
-                }
-            }
-            Err(env::VarError::NotPresent) => None,
-            Err(err) => {
-                return Err(err).context("Failed to read RESEND_API_KEY env var");
+        let provider = match provider_kind {
+            ProviderKind::Log => EmailProvider::Log,
+            ProviderKind::Resend => {
+                try_resend_provider(optional_non_empty_env("RESEND_API_KEY")?, optional_non_empty_env("EMAIL_FROM")?)?
             }
         };
 
-        let email_from = optional_non_empty_env("EMAIL_FROM")?;
         let app_public_base_url = optional_non_empty_env("APP_PUBLIC_BASE_URL")?;
 
-        let config = Self {
+        Ok(Self {
             provider,
-            resend_api_key,
-            email_from,
             app_public_base_url,
-        };
-        config.validate()?;
-        Ok(config)
-    }
-
-    /// Validates provider-specific required settings.
-    pub fn validate(&self) -> anyhow::Result<()> {
-        if self.provider == EmailProvider::Resend {
-            if self.resend_api_key.is_none() {
-                bail!("RESEND_API_KEY must be set when EMAIL_PROVIDER is resend");
-            }
-            if self.email_from.is_none() {
-                bail!("EMAIL_FROM must be set when EMAIL_PROVIDER is resend");
-            }
-        }
-        Ok(())
+        })
     }
 }
 
-fn parse_provider(raw: &str) -> anyhow::Result<EmailProvider> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProviderKind {
+    Log,
+    Resend,
+}
+
+fn parse_provider_kind(raw: &str) -> anyhow::Result<ProviderKind> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "log" => Ok(EmailProvider::Log),
-        "resend" => Ok(EmailProvider::Resend),
+        "log" => Ok(ProviderKind::Log),
+        "resend" => Ok(ProviderKind::Resend),
         other => bail!("EMAIL_PROVIDER must be 'log' or 'resend', got '{other}'"),
     }
 }
@@ -109,6 +92,23 @@ fn optional_non_empty_env(name: &str) -> anyhow::Result<Option<String>> {
     }
 }
 
+/// Builds a Resend provider when both credentials are present (test + from_env helper).
+fn try_resend_provider(
+    api_key: Option<String>,
+    email_from: Option<String>,
+) -> anyhow::Result<EmailProvider> {
+    let api_key = api_key
+        .filter(|v| !v.trim().is_empty())
+        .ok_or_else(|| anyhow::anyhow!("RESEND_API_KEY must be set when EMAIL_PROVIDER is resend"))?;
+    let email_from = email_from
+        .filter(|v| !v.trim().is_empty())
+        .ok_or_else(|| anyhow::anyhow!("EMAIL_FROM must be set when EMAIL_PROVIDER is resend"))?;
+    Ok(EmailProvider::Resend {
+        api_key: Zeroizing::new(api_key.trim().to_string()),
+        email_from: email_from.trim().to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,22 +116,19 @@ mod tests {
     #[test]
     fn given_empty_provider_name_when_parsing_then_defaults_path_uses_log() {
         // Given / When — AuthStateBuilder uses unwrap_or("log") before parse.
-        let provider = parse_provider("log").expect("log is valid");
+        let kind = parse_provider_kind("log").expect("log is valid");
         // Then
-        assert_eq!(provider, EmailProvider::Log);
+        assert_eq!(kind, ProviderKind::Log);
     }
 
     #[test]
-    fn given_resend_without_api_key_when_validating_then_names_missing_config() {
-        // Given
-        let config = EmailConfig {
-            provider: EmailProvider::Resend,
-            resend_api_key: None,
-            email_from: Some("Life Manager <noreply@example.com>".to_string()),
-            app_public_base_url: None,
-        };
-        // When
-        let err = config.validate().expect_err("missing key must fail");
+    fn given_resend_without_api_key_when_building_provider_then_names_missing_config() {
+        // Given / When
+        let err = try_resend_provider(
+            None,
+            Some("Life Manager <noreply@example.com>".to_string()),
+        )
+        .expect_err("missing key must fail");
         // Then
         let message = format!("{err:#}");
         assert!(
@@ -141,9 +138,22 @@ mod tests {
     }
 
     #[test]
+    fn given_resend_without_from_when_building_provider_then_names_missing_config() {
+        // Given / When
+        let err = try_resend_provider(Some("re_test".to_string()), None)
+            .expect_err("missing from must fail");
+        // Then
+        let message = format!("{err:#}");
+        assert!(
+            message.contains("EMAIL_FROM"),
+            "error should name EMAIL_FROM, got: {message}"
+        );
+    }
+
+    #[test]
     fn given_unknown_provider_when_parsing_then_fails_clearly() {
         // When
-        let err = parse_provider("smtp").expect_err("unknown provider must fail");
+        let err = parse_provider_kind("smtp").expect_err("unknown provider must fail");
         // Then
         let message = format!("{err:#}");
         assert!(
@@ -153,25 +163,30 @@ mod tests {
     }
 
     #[test]
-    fn given_resend_with_key_and_from_when_validating_then_ok() {
-        // Given
-        let config = EmailConfig {
-            provider: EmailProvider::Resend,
-            resend_api_key: Some(Zeroizing::new("re_test".to_string())),
-            email_from: Some("noreply@example.com".to_string()),
-            app_public_base_url: Some("https://example.com".to_string()),
-        };
-        // When / Then
-        config.validate().expect("valid resend config");
+    fn given_resend_with_key_and_from_when_building_provider_then_ok() {
+        // Given / When
+        let provider = try_resend_provider(
+            Some("re_test".to_string()),
+            Some("noreply@example.com".to_string()),
+        )
+        .expect("valid resend config");
+        // Then
+        match provider {
+            EmailProvider::Resend { email_from, .. } => {
+                assert_eq!(email_from, "noreply@example.com");
+            }
+            EmailProvider::Log => panic!("expected Resend"),
+        }
     }
 
     #[test]
     fn given_api_key_when_debug_formatting_then_redacts_secret() {
         // Given
         let config = EmailConfig {
-            provider: EmailProvider::Resend,
-            resend_api_key: Some(Zeroizing::new("re_secret_value".to_string())),
-            email_from: Some("noreply@example.com".to_string()),
+            provider: EmailProvider::Resend {
+                api_key: Zeroizing::new("re_secret_value".to_string()),
+                email_from: "noreply@example.com".to_string(),
+            },
             app_public_base_url: None,
         };
         // When
