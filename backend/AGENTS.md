@@ -36,6 +36,7 @@ Rust **edition 2024** (`Cargo.toml`).
 |-------|------|
 | **`mikeyjay-server`** | HTTP server binary; stateless top-level routes; mounts tenant routers |
 | **`server-host`** | `AppBootstrap` + `TenantMount` trait (build-time composition, not Axum state) |
+| **`backend-utils`** | Shared HTTP helpers (`AppError` / `AppResult`) and value objects such as `EmailAddress` (`libs/common/backend-utils`) |
 | **`auth`** | Shared authentication (`libs/auth/`); `EmailSender` port with log / Resend adapters via `EMAIL_PROVIDER` |
 | **`life-manager`** | Primary tenant crate: domain logic, Diesel/SQLite, Document + Health + Car APIs |
 | **`test-tenant`** | Second tenant (pilot): auth-only API; own SQLite pool via `TEST_TENANT_DATABASE_URL` |
@@ -59,10 +60,12 @@ New features: `domain` / `application` first, then `infrastructure/<feature>/` (
 ## Auth email (port)
 
 - Domain port: `EmailSender` + `EmailMessage` in `libs/auth/src/domain/`
+- `EmailMessage.to` is `backend_utils::EmailAddress` (parse once at the use-case boundary)
 - Adapters: `LogOnlyEmailSender` (default) and `ResendEmailSender` in `libs/auth/src/infrastructure/`
 - Env (no hard-coded domain): `EMAIL_PROVIDER` (`log` \| `resend`, default `log`), `RESEND_API_KEY`, `EMAIL_FROM`, `APP_PUBLIC_BASE_URL`
 - `AuthStateBuilder` loads config and stores `email_sender` + `app_public_base_url` on `AuthState`
 - Do not log `RESEND_API_KEY`; log adapter redacts body content
+- `EmailProvider::Resend { api_key, email_from }` holds Resend credentials (non-optional on that variant)
 
 ## API wiring
 

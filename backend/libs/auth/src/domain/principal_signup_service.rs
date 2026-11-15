@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use backend_utils::{EmailAddress, EmailAddressError};
 
 use crate::domain::{
     auth_password_hasher::AuthPasswordHasher,
@@ -29,25 +30,13 @@ pub struct PrincipalSignupService {
     pub tenant: String,
 }
 
-fn validate_email(email: &str) -> Result<String, SignupError> {
-    let email = email.trim();
-    if email.is_empty() {
-        return Err(SignupError::Validation("Email is required.".to_string()));
-    }
-
-    let Some((local, domain)) = email.split_once('@') else {
-        return Err(SignupError::Validation(
-            "Enter a valid email address.".to_string(),
-        ));
-    };
-
-    if local.is_empty() || domain.is_empty() || !domain.contains('.') {
-        return Err(SignupError::Validation(
-            "Enter a valid email address.".to_string(),
-        ));
-    }
-
-    Ok(email.to_string())
+fn parse_email(email: &str) -> Result<EmailAddress, SignupError> {
+    EmailAddress::parse(email).map_err(|err| match err {
+        EmailAddressError::Empty => SignupError::Validation("Email is required.".to_string()),
+        EmailAddressError::Invalid => {
+            SignupError::Validation("Enter a valid email address.".to_string())
+        }
+    })
 }
 
 fn validate_password(password: &str) -> Result<(), SignupError> {
@@ -67,7 +56,7 @@ fn build_verify_link(base_url: &str, raw_token: &str) -> String {
 #[async_trait]
 impl SignupService for PrincipalSignupService {
     async fn signup(&self, signup_req: &SignupRequest) -> Result<SignupResponse, SignupError> {
-        let email = validate_email(&signup_req.email)?;
+        let email = parse_email(&signup_req.email)?;
         validate_password(&signup_req.password)?;
 
         let Some(base_url) = self.app_public_base_url.as_ref() else {
@@ -88,7 +77,7 @@ impl SignupService for PrincipalSignupService {
 
         let user_id = self
             .principal_repository
-            .create_user(&email, &password_hash, &self.tenant, false)
+            .create_user(email.as_str(), &password_hash, &self.tenant, false)
             .await
             .map_err(|err| match err {
                 CreateUserError::DuplicateUsername => SignupError::Validation(
@@ -384,7 +373,7 @@ mod tests {
         assert_eq!(principals.last_active.lock().unwrap().as_ref(), Some(&false));
         let sent = sender.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].to, "user@example.com");
+        assert_eq!(sent[0].to.as_str(), "user@example.com");
         assert!(
             sent[0]
                 .body

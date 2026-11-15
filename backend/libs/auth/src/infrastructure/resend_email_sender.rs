@@ -44,7 +44,7 @@ impl ResendEmailSender {
     fn build_request_body(from: &str, message: &EmailMessage) -> Value {
         json!({
             "from": from,
-            "to": [message.to],
+            "to": [message.to.as_str()],
             "subject": message.subject,
             "text": message.body,
         })
@@ -54,11 +54,6 @@ impl ResendEmailSender {
 #[async_trait]
 impl EmailSender for ResendEmailSender {
     async fn send(&self, message: &EmailMessage) -> Result<(), EmailSendError> {
-        if message.to.trim().is_empty() {
-            return Err(EmailSendError::InvalidRecipient(
-                "to must not be empty".to_string(),
-            ));
-        }
         if self.email_from.trim().is_empty() {
             return Err(EmailSendError::InvalidSender(
                 "EMAIL_FROM must not be empty".to_string(),
@@ -85,6 +80,8 @@ impl EmailSender for ResendEmailSender {
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
+
+    use backend_utils::EmailAddress;
 
     use super::*;
     use crate::infrastructure::resend_http_client::ResendHttpResponse;
@@ -123,7 +120,7 @@ mod tests {
         )
         .with_api_url("https://api.resend.com/emails".to_string());
         let message = EmailMessage {
-            to: "user@example.com".to_string(),
+            to: EmailAddress::parse("user@example.com").expect("valid email"),
             subject: "Reset your password".to_string(),
             body: "Click the link to reset.".to_string(),
         };
@@ -139,30 +136,5 @@ mod tests {
         assert_eq!(body["to"], json!(["user@example.com"]));
         assert_eq!(body["subject"], "Reset your password");
         assert_eq!(body["text"], "Click the link to reset.");
-    }
-
-    #[tokio::test]
-    async fn given_empty_to_when_sending_then_rejects_before_http() {
-        // Given
-        let http = Arc::new(CapturingHttpClient {
-            last: Mutex::new(None),
-        });
-        let sender = ResendEmailSender::new(
-            Zeroizing::new("re_test_key".to_string()),
-            "noreply@example.com".to_string(),
-            http.clone(),
-        );
-        let message = EmailMessage {
-            to: String::new(),
-            subject: "x".to_string(),
-            body: "y".to_string(),
-        };
-
-        // When
-        let err = sender.send(&message).await.expect_err("empty to");
-
-        // Then
-        assert!(matches!(err, EmailSendError::InvalidRecipient(_)));
-        assert!(http.last.lock().expect("lock").is_none());
     }
 }

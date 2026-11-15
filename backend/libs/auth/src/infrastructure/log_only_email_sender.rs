@@ -11,12 +11,6 @@ pub struct LogOnlyEmailSender;
 #[async_trait]
 impl EmailSender for LogOnlyEmailSender {
     async fn send(&self, message: &EmailMessage) -> Result<(), EmailSendError> {
-        if message.to.trim().is_empty() {
-            return Err(EmailSendError::InvalidRecipient(
-                "to must not be empty".to_string(),
-            ));
-        }
-
         let body_chars = message.body.chars().count();
         tracing::info!(
             to = %message.to,
@@ -30,8 +24,10 @@ impl EmailSender for LogOnlyEmailSender {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use backend_utils::EmailAddress;
     use tracing_test::traced_test;
+
+    use super::*;
 
     #[tokio::test]
     #[traced_test]
@@ -39,7 +35,7 @@ mod tests {
         // Given
         let sender = LogOnlyEmailSender;
         let message = EmailMessage {
-            to: "user@example.com".to_string(),
+            to: EmailAddress::parse("user@example.com").expect("valid email"),
             subject: "Verify your account".to_string(),
             body: "secret-token-must-not-appear".to_string(),
         };
@@ -51,22 +47,5 @@ mod tests {
         assert!(logs_contain("user@example.com"));
         assert!(logs_contain("Verify your account"));
         assert!(!logs_contain("secret-token-must-not-appear"));
-    }
-
-    #[tokio::test]
-    async fn given_empty_to_when_sending_then_rejects_before_log() {
-        // Given
-        let sender = LogOnlyEmailSender;
-        let message = EmailMessage {
-            to: "  ".to_string(),
-            subject: "x".to_string(),
-            body: "y".to_string(),
-        };
-
-        // When
-        let err = sender.send(&message).await.expect_err("empty to");
-
-        // Then
-        assert!(matches!(err, EmailSendError::InvalidRecipient(_)));
     }
 }

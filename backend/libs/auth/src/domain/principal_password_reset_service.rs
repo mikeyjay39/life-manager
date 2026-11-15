@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use backend_utils::{EmailAddress, EmailAddressError};
 
 use crate::domain::{
     auth_password_hasher::AuthPasswordHasher,
@@ -32,21 +33,11 @@ pub struct PrincipalPasswordResetService {
     pub tenant: String,
 }
 
-fn validate_email(email: &str) -> Result<String, String> {
-    let email = email.trim();
-    if email.is_empty() {
-        return Err("Email is required.".to_string());
-    }
-
-    let Some((local, domain)) = email.split_once('@') else {
-        return Err("Enter a valid email address.".to_string());
-    };
-
-    if local.is_empty() || domain.is_empty() || !domain.contains('.') {
-        return Err("Enter a valid email address.".to_string());
-    }
-
-    Ok(email.to_string())
+fn parse_email(email: &str) -> Result<EmailAddress, String> {
+    EmailAddress::parse(email).map_err(|err| match err {
+        EmailAddressError::Empty => "Email is required.".to_string(),
+        EmailAddressError::Invalid => "Enter a valid email address.".to_string(),
+    })
 }
 
 fn validate_password(password: &str) -> Result<(), String> {
@@ -85,9 +76,9 @@ impl PasswordResetService for PrincipalPasswordResetService {
         &self,
         req: &PasswordResetRequestRequest,
     ) -> Result<PasswordResetRequestResponse, String> {
-        let email = validate_email(&req.email)?;
+        let email = parse_email(&req.email)?;
 
-        let Some(principal) = self.principal_repository.get_principal(&email).await else {
+        let Some(principal) = self.principal_repository.get_principal(email.as_str()).await else {
             return Ok(PasswordResetRequestResponse {
                 message: GENERIC_REQUEST_MESSAGE.to_string(),
             });
@@ -507,7 +498,7 @@ mod tests {
         assert_eq!(response.message, GENERIC_REQUEST_MESSAGE);
         let sent = sender.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].to, "user@example.com");
+        assert_eq!(sent[0].to.as_str(), "user@example.com");
         assert!(
             sent[0]
                 .body
