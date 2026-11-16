@@ -4,7 +4,7 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md).
 
 Match CI: [`.github/workflows/main.yml`](../../.github/workflows/main.yml).
 
-**Triggers:** `pull_request` runs only when the PR **base** is `main` (frontend and backend test jobs). PRs into feature or story base branches do not start this workflow. On **push to `main`** (after tests pass), CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`, `observability/` → `alloy`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
+**Triggers:** `pull_request` runs unit/integration when the PR is ready (path filters apply). The **`e2e-tests`** job runs when the PR **base** is `main` (and on **push to `main`**). Story PRs into a feature branch do not get Actions e2e; workers dry-run locally. On **push to `main`**, after unit, integration, and e2e pass, CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`, `observability/` → `alloy`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
 
 **Manual Lightsail relaunch:** workflow [`.github/workflows/deploy-lightsail.yml`](../../.github/workflows/deploy-lightsail.yml) (`workflow_dispatch`). Use **Actions → Deploy Lightsail → Run workflow** to pull `main` and redeploy existing `:latest` images without running tests or rebuilding ECR.
 
@@ -19,7 +19,18 @@ cd frontend && npm ci && npm run test:run
 npm run lint   # if frontend changed
 ```
 
-**Playwright (manual-test skill only):** `playwright` is a frontend devDependency. Chromium is not in CI — fetch it with `cd frontend && npm run playwright:install`. Live UI smoke: [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/).
+**Playwright e2e (top-level `e2e/`, CI job `e2e-tests`):** owns `@playwright/test` under `e2e/` (not Vitest). Boots **docker-dev** (`life_manager_dev` + `frontend_dev` only; local image builds, no ECR). `EMAIL_PROVIDER=log` (never Resend). Alloy/Grafana credentials are optional and skipped. Unique `COMPOSE_PROJECT_NAME` / ports per run. Wait/retry on `GET /api/health` (`up` / `"up"`) and the frontend URL before tests. Failure screenshots upload as Actions artifacts (do not commit PNGs).
+
+```bash
+cd e2e && npm ci && npm run playwright:install
+npm run stack:up && npm run stack:wait
+npm run test:e2e
+npm run stack:down
+```
+
+Details: [../../e2e/README.md](../../e2e/README.md). Temporary auth activation for #254 uses SQLite `active=1` after signup; #259 replaces that with capture/file mail.
+
+**Playwright (manual-test skill):** `playwright` remains a frontend devDependency for [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/). Fetch Chromium with `cd frontend && npm run playwright:install`.
 
 **Backend unit:**
 

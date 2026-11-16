@@ -201,9 +201,81 @@ jobs:
       - name: Run Integration Tests
         run: cd backend && cargo test --test '*'
 
+  # Headless Playwright against local docker-dev builds (no ECR, no Resend, Alloy optional/skipped).
+  e2e-tests:
+    if: >
+      always() && !cancelled() &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.action != 'converted_to_draft' &&
+          github.event.pull_request.draft == false &&
+          github.event.pull_request.base.ref == 'main'
+        )
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install sqlite3 (temporary #254 user activation)
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install Playwright Chromium
+        run: npm run playwright:install
+        working-directory: e2e
+
+      - name: Start docker-dev stack for e2e
+        run: bash e2e/scripts/up.sh
+
+      - name: Wait for API health and frontend URL
+        run: bash e2e/scripts/wait-ready.sh
+
+      - name: Run Playwright e2e smoke
+        env:
+          CI: "true"
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          source .e2e.env
+          set +a
+          export FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
+          export API_BASE_URL="http://localhost:${APP_PORT}"
+          export E2E_DB_PATH="${PWD}/backend/data/e2e.db"
+          export PLAYWRIGHT_ARTIFACTS_DIR="${PWD}/e2e/test-results"
+          cd e2e && npm run test:e2e
+
+      - name: Upload Playwright failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Tear down e2e stack
+        if: always()
+        run: bash e2e/scripts/down.sh
+
   deploy-prod-images:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [frontend-unit-tests, backend-unit-tests, integration-tests]
+    needs: [frontend-unit-tests, backend-unit-tests, integration-tests, e2e-tests]
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-west-2
