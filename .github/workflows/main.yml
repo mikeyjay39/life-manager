@@ -5,11 +5,98 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - converted_to_draft
+
+permissions:
+  contents: read
 
 jobs:
+  # Cancel prior in-flight CI for this PR when it returns to draft.
+  # Fork PRs may lack actions:write; cancel then no-ops (documented limit).
+  cancel-on-converted-to-draft:
+    if: github.event_name == 'pull_request' && github.event.action == 'converted_to_draft'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Cancel in-progress runs for this pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Collect run IDs for this PR that are still active; skip this cancel run.
+          run_ids="$(
+            gh api --paginate \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${REPO}/actions/runs?event=pull_request&per_page=100" \
+              --jq ".workflow_runs[]
+                | select(.id != ${CURRENT_RUN_ID})
+                | select(.status == \"queued\" or .status == \"in_progress\"
+                    or .status == \"waiting\" or .status == \"requested\"
+                    or .status == \"pending\")
+                | select([.pull_requests[].number] | index(${PR_NUMBER}) != null)
+                | .id"
+          )"
+          if [ -z "${run_ids}" ]; then
+            echo "No in-flight runs to cancel for PR #${PR_NUMBER}"
+            exit 0
+          fi
+          echo "${run_ids}" | while read -r run_id; do
+            echo "Cancelling run ${run_id}"
+            gh run cancel "${run_id}" --repo "${REPO}" || true
+          done
+
+  # Path gates for pull_request only. Push to main always runs all three tests.
+  path-filter:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.action != 'converted_to_draft' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend_unit: ${{ steps.filter.outputs.backend_unit }}
+      integration: ${{ steps.filter.outputs.integration }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/main.yml'
+            backend_unit:
+              - 'backend/**'
+              - 'frontend/lib/api/generated/**'
+              - '.github/workflows/main.yml'
+            integration:
+              - 'backend/**'
+              - '.github/workflows/main.yml'
+
   frontend-unit-tests:
+    needs: path-filter
+    if: >
+      always() && !cancelled() &&
+      (
+        github.event_name == 'push' ||
+        (
+          needs.path-filter.result == 'success' &&
+          needs.path-filter.outputs.frontend == 'true'
+        )
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +119,16 @@ jobs:
         working-directory: frontend
 
   backend-unit-tests:
+    needs: path-filter
+    if: >
+      always() && !cancelled() &&
+      (
+        github.event_name == 'push' ||
+        (
+          needs.path-filter.result == 'success' &&
+          needs.path-filter.outputs.backend_unit == 'true'
+        )
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -64,7 +161,18 @@ jobs:
         run: |
           cargo test export_typescript_bindings --workspace --manifest-path backend/Cargo.toml
           git diff --exit-code -- frontend/lib/api/generated/
+
   integration-tests:
+    needs: path-filter
+    if: >
+      always() && !cancelled() &&
+      (
+        github.event_name == 'push' ||
+        (
+          needs.path-filter.result == 'success' &&
+          needs.path-filter.outputs.integration == 'true'
+        )
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -225,4 +333,3 @@ jobs:
             cd "${DEPLOY_PATH}"
             git pull origin main
             bash scripts/deploy-prod-lightsail.sh
-
