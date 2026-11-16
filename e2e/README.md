@@ -21,19 +21,25 @@ Install browsers with `npm run playwright:install` in `e2e/`.
 CI runs the same command before tests.
 Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
 
-## Mail / auth (#254)
+## Mail / auth (#259)
 
-- `EMAIL_PROVIDER=log` — never Resend.
-- Ephemeral user: signup API, then temporary SQLite `active=1` inside
-  `life_manager_dev` via `scripts/activate-user.sh` (Python sqlite3).
-- Story **#259** replaces activation with capture/file mail + verify UI.
+- `EMAIL_PROVIDER=capture` — full message bodies under `EMAIL_CAPTURE_DIR`
+  (bind-mounted `backend/data/...`). Never Resend. Not body-redacted `log`.
+- `APP_PUBLIC_BASE_URL` = e2e frontend origin (`/verify-email`, `/reset-password`).
+- Ephemeral user helper: `helpers/auth.ts` `createEphemeralUser()` —
+  signup API + capture verify link + verify API (shared by manager stories).
+- Auth UI stories: `tests/auth-signup-verify.spec.ts`,
+  `tests/auth-password-reset.spec.ts`.
+- `scripts/activate-user.sh` (SQLite `active=1`) is retired; do not use it.
 
 ## Parallel runs
 
-`scripts/generate-env.sh` sets a unique `COMPOSE_PROJECT_NAME` and ports from
-`GITHUB_RUN_ID` (or the local PID). Alloy is not started for e2e.
+`scripts/generate-env.sh` sets a unique `COMPOSE_PROJECT_NAME`, ports, and
+capture subdirectory from `GITHUB_RUN_ID` (or the local PID). Alloy is not
+started for e2e.
 
 ## Artifacts
 
-Do not commit PNG screenshots. Playwright writes failure screenshots under
-`test-results/` (gitignored). CI uploads them on failure.
+Do not commit PNG screenshots or captured `.eml` files. Playwright writes
+failure screenshots under `test-results/` (gitignored). CI uploads them on
+failure. Capture mail lives under `backend/data/` (already gitignored).

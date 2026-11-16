@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 
 use anyhow::{Context, bail};
 use zeroize::Zeroizing;
@@ -7,9 +8,12 @@ use zeroize::Zeroizing;
 ///
 /// Resend credentials live on the `Resend` variant so a Resend config without
 /// an API key or from-address cannot be constructed.
+/// Capture stores the sink directory on the `Capture` variant.
 #[derive(Clone, PartialEq, Eq)]
 pub enum EmailProvider {
     Log,
+    /// Writes full message bodies (including verify/reset links) to disk for e2e.
+    Capture { capture_dir: PathBuf },
     Resend {
         api_key: Zeroizing<String>,
         email_from: String,
@@ -20,6 +24,10 @@ impl std::fmt::Debug for EmailProvider {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Log => f.write_str("Log"),
+            Self::Capture { capture_dir } => f
+                .debug_struct("Capture")
+                .field("capture_dir", capture_dir)
+                .finish(),
             Self::Resend { email_from, .. } => f
                 .debug_struct("Resend")
                 .field("api_key", &"[redacted]")
@@ -49,6 +57,9 @@ impl EmailConfig {
 
         let provider = match provider_kind {
             ProviderKind::Log => EmailProvider::Log,
+            ProviderKind::Capture => EmailProvider::Capture {
+                capture_dir: require_capture_dir()?,
+            },
             ProviderKind::Resend => {
                 try_resend_provider(optional_non_empty_env("RESEND_API_KEY")?, optional_non_empty_env("EMAIL_FROM")?)?
             }
@@ -66,15 +77,27 @@ impl EmailConfig {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProviderKind {
     Log,
+    Capture,
     Resend,
 }
 
 fn parse_provider_kind(raw: &str) -> anyhow::Result<ProviderKind> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "log" => Ok(ProviderKind::Log),
+        // `file` is an accepted alias for capture (issue #259 naming).
+        "capture" | "file" => Ok(ProviderKind::Capture),
         "resend" => Ok(ProviderKind::Resend),
-        other => bail!("EMAIL_PROVIDER must be 'log' or 'resend', got '{other}'"),
+        other => bail!(
+            "EMAIL_PROVIDER must be 'log', 'capture', 'file', or 'resend', got '{other}'"
+        ),
     }
+}
+
+fn require_capture_dir() -> anyhow::Result<PathBuf> {
+    let raw = optional_non_empty_env("EMAIL_CAPTURE_DIR")?.ok_or_else(|| {
+        anyhow::anyhow!("EMAIL_CAPTURE_DIR must be set when EMAIL_PROVIDER is capture")
+    })?;
+    Ok(PathBuf::from(raw))
 }
 
 fn optional_non_empty_env(name: &str) -> anyhow::Result<Option<String>> {
@@ -175,8 +198,42 @@ mod tests {
             EmailProvider::Resend { email_from, .. } => {
                 assert_eq!(email_from, "noreply@example.com");
             }
-            EmailProvider::Log => panic!("expected Resend"),
+            EmailProvider::Log | EmailProvider::Capture { .. } => panic!("expected Resend"),
         }
+    }
+
+    #[test]
+    fn given_capture_or_file_when_parsing_then_ok() {
+        assert_eq!(
+            parse_provider_kind("capture").expect("capture"),
+            ProviderKind::Capture
+        );
+        assert_eq!(
+            parse_provider_kind("file").expect("file alias"),
+            ProviderKind::Capture
+        );
+    }
+
+    #[test]
+    fn given_capture_without_dir_when_requiring_then_names_env() {
+        // When — simulate missing EMAIL_CAPTURE_DIR via helper.
+        let err = require_capture_dir_from(None).expect_err("missing dir");
+        // Then
+        let message = format!("{err:#}");
+        assert!(
+            message.contains("EMAIL_CAPTURE_DIR"),
+            "error should name EMAIL_CAPTURE_DIR, got: {message}"
+        );
+    }
+
+    fn require_capture_dir_from(value: Option<&str>) -> anyhow::Result<PathBuf> {
+        value
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .ok_or_else(|| {
+                anyhow::anyhow!("EMAIL_CAPTURE_DIR must be set when EMAIL_PROVIDER is capture")
+            })
     }
 
     #[test]

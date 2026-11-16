@@ -50,13 +50,39 @@ export function e2eDbPath(): string {
   return process.env.E2E_DB_PATH || path.join(repoRoot, 'backend/data/e2e.db');
 }
 
-export function assertEmailProviderIsLog(): void {
+/**
+ * Host path for CaptureFileEmailSender output (bind-mounted from container).
+ * Container path is EMAIL_CAPTURE_DIR (under /app/data/...).
+ */
+export function emailCaptureDirHost(): string {
   loadE2eEnvFile();
-  const provider = (process.env.EMAIL_PROVIDER || 'log').toLowerCase();
+  if (process.env.EMAIL_CAPTURE_DIR_HOST) {
+    return process.env.EMAIL_CAPTURE_DIR_HOST;
+  }
+  // Map /app/data/... -> ./backend/data/...
+  const containerDir =
+    process.env.EMAIL_CAPTURE_DIR || '/app/data/e2e-mail-capture';
+  if (containerDir.startsWith('/app/data/')) {
+    return path.join(repoRoot, 'backend/data', containerDir.slice('/app/data/'.length));
+  }
+  return containerDir;
+}
+
+/** e2e must use capture (or file alias), never Resend or body-redacted log-only. */
+export function assertEmailProviderIsCapture(): void {
+  loadE2eEnvFile();
+  const provider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
   if (provider === 'resend') {
     throw new Error('EMAIL_PROVIDER=resend is forbidden in e2e');
   }
-  if (provider !== 'log') {
-    throw new Error(`e2e expects EMAIL_PROVIDER=log for #254, got ${provider}`);
+  if (provider !== 'capture' && provider !== 'file') {
+    throw new Error(
+      `e2e expects EMAIL_PROVIDER=capture (or file), got ${provider || '(unset)'}`
+    );
   }
+}
+
+/** @deprecated Use assertEmailProviderIsCapture — kept name alias for older smoke imports. */
+export function assertEmailProviderIsLog(): void {
+  assertEmailProviderIsCapture();
 }

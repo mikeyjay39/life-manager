@@ -24,7 +24,7 @@ use crate::{
 pub struct AuthState {
     pub(crate) use_cases: Arc<AuthUseCases>,
     pub pool: Arc<Pool>,
-    /// Outbound email port (log or Resend). Cloned into signup and password-reset use cases.
+    /// Outbound email port (log, capture, or Resend). Cloned into signup and password-reset use cases.
     #[allow(dead_code)]
     pub(crate) email_sender: Arc<dyn EmailSender>,
     /// Public app base URL for email links (`APP_PUBLIC_BASE_URL`).
@@ -49,6 +49,7 @@ impl AuthStateBuilder {
     ///         +--> EmailConfig::from_env --> build_email_sender
     ///         |         |                         |
     ///         |         +-- log ----------------> LogOnlyEmailSender
+    ///         |         +-- capture/file -------> CaptureFileEmailSender
     ///         |         +-- resend -------------> ResendEmailSender
     ///         |
     ///         +--> EmailTokenService (SHA-256 hasher + ORM)
