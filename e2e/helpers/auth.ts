@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-import { apiBaseUrl, assertEmailProviderIsLog, e2eDbPath } from './env';
+import { apiBaseUrl, assertEmailProviderIsLog } from './env';
 
 export type EphemeralUser = {
   email: string;
@@ -12,11 +12,12 @@ export type EphemeralUser = {
  * Create an ephemeral active user for one e2e run.
  *
  * Temporary #254 path: POST /auth/signup (EMAIL_PROVIDER=log), then activate
- * via sqlite update. Story #259 replaces activation with capture/file verify.
+ * via sqlite update inside life_manager_dev. Story #259 replaces activation
+ * with capture/file verify.
  *
  * ```
  * Harness -> API : POST /auth/signup
- * Harness -> sqlite : SET active=1
+ * Harness -> container sqlite : SET active=1
  * Harness -> Browser : sign in
  * ```
  */
@@ -38,17 +39,14 @@ export async function createEphemeralUser(): Promise<EphemeralUser> {
     throw new Error(`signup failed: ${response.status} ${body}`);
   }
 
-  activateUserViaSqlite(email);
+  activateUserViaContainerSqlite(email);
   return { email, password };
 }
 
-function activateUserViaSqlite(email: string): void {
+function activateUserViaContainerSqlite(email: string): void {
   const script = path.resolve(__dirname, '../scripts/activate-user.sh');
   execFileSync('bash', [script, email], {
-    env: {
-      ...process.env,
-      E2E_DB_PATH: e2eDbPath(),
-    },
+    env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }

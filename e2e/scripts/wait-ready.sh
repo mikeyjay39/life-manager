@@ -15,7 +15,8 @@ fi
 API_BASE_URL="${API_BASE_URL:-http://localhost:${APP_PORT:-3000}}"
 FRONTEND_URL="${FRONTEND_URL:-http://localhost:${FRONTEND_PORT:-8080}}"
 HEALTH_URL="${API_BASE_URL}/api/health"
-MAX_ATTEMPTS="${E2E_WAIT_ATTEMPTS:-90}"
+# Cold life_manager_dev cargo compile on an empty volume often exceeds 10 minutes on CI.
+MAX_ATTEMPTS="${E2E_WAIT_ATTEMPTS:-180}"
 SLEEP_SECS="${E2E_WAIT_SLEEP_SECS:-5}"
 
 health_ok() {

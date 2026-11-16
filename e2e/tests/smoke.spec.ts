@@ -24,10 +24,10 @@ test.describe('e2e harness smoke', () => {
     await page.getByLabel('Password input').fill(user.password);
     await page.getByLabel('Sign in button').click();
 
-    // Then
-    const hub = page.getByLabel('Manager hub');
-    await expect(hub).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByText('Managers')).toBeVisible();
+    // Then — Expo web mounts hidden duplicates; use :visible locators.
+    const hub = page.locator('[aria-label="Manager hub"]').locator('visible=true');
+    await expect(hub.first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText('Managers').locator('visible=true').first()).toBeVisible();
 
     // Keep a success screenshot for local dry runs / manual-test proof.
     const outDir =

@@ -28,7 +28,7 @@ npm run test:e2e
 npm run stack:down
 ```
 
-Details: [../../e2e/README.md](../../e2e/README.md). Temporary auth activation for #254 uses SQLite `active=1` after signup; #259 replaces that with capture/file mail.
+Details: [../../e2e/README.md](../../e2e/README.md). Temporary auth activation for #254 sets SQLite `active=1` inside `life_manager_dev` after signup; #259 replaces that with capture/file mail.
 
 **Playwright (manual-test skill):** `playwright` remains a frontend devDependency for [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/). Fetch Chromium with `cd frontend && npm run playwright:install`.
 

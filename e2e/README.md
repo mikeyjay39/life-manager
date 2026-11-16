@@ -24,7 +24,8 @@ Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
 ## Mail / auth (#254)
 
 - `EMAIL_PROVIDER=log` — never Resend.
-- Ephemeral user: signup API, then temporary SQLite `active=1` (`scripts/activate-user.sh`).
+- Ephemeral user: signup API, then temporary SQLite `active=1` inside
+  `life_manager_dev` via `scripts/activate-user.sh` (Python sqlite3).
 - Story **#259** replaces activation with capture/file mail + verify UI.
 
 ## Parallel runs

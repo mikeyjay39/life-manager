@@ -228,9 +228,6 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
-      - name: Install sqlite3 (temporary #254 user activation)
-        run: sudo apt-get update && sudo apt-get install -y sqlite3
-
       - name: Install e2e dependencies
         run: npm ci
         working-directory: e2e

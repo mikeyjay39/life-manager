@@ -33,6 +33,9 @@ JWT_SECRET=e2e-ci-jwt-secret-not-for-prod
 RUST_BACKTRACE=1
 RUST_LOG=info
 EMAIL_PROVIDER=log
+FRONTEND_URL=http://localhost:${FRONTEND_PORT}
+API_BASE_URL=http://localhost:${APP_PORT}
+E2E_DB_PATH=${REPO_ROOT}/backend/data/e2e.db
 EOF
 
 # Export for callers that source this script after generate.

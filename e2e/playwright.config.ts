@@ -1,7 +1,36 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
 import path from 'node:path';
 
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+/** Load `.e2e.env` so local `npm run test:e2e` picks generated ports. */
+function loadDotEnv(filePath: string): void {
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+  for (const rawLine of fs.readFileSync(filePath, 'utf8').split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+    const eq = line.indexOf('=');
+    if (eq <= 0) {
+      continue;
+    }
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim();
+    if (!(key in process.env)) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadDotEnv(process.env.E2E_ENV_FILE || path.join(__dirname, '..', '.e2e.env'));
+
+const frontendUrl =
+  process.env.FRONTEND_URL ||
+  (process.env.FRONTEND_PORT
+    ? `http://localhost:${process.env.FRONTEND_PORT}`
+    : 'http://localhost:8080');
 const artifactDir =
   process.env.PLAYWRIGHT_ARTIFACTS_DIR ||
   path.join(__dirname, 'test-results');
