@@ -90,9 +90,14 @@ EOF
 
 ## Local tests in review-loop
 
-Story PRs target the feature branch, so GitHub Actions does **not** run CI for
-them. Workers must run local unit and integration tests inside
-**pr-review-loop** (each fix round and the final clean round).
+Ready (non-draft) story PRs get path-filtered GitHub Actions unit and
+integration jobs on **any** base, including the feature branch. Draft PRs skip
+those jobs. Converting a ready PR back to draft cancels in-flight runs. See
+[docs/agents/testing.md](../../../docs/agents/testing.md).
+
+Workers must still run local unit and integration tests inside
+**pr-review-loop** (each fix round and the final clean round) before
+mark-ready. Do not treat Actions alone as enough.
 
 Commands: [docs/agents/testing.md](../../../docs/agents/testing.md).
 

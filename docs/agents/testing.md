@@ -4,11 +4,30 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md).
 
 Match CI: [`.github/workflows/main.yml`](../../.github/workflows/main.yml).
 
-**Triggers:** `pull_request` runs only when the PR **base** is `main` (frontend and backend test jobs). PRs into feature or story base branches do not start this workflow. On **push to `main`** (after tests pass), CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`, `observability/` → `alloy`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
+**Triggers** (source of truth: [`.github/workflows/main.yml`](../../.github/workflows/main.yml)):
+
+| Event | Unit / integration | Deploy (ECR + Lightsail) |
+|-------|--------------------|--------------------------|
+| Ready (non-draft) `pull_request` to **any** base (`opened`, `synchronize`, `reopened`, `ready_for_review`) | Path-filtered jobs below | No |
+| Draft `pull_request` | Skips those jobs | No |
+| `converted_to_draft` | Cancels in-flight runs for that PR | No |
+| `push` to `main` | All three test jobs (no path filter) | Yes, after tests |
+
+**Path → job map** (ready PRs only; `dorny/paths-filter`):
+
+| Changed paths | Job |
+|---------------|-----|
+| `frontend/**`, `.github/workflows/main.yml` | `frontend-unit-tests` |
+| `backend/**`, `frontend/lib/api/generated/**`, `.github/workflows/main.yml` | `backend-unit-tests` |
+| `backend/**`, `.github/workflows/main.yml` | `integration-tests` |
+
+Docs-only ready PRs start no app test jobs. Workflow YAML changes start all three.
+
+**Deploy on push to `main`:** after tests pass, CI builds and pushes prod images to ECR only when their directories changed (`backend/` → `life-manager-backend`, `frontend/` → `life-manager-frontend`, `nginx/` → `life-manager-gateway`, `observability/` → `alloy`), then always deploys on Lightsail via SSH. Sequence diagram: [architecture.md — CI deploy to AWS](../architecture.md#ci-deploy-to-aws-merge-to-main).
 
 **Manual Lightsail relaunch:** workflow [`.github/workflows/deploy-lightsail.yml`](../../.github/workflows/deploy-lightsail.yml) (`workflow_dispatch`). Use **Actions → Deploy Lightsail → Run workflow** to pull `main` and redeploy existing `:latest` images without running tests or rebuilding ECR.
 
-**deliver-feature story PRs:** base is the feature branch, so Actions does not run. Workers must run the unit and integration commands below locally inside **pr-review-loop** (see [`.cursor/skills/deliver-feature/`](../../.cursor/skills/deliver-feature/)).
+**deliver-feature story PRs:** ready PRs get path-filtered Actions CI on any base (including the feature branch). Draft PRs skip unit and integration CI. Workers must still run the unit and integration commands below locally inside **pr-review-loop** before mark-ready (see [`.cursor/skills/deliver-feature/`](../../.cursor/skills/deliver-feature/)).
 
 ## Commands
 

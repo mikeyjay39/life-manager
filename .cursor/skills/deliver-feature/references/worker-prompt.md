@@ -47,8 +47,10 @@ A boss session may type messages that start with "From the boss session:".
    Commit and push fixes each round.
    **Local tests (required each review-loop round, including the final clean
    round):** run the unit and integration suites from docs/agents/testing.md
-   that match the stacks you changed. Do not rely on GitHub Actions for story
-   PRs (base is not main). Fix failures before you push or re-ask the reviewer.
+   that match the stacks you changed. Ready story PRs get path-filtered
+   Actions CI on any base; draft PRs skip those jobs. Local suites remain
+   required before mark-ready — do not treat Actions alone as enough. Fix
+   failures before you push or re-ask the reviewer.
    - Frontend changed: `cd frontend && npm ci && npm run test:run` (and
      `npm run lint` when frontend changed).
    - Backend changed: `./backend/scripts/write_rev.sh` then
