@@ -24,4 +24,10 @@ cd "$REPO_ROOT"
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev \
   down --remove-orphans || true
 
+# Drop capture mail (raw verify/reset tokens) for this run.
+if [[ -n "${EMAIL_CAPTURE_DIR_HOST:-}" && -d "${EMAIL_CAPTURE_DIR_HOST}" ]]; then
+  rm -rf -- "${EMAIL_CAPTURE_DIR_HOST}"
+  echo "Removed capture dir ${EMAIL_CAPTURE_DIR_HOST}"
+fi
+
 echo "Torn down project ${COMPOSE_PROJECT_NAME}"

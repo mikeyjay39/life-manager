@@ -216,24 +216,25 @@ mod tests {
 
     #[test]
     fn given_capture_without_dir_when_requiring_then_names_env() {
-        // When — simulate missing EMAIL_CAPTURE_DIR via helper.
-        let err = require_capture_dir_from(None).expect_err("missing dir");
+        // Given — clear EMAIL_CAPTURE_DIR; restore afterward.
+        let previous = std::env::var("EMAIL_CAPTURE_DIR").ok();
+        unsafe {
+            std::env::remove_var("EMAIL_CAPTURE_DIR");
+        }
+        // When
+        let err = require_capture_dir().expect_err("missing dir");
         // Then
         let message = format!("{err:#}");
         assert!(
             message.contains("EMAIL_CAPTURE_DIR"),
             "error should name EMAIL_CAPTURE_DIR, got: {message}"
         );
-    }
-
-    fn require_capture_dir_from(value: Option<&str>) -> anyhow::Result<PathBuf> {
-        value
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-            .ok_or_else(|| {
-                anyhow::anyhow!("EMAIL_CAPTURE_DIR must be set when EMAIL_PROVIDER is capture")
-            })
+        unsafe {
+            match previous {
+                Some(value) => std::env::set_var("EMAIL_CAPTURE_DIR", value),
+                None => std::env::remove_var("EMAIL_CAPTURE_DIR"),
+            }
+        }
     }
 
     #[test]

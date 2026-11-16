@@ -1,11 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const repoRoot = path.resolve(__dirname, '../..');
+const REPO_ROOT = path.resolve(__dirname, '../..');
+
+export function repoRoot(): string {
+  return REPO_ROOT;
+}
 
 /** Load KEY=value pairs from `.e2e.env` when present. */
 export function loadE2eEnvFile(): void {
-  const envPath = process.env.E2E_ENV_FILE || path.join(repoRoot, '.e2e.env');
+  const envPath = process.env.E2E_ENV_FILE || path.join(REPO_ROOT, '.e2e.env');
   if (!fs.existsSync(envPath)) {
     return;
   }
@@ -47,12 +51,18 @@ export function frontendUrl(): string {
 
 export function e2eDbPath(): string {
   loadE2eEnvFile();
-  return process.env.E2E_DB_PATH || path.join(repoRoot, 'backend/data/e2e.db');
+  return process.env.E2E_DB_PATH || path.join(REPO_ROOT, 'backend/data/e2e.db');
+}
+
+/** Container path written by CaptureFileEmailSender (`EMAIL_CAPTURE_DIR`). */
+export function emailCaptureDirContainer(): string {
+  loadE2eEnvFile();
+  return process.env.EMAIL_CAPTURE_DIR || '/app/data/e2e-mail-capture';
 }
 
 /**
  * Host path for CaptureFileEmailSender output (bind-mounted from container).
- * Container path is EMAIL_CAPTURE_DIR (under /app/data/...).
+ * When empty under docker-from-dev-container, helpers fall back to docker exec.
  */
 export function emailCaptureDirHost(): string {
   loadE2eEnvFile();
@@ -60,10 +70,13 @@ export function emailCaptureDirHost(): string {
     return process.env.EMAIL_CAPTURE_DIR_HOST;
   }
   // Map /app/data/... -> ./backend/data/...
-  const containerDir =
-    process.env.EMAIL_CAPTURE_DIR || '/app/data/e2e-mail-capture';
+  const containerDir = emailCaptureDirContainer();
   if (containerDir.startsWith('/app/data/')) {
-    return path.join(repoRoot, 'backend/data', containerDir.slice('/app/data/'.length));
+    return path.join(
+      REPO_ROOT,
+      'backend/data',
+      containerDir.slice('/app/data/'.length)
+    );
   }
   return containerDir;
 }

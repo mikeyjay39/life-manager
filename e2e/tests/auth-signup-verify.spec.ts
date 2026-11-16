@@ -42,8 +42,9 @@ test.describe('auth signup and verify', () => {
     });
     const verifyUrl = extractAuthLink(mail.body, 'verify-email');
     await page.goto(verifyUrl, { waitUntil: 'networkidle' });
+    // Require success copy — "Go to sign in" also appears on verify errors.
     await expect(
-      page.getByText(/Email verified|sign in/i).locator('visible=true').first()
+      page.getByText(/Email verified/i).locator('visible=true').first()
     ).toBeVisible({ timeout: 60_000 });
 
     await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
