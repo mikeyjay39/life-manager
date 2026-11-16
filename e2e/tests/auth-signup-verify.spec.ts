@@ -28,10 +28,10 @@ test.describe('auth signup and verify', () => {
 
     // When — signup UI
     await page.goto(`${base}/signup`, { waitUntil: 'networkidle' });
-    await page.getByLabel('Email input').fill(email);
-    await page.getByLabel('Password input').fill(password);
-    await page.getByLabel('Confirm password input').fill(password);
-    await page.getByLabel('Create account button').click();
+    await page.getByLabel('Email input', { exact: true }).fill(email);
+    await page.getByLabel('Password input', { exact: true }).fill(password);
+    await page.getByLabel('Confirm password input', { exact: true }).fill(password);
+    await page.getByLabel('Create account button', { exact: true }).click();
     await expect(
       page.getByText('Check your email').locator('visible=true').first()
     ).toBeVisible({ timeout: 60_000 });
