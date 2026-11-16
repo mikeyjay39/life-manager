@@ -103,18 +103,23 @@ Commands: [docs/agents/testing.md](../../../docs/agents/testing.md).
 | generated DTOs | `./backend/scripts/export_ts_bindings.sh` + `git diff --exit-code -- frontend/lib/api/generated/` |
 | docs / CI YAML only | No app suites; worker must say so in the PR or boss note |
 
-Do not run `#[ignore]` suites unless the story needs them. Boss must not merge
-when required suites failed or were skipped without a docs/CI-only reason.
+Do not run `#[ignore]` suites unless the story needs them. Boss must not mark a
+story ready for human merge when required suites failed or were skipped without
+a docs/CI-only reason.
 
-## Merge story into feature
+## Human merges story PRs
 
-Boss only, after review-loop (incl. local tests) + summary + manual-test pass:
+Boss and workers **never** run `gh pr merge` on story PRs (into the feature
+branch or any stacked base). After review-loop (incl. local tests) + summary +
+manual-test pass, leave the PR open and comment that it is ready for human
+merge review.
 
-```bash
-gh pr merge <pr> --squash --delete-branch
-```
+When a dependent story needs code that is only on an open blocker PR, either:
 
-Then `git fetch origin <feature-branch>` before the next worktree create.
+1. Wait until the human merges the blocker into the feature branch, then
+   `git fetch origin <feature-branch>` before the next worktree create, or
+2. Stack: base the dependent worktree and PR on the blocker story branch.
+   Still do not merge the stacked PR.
 
 ## Feature PR body
 
@@ -127,17 +132,19 @@ Template for create/edit:
 ## Stories
 | Issue | Title | PR | Status |
 |-------|-------|----|--------|
-| #n | … | #p | merged / in progress / queued |
+| #n | … | #p | ready for human merge / in progress / queued |
 
 ## Flagged decisions
 - <decision>: <choice> — <reason>; human should confirm if wrong
 
 ## Test plan
+- [ ] Review and merge each ready story PR into this feature branch
 - [ ] Review flagged decisions
 - [ ] Smoke feature on a fresh checkout of this branch
 ```
 
-Refresh after each story merge. Never merge this PR in the skill.
+Refresh after each story reaches ready-for-human-merge. Never merge this PR
+(or any story PR) in the skill.
 
 ## Sending messages to a worker
 
