@@ -192,7 +192,7 @@ See **`docker-compose.yml`** header comments and **`nginx/generated/tenant-serve
 
 ### CI deploy to AWS (merge to `main`)
 
-Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Pull requests whose **base** is **`main`** run tests only. PRs into other base branches do not start this workflow. A push to **`main`** runs tests, then builds and pushes each prod image to ECR only when its source tree changed (`backend/**`, `frontend/**`, `nginx/**`, `observability/**`); Lightsail deploy always runs after that job.
+Workflow: [`.github/workflows/main.yml`](../.github/workflows/main.yml). Ready (non-draft) PRs to **any** base run path-filtered unit and integration jobs; draft PRs skip them. Full trigger rules: [agents/testing.md](agents/testing.md). A push to **`main`** runs all three test jobs, then builds and pushes each prod image to ECR only when its source tree changed (`backend/**`, `frontend/**`, `nginx/**`, `observability/**`); Lightsail deploy always runs after that job (push to `main` only).
 
 **Manual relaunch:** [`.github/workflows/deploy-lightsail.yml`](../.github/workflows/deploy-lightsail.yml) — **Actions → Deploy Lightsail → Run workflow**. It SSHs to Lightsail, `git pull origin main`, and runs [`scripts/deploy-prod-lightsail.sh`](../scripts/deploy-prod-lightsail.sh) (pulls existing ECR `:latest`; does not rebuild images or run tests).
 
