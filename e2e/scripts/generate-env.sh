@@ -14,10 +14,23 @@ APP_PORT="${E2E_APP_PORT:-$((3100 + SLOT))}"
 FRONTEND_PORT="${E2E_FRONTEND_PORT:-$((8100 + SLOT))}"
 PROJECT="${COMPOSE_PROJECT_NAME:-lm-e2e-${RUN_ID}-${ATTEMPT}}"
 
+# Disposable e2e-only secrets: new random values each run.
+# Do not reuse in prod. Do not store in git-crypt .dev.env / .prod.env.
+# Optional overrides: E2E_ADMIN_PASSWORD, E2E_JWT_SECRET (debug only).
+e2e_rand() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
+  else
+    head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'
+  fi
+}
+ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-$(e2e_rand)}"
+JWT_SECRET="${E2E_JWT_SECRET:-$(e2e_rand)}"
+
 # Optional Grafana keys stay empty so Alloy is not required for e2e.
 cat >"$OUT" <<EOF
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=e2e-admin-password
+ADMIN_PASSWORD=${ADMIN_PASSWORD}
 ENV_FILE=.e2e.env
 COMPOSE_PROJECT_NAME=${PROJECT}
 APP_PORT=${APP_PORT}
@@ -29,7 +42,7 @@ TEST_TENANT_DATABASE_URL=file:./data/e2e-test-tenant.db
 TESSERACT_ENABLED=false
 TESSERACT_PORT=8884
 OLLAMA_PORT=11434
-JWT_SECRET=e2e-ci-jwt-secret-not-for-prod
+JWT_SECRET=${JWT_SECRET}
 RUST_BACKTRACE=1
 RUST_LOG=info
 EMAIL_PROVIDER=log
