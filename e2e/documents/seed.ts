@@ -38,7 +38,7 @@ export async function loginForApi(
  *
  * ```
  * Harness -> POST /auth/login : JWT
- * Harness -> POST /documents/ multipart json only
+ * Harness -> POST /documents multipart json only
  * Backend -> SQLite : save Document (storage null)
  * ```
  */
