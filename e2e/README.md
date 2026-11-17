@@ -30,6 +30,8 @@ Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
   signup API + capture verify link + verify API (shared by manager stories).
 - Auth UI stories: `tests/auth-signup-verify.spec.ts`,
   `tests/auth-password-reset.spec.ts`.
+- Documents Manager happy path (#255): `documents/documents-happy-path.spec.ts`
+  (seed via multipart API, no Proton; `:visible` / `visible=true` locators).
 - `scripts/activate-user.sh` (SQLite `active=1`) is retired; do not use it.
 
 ## Shared UI helpers
