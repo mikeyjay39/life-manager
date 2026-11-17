@@ -19,12 +19,14 @@ npm run stack:down           # tear down Compose project
 
 Install browsers with `npm run playwright:install` in `e2e/`.
 CI runs the same command before tests.
+Chromium is **not** stored in git.
 Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
 
 ## Mail / auth (#259)
 
-- `EMAIL_PROVIDER=capture` — full message bodies under `EMAIL_CAPTURE_DIR`
-  (bind-mounted `backend/data/...`). Never Resend. Not body-redacted `log`.
+- `EMAIL_PROVIDER=capture` (`file` alias) — full message bodies under
+  `EMAIL_CAPTURE_DIR` (bind-mounted `backend/data/...`). Never Resend.
+  Not body-redacted `log`. Extract verify/reset links from the `.eml` files.
 - `APP_PUBLIC_BASE_URL` = e2e frontend origin (`/verify-email`, `/reset-password`).
 - Ephemeral user helper: `helpers/auth.ts` `createEphemeralUser()` —
   signup API + capture verify link + verify API (shared by manager stories).
@@ -45,25 +47,29 @@ Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
 
 Prefer these over copy-paste locals in new scenarios.
 
-## Manager scenarios
+## Suite map
 
-- Health Manager happy path (#256): `health/happy-path.spec.ts` —
-  create HealthMember → add reading → add doctor visit (real UI).
-- Documents Manager happy path (#255): `documents/documents-happy-path.spec.ts` —
-  open manager + edit API-seeded document (no Proton).
-- Car Manager happy path (#257): `car/happy-path.spec.ts` —
-  create Car → add maintenance event → edit Car → deactivate Car →
-  delete Car (real UI; no Document links).
-- Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
+| Area | Spec path | Notes |
+|------|-----------|--------|
+| Smoke | `tests/smoke.spec.ts` | Sign-in to manager hub (#254) |
+| Auth UI | `tests/auth-signup-verify.spec.ts`, `tests/auth-password-reset.spec.ts` | Capture mail (#259) |
+| Health | `health/happy-path.spec.ts` | Member, reading, visit (#256) |
+| Documents | `documents/documents-happy-path.spec.ts` | Open + edit seeded doc (#255) |
+| Car | `car/happy-path.spec.ts` | Create, maintenance, edit, deactivate, delete (#257) |
+
+Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
+
+Agent overview: [docs/agents/testing.md](../docs/agents/testing.md). Live branch UI proof still uses [`.cursor/skills/manual-test/`](../.cursor/skills/manual-test/); prefer this suite for shared manager coverage.
 
 ## Parallel runs
 
 `scripts/generate-env.sh` sets a unique `COMPOSE_PROJECT_NAME`, ports, and
 capture subdirectory from `GITHUB_RUN_ID` (or the local PID). Alloy is not
-started for e2e.
+started for e2e. Stack images build locally on the runner or host (no ECR).
 
 ## Artifacts
 
 Do not commit PNG screenshots or captured `.eml` files. Playwright writes
-failure screenshots under `test-results/` (gitignored). CI uploads them on
-failure. Capture mail lives under `backend/data/` (already gitignored).
+failure screenshots under `test-results/` (gitignored). On CI failure, download
+Actions artifact `e2e-playwright-<run_id>-<attempt>` (`e2e/test-results/` and
+`e2e/playwright-report/`). Capture mail lives under `backend/data/` (gitignored).
