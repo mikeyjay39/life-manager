@@ -64,8 +64,9 @@ export async function seedOwnedDocument(options: {
     })
   );
 
+  // No trailing slash — Axum returns 404 for `/documents/` vs `/documents`.
   const response = await fetch(
-    `${apiBaseUrl()}/life-manager/api/v1/documents/`,
+    `${apiBaseUrl()}/life-manager/api/v1/documents`,
     {
       method: 'POST',
       headers: {
