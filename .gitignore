@@ -13,3 +13,11 @@ data/*.db-shm
 
 # Per-worktree host ports for parallel dev / manual-test (see scripts/allocate-dev-ports.sh)
 .env.tilt.ports
+
+# e2e harness (generated env, Playwright output, screenshots — do not commit)
+.e2e.env
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+e2e/playwright/.cache/

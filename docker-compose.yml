@@ -61,7 +61,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: development
-    container_name: life_manager_dev
+    # No fixed container_name: parallel e2e / worktrees need Compose project prefixes.
     env_file:
       - ${ENV_FILE}
     environment:
@@ -125,7 +125,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
-    container_name: life_manager_frontend_dev
+    # No fixed container_name: parallel e2e / worktrees need Compose project prefixes.
     environment:
       EXPO_PUBLIC_API_BASE_URL: ${EXPO_PUBLIC_API_BASE_URL:-http://localhost:3000}
       FRONTEND_PORT: ${FRONTEND_PORT:-8080}

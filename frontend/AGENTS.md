@@ -166,7 +166,9 @@ cd frontend && npm ci && npm run test:run
 npm run lint
 ```
 
-**Playwright** (devDependency for the [manual-test](../.cursor/skills/manual-test/) skill): `npm run playwright:install` downloads Chromium. Not part of Vitest/CI unit runs.
+**Playwright (manual-test skill):** frontend `playwright` devDependency for [manual-test](../.cursor/skills/manual-test/). `npm run playwright:install` downloads Chromium. Not part of Vitest.
+
+**Playwright CI e2e:** top-level [`e2e/`](../e2e/) owns `@playwright/test` and the `e2e-tests` CI job — see [e2e/README.md](../e2e/README.md) and [docs/agents/testing.md](../docs/agents/testing.md).
 
 ## Workflow diagrams
 
