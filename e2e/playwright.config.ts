@@ -52,6 +52,7 @@ export default defineConfig({
     '**/tests/**/*.spec.ts',
     '**/health/**/*.spec.ts',
     '**/documents/**/*.spec.ts',
+    '**/car/**/*.spec.ts',
   ],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
