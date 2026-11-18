@@ -28,7 +28,7 @@ npm run test:e2e
 npm run stack:down
 ```
 
-Details: [../../e2e/README.md](../../e2e/README.md). Ephemeral users: `createEphemeralUser()` signs up, reads the captured verify link, and verifies via API. Auth UI stories cover signup/verify and password-reset in the browser. Health Manager happy path: `e2e/health/happy-path.spec.ts` (#256).
+Details: [../../e2e/README.md](../../e2e/README.md). Ephemeral users: `createEphemeralUser()` signs up, reads the captured verify link, and verifies via API. Auth UI stories cover signup/verify and password-reset in the browser. Health Manager happy path: `e2e/health/happy-path.spec.ts` (#256). Car Manager happy path: `e2e/car/happy-path.spec.ts` (#257) — create, maintenance, edit, deactivate, and delete.
 
 **Playwright (manual-test skill):** `playwright` remains a frontend devDependency for [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/). Fetch Chromium with `cd frontend && npm run playwright:install`.
 
