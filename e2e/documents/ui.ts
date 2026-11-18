@@ -1,7 +1,5 @@
 import { expect, type Page, type Request } from '@playwright/test';
 
-import { frontendUrl } from '../helpers/env';
-
 const FORBIDDEN_HOST_RE =
   /(resend\.com|account\.proton\.me|mail\.proton\.me|drive-api\.proton\.me|proton\.me\/api)/i;
 
@@ -18,24 +16,6 @@ export function attachNoResendNoProtonGuard(page: Page): () => void {
   };
   page.on('request', onRequest);
   return () => page.off('request', onRequest);
-}
-
-/** Sign in in the browser with an ephemeral user. */
-export async function signInAs(
-  page: Page,
-  email: string,
-  password: string
-): Promise<void> {
-  const base = frontendUrl();
-  await page.goto(`${base}/login`, { waitUntil: 'networkidle' });
-  await page.getByLabel('Username input').fill(email);
-  await page.getByLabel('Password input').fill(password);
-  await page.getByLabel('Sign in button').click();
-
-  const hub = page
-    .locator('[aria-label="Manager hub"]')
-    .locator('visible=true');
-  await expect(hub.first()).toBeVisible({ timeout: 60_000 });
 }
 
 /** Open Documents from the hub and wait for Document Manager chrome. */

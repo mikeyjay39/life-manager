@@ -49,7 +49,9 @@ Prefer these over copy-paste locals in new scenarios.
 
 - Health Manager happy path (#256): `health/happy-path.spec.ts` —
   create HealthMember → add reading → add doctor visit (real UI).
-- Playwright `testMatch` includes `tests/**` and `health/**`.
+- Documents Manager happy path (#255): `documents/documents-happy-path.spec.ts` —
+  open manager + edit API-seeded document (no Proton).
+- Playwright `testMatch` includes `tests/**`, `health/**`, and `documents/**`.
 
 ## Parallel runs
 

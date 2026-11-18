@@ -1,15 +1,10 @@
 import { expect, test } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
 
 import { createEphemeralUser } from '../helpers/auth';
 import { assertEmailProviderIsCapture } from '../helpers/env';
+import { screenshotProof, signInAs } from '../helpers/ui';
 import { loginForApi, seedOwnedDocument } from './seed';
-import {
-  attachNoResendNoProtonGuard,
-  openDocumentManager,
-  signInAs,
-} from './ui';
+import { attachNoResendNoProtonGuard, openDocumentManager } from './ui';
 
 /**
  * Documents (Life) Manager happy path (#255).
@@ -51,14 +46,7 @@ test.describe('Documents Manager happy path', () => {
           .first()
       ).toBeVisible();
 
-      const outDir =
-        process.env.PLAYWRIGHT_ARTIFACTS_DIR ||
-        path.join(testInfo.outputDir, 'proof');
-      fs.mkdirSync(outDir, { recursive: true });
-      await page.screenshot({
-        path: path.join(outDir, 'documents-manager-open.png'),
-        fullPage: true,
-      });
+      await screenshotProof(page, testInfo, 'documents-manager-open.png');
     } finally {
       detach();
     }
@@ -125,14 +113,7 @@ test.describe('Documents Manager happy path', () => {
         page.getByText(newTitle).locator('visible=true').first()
       ).toBeVisible({ timeout: 60_000 });
 
-      const outDir =
-        process.env.PLAYWRIGHT_ARTIFACTS_DIR ||
-        path.join(testInfo.outputDir, 'proof');
-      fs.mkdirSync(outDir, { recursive: true });
-      await page.screenshot({
-        path: path.join(outDir, 'documents-edit-saved.png'),
-        fullPage: true,
-      });
+      await screenshotProof(page, testInfo, 'documents-edit-saved.png');
     } finally {
       detach();
     }
