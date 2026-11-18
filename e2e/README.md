@@ -52,7 +52,8 @@ Prefer these over copy-paste locals in new scenarios.
 - Documents Manager happy path (#255): `documents/documents-happy-path.spec.ts` —
   open manager + edit API-seeded document (no Proton).
 - Car Manager happy path (#257): `car/happy-path.spec.ts` —
-  create Car → add maintenance event (real UI; no Document links).
+  create Car → add maintenance event → edit Car → deactivate Car →
+  delete Car (real UI; no Document links).
 - Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
 
 ## Parallel runs
