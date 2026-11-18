@@ -39,6 +39,7 @@ impl CaptureFileEmailSender {
         &self.capture_dir
     }
 
+    /// Creates `capture_dir` when it is missing.
     fn ensure_capture_dir(&self) -> Result<(), EmailSendError> {
         fs::create_dir_all(&self.capture_dir).map_err(|err| {
             EmailSendError::Provider(format!(
@@ -48,6 +49,7 @@ impl CaptureFileEmailSender {
         })
     }
 
+    /// Builds a unique `.eml` path under `capture_dir` for this message.
     fn unique_path(&self, message: &EmailMessage) -> PathBuf {
         let millis = SystemTime::now()
             .duration_since(UNIX_EPOCH)
