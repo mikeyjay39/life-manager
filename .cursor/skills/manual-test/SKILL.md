@@ -28,6 +28,7 @@ when a deliver-feature story PR targets a feature branch).
 - Do not put secrets from `.dev.env` in the report.
 - Leave the stack running after the report.
 - For UI checks, use the repo Playwright package in `frontend/` — do not `npm install playwright` under `/tmp`.
+- Shared headless manager coverage lives in top-level [`e2e/`](../../../e2e/) (CI job `e2e-tests`). Prefer that suite when the change overlaps Documents / Health / Car happy paths. Keep this skill for live branch proof on a **dev** stack. See [docs/agents/testing.md](../../../docs/agents/testing.md).
 - Do not commit screenshot PNGs into the repo.
 - Naming local `/tmp` paths on a PR is not proof. Upload PNGs with `gh --attach` when a PR exists.
 
@@ -147,7 +148,7 @@ fi
 
 Capture commands, status codes, response snippets, screenshots, and UI observations. On failure: stop, leave the stack up, and report what failed.
 
-Optional: run matching automated tests from [docs/agents/testing.md](../../../docs/agents/testing.md) for touched areas. They do not replace live proof.
+Optional: run matching automated tests from [docs/agents/testing.md](../../../docs/agents/testing.md) for touched areas (including `cd e2e && npm run test:e2e` when managers overlap). They do not replace live proof.
 
 ### 6. Post screenshot proof on the PR
 

@@ -1,0 +1,18 @@
+{
+  "name": "life-manager-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Headless Playwright e2e harness for life-manager (docker-dev).",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "playwright:install": "playwright install chromium",
+    "stack:up": "bash scripts/up.sh",
+    "stack:down": "bash scripts/down.sh",
+    "stack:wait": "bash scripts/wait-ready.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
