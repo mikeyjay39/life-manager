@@ -46,7 +46,9 @@ const artifactDir =
  * ```
  */
 export default defineConfig({
-  testDir: './tests',
+  // Manager stories live under e2e/<domain>/; auth/smoke stay under e2e/tests/.
+  testDir: '.',
+  testMatch: ['**/tests/**/*.spec.ts', '**/health/**/*.spec.ts'],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
