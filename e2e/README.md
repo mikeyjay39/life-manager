@@ -32,6 +32,17 @@ Host OS libs: `npx playwright install-deps` when Chromium fails to launch.
   `tests/auth-password-reset.spec.ts`.
 - `scripts/activate-user.sh` (SQLite `active=1`) is retired; do not use it.
 
+## Shared UI helpers
+
+`helpers/ui.ts` holds helpers shared across manager and smoke specs:
+
+- `visibleLabel` — Expo web visible control
+- `signInToHub` / `signInAs` — login → manager hub
+- `screenshotProof` — proof PNG under artifacts dir
+- `utcYmd` — UTC `YYYY-MM-DD` for form dates
+
+Prefer these over copy-paste locals in new scenarios.
+
 ## Manager scenarios
 
 - Health Manager happy path (#256): `health/happy-path.spec.ts` —
