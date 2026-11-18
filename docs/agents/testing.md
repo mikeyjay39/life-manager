@@ -26,6 +26,8 @@ Chromium: run `npm run playwright:install` in `e2e/` (local and CI). Browsers ar
 On failure, CI uploads Actions artifact `e2e-playwright-<run_id>-<attempt>` from `e2e/test-results/` and `e2e/playwright-report/`. Do not commit PNGs or captured `.eml`.
 
 ```bash
+cd e2e && ./run-e2e.sh          # preferred local wrapper (headless; tears down on exit)
+# or: ./run-e2e.sh --headed     # visible browser when DISPLAY works
 cd e2e && npm ci && npm run playwright:install
 npm run stack:up && npm run stack:wait
 npm run test:e2e
