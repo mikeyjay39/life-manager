@@ -166,9 +166,11 @@ cd frontend && npm ci && npm run test:run
 npm run lint
 ```
 
-**Playwright (manual-test skill):** frontend `playwright` devDependency for [manual-test](../.cursor/skills/manual-test/). `npm run playwright:install` downloads Chromium. Not part of Vitest.
+**Vitest** stays the frontend unit suite (`npm run test:run` above). It does not run Playwright.
 
-**Playwright CI e2e:** top-level [`e2e/`](../e2e/) owns `@playwright/test` and the `e2e-tests` CI job — see [e2e/README.md](../e2e/README.md) and [docs/agents/testing.md](../docs/agents/testing.md).
+**Playwright (manual-test skill):** frontend `playwright` devDependency for [manual-test](../.cursor/skills/manual-test/). `npm run playwright:install` downloads Chromium (not committed in git). Keep the skill for live branch proof.
+
+**Playwright CI e2e:** top-level [`e2e/`](../e2e/) owns `@playwright/test` and the `e2e-tests` CI job — see [e2e/README.md](../e2e/README.md) and [docs/agents/testing.md](../docs/agents/testing.md). Prefer that suite for shared Documents / Health / Car coverage.
 
 ## Workflow diagrams
 

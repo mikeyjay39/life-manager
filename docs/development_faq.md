@@ -164,12 +164,13 @@ Set these in git-crypt `.<profile>.env` (for example `.dev.env`, `.prod.env`). D
 
 | Variable | Role |
 |----------|------|
-| `EMAIL_PROVIDER` | `log` (default; prints mail to logs) or `resend` (HTTPS send). Prod uses `resend`. |
+| `EMAIL_PROVIDER` | `log` (default; prints mail to logs, body redacted), `capture` / `file` (full body to `EMAIL_CAPTURE_DIR` for e2e), or `resend` (HTTPS send). Prod uses `resend`. |
+| `EMAIL_CAPTURE_DIR` | Required when `EMAIL_PROVIDER` is `capture` or `file`. Adapter creates the directory if missing. Do not commit captured files. |
 | `RESEND_API_KEY` | Resend secret. Required when `EMAIL_PROVIDER=resend`. Never log it. |
 | `EMAIL_FROM` | From address that Resend accepts for the verified domain (for example `noreply@life-manager.jeszenka.com`). |
-| `APP_PUBLIC_BASE_URL` | Public app origin for links in mail. **Required for signup** even with `EMAIL_PROVIDER=log` (unset → signup `503`). Prod: `https://life-manager.jeszenka.com`. Dev may use a local origin for deep-link tests. |
+| `APP_PUBLIC_BASE_URL` | Public app origin for links in mail. **Required for signup** even with `EMAIL_PROVIDER=log` (unset → signup `503`). Prod: `https://life-manager.jeszenka.com`. E2e / deep-link tests use the frontend origin. |
 
-Local stacks can keep `EMAIL_PROVIDER=log` so mail is written to logs instead of Resend. You must still set `APP_PUBLIC_BASE_URL`; signup builds the verify link from it before send.
+Local stacks can keep `EMAIL_PROVIDER=log` so mail is written to logs instead of Resend. You must still set `APP_PUBLIC_BASE_URL`; signup builds the verify link from it before send. E2e uses `capture` so Playwright can read verify/reset links.
 
 ### Resend ops checklist (humans)
 

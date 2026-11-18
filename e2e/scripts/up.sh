@@ -11,16 +11,27 @@ GEN="$REPO_ROOT/e2e/scripts/generate-env.sh"
 source "$GEN"
 
 ENV_PATH="${E2E_ENV_FILE}"
-if ! grep -qE '^EMAIL_PROVIDER=log$' "$ENV_PATH"; then
-  echo "Error: e2e requires EMAIL_PROVIDER=log in $ENV_PATH" >&2
+if ! grep -qE '^EMAIL_PROVIDER=(capture|file)$' "$ENV_PATH"; then
+  echo "Error: e2e requires EMAIL_PROVIDER=capture (or file) in $ENV_PATH" >&2
   exit 1
 fi
 if grep -qiE '^EMAIL_PROVIDER=resend' "$ENV_PATH"; then
   echo "Error: EMAIL_PROVIDER=resend is forbidden for e2e" >&2
   exit 1
 fi
+if ! grep -qE '^EMAIL_CAPTURE_DIR=.+' "$ENV_PATH"; then
+  echo "Error: e2e requires EMAIL_CAPTURE_DIR in $ENV_PATH" >&2
+  exit 1
+fi
+if grep -qE '^EMAIL_PROVIDER=log$' "$ENV_PATH"; then
+  echo "Error: EMAIL_PROVIDER=log is body-redacted; e2e needs capture for links" >&2
+  exit 1
+fi
 
 mkdir -p "$REPO_ROOT/backend/data"
+if [[ -n "${EMAIL_CAPTURE_DIR_HOST:-}" ]]; then
+  mkdir -p "$EMAIL_CAPTURE_DIR_HOST"
+fi
 
 export COMPOSE_PROJECT_NAME
 export ENV_FILE=".e2e.env"
@@ -37,3 +48,4 @@ docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev \
   up -d --no-deps life_manager_dev frontend_dev
 
 echo "Stack up. FRONTEND_URL=${FRONTEND_URL} API_BASE_URL=${API_BASE_URL}"
+echo "Capture dir (host): ${EMAIL_CAPTURE_DIR_HOST}"
