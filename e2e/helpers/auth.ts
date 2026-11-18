@@ -1,7 +1,5 @@
-import { execFileSync } from 'node:child_process';
-import path from 'node:path';
-
-import { apiBaseUrl, assertEmailProviderIsLog } from './env';
+import { apiBaseUrl, assertEmailProviderIsCapture } from './env';
+import { extractAuthLink, waitForCapturedMail } from './mail';
 
 export type EphemeralUser = {
   email: string;
@@ -11,18 +9,21 @@ export type EphemeralUser = {
 /**
  * Create an ephemeral active user for one e2e run.
  *
- * Temporary #254 path: POST /auth/signup (EMAIL_PROVIDER=log), then activate
- * via sqlite update inside life_manager_dev. Story #259 replaces activation
- * with capture/file verify.
+ * Uses signup + capture mail + verify (no Resend, no SQLite activate hack).
  *
  * ```
  * Harness -> API : POST /auth/signup
- * Harness -> container sqlite : SET active=1
- * Harness -> Browser : sign in
+ * Backend -> EMAIL_CAPTURE_DIR : write verify .eml
+ * Harness -> read capture : extract /verify-email?token=
+ * Harness -> API : POST /auth/verify-email
+ * Harness -> Browser : sign in (manager stories)
  * ```
+ *
+ * Auth **stories** must exercise signup/verify/reset UI paths separately.
+ * This helper may use API+capture so Documents/Health/Car e2e stay short.
  */
 export async function createEphemeralUser(): Promise<EphemeralUser> {
-  assertEmailProviderIsLog();
+  assertEmailProviderIsCapture();
 
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
   const email = `e2e-${stamp}@example.com`;
@@ -39,14 +40,28 @@ export async function createEphemeralUser(): Promise<EphemeralUser> {
     throw new Error(`signup failed: ${response.status} ${body}`);
   }
 
-  activateUserViaContainerSqlite(email);
-  return { email, password };
-}
-
-function activateUserViaContainerSqlite(email: string): void {
-  const script = path.resolve(__dirname, '../scripts/activate-user.sh');
-  execFileSync('bash', [script, email], {
-    env: { ...process.env },
-    stdio: ['ignore', 'pipe', 'pipe'],
+  const mail = await waitForCapturedMail({
+    to: email,
+    subjectIncludes: 'Verify',
   });
+  const link = extractAuthLink(mail.body, 'verify-email');
+  const token = new URL(link).searchParams.get('token');
+  if (!token) {
+    throw new Error(`verify link missing token: ${link}`);
+  }
+
+  const verify = await fetch(
+    `${apiBaseUrl()}/life-manager/api/v1/auth/verify-email`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ token }),
+    }
+  );
+  if (!verify.ok) {
+    const body = await verify.text();
+    throw new Error(`verify-email failed: ${verify.status} ${body}`);
+  }
+
+  return { email, password };
 }

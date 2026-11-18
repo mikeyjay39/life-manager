@@ -4,6 +4,7 @@ pub mod auth_user_seeder;
 pub mod auth_user;
 pub mod auth_user_entity;
 pub mod db;
+pub mod capture_file_email_sender;
 pub mod email_config;
 pub mod email_sender_factory;
 pub mod email_token_entity;

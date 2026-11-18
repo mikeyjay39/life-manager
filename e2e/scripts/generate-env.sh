@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Write a runner-local .e2e.env for docker-dev e2e (EMAIL_PROVIDER=log, unique ports).
+# Write a runner-local .e2e.env for docker-dev e2e (EMAIL_PROVIDER=capture).
 # Does not call Resend. Do not commit the generated file.
 set -euo pipefail
 
@@ -13,6 +13,12 @@ SLOT=$((RUN_ID % 200))
 APP_PORT="${E2E_APP_PORT:-$((3100 + SLOT))}"
 FRONTEND_PORT="${E2E_FRONTEND_PORT:-$((8100 + SLOT))}"
 PROJECT="${COMPOSE_PROJECT_NAME:-lm-e2e-${RUN_ID}-${ATTEMPT}}"
+
+# Unique capture sink per run (bind-mounted under backend/data).
+CAPTURE_REL="e2e-mail-capture/${PROJECT}"
+EMAIL_CAPTURE_DIR="/app/data/${CAPTURE_REL}"
+EMAIL_CAPTURE_DIR_HOST="${REPO_ROOT}/backend/data/${CAPTURE_REL}"
+mkdir -p "$EMAIL_CAPTURE_DIR_HOST"
 
 # Disposable e2e-only secrets: new random values each run.
 # Do not reuse in prod. Do not store in git-crypt .dev.env / .prod.env.
@@ -45,7 +51,9 @@ OLLAMA_PORT=11434
 JWT_SECRET=${JWT_SECRET}
 RUST_BACKTRACE=1
 RUST_LOG=info
-EMAIL_PROVIDER=log
+EMAIL_PROVIDER=capture
+EMAIL_CAPTURE_DIR=${EMAIL_CAPTURE_DIR}
+EMAIL_CAPTURE_DIR_HOST=${EMAIL_CAPTURE_DIR_HOST}
 FRONTEND_URL=http://localhost:${FRONTEND_PORT}
 API_BASE_URL=http://localhost:${APP_PORT}
 E2E_DB_PATH=${REPO_ROOT}/backend/data/e2e.db
@@ -61,6 +69,9 @@ export FRONTEND_URL="http://localhost:${FRONTEND_PORT}"
 export API_BASE_URL="http://localhost:${APP_PORT}"
 export E2E_ENV_FILE="$OUT"
 export E2E_DB_PATH="$REPO_ROOT/backend/data/e2e.db"
+export EMAIL_PROVIDER=capture
+export EMAIL_CAPTURE_DIR
+export EMAIL_CAPTURE_DIR_HOST
 
 echo "Wrote $OUT (project=${PROJECT} APP_PORT=${APP_PORT} FRONTEND_PORT=${FRONTEND_PORT})"
-echo "EMAIL_PROVIDER=log (Resend disabled for e2e)"
+echo "EMAIL_PROVIDER=capture EMAIL_CAPTURE_DIR=${EMAIL_CAPTURE_DIR} (Resend disabled)"

@@ -3,18 +3,19 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 import { createEphemeralUser } from '../helpers/auth';
-import { assertEmailProviderIsLog, frontendUrl } from '../helpers/env';
+import { assertEmailProviderIsCapture, frontendUrl } from '../helpers/env';
 
 /**
  * Minimal harness smoke: ephemeral user signs in and reaches the manager hub.
  * Manager domain scenarios are later stories (#255+).
+ * Ephemeral user uses signup + capture verify (#259).
  */
 test.describe('e2e harness smoke', () => {
   test('given ephemeral user when signing in then hub is visible', async ({
     page,
   }, testInfo) => {
     // Given
-    assertEmailProviderIsLog();
+    assertEmailProviderIsCapture();
     const user = await createEphemeralUser();
     const base = frontendUrl();
 

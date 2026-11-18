@@ -99,10 +99,11 @@ Normal signup path: **email verification, then login**. Manual SQLite activation
 
 | Variable | Role |
 |----------|------|
-| `EMAIL_PROVIDER` | `log` (default) or `resend`. Prod uses `resend`. |
+| `EMAIL_PROVIDER` | `log` (default), `capture` / `file` (e2e full-body sink), or `resend`. Prod uses `resend`. |
+| `EMAIL_CAPTURE_DIR` | Directory for `CaptureFileEmailSender` `.eml` files. Required when provider is `capture` / `file`. |
 | `RESEND_API_KEY` | Required when provider is `resend`. Do not put real keys in docs. |
 | `EMAIL_FROM` | From address for Resend (domain must be verified). |
-| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Required for signup (unset → `503`). Prod: `https://life-manager.jeszenka.com`. |
+| `APP_PUBLIC_BASE_URL` | Public origin for verify/reset links. Required for signup (unset → `503`). Prod: `https://life-manager.jeszenka.com`. E2e sets the frontend origin so links open `/verify-email` and `/reset-password`. |
 
 Ops checklist (Resend account, DNS verify, git-crypt env): [development FAQ](../development_faq.md#resend-ops-checklist-humans).
 
