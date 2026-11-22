@@ -22,9 +22,11 @@ describe('manager-layout constants', () => {
     expect(APP_MENU_BAR_STICKY_OFFSET).toBe(61);
   });
 
-  it('given shared layout tokens when read then content max width exceeds CTA max width', () => {
-    // Given / When / Then — content column stays wider than a single CTA.
+  it('given shared layout tokens when read then content max width is 960 and exceeds CTA max width', () => {
+    // Given / When / Then — content column is 960 and stays wider than a single CTA.
+    expect(MANAGER_CONTENT_MAX_WIDTH).toBe(960);
     expect(MANAGER_CONTENT_MAX_WIDTH).toBeGreaterThan(MANAGER_CTA_MAX_WIDTH);
+    expect(MANAGER_CTA_MAX_WIDTH).toBe(280);
     expect(MANAGER_CTA_MAX_WIDTH).toBeGreaterThanOrEqual(MANAGER_CTA_MIN_WIDTH);
     expect(MANAGER_CTA_MIN_HEIGHT).toBeGreaterThanOrEqual(44);
   });

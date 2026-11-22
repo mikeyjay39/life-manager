@@ -21,8 +21,9 @@ describe('ManagerPageContent', () => {
     // When
     const root = screen.getByTestId('manager-page');
 
-    // Then
+    // Then — single applier of shared content max width (960)
     expect(screen.getByText('Body')).toBeTruthy();
+    expect(MANAGER_CONTENT_MAX_WIDTH).toBe(960);
     expect(root.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -83,8 +83,9 @@ describe('HomeScreen', () => {
     // Given a signed-in Home hub
     // When Home renders
     renderHomeScreen(tenantDocumentsOnly);
-    // Then body uses ManagerPageContent width rules
+    // Then body uses ManagerPageContent width rules (shared 960 column)
     const pageContent = screen.getByTestId('home-page-content');
+    expect(MANAGER_CONTENT_MAX_WIDTH).toBe(960);
     expect(pageContent.props.style).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
