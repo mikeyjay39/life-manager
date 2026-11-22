@@ -8,6 +8,7 @@ Personal/family life-management app. **Documents**, **Health Manager**, and **Ca
 |------|--------|-----------|
 | `backend/` | Rust (Axum, Diesel/SQLite) | [backend/AGENTS.md](backend/AGENTS.md) |
 | `frontend/` | Expo / React Native (Vitest) | [frontend/AGENTS.md](frontend/AGENTS.md) |
+| `e2e/` | Playwright headless e2e (docker-dev CI) | [e2e/README.md](e2e/README.md), [docs/agents/testing.md](docs/agents/testing.md) |
 | `dev-container/` | Docker dev environment (Rust, nvim, cursor-cli) | [README.md](README.md#dev-container) |
 | Root | Docker Compose, orchestration scripts | [README.md](README.md) |
 
@@ -26,7 +27,7 @@ Personal/family life-management app. **Documents**, **Health Manager**, and **Ca
 | [docs/todos.md](docs/todos.md) | Planned work — do not implement unless asked |
 | [docs/architecture.md](docs/architecture.md) | Workspace layout, HTTP routing, deployment diagrams |
 | [docs/agents/api.md](docs/agents/api.md) | HTTP routes, auth, API base URL |
-| [docs/agents/testing.md](docs/agents/testing.md) | CI commands, BDD examples |
+| [docs/agents/testing.md](docs/agents/testing.md) | CI commands, BDD examples, top-level `e2e/` Playwright |
 | [frontend/README.md](frontend/README.md) | Frontend setup |
 | [frontend/AGENTS.md](frontend/AGENTS.md#manager-ux-conventions) | Manager UX conventions (layout, form-vs-results, tokens, type, chrome, feedback, lists, focus, locale) |
 
