@@ -4,7 +4,22 @@ Top-level Playwright suite for headless Chromium against **docker-dev**.
 
 ## Scripts
 
-From `e2e/`:
+From `e2e/`, prefer the wrapper for a full local run:
+
+```bash
+./run-e2e.sh                 # headless (same as CI); always stack:down on exit
+./run-e2e.sh --headed        # visible browser when DISPLAY works
+./run-e2e.sh --headed car/happy-path.spec.ts
+./run-e2e.sh --debug         # Playwright inspector
+./run-e2e.sh --ui            # Playwright UI mode
+./run-e2e.sh --keep-stack    # leave Compose up after tests
+./run-e2e.sh --skip-install  # skip npm ci / playwright:install
+```
+
+Playwright Test has **no** `--slow-mo` CLI flag. Use `--debug`, `--headed`,
+or `launchOptions.slowMo` in `playwright.config.ts` when you need delay.
+
+Manual steps (same flow as the wrapper / CI):
 
 ```bash
 npm ci
