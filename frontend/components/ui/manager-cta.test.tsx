@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 
 import { ManagerCta } from '@/components/ui/manager-cta';
 import {
+  MANAGER_CONTENT_MAX_WIDTH,
   MANAGER_CTA_MAX_WIDTH,
   MANAGER_CTA_MIN_WIDTH,
 } from '@/components/ui/manager-layout';
@@ -42,7 +43,7 @@ describe('ManagerCta', () => {
         }),
       ])
     );
-    expect(MANAGER_CTA_MAX_WIDTH).toBeLessThan(720);
+    expect(MANAGER_CTA_MAX_WIDTH).toBeLessThan(MANAGER_CONTENT_MAX_WIDTH);
     expect(screen.getByLabelText('Save button')).toBeTruthy();
   });
 
