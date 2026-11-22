@@ -62,6 +62,20 @@ type CarMaintenancePanelProps = {
   onEventsChanged?: () => void;
 };
 
+/**
+ * Wide-row flex weights for maintenance history.
+ * Title gets the largest share so multi-word event names stay scannable.
+ * Notes and Receipt stay below Title; Type stays the primary label column.
+ */
+export const CAR_MAINTENANCE_LIST_COLUMN_FLEX = {
+  type: 1.25,
+  title: 2.75,
+  odometer: 1,
+  cost: 0.9,
+  notes: 1.25,
+  receipt: 1.1,
+} as const;
+
 function todayYmd(): string {
   // Match API validation: occurred_on must not be after Utc::now().date_naive().
   const now = new Date();
@@ -844,12 +858,37 @@ export default function CarMaintenancePanel({
           testID="car-maintenance-data-list"
           leadingHeader="Date"
           columnHeaders={[
-            { key: 'type', label: 'Type', primary: true },
-            { key: 'title', label: 'Title' },
-            { key: 'odometer', label: 'Odometer' },
-            { key: 'cost', label: 'Cost' },
-            { key: 'notes', label: 'Notes' },
-            { key: 'receipt', label: 'Receipt' },
+            {
+              key: 'type',
+              label: 'Type',
+              primary: true,
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.type,
+            },
+            {
+              key: 'title',
+              label: 'Title',
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.title,
+            },
+            {
+              key: 'odometer',
+              label: 'Odometer',
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.odometer,
+            },
+            {
+              key: 'cost',
+              label: 'Cost',
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.cost,
+            },
+            {
+              key: 'notes',
+              label: 'Notes',
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.notes,
+            },
+            {
+              key: 'receipt',
+              label: 'Receipt',
+              flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.receipt,
+            },
           ]}
         >
           {events.map((event) => {
@@ -883,11 +922,13 @@ export default function CarMaintenancePanel({
                     key: 'type',
                     content: typeLabel,
                     primary: true,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.type,
                     accessibilityLabel: typeLabel,
                   },
                   {
                     key: 'title',
                     content: title,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.title,
                     accessibilityLabel: event.title?.trim()
                       ? `Title: ${event.title}`
                       : 'Title: none',
@@ -895,6 +936,7 @@ export default function CarMaintenancePanel({
                   {
                     key: 'odometer',
                     content: odometer,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.odometer,
                     accessibilityLabel:
                       odometerMiles != null
                         ? `Odometer: ${odometerMiles} mi`
@@ -903,6 +945,7 @@ export default function CarMaintenancePanel({
                   {
                     key: 'cost',
                     content: cost,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.cost,
                     accessibilityLabel: costLabel
                       ? `Cost ${costLabel}`
                       : 'Cost: none',
@@ -910,6 +953,7 @@ export default function CarMaintenancePanel({
                   {
                     key: 'notes',
                     content: notes,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.notes,
                     accessibilityLabel: event.notes?.trim()
                       ? `Notes: ${event.notes}`
                       : 'Notes: none',
@@ -917,6 +961,7 @@ export default function CarMaintenancePanel({
                   {
                     key: 'receipt',
                     content: receipt,
+                    flex: CAR_MAINTENANCE_LIST_COLUMN_FLEX.receipt,
                     accessibilityLabel: receiptTitle
                       ? `Receipt: ${receiptTitle}`
                       : 'Receipt: none',
