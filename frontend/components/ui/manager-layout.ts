@@ -12,7 +12,7 @@
 export const APP_MENU_BAR_STICKY_OFFSET = 61;
 
 /** Max width of the centered manager content column on wide viewports. */
-export const MANAGER_CONTENT_MAX_WIDTH = 720;
+export const MANAGER_CONTENT_MAX_WIDTH = 960;
 
 /** Horizontal inset inside the manager content column. */
 export const MANAGER_CONTENT_PADDING_X = 16;
