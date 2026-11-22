@@ -80,15 +80,17 @@ Shared patterns for Documents, Health, and Cars. Prefer these over one-off scree
 
 Do not invent per-screen width or full-bleed CTA stretch.
 
+`MANAGER_CONTENT_MAX_WIDTH` is **960** (`manager-layout.ts`). Documents, Health, and Cars all share that content max width via `ManagerPageContent`. Do not set a per-screen `maxWidth` (or other content-column override) on manager bodies.
+
 | Primitive | Role |
 |-----------|------|
 | `ManagerScrollView` | Quiet manager shell: sticky `AppMenuBar`, compact `ManagerPageHeader`, no parallax image |
-| `ManagerPageContent` | Centers the body (`MANAGER_CONTENT_MAX_WIDTH`); spaces children with `MANAGER_CONTENT_GAP` |
+| `ManagerPageContent` | Centers the body (`MANAGER_CONTENT_MAX_WIDTH` = 960); spaces children with `MANAGER_CONTENT_GAP` |
 | `ManagerSection` | Section chrome + optional toolbar (`primaryAction` filled Add; `secondaryActions` outline; `toolbarExtra` for switches). Title leading/LTR |
 | `ManagerPageHeader` | `pageTitle` role; subtitle uses `meta` |
 | `ManagerCta` | Wraps `Button`; caps width by default (`fullWidth` opt-in) |
 
-Stack sections as direct children of `ManagerPageContent`. Do not add per-screen `marginBottom` between sections. Prefer `ManagerSection` over one-off headers. Density tokens live in `manager-layout.ts` (`MANAGER_CONTENT_GAP`, `MANAGER_SECTION_PADDING`, `MANAGER_PAGE_PADDING_Y`, dense list tokens). Home may keep `ParallaxScrollView` + header assets, but wrap the body in `ManagerPageContent` so width centering matches managers.
+Stack sections as direct children of `ManagerPageContent`. Do not add per-screen `marginBottom` between sections. Prefer `ManagerSection` over one-off headers. Density tokens live in `manager-layout.ts` (`MANAGER_CONTENT_MAX_WIDTH`, `MANAGER_CONTENT_GAP`, `MANAGER_SECTION_PADDING`, `MANAGER_PAGE_PADDING_Y`, dense list tokens). Home may keep `ParallaxScrollView` + header assets, but wrap the body in `ManagerPageContent` so width centering matches managers.
 
 ### Quiet chrome
 
@@ -111,6 +113,8 @@ Use `ThemedText` roles `pageTitle`, `sectionTitle`, `body`, `meta` (legacy alias
 ### Dense data lists
 
 Prefer `ManagerDataList` / `ManagerDataListRow` for history and results rows (health readings/visits, car maintenance). Hairline rows; aligned columns on wide viewports. Below `MANAGER_DATA_STACK_BELOW`, stack cells under the leading date. Secondary fields use `ThemedText` `meta` (muted). Keep row actions reachable. Document table (`document-grid.tsx`) shares the same padding tokens and meta typography for non-title cells.
+
+Inside the shared page width, dense lists may give primary text columns a higher `flex` weight so titles stay readable (for example Car maintenance Title via `CAR_MAINTENANCE_LIST_COLUMN_FLEX`). Keep using `ManagerDataList` / `ManagerDataListRow`; do not invent a separate list layout API or a wider page column for one screen.
 
 ### Loading skeletons
 
