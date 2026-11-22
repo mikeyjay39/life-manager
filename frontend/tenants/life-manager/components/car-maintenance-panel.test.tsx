@@ -1,5 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as ReactNative from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -8,7 +9,41 @@ import { formatUsdFromCents } from '@/lib/format/display';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
-import CarMaintenancePanel from './car-maintenance-panel';
+import CarMaintenancePanel, {
+  CAR_MAINTENANCE_LIST_COLUMN_FLEX,
+} from './car-maintenance-panel';
+
+/** Flatten RN style arrays/objects and return the first defined `flex`. */
+function styleFlex(style: unknown): number | undefined {
+  if (style == null) {
+    return undefined;
+  }
+  if (Array.isArray(style)) {
+    for (let i = style.length - 1; i >= 0; i -= 1) {
+      const found = styleFlex(style[i]);
+      if (found != null) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+  if (typeof style === 'object' && 'flex' in style) {
+    const value = (style as { flex?: number }).flex;
+    return typeof value === 'number' ? value : undefined;
+  }
+  return undefined;
+}
+
+/** Read flex from `ManagerDataListRow` cell wrappers under `{rowTestId}-cells`. */
+function cellFlexAt(rowTestId: string, index: number): number | undefined {
+  const cells = screen.getByTestId(`${rowTestId}-cells`);
+  const child = (
+    cells as { props?: { children?: unknown } }
+  ).props?.children;
+  const list = React.Children.toArray(child);
+  const wrapper = list[index] as { props?: { style?: unknown } } | undefined;
+  return styleFlex(wrapper?.props?.style);
+}
 
 vi.mock('@react-native-community/datetimepicker', async () => {
   const ReactLib = await import('react');
@@ -448,6 +483,73 @@ describe('CarMaintenancePanel', () => {
     // Then the user can still clear the filter
     expect(screen.getByLabelText('Filter all event types')).toBeTruthy();
     expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
+  });
+
+  it('given maintenance history columns when weighted then Title flex exceeds Notes and Receipt', async () => {
+    // Given the shared column flex map used by headers and cells
+    const { title, notes, receipt, type } = CAR_MAINTENANCE_LIST_COLUMN_FLEX;
+
+    // Then Title keeps the largest readable share; Type stays primary-weighted
+    expect(title).toBeGreaterThan(notes);
+    expect(title).toBeGreaterThan(receipt);
+    expect(type).toBeGreaterThan(0);
+
+    // Given a listed event with title, notes, and receipt text
+    mockDefaultLoads(
+      [
+        {
+          id: 'e-flex',
+          car_id: 'c1',
+          occurred_on: '2026-02-01',
+          event_type: 'service',
+          odometer_miles: 12000,
+          cost_cents: 4500,
+          title: 'Replace cabin air filter and inspect belts',
+          notes: 'Dealer suggested follow-up in six months',
+          document_id: 'd1',
+          created_at: 't',
+          updated_at: 't',
+        },
+      ],
+      [
+        {
+          id: 'd1',
+          title: 'Service receipt Feb',
+          filename: 'receipt.pdf',
+          content_type: 'application/pdf',
+          size_bytes: 100,
+          tags: [],
+          created_at: 't',
+          updated_at: 't',
+        },
+      ]
+    );
+
+    // When the history list renders on a wide layout (flex applies above stack break)
+    const dimsSpy = vi
+      .spyOn(ReactNative, 'useWindowDimensions')
+      .mockReturnValue({ width: 1024, height: 800, scale: 1, fontScale: 1 });
+    try {
+      renderPanel();
+
+      await waitFor(() => {
+        expect(
+          screen.getByLabelText(
+            'Title: Replace cabin air filter and inspect belts'
+          )
+        ).toBeTruthy();
+      });
+
+      // Then rendered cell flex matches the map (type, title, …, notes, receipt)
+      const rowId = 'car-maintenance-row-e-flex';
+      expect(cellFlexAt(rowId, 1)).toBe(title);
+      expect(cellFlexAt(rowId, 4)).toBe(notes);
+      expect(cellFlexAt(rowId, 5)).toBe(receipt);
+      expect(cellFlexAt(rowId, 1)!).toBeGreaterThan(cellFlexAt(rowId, 4)!);
+      expect(cellFlexAt(rowId, 1)!).toBeGreaterThan(cellFlexAt(rowId, 5)!);
+    } finally {
+      dimsSpy.mockRestore();
+    }
   });
 
   it('given inactive Car when render then create is disabled and history can load', async () => {
