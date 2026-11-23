@@ -47,6 +47,10 @@ type DocumentCreateFormProps = {
   onDocumentCreated?: (document: DocumentDto) => void;
   /** Lets the parent block Cancel while a create request is in flight. */
   onSubmittingChange?: (submitting: boolean) => void;
+  /** Editable starting title (for example Car label + role). */
+  initialTitle?: string;
+  /** Editable starting tags string (comma-separated). */
+  initialTags?: string;
 };
 
 /**
@@ -67,10 +71,12 @@ type DocumentCreateFormProps = {
 export default function DocumentCreateForm({
   onDocumentCreated,
   onSubmittingChange,
+  initialTitle = '',
+  initialTags = '',
 }: DocumentCreateFormProps) {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagsInput, setTagsInput] = useState(initialTags);
   const [issuedDateInput, setIssuedDateInput] = useState('');
   const [expireDateInput, setExpireDateInput] = useState('');
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);

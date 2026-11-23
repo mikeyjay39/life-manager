@@ -62,7 +62,11 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockApiFetch = vi.mocked(apiFetch);
 
 function renderDocumentCreateForm(
-  props: { onDocumentCreated?: (document: DocumentDto) => void } = {}
+  props: {
+    onDocumentCreated?: (document: DocumentDto) => void;
+    initialTitle?: string;
+    initialTags?: string;
+  } = {}
 ) {
   return render(
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
@@ -131,6 +135,33 @@ describe('DocumentCreateForm', () => {
     expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
     expect(screen.getByPlaceholderText('Document content')).toBeTruthy();
     expect(screen.getByLabelText('Submit')).toBeTruthy();
+  });
+
+  it('prefills editable title and tags from initial props', async () => {
+    renderDocumentCreateForm({
+      initialTitle: 'Daily insurance',
+      initialTags: 'insurance',
+    });
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
+      'Daily insurance'
+    );
+    expect(screen.getByPlaceholderText('e.g. work, notes').props.value).toBe(
+      'insurance'
+    );
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Document title'),
+      'Daily insurance card'
+    );
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
+    submitForm();
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+    expect(getSubmittedPayloadJson()).toMatchObject({
+      title: 'Daily insurance card',
+      tags: ['insurance'],
+    });
   });
 
   it('shows inline error when there is no token', () => {

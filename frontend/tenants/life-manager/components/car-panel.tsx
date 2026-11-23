@@ -36,6 +36,7 @@ import type {
   UpdateCarCommand,
 } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
+import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 
 const DISPLAY_NAME_MAX_LEN = 100;
 const NOTES_MAX_LEN = 2000;
@@ -97,6 +98,39 @@ export function carDisplayLabel(car: CarDto): string {
     return name;
   }
   return `${car.year} ${car.make} ${car.model}`.trim();
+}
+
+export type CarDocumentLinkRole = 'insurance' | 'registration';
+
+/** Draft label from open create/edit fields before Save. */
+export function carFormDraftLabel(fields: {
+  displayName: string;
+  make: string;
+  model: string;
+  year: string;
+}): string {
+  const name = fields.displayName.trim();
+  if (name) {
+    return name;
+  }
+  const parts = [fields.year.trim(), fields.make.trim(), fields.model.trim()].filter(
+    (part) => part.length > 0
+  );
+  return parts.length > 0 ? parts.join(' ') : 'Car';
+}
+
+/** Editable Document title prefill: `{label} insurance` / `{label} registration`. */
+export function carDocumentPrefillTitle(
+  carLabel: string,
+  role: CarDocumentLinkRole
+): string {
+  const label = carLabel.trim() || 'Car';
+  return `${label} ${role}`;
+}
+
+/** Editable Document tags prefill for a Car link role. */
+export function carDocumentPrefillTags(role: CarDocumentLinkRole): string {
+  return role;
 }
 
 export function yearMax(): number {
@@ -302,6 +336,9 @@ type DocumentLinkPickerProps = {
   documentsLoading: boolean;
   documentsError: string | null;
   onChange: (id: string | null) => void;
+  onCreatePress?: () => void;
+  createDisabled?: boolean;
+  createAccessibilityLabel?: string;
   chipStyle: object;
   chipSelectedStyle: object;
   chipTextStyle: object;
@@ -309,6 +346,8 @@ type DocumentLinkPickerProps = {
   hintStyle: object;
   errorTextStyle: object;
   pickerStyle: object;
+  actionRowStyle: object;
+  actionButtonStyle: object;
 };
 
 function DocumentLinkPicker({
@@ -319,6 +358,9 @@ function DocumentLinkPicker({
   documentsLoading,
   documentsError,
   onChange,
+  onCreatePress,
+  createDisabled = false,
+  createAccessibilityLabel,
   chipStyle,
   chipSelectedStyle,
   chipTextStyle,
@@ -326,6 +368,8 @@ function DocumentLinkPicker({
   hintStyle,
   errorTextStyle,
   pickerStyle,
+  actionRowStyle,
+  actionButtonStyle,
 }: DocumentLinkPickerProps) {
   return (
     <View>
@@ -341,7 +385,7 @@ function DocumentLinkPicker({
         </Text>
       ) : documents.length === 0 ? (
         <Text style={hintStyle} accessibilityLabel={`${label} empty documents`}>
-          No documents yet. Link stays empty.
+          No documents yet. Create one or leave the link empty.
         </Text>
       ) : (
         <View style={pickerStyle} accessibilityLabel={`${label} document picker`}>
@@ -381,9 +425,47 @@ function DocumentLinkPicker({
           })}
         </View>
       )}
+      {onCreatePress ? (
+        <View style={actionRowStyle}>
+          <Button
+            variant="outline"
+            label="Create document"
+            onPress={onCreatePress}
+            disabled={createDisabled}
+            accessibilityLabel={
+              createAccessibilityLabel ?? `Create ${accessibilityPrefix} document`
+            }
+            style={actionButtonStyle}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
+
+type DocumentCreateApplyTarget =
+  | { kind: 'persist'; carId: string }
+  | { kind: 'form'; mode: 'create' | 'edit' };
+
+type DocumentCreateSession = {
+  role: CarDocumentLinkRole;
+  apply: DocumentCreateApplyTarget;
+  carLabel: string;
+  formKey: number;
+};
+
+type ReplaceDocumentConfirm = {
+  role: CarDocumentLinkRole;
+  apply: DocumentCreateApplyTarget;
+  carLabel: string;
+  existingTitle: string;
+};
+
+type PendingDocumentLink = {
+  role: CarDocumentLinkRole;
+  carId: string;
+  document: DocumentDto;
+};
 
 /**
  * Manage Cars on the Car Manager screen.
@@ -392,10 +474,22 @@ function DocumentLinkPicker({
  * User -> Panel : open create / edit / deactivate / reactivate / delete
  * Panel -> API : GET /cars(?include_inactive=true)
  * Panel -> API : GET /documents
- * alt create
+ * alt create Car
  *   Panel -> API : POST /cars
- * else update
+ * else update Car
  *   Panel -> API : PUT /cars/{id}
+ * else create insurance/registration Document
+ *   opt existing link
+ *     Panel -> ConfirmDialog : replace?
+ *     User -> ConfirmDialog : confirm | cancel
+ *   Panel -> DocumentCreateForm : modal (prefill title+tags)
+ *   DocumentCreateForm -> API : POST /documents
+ *   alt apply persist (saved Car detail)
+ *     Panel -> API : PUT /cars/{id} (document id)
+ *     Panel -> Panel : refresh Cars + Documents
+ *   else apply form (create/edit)
+ *     Panel -> Panel : set form field only; Save owns persist
+ * end
  * else deactivate
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm | cancel
@@ -447,6 +541,17 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<CarDto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+
+  const [documentCreateSession, setDocumentCreateSession] =
+    useState<DocumentCreateSession | null>(null);
+  const [replaceDocumentConfirm, setReplaceDocumentConfirm] =
+    useState<ReplaceDocumentConfirm | null>(null);
+  const [documentCreateSubmitting, setDocumentCreateSubmitting] =
+    useState(false);
+  const [pendingDocumentLink, setPendingDocumentLink] =
+    useState<PendingDocumentLink | null>(null);
+  const [linkingDocument, setLinkingDocument] = useState(false);
+  const documentCreateFormKeyRef = useRef(0);
 
   const pickerChipStyles = useMemo(
     () => createManagerPickerChipStyles(palette),
@@ -794,6 +899,211 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setEditError(null);
   };
 
+  const closeDocumentCreateModal = useCallback(() => {
+    if (documentCreateSubmitting) {
+      return;
+    }
+    setDocumentCreateSession(null);
+  }, [documentCreateSubmitting]);
+
+  useWebEscapeClose(documentCreateSession != null, closeDocumentCreateModal);
+
+  const openDocumentCreateSession = useCallback(
+    (role: CarDocumentLinkRole, apply: DocumentCreateApplyTarget, carLabel: string) => {
+      documentCreateFormKeyRef.current += 1;
+      setDocumentCreateSession({
+        role,
+        apply,
+        carLabel,
+        formKey: documentCreateFormKeyRef.current,
+      });
+    },
+    []
+  );
+
+  const existingLinkIdForTarget = useCallback(
+    (
+      role: CarDocumentLinkRole,
+      apply: DocumentCreateApplyTarget
+    ): string | null => {
+      if (apply.kind === 'persist') {
+        const car = cars.find((c) => c.id === apply.carId);
+        if (!car) {
+          return null;
+        }
+        return role === 'insurance'
+          ? car.insurance_document_id
+          : car.registration_document_id;
+      }
+      const form = apply.mode === 'create' ? createForm : editForm;
+      return role === 'insurance'
+        ? form.insuranceDocumentId
+        : form.registrationDocumentId;
+    },
+    [cars, createForm, editForm]
+  );
+
+  const requestCreateDocument = useCallback(
+    (role: CarDocumentLinkRole, apply: DocumentCreateApplyTarget, carLabel: string) => {
+      const existingId = existingLinkIdForTarget(role, apply);
+      if (existingId) {
+        setReplaceDocumentConfirm({
+          role,
+          apply,
+          carLabel,
+          existingTitle: documentTitleById.get(existingId) ?? existingId,
+        });
+        return;
+      }
+      openDocumentCreateSession(role, apply, carLabel);
+    },
+    [documentTitleById, existingLinkIdForTarget, openDocumentCreateSession]
+  );
+
+  const persistDocumentLink = useCallback(
+    async (carId: string, role: CarDocumentLinkRole, document: DocumentDto) => {
+      if (!token) {
+        showError('No authentication token available.');
+        setPendingDocumentLink({ role, carId, document });
+        return;
+      }
+      const car = cars.find((c) => c.id === carId);
+      if (!car) {
+        showError('Car not found. Refresh and try again.');
+        setPendingDocumentLink({ role, carId, document });
+        return;
+      }
+      setLinkingDocument(true);
+      clearError();
+      try {
+        const payload: UpdateCarCommand = {
+          make: car.make,
+          model: car.model,
+          year: car.year,
+          active: null,
+          ...(role === 'insurance'
+            ? { insurance_document_id: document.id }
+            : { registration_document_id: document.id }),
+        };
+        const response = await authenticatedFetch(`/cars/${carId}`, {
+          method: 'PUT',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          onUnauthorized: handleUnauthorized,
+        });
+        const bodyText = await response.text();
+        if (!response.ok) {
+          throw new Error(
+            bodyText
+              ? `Request failed (${response.status}): ${bodyText}`
+              : `Request failed with status ${response.status}`
+          );
+        }
+        let updated: CarDto | null = null;
+        try {
+          updated = parseCarDto(JSON.parse(bodyText));
+        } catch {
+          // refresh will sync
+        }
+        setPendingDocumentLink(null);
+        setDocuments((prev) => {
+          if (prev.some((d) => d.id === document.id)) {
+            return prev;
+          }
+          return [...prev, document];
+        });
+        if (updated?.id) {
+          upsertCarLocally(updated);
+          selectCar(updated);
+        }
+        await Promise.all([load(), loadDocuments()]);
+        if (updated?.id) {
+          selectCar(updated);
+        }
+        showSuccess(
+          role === 'insurance'
+            ? `Insurance document "${document.title}" linked.`
+            : `Registration document "${document.title}" linked.`
+        );
+      } catch (err: unknown) {
+        console.error(err);
+        const msg =
+          err instanceof Error
+            ? err.message
+            : 'Document was created, but linking to the Car failed.';
+        setPendingDocumentLink({ role, carId, document });
+        showError(
+          `${msg} The Document was kept. Use Retry link to attach it.`
+        );
+      } finally {
+        setLinkingDocument(false);
+      }
+    },
+    [
+      token,
+      cars,
+      handleUnauthorized,
+      clearError,
+      showError,
+      showSuccess,
+      upsertCarLocally,
+      selectCar,
+      load,
+      loadDocuments,
+    ]
+  );
+
+  const applyCreatedDocumentToForm = useCallback(
+    (mode: 'create' | 'edit', role: CarDocumentLinkRole, document: DocumentDto) => {
+      setDocuments((prev) => {
+        if (prev.some((d) => d.id === document.id)) {
+          return prev;
+        }
+        return [...prev, document];
+      });
+      const setForm = mode === 'create' ? setCreateForm : setEditForm;
+      setForm((prev) =>
+        role === 'insurance'
+          ? { ...prev, insuranceDocumentId: document.id }
+          : { ...prev, registrationDocumentId: document.id }
+      );
+      showSuccess(
+        role === 'insurance'
+          ? `Insurance document "${document.title}" selected. Save the Car to keep the link.`
+          : `Registration document "${document.title}" selected. Save the Car to keep the link.`
+      );
+    },
+    [showSuccess]
+  );
+
+  const handleDocumentCreated = useCallback(
+    (document: DocumentDto) => {
+      const session = documentCreateSession;
+      if (!session) {
+        return;
+      }
+      setDocumentCreateSession(null);
+      if (session.apply.kind === 'persist') {
+        void persistDocumentLink(session.apply.carId, session.role, document);
+        return;
+      }
+      applyCreatedDocumentToForm(session.apply.mode, session.role, document);
+    },
+    [documentCreateSession, persistDocumentLink, applyCreatedDocumentToForm]
+  );
+
+  const handleRetryPendingLink = useCallback(() => {
+    if (!pendingDocumentLink || linkingDocument) {
+      return;
+    }
+    void persistDocumentLink(
+      pendingDocumentLink.carId,
+      pendingDocumentLink.role,
+      pendingDocumentLink.document
+    );
+  }, [pendingDocumentLink, linkingDocument, persistDocumentLink]);
+
   const handleCreate = async () => {
     if (creating) {
       return;
@@ -1061,6 +1371,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     mode: 'create' | 'edit'
   ) => {
     const prefix = mode === 'create' ? 'Create' : 'Edit';
+    const draftLabel = carFormDraftLabel(form);
     return (
       <View style={styles.formGap}>
         <FieldLabel label="Make" required style={styles.label} />
@@ -1148,6 +1459,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
+          onCreatePress={() =>
+            requestCreateDocument(
+              'insurance',
+              { kind: 'form', mode },
+              draftLabel
+            )
+          }
+          createAccessibilityLabel={`${prefix} create insurance document`}
           chipStyle={styles.formFieldChip}
           chipSelectedStyle={styles.formFieldChipSelected}
           chipTextStyle={styles.formFieldChipText}
@@ -1155,6 +1474,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
+          actionRowStyle={styles.actionRow}
+          actionButtonStyle={styles.actionButton}
         />
         <DocumentLinkPicker
           label="Registration document"
@@ -1166,6 +1487,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
+          onCreatePress={() =>
+            requestCreateDocument(
+              'registration',
+              { kind: 'form', mode },
+              draftLabel
+            )
+          }
+          createAccessibilityLabel={`${prefix} create registration document`}
           chipStyle={styles.formFieldChip}
           chipSelectedStyle={styles.formFieldChipSelected}
           chipTextStyle={styles.formFieldChipText}
@@ -1173,6 +1502,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           hintStyle={styles.hint}
           errorTextStyle={styles.errorText}
           pickerStyle={styles.picker}
+          actionRowStyle={styles.actionRow}
+          actionButtonStyle={styles.actionButton}
         />
       </View>
     );
@@ -1376,6 +1707,52 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   {selected.active ? 'Active' : 'Inactive'}
                 </Text>
               </View>
+              {selected.active ? (
+                <View style={styles.actionRow}>
+                  <Button
+                    variant="outline"
+                    label="Create insurance document"
+                    onPress={() =>
+                      requestCreateDocument(
+                        'insurance',
+                        { kind: 'persist', carId: selected.id },
+                        carDisplayLabel(selected)
+                      )
+                    }
+                    disabled={linkingDocument}
+                    accessibilityLabel="Create insurance document"
+                    style={styles.actionButton}
+                  />
+                  <Button
+                    variant="outline"
+                    label="Create registration document"
+                    onPress={() =>
+                      requestCreateDocument(
+                        'registration',
+                        { kind: 'persist', carId: selected.id },
+                        carDisplayLabel(selected)
+                      )
+                    }
+                    disabled={linkingDocument}
+                    accessibilityLabel="Create registration document"
+                    style={styles.actionButton}
+                  />
+                </View>
+              ) : null}
+              {pendingDocumentLink &&
+              pendingDocumentLink.carId === selected.id ? (
+                <View style={styles.actionRow}>
+                  <Button
+                    variant="secondary"
+                    label={linkingDocument ? 'Linking…' : 'Retry link'}
+                    onPress={handleRetryPendingLink}
+                    disabled={linkingDocument}
+                    loading={linkingDocument}
+                    accessibilityLabel="Retry document link"
+                    style={styles.actionButton}
+                  />
+                </View>
+              ) : null}
               <View style={styles.actionRow}>
                 {selected.active ? (
                   <>
@@ -1473,6 +1850,75 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={documentCreateSession != null}
+        animationType="fade"
+        transparent
+        onRequestClose={closeDocumentCreateModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView
+              style={styles.modalScroll}
+              keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>
+                {documentCreateSession?.role === 'registration'
+                  ? 'Create registration document'
+                  : 'Create insurance document'}
+              </Text>
+              {documentCreateSession ? (
+                <DocumentCreateForm
+                  key={documentCreateSession.formKey}
+                  initialTitle={carDocumentPrefillTitle(
+                    documentCreateSession.carLabel,
+                    documentCreateSession.role
+                  )}
+                  initialTags={carDocumentPrefillTags(
+                    documentCreateSession.role
+                  )}
+                  onDocumentCreated={handleDocumentCreated}
+                  onSubmittingChange={setDocumentCreateSubmitting}
+                />
+              ) : null}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Button
+                variant="outline"
+                label="Cancel"
+                onPress={closeDocumentCreateModal}
+                disabled={documentCreateSubmitting}
+                accessibilityLabel="Cancel create document"
+                style={styles.modalActionButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <ConfirmDialog
+        visible={replaceDocumentConfirm != null}
+        title="Replace linked document?"
+        message={
+          replaceDocumentConfirm
+            ? `Replace "${replaceDocumentConfirm.existingTitle}" with a new ${replaceDocumentConfirm.role} document?`
+            : ''
+        }
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        onCancel={() => setReplaceDocumentConfirm(null)}
+        onConfirm={() => {
+          if (!replaceDocumentConfirm) {
+            return;
+          }
+          const pending = replaceDocumentConfirm;
+          setReplaceDocumentConfirm(null);
+          openDocumentCreateSession(
+            pending.role,
+            pending.apply,
+            pending.carLabel
+          );
+        }}
+      />
 
       <ConfirmDialog
         visible={deactivateTarget != null}

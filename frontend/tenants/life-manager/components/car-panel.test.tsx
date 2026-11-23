@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,9 @@ import type { CarDto, DocumentDto } from '@/lib/api/types';
 
 import CarPanel, {
   carDisplayLabel,
+  carDocumentPrefillTags,
+  carDocumentPrefillTitle,
+  carFormDraftLabel,
   parseCarDto,
   unicodeScalarLength,
 } from './car-panel';
@@ -27,6 +31,42 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
 
 vi.mock('expo-blur', () => ({
   BlurView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('./document-create-form', () => ({
+  default: ({
+    onDocumentCreated,
+    initialTitle,
+    initialTags,
+  }: {
+    onDocumentCreated?: (document: DocumentDto) => void;
+    initialTitle?: string;
+    initialTags?: string;
+  }) => (
+    <View accessibilityLabel="Document create form">
+      <Text accessibilityLabel="Prefill title">{initialTitle ?? ''}</Text>
+      <Text accessibilityLabel="Prefill tags">{initialTags ?? ''}</Text>
+      <Pressable
+        accessibilityLabel="Submit mocked document create"
+        onPress={() =>
+          onDocumentCreated?.({
+            id: 'd-created',
+            title: initialTitle?.trim() || 'Created doc',
+            content: '',
+            tags: initialTags
+              ? initialTags.split(',').map((t) => t.trim()).filter(Boolean)
+              : [],
+            created_at: '2026-01-01T00:00:00Z',
+            issued_date: null,
+            expire_date: null,
+            storage: null,
+          })
+        }
+      >
+        <Text>Submit</Text>
+      </Pressable>
+    </View>
+  ),
 }));
 
 const mockUseAuth = vi.mocked(useAuth);
@@ -156,6 +196,44 @@ describe('parseCarDto', () => {
     });
     expect(parsed.registration_document_id).toBe('d1');
     expect(parsed.insurance_document_id).toBeNull();
+  });
+});
+
+describe('car document create prefills', () => {
+  it('builds title and tags from car label and role', () => {
+    expect(carDocumentPrefillTitle('Daily', 'insurance')).toBe('Daily insurance');
+    expect(carDocumentPrefillTitle('2018 Toyota Corolla', 'registration')).toBe(
+      '2018 Toyota Corolla registration'
+    );
+    expect(carDocumentPrefillTags('insurance')).toBe('insurance');
+    expect(carDocumentPrefillTags('registration')).toBe('registration');
+  });
+
+  it('builds draft label from form fields', () => {
+    expect(
+      carFormDraftLabel({
+        displayName: 'Daily',
+        make: 'Toyota',
+        model: 'Corolla',
+        year: '2018',
+      })
+    ).toBe('Daily');
+    expect(
+      carFormDraftLabel({
+        displayName: '',
+        make: 'Toyota',
+        model: 'Corolla',
+        year: '2018',
+      })
+    ).toBe('2018 Toyota Corolla');
+    expect(
+      carFormDraftLabel({
+        displayName: '  ',
+        make: '',
+        model: '',
+        year: '',
+      })
+    ).toBe('Car');
   });
 });
 
@@ -517,5 +595,298 @@ describe('CarPanel', () => {
       '/cars',
       expect.objectContaining({ method: 'POST' })
     );
+  });
+
+  it('Scenario: Create insurance Document and auto-link selected Car', async () => {
+    const before = car({
+      id: 'c1',
+      make: 'Toyota',
+      model: 'Corolla',
+      year: 2018,
+      display_name: 'Daily',
+    });
+    const createdDoc = document({
+      id: 'd-created',
+      title: 'Daily insurance',
+      tags: ['insurance'],
+    });
+    const after = car({
+      ...before,
+      insurance_document_id: 'd-created',
+    });
+    mockInitialLoads([before], []);
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select Car Daily')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Select Car Daily'));
+
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (
+        typeof path === 'string' &&
+        path === '/cars/c1' &&
+        init?.method === 'PUT'
+      ) {
+        return jsonResponse(after);
+      }
+      if (typeof path === 'string' && path.startsWith('/cars')) {
+        return jsonResponse([after]);
+      }
+      if (typeof path === 'string' && path.startsWith('/documents')) {
+        return jsonResponse([createdDoc]);
+      }
+      return jsonResponse([]);
+    });
+
+    fireEvent.press(screen.getByLabelText('Create insurance document'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Prefill title')).toBeTruthy();
+    });
+    expect(screen.getByLabelText('Prefill title').props.children).toBe(
+      'Daily insurance'
+    );
+    expect(screen.getByLabelText('Prefill tags').props.children).toBe(
+      'insurance'
+    );
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Linked insurance document Daily insurance')
+      ).toBeTruthy();
+    });
+    const putCall = mockAuthenticatedFetch.mock.calls.find(
+      (call) => call[0] === '/cars/c1' && call[1]?.method === 'PUT'
+    );
+    expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+      insurance_document_id: 'd-created',
+    });
+  });
+
+  it('Scenario: Create registration Document and auto-link selected Car', async () => {
+    const before = car({
+      id: 'c1',
+      make: 'Toyota',
+      model: 'Corolla',
+      year: 2018,
+    });
+    const createdDoc = document({
+      id: 'd-created',
+      title: '2018 Toyota Corolla registration',
+      tags: ['registration'],
+    });
+    const after = car({
+      ...before,
+      registration_document_id: 'd-created',
+    });
+    mockInitialLoads([before], []);
+    renderPanel();
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select Car 2018 Toyota Corolla')
+      ).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (
+        typeof path === 'string' &&
+        path === '/cars/c1' &&
+        init?.method === 'PUT'
+      ) {
+        return jsonResponse(after);
+      }
+      if (typeof path === 'string' && path.startsWith('/cars')) {
+        return jsonResponse([after]);
+      }
+      if (typeof path === 'string' && path.startsWith('/documents')) {
+        return jsonResponse([createdDoc]);
+      }
+      return jsonResponse([]);
+    });
+
+    fireEvent.press(screen.getByLabelText('Create registration document'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Prefill title').props.children).toBe(
+        '2018 Toyota Corolla registration'
+      );
+    });
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(
+          'Linked registration document 2018 Toyota Corolla registration'
+        )
+      ).toBeTruthy();
+    });
+    const putCall = mockAuthenticatedFetch.mock.calls.find(
+      (call) => call[0] === '/cars/c1' && call[1]?.method === 'PUT'
+    );
+    expect(JSON.parse(String(putCall?.[1]?.body))).toMatchObject({
+      registration_document_id: 'd-created',
+    });
+  });
+
+  it('Scenario: Confirm before replace existing insurance link', async () => {
+    const existing = document({ id: 'd1', title: 'Old insurance' });
+    const before = car({
+      id: 'c1',
+      make: 'Toyota',
+      model: 'Corolla',
+      year: 2018,
+      insurance_document_id: 'd1',
+    });
+    const after = car({
+      ...before,
+      insurance_document_id: 'd-created',
+    });
+    const createdDoc = document({
+      id: 'd-created',
+      title: '2018 Toyota Corolla insurance',
+      tags: ['insurance'],
+    });
+    mockInitialLoads([before], [existing]);
+    renderPanel();
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select Car 2018 Toyota Corolla')
+      ).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+
+    fireEvent.press(screen.getByLabelText('Create insurance document'));
+    expect(screen.getByText('Replace linked document?')).toBeTruthy();
+
+    const callsBeforeCancel = mockAuthenticatedFetch.mock.calls.length;
+    fireEvent.press(screen.getByLabelText('Cancel'));
+    expect(screen.queryByLabelText('Document create form')).toBeNull();
+    expect(
+      screen.getByLabelText('Linked insurance document Old insurance')
+    ).toBeTruthy();
+    expect(mockAuthenticatedFetch.mock.calls.length).toBe(callsBeforeCancel);
+
+    fireEvent.press(screen.getByLabelText('Create insurance document'));
+    fireEvent.press(screen.getByLabelText('Replace'));
+
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (
+        typeof path === 'string' &&
+        path === '/cars/c1' &&
+        init?.method === 'PUT'
+      ) {
+        return jsonResponse(after);
+      }
+      if (typeof path === 'string' && path.startsWith('/cars')) {
+        return jsonResponse([after]);
+      }
+      if (typeof path === 'string' && path.startsWith('/documents')) {
+        return jsonResponse([existing, createdDoc]);
+      }
+      return jsonResponse([]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Document create form')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(
+          'Linked insurance document 2018 Toyota Corolla insurance'
+        )
+      ).toBeTruthy();
+    });
+  });
+
+  it('Scenario: Create Document while editing Car form', async () => {
+    const before = car({
+      id: 'c1',
+      make: 'Toyota',
+      model: 'Corolla',
+      year: 2018,
+      insurance_document_id: 'd1',
+    });
+    const existing = document({ id: 'd1', title: 'Old insurance' });
+    mockInitialLoads([before], [existing]);
+    renderPanel();
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select Car 2018 Toyota Corolla')
+      ).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Replace'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Document create form')).toBeTruthy();
+    });
+
+    const putCallsBefore = mockAuthenticatedFetch.mock.calls.filter(
+      (call) => call[1]?.method === 'PUT'
+    ).length;
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(
+          'Select insurance document 2018 Toyota Corolla insurance'
+        )
+      ).toBeTruthy();
+    });
+    const putCallsAfter = mockAuthenticatedFetch.mock.calls.filter(
+      (call) => call[1]?.method === 'PUT'
+    ).length;
+    expect(putCallsAfter).toBe(putCallsBefore);
+    expect(screen.getByLabelText('Save Car')).toBeTruthy();
+  });
+
+  it('Scenario: Inactive Car blocks create and link change', async () => {
+    const inactive = car({
+      id: 'c-in',
+      make: 'Kia',
+      model: 'Soul',
+      year: 2016,
+      active: false,
+      insurance_document_id: 'd1',
+      deactivated_at: '2026-02-01T00:00:00Z',
+    });
+    const existing = document({ id: 'd1', title: 'Old insurance' });
+    mockAuthenticatedFetch.mockImplementation(async (path) => {
+      if (
+        typeof path === 'string' &&
+        path.includes('include_inactive=true')
+      ) {
+        return jsonResponse([inactive]);
+      }
+      if (typeof path === 'string' && path.startsWith('/cars')) {
+        return jsonResponse([]);
+      }
+      if (typeof path === 'string' && path.startsWith('/documents')) {
+        return jsonResponse([existing]);
+      }
+      return jsonResponse([]);
+    });
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Include inactive Cars')).toBeTruthy();
+    });
+    fireEvent(screen.getByLabelText('Include inactive Cars'), 'valueChange', true);
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select inactive Car 2016 Kia Soul')
+      ).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Select inactive Car 2016 Kia Soul'));
+
+    expect(screen.queryByLabelText('Create insurance document')).toBeNull();
+    expect(screen.queryByLabelText('Create registration document')).toBeNull();
+    expect(screen.queryByLabelText('Edit Car')).toBeNull();
+    expect(
+      screen.getByLabelText('Linked insurance document Old insurance')
+    ).toBeTruthy();
   });
 });
