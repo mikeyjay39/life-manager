@@ -4,12 +4,12 @@ mod common;
 
 use axum_test::TestServer;
 use chrono::{NaiveDate, Utc};
-use life_manager::infrastructure::doctor_visit::doctor_visit_api_types::{
+use life_manager::infrastructure::health::doctor_visit_api_types::{
     CreateDoctorVisitCommandDto, UpdateDoctorVisitCommandDto,
 };
-use life_manager::infrastructure::doctor_visit::doctor_visit_dto::DoctorVisitDto;
-use life_manager::infrastructure::health_member::health_member_api_types::CreateHealthMemberCommandDto;
-use life_manager::infrastructure::health_member::health_member_dto::HealthMemberDto;
+use life_manager::infrastructure::health::doctor_visit_dto::DoctorVisitDto;
+use life_manager::infrastructure::health::health_member_api_types::CreateHealthMemberCommandDto;
+use life_manager::infrastructure::health::health_member_dto::HealthMemberDto;
 use reqwest::StatusCode;
 use serial_test::serial;
 use tracing_test::traced_test;

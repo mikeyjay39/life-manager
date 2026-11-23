@@ -3,10 +3,10 @@
 mod common;
 
 use axum_test::TestServer;
-use life_manager::infrastructure::health_member::health_member_api_types::{
+use life_manager::infrastructure::health::health_member_api_types::{
     CreateHealthMemberCommandDto, UpdateHealthMemberCommandDto,
 };
-use life_manager::infrastructure::health_member::health_member_dto::HealthMemberDto;
+use life_manager::infrastructure::health::health_member_dto::HealthMemberDto;
 use reqwest::StatusCode;
 use serial_test::serial;
 use tracing_test::traced_test;

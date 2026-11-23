@@ -7,7 +7,7 @@ use uuid::Uuid;
 use axum_test::{TestServer, TestServerConfig, Transport};
 use life_manager::{
     LifeManagerDeps, LifeManagerStateBuilder,
-    infrastructure::db::{create_connection_pool_from_url, run_migrations},
+    infrastructure::shared::db::{create_connection_pool_from_url, run_migrations},
 };
 use mikeyjay_server::{build_app_with_life_manager_state, build_app_with_tenant_states};
 use reqwest::{Client, ClientBuilder};

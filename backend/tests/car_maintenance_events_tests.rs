@@ -6,10 +6,10 @@ use axum_test::TestServer;
 use chrono::{NaiveDate, Utc};
 use life_manager::infrastructure::car::car_api_types::CreateCarCommandDto;
 use life_manager::infrastructure::car::car_dto::CarDto;
-use life_manager::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
+use life_manager::infrastructure::car::car_maintenance_event_api_types::{
     CreateCarMaintenanceEventCommandDto, UpdateCarMaintenanceEventCommandDto,
 };
-use life_manager::infrastructure::car_maintenance_event::car_maintenance_event_dto::CarMaintenanceEventDto;
+use life_manager::infrastructure::car::car_maintenance_event_dto::CarMaintenanceEventDto;
 use life_manager::infrastructure::document::document_api_types::CreateDocumentCommandDto;
 use life_manager::infrastructure::document::document_dto::DocumentDto;
 use reqwest::StatusCode;
