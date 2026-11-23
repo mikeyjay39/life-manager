@@ -695,6 +695,15 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     });
   }, []);
 
+  const upsertDocumentLocally = useCallback((document: DocumentDto) => {
+    setDocuments((prev) => {
+      if (prev.some((d) => d.id === document.id)) {
+        return prev;
+      }
+      return [...prev, document];
+    });
+  }, []);
+
   const loadDocuments = useCallback(async () => {
     const generation = ++docsLoadGenerationRef.current;
     if (!token) {
@@ -805,11 +814,27 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const closeCreateModal = useCallback(() => {
+    if (
+      documentCreateSession != null ||
+      replaceDocumentConfirm != null ||
+      documentCreateSubmitting
+    ) {
+      return;
+    }
     setCreateVisible(false);
     resetCreateForm();
-  }, []);
+  }, [
+    documentCreateSession,
+    replaceDocumentConfirm,
+    documentCreateSubmitting,
+  ]);
 
-  useWebEscapeClose(createVisible, closeCreateModal);
+  useWebEscapeClose(
+    createVisible &&
+      documentCreateSession == null &&
+      replaceDocumentConfirm == null,
+    closeCreateModal
+  );
 
   const openCreateModal = () => {
     resetCreateForm();
@@ -896,12 +921,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const persistDocumentLink = useCallback(
     async (carId: string, role: CarDocumentLinkRole, document: DocumentDto) => {
       if (!token) {
+        upsertDocumentLocally(document);
         showError('No authentication token available.');
         setPendingDocumentLink({ role, carId, document });
         return;
       }
       const car = cars.find((c) => c.id === carId);
       if (!car) {
+        upsertDocumentLocally(document);
         showError('Car not found. Refresh and try again.');
         setPendingDocumentLink({ role, carId, document });
         return;
@@ -940,12 +967,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           // refresh will sync
         }
         setPendingDocumentLink(null);
-        setDocuments((prev) => {
-          if (prev.some((d) => d.id === document.id)) {
-            return prev;
-          }
-          return [...prev, document];
-        });
+        upsertDocumentLocally(document);
         if (updated?.id) {
           upsertCarLocally(updated);
           selectCar(updated);
@@ -965,6 +987,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           err instanceof Error
             ? err.message
             : 'Document was created, but linking to the Car failed.';
+        upsertDocumentLocally(document);
         setPendingDocumentLink({ role, carId, document });
         showError(
           `${msg} The Document was kept. Use Retry link to attach it.`
@@ -981,6 +1004,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       showError,
       showSuccess,
       upsertCarLocally,
+      upsertDocumentLocally,
       selectCar,
       load,
       loadDocuments,
@@ -989,12 +1013,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
 
   const applyCreatedDocumentToForm = useCallback(
     (mode: 'create' | 'edit', role: CarDocumentLinkRole, document: DocumentDto) => {
-      setDocuments((prev) => {
-        if (prev.some((d) => d.id === document.id)) {
-          return prev;
-        }
-        return [...prev, document];
-      });
+      upsertDocumentLocally(document);
       const setForm = mode === 'create' ? setCreateForm : setEditForm;
       setForm((prev) =>
         role === 'insurance'
@@ -1007,7 +1026,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           : `Registration document "${document.title}" selected. Save the Car to keep the link.`
       );
     },
-    [showSuccess]
+    [showSuccess, upsertDocumentLocally]
   );
 
   const handleDocumentCreated = useCallback(
@@ -1693,6 +1712,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="secondary"
                       label="Edit"
                       onPress={startEdit}
+                      disabled={linkingDocument}
                       accessibilityLabel="Edit Car"
                       style={styles.actionButton}
                     />
@@ -1700,6 +1720,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Deactivate Car"
                       style={styles.actionButton}
                     />
@@ -1707,6 +1728,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Delete Car"
                       style={styles.actionButton}
                     />
@@ -1720,7 +1742,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                           : 'Reactivate'
                       }
                       onPress={() => void handleReactivate(selected)}
-                      disabled={reactivatingId === selected.id}
+                      disabled={
+                        reactivatingId === selected.id || linkingDocument
+                      }
                       loading={reactivatingId === selected.id}
                       accessibilityLabel="Reactivate Car"
                       style={styles.actionButton}
@@ -1729,6 +1753,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Delete Car"
                       style={styles.actionButton}
                     />
