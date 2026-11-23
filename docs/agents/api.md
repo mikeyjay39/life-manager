@@ -61,6 +61,7 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 - Auth user owns `CarMaintenanceEvent` (`user_id` copied from Car on create). Create rejects inactive Cars. Update and delete stay allowed on inactive Cars. Optional `document_id` is a UUID ref; ownership is checked in the application layer on create and update.
 - Hard-delete of a Car removes its maintenance events via FK cascade. Document rows stay; only UUID refs on the Car/event are removed with those rows.
 - UI: manage Cars, maintenance history, and charts on the Car Manager screen (`CarScreen`), not on Home/Documents.
+- UI create-from-Car (insurance, registration, maintenance receipt): create via existing Document `POST` routes, then set the Car/event UUID ref with existing `PUT`/`POST` Car or maintenance routes. No Car-scoped Document routes. Workflow detail: [frontend/AGENTS.md](../../frontend/AGENTS.md#car-document-links-create-from-car). Expiry alerts stay on Document epic #131.
 
 **Health ownership and units**
 

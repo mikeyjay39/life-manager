@@ -191,6 +191,7 @@ The server and integration tests also apply both migration sets automatically on
 * **Shipped:** `Car` create / update / soft-deactivate / hard-delete; `CarMaintenanceEvent` create / list / update / delete; Car Manager screen with Cars, maintenance history, and charts (odometer, event types, cost)
 * **Ownership:** the auth user owns `Car` rows (`user_id`). `CarMaintenanceEvent` stores `CarId` (and denormalized `user_id` for auth). Hard-delete of a Car cascades its events (FK `ON DELETE CASCADE`).
 * **Document links:** optional UUID refs only (`insurance_document_id`, `registration_document_id` on Car; `document_id` on events). Document stays a separate aggregate. No shared storage or Proton refs on Car rows.
+* **Create-from-Car:** from Car Manager, create insurance / registration / maintenance-receipt Documents (reuse Document create + existing Car/event link fields). Pick-existing still works. Confirm before replace. Agent UX notes: [frontend/AGENTS.md](frontend/AGENTS.md#car-document-links-create-from-car).
 * **UI:** Cars, maintenance, and charts are managed on the **Car Manager** screen (`CarScreen`), not on Home/Documents. Routes: [docs/agents/api.md](docs/agents/api.md).
 * **Out of scope (MVP):** fuel/MPG, registration/insurance expiry alerts (Document owns those docs; see epic #131).
 

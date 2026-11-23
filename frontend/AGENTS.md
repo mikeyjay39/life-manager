@@ -140,6 +140,20 @@ Hub tiles and `AppMenuBar` share `IconSymbol` names from `manager-registry.ts`. 
 
 Prefer `confirm-dialog.tsx` over `Alert.alert` / `window.confirm` (themed, blurred backdrop, works on web). Keep `ConfirmDialog` for destructive confirms. Delete/deactivate **triggers** use `outline` (not the primary section CTA). The ConfirmDialog confirm control uses `destructive` (fills from `palette.danger`).
 
+Also use `ConfirmDialog` before **replace** of a linked Document on Car Manager (insurance, registration, or maintenance receipt). Cancel keeps the current link. Confirm opens create. Titles: "Replace linked document?" (Cars) and "Replace receipt document?" (maintenance). Confirm label is **Replace** (not destructive fill).
+
+### Car Document links (create-from-Car)
+
+Car Manager reuses `DocumentCreateForm` (modal / inline) with editable prefills. Do not add Car-only Document API routes. Document stays a separate aggregate; Car and events store UUID refs only.
+
+| Link | Pick existing | Create-from-Car | When the link is written | Prefill |
+|------|---------------|-----------------|--------------------------|---------|
+| Insurance (`insurance_document_id`) | Document picker on create/edit Car | **Create insurance document** (active Car only) | Detail: `PUT /cars/{id}` after create (Retry link if PUT fails). Create/edit form: set field only until Car Save | Title `{carLabel} insurance`, tags `insurance` |
+| Registration (`registration_document_id`) | Same picker pattern | **Create registration document** (active Car only) | Same as insurance | Title `{carLabel} registration`, tags `registration` |
+| Maintenance receipt (`document_id` on event) | Receipt picker on Add/Edit event | **Create receipt** (active Car; form open) | Set form `documentId` only; event Save owns POST/PUT | Title `{carLabel} receipt`, tags `receipt` |
+
+Inactive Cars: show linked titles; hide create and edit-link controls. Expiry alerts for insurance/registration stay on Document epic #131 — do not invent Car-side expiry UI here.
+
 ### Web keyboard and focus
 
 Convention (#201): interactive controls show a visible tint focus ring on web (`webFocusRingStyle` on `Button`, menu items, hub tiles, web `TextInput`, web date fields). `ConfirmDialog` and other manager Modals close on Escape via `useWebEscapeClose` (cancel path; does not confirm). Manager forms: `ManagerFormVsResults` `onEnterSubmit` (and Document create) use capture-phase Enter submit so fields that stopPropagation still submit. Multiline: Enter inserts a newline; Ctrl/Cmd+Enter submits. Gate `onEnterSubmit` with the same disabled/loading rules as the Save button. Native keeps existing press behavior. Modules: `components/ui/web-focus-ring.ts`, `components/ui/web-form-enter-submit.ts`, `hooks/use-web-escape-close.ts`.
@@ -188,7 +202,7 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Tenant theme merge | `lib/tenant/theme/merge-theme.ts`, `TenantThemeContext.tsx` |
 | Shared login / signup | `components/auth/login-form.tsx`, `components/auth/signup-form.tsx`, `app/login.tsx`, `app/signup.tsx` |
 | Verify / forgot / reset password UI | `components/auth/verify-email-panel.tsx`, `forgot-password-form.tsx`, `reset-password-form.tsx`; routes `app/verify-email.tsx`, `forgot-password.tsx`, `reset-password.tsx`; API helpers `lib/auth/email-flows.ts` (#219) |
-| Manager UX conventions (docs) | This file — **Manager UX conventions** (layout, form-vs-results, tokens, type, quiet chrome, feedback, dense lists, skeletons, sticky filters, selection, icons, destructive confirms, focus, locale) |
+| Manager UX conventions (docs) | This file — **Manager UX conventions** (layout, form-vs-results, tokens, type, quiet chrome, feedback, dense lists, skeletons, sticky filters, selection, icons, destructive confirms, Car Document links / create-from-Car, focus, locale) |
 | Manager layout primitives | `components/ui/manager-scroll-view.tsx`, `manager-page-header.tsx`, `manager-page-content.tsx`, `manager-section.tsx`, `manager-cta.tsx`, `manager-layout.ts` |
 | Dense manager data lists | `components/ui/manager-data-list.tsx` (+ test); history rows in `health-reading-panel.tsx`, `doctor-visit-panel.tsx`, `car-maintenance-panel.tsx`; shared tokens also in `document-grid.tsx` |
 | Sticky filter chrome | `components/ui/manager-sticky-filter-chrome.tsx` (+ test); Document title search; Car maintenance type chips; `APP_MENU_BAR_STICKY_OFFSET` |
@@ -204,8 +218,8 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Document Manager (create/list) | `tenants/life-manager/screens/DocumentManagerScreen.tsx`, route `app/(tabs)/documents.tsx`, menu via registry (**Documents**). Distinct sections: Proton setup, create (`ManagerFormVsResults` + inline `DocumentCreateForm`), and document list. Preview/delete stay on the list. Not on Home. |
 | Health Manager screen | `tenants/life-manager/screens/HealthScreen.tsx`, route `app/(tabs)/health.tsx`, menu via registry (Health). Owns HealthMembers, vitals, charts, and doctor visits (not Home/Documents). |
 | Car Manager screen | `tenants/life-manager/screens/CarScreen.tsx`, route `app/(tabs)/car.tsx`, menu via registry (Cars). Cars panel + maintenance panel + charts (not Home/Documents). |
-| Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` (create / update / deactivate / reactivate / delete + ConfirmDialog; document link picker; include-inactive; selected Car for maintenance) |
-| Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (`ManagerFormVsResults` collapsed create / Add event on demand; create / edit / delete + ConfirmDialog; dollars→`cost_cents`; optional receipt Document; newest-first history; create disabled when no/inactive Car; `onEventsChanged` refreshes charts) |
+| Cars on Car Manager | `tenants/life-manager/components/car-panel.tsx` + `car-panel-utils.ts` (create / update / deactivate / reactivate / delete + ConfirmDialog; pick-existing insurance/registration Document links; create-from-Car insurance/registration via `DocumentCreateForm` + auto-link on active Car detail; ConfirmDialog before replace; form create/edit sets field only until Save; Retry link when detail PUT fails after Document create; include-inactive; selected Car for maintenance; pure helpers in utils so charts/maintenance do not import DocumentCreateForm). Expiry alerts → epic #131 |
+| Maintenance on Car Manager | `tenants/life-manager/components/car-maintenance-panel.tsx` + `car-maintenance-form-utils.ts` (`ManagerFormVsResults` collapsed create / Add event on demand; create / edit / delete + ConfirmDialog; dollars→`cost_cents`; pick-existing optional receipt Document; **Create receipt** reuses `DocumentCreateForm` with title/tag prefill; ConfirmDialog before replace; sets form `documentId` only until event Save; newest-first history; create disabled when no/inactive Car; `onEventsChanged` refreshes charts) |
 | Car charts | `tenants/life-manager/components/car-charts-panel.tsx` + `lib/car/chart-series.ts` (`react-native-gifted-charts` LineChart / BarChart; odometer miles, event_type counts, cost USD; empty states; optional miles-since-oil callout) |
 | HealthMembers on Health | `tenants/life-manager/components/health-member-panel.tsx` (create / update / deactivate / reactivate + picker; ConfirmDialog; no hard-delete MVP) |
 | Health readings form + history | `tenants/life-manager/components/health-reading-panel.tsx` (`ManagerFormVsResults`; metric/imperial UI; convert then POST/PUT **metric-only**; delete + ConfirmDialog; history list; `onReadingsChanged` refreshes charts) |
@@ -214,6 +228,6 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
-| Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |
+| Document create form + tests (Document Manager + Car) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; optional `initialTitle` / `initialTags` prefills; reused by Car Manager for insurance / registration / receipt create-from-Car; also used by `DocumentManagerScreen` |
 | API client | `lib/api/client.ts` |
 | Tenant resolution | `lib/tenant/resolve.ts`, `lib/tenant/TenantContext.tsx` |
