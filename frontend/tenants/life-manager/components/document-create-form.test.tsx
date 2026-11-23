@@ -62,7 +62,11 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockApiFetch = vi.mocked(apiFetch);
 
 function renderDocumentCreateForm(
-  props: { onDocumentCreated?: (document: DocumentDto) => void } = {}
+  props: {
+    onDocumentCreated?: (document: DocumentDto) => void;
+    initialTitle?: string;
+    initialTags?: string;
+  } = {}
 ) {
   return render(
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
@@ -119,6 +123,26 @@ describe('DocumentCreateForm', () => {
       new Response(JSON.stringify({ id: '550e8400-e29b-41d4-a716-446655440000', title: 'My Title' }), {
         status: 201,
       })
+    );
+  });
+
+  it('given initialTitle and initialTags when mount then fields are prefilled and editable', () => {
+    // Given Car Manager passes receipt prefills
+    renderDocumentCreateForm({
+      initialTitle: 'Daily receipt',
+      initialTags: 'receipt',
+    });
+    // Then title and tags start filled; user can still edit
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
+      'Daily receipt'
+    );
+    expect(screen.getByLabelText('Document tags').props.value).toBe('receipt');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Document title'),
+      'Daily oil receipt'
+    );
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
+      'Daily oil receipt'
     );
   });
 

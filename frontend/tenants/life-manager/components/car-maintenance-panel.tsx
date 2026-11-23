@@ -40,6 +40,7 @@ import {
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import { parseOwnedDocumentDto } from './car-panel';
+import DocumentCreateForm from './document-create-form';
 import {
   CAR_MAINTENANCE_EVENT_TYPES,
   EVENT_TYPE_LABELS,
@@ -55,6 +56,12 @@ import {
   type CarMaintenanceEventTypeValue,
   type CarMaintenanceFormInput,
 } from './car-maintenance-form-utils';
+
+/** Prefill title for a new receipt Document from the selected Car label. */
+export function receiptDocumentTitlePrefill(carLabel: string): string {
+  const trimmed = carLabel.trim();
+  return trimmed ? `${trimmed} receipt` : 'receipt';
+}
 
 type CarMaintenancePanelProps = {
   selectedCar: CarDto | null;
@@ -94,7 +101,18 @@ function todayYmd(): string {
  * Panel -> ManagerDataList : dense history rows when events exist
  * Panel -> API : GET /documents
  * Panel -> API : GET /car-maintenance-events?car_id=…[&event_type=…]
- * alt create (form mode create; active Car only)
+ * alt create receipt Document (active Car; form open)
+ *   alt form.documentId already set
+ *     Panel -> ConfirmDialog : replace receipt link?
+ *     User -> ConfirmDialog : cancel --> keep old id
+ *     User -> ConfirmDialog : confirm --> open DocumentCreateForm
+ *   else
+ *     Panel -> DocumentCreateForm : open (title/tag prefill)
+ *   end
+ *   DocumentCreateForm -> API : POST /documents
+ *   DocumentCreateForm -> Panel : DocumentDto
+ *   Panel -> form : set documentId only (event Save still owns POST/PUT)
+ * else create event (form mode create; active Car only)
  *   Panel -> API : POST /car-maintenance-events
  *   Panel -> API : GET /car-maintenance-events (refresh)
  *   Panel -> Parent : onEventsChanged (charts refresh)
@@ -144,6 +162,10 @@ export default function CarMaintenancePanel({
   );
   const [deleting, setDeleting] = useState(false);
   const deletingRef = useRef(false);
+  const [receiptCreateOpen, setReceiptCreateOpen] = useState(false);
+  const [receiptCreateSubmitting, setReceiptCreateSubmitting] = useState(false);
+  const [replaceReceiptConfirmVisible, setReplaceReceiptConfirmVisible] =
+    useState(false);
 
   const loadGenerationRef = useRef(0);
   const docsLoadGenerationRef = useRef(0);
@@ -210,6 +232,10 @@ export default function CarMaintenancePanel({
           flexWrap: 'wrap',
           gap: 8,
         },
+        receiptCreateBlock: {
+          gap: 8,
+          marginTop: 4,
+        },
         historyHeader: {
           marginTop: 8,
         },
@@ -238,6 +264,9 @@ export default function CarMaintenancePanel({
       setTypeFilter(null);
       setEvents([]);
       setListError(null);
+      setReceiptCreateOpen(false);
+      setReceiptCreateSubmitting(false);
+      setReplaceReceiptConfirmVisible(false);
     }
     prevCarIdRef.current = nextId;
   }, [selectedCar?.id]);
@@ -372,32 +401,48 @@ export default function CarMaintenancePanel({
     !selectedCar ||
     (createLocked && !isEditing) ||
     submitting ||
-    deleting;
+    deleting ||
+    receiptCreateSubmitting;
   const canSubmitCreate =
     Boolean(token) && Boolean(selectedCar?.active) && !submitting && !deleting;
   const canSubmitEdit =
     Boolean(token) && Boolean(selectedCar) && !submitting && !deleting;
   const canSubmit = isEditing ? canSubmitEdit : canSubmitCreate;
+  // Active Car only: no new receipt create when Add-event create is blocked.
+  const canCreateReceiptDocument =
+    Boolean(selectedCar?.active) && !formInputsLocked && !receiptCreateOpen;
+
+  const closeReceiptCreate = useCallback(() => {
+    setReceiptCreateOpen(false);
+    setReceiptCreateSubmitting(false);
+    setReplaceReceiptConfirmVisible(false);
+  }, []);
 
   const collapseForm = useCallback(() => {
     setEditingId(null);
     setForm(emptyCarMaintenanceForm(todayYmd()));
     setFormError(null);
     setFormMode('collapsed');
-  }, []);
+    closeReceiptCreate();
+  }, [closeReceiptCreate]);
 
-  const handleFormModeChange = useCallback((next: ManagerFormMode) => {
-    if (next === 'create') {
-      setEditingId(null);
-      setForm(emptyCarMaintenanceForm(todayYmd()));
-      setFormError(null);
-    } else if (next === 'collapsed') {
-      setEditingId(null);
-      setForm(emptyCarMaintenanceForm(todayYmd()));
-      setFormError(null);
-    }
-    setFormMode(next);
-  }, []);
+  const handleFormModeChange = useCallback(
+    (next: ManagerFormMode) => {
+      if (next === 'create') {
+        setEditingId(null);
+        setForm(emptyCarMaintenanceForm(todayYmd()));
+        setFormError(null);
+        closeReceiptCreate();
+      } else if (next === 'collapsed') {
+        setEditingId(null);
+        setForm(emptyCarMaintenanceForm(todayYmd()));
+        setFormError(null);
+        closeReceiptCreate();
+      }
+      setFormMode(next);
+    },
+    [closeReceiptCreate]
+  );
 
   const startEdit = (event: CarMaintenanceEventDto) => {
     setDeleteTarget(null);
@@ -405,8 +450,37 @@ export default function CarMaintenancePanel({
     setForm(formFromCarMaintenanceEventDto(event));
     setFormError(null);
     setFormMode('edit');
+    closeReceiptCreate();
     void loadDocuments();
   };
+
+  const openReceiptCreate = useCallback(() => {
+    setReplaceReceiptConfirmVisible(false);
+    setReceiptCreateOpen(true);
+  }, []);
+
+  const handleCreateReceiptPress = useCallback(() => {
+    if (form.documentId) {
+      setReplaceReceiptConfirmVisible(true);
+      return;
+    }
+    openReceiptCreate();
+  }, [form.documentId, openReceiptCreate]);
+
+  const handleReceiptDocumentCreated = useCallback(
+    (document: DocumentDto) => {
+      setDocuments((prev) => {
+        if (prev.some((d) => d.id === document.id)) {
+          return prev.map((d) => (d.id === document.id ? document : d));
+        }
+        return [document, ...prev];
+      });
+      updateField('documentId', document.id);
+      setReceiptCreateOpen(false);
+      setReceiptCreateSubmitting(false);
+    },
+    [updateField]
+  );
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -764,6 +838,42 @@ export default function CarMaintenancePanel({
             })}
           </View>
         ) : null}
+        {canCreateReceiptDocument ? (
+          <View style={styles.formActions}>
+            <Button
+              variant="outline"
+              label="Create receipt"
+              accessibilityLabel="Create receipt document"
+              disabled={formInputsLocked}
+              onPress={handleCreateReceiptPress}
+            />
+          </View>
+        ) : null}
+        {receiptCreateOpen && carLabel ? (
+          <View
+            style={styles.receiptCreateBlock}
+            accessibilityLabel="Create receipt document form">
+            <ThemedText style={styles.hint}>
+              Create a receipt Document. Save the event to store the link.
+            </ThemedText>
+            <DocumentCreateForm
+              key={`receipt-create-${selectedCar?.id ?? 'none'}`}
+              initialTitle={receiptDocumentTitlePrefill(carLabel)}
+              initialTags="receipt"
+              onDocumentCreated={handleReceiptDocumentCreated}
+              onSubmittingChange={setReceiptCreateSubmitting}
+            />
+            <View style={styles.formActions}>
+              <Button
+                variant="outline"
+                label="Cancel create"
+                accessibilityLabel="Cancel create receipt document"
+                disabled={receiptCreateSubmitting}
+                onPress={closeReceiptCreate}
+              />
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {formError ? (
@@ -1026,13 +1136,14 @@ export default function CarMaintenancePanel({
           mode={formMode}
           onModeChange={handleFormModeChange}
           onCancel={() => {
-            if (submitting || deleting) {
+            if (submitting || deleting || receiptCreateSubmitting) {
               return false;
             }
+            closeReceiptCreate();
           }}
           form={eventForm}
           onEnterSubmit={
-            canSubmit && !formInputsLocked
+            canSubmit && !formInputsLocked && !receiptCreateOpen
               ? () => {
                   void handleSubmit();
                 }
@@ -1062,6 +1173,18 @@ export default function CarMaintenancePanel({
         onConfirm={() => {
           void handleDeleteConfirm();
         }}
+      />
+
+      <ConfirmDialog
+        visible={replaceReceiptConfirmVisible}
+        title="Replace receipt document?"
+        message="This event already has a receipt Document. Create a new receipt and replace the link? Cancel keeps the current receipt."
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        onCancel={() => {
+          setReplaceReceiptConfirmVisible(false);
+        }}
+        onConfirm={openReceiptCreate}
       />
     </View>
   );

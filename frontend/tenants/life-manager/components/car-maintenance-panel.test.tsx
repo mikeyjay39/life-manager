@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import * as ReactNative from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedFetch } from '@/lib/api/client';
+import { apiFetch, authenticatedFetch } from '@/lib/api/client';
 import type { CarDto } from '@/lib/api/types';
 import { formatUsdFromCents } from '@/lib/format/display';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
@@ -11,6 +11,7 @@ import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
 import CarMaintenancePanel, {
   CAR_MAINTENANCE_LIST_COLUMN_FLEX,
+  receiptDocumentTitlePrefill,
 } from './car-maintenance-panel';
 
 /** Flatten RN style arrays/objects and return the first defined `flex`. */
@@ -78,16 +79,54 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock('@/contexts/ProtonConnectContext', () => ({
+  useProtonConnect: vi.fn(() => ({
+    isSupported: false,
+    session: null,
+    isConnecting: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+}));
+
+vi.mock('expo-document-picker', () => ({
+  getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
 vi.mock('@/lib/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/client')>();
   return {
     ...actual,
     authenticatedFetch: vi.fn(),
+    apiFetch: vi.fn(),
   };
 });
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
+const mockApiFetch = vi.mocked(apiFetch);
+
+const receiptDoc = {
+  id: 'd-receipt-1',
+  title: 'Old receipt',
+  content: 'prior',
+  tags: ['receipt'],
+  created_at: 't',
+  issued_date: null,
+  expire_date: null,
+  storage: null,
+};
+
+const newReceiptDoc = {
+  id: 'd-receipt-new',
+  title: 'Daily receipt',
+  content: 'oil change',
+  tags: ['receipt'],
+  created_at: 't',
+  issued_date: null,
+  expire_date: null,
+  storage: null,
+};
 
 const activeCar: CarDto = {
   id: 'c1',
@@ -147,6 +186,9 @@ describe('CarMaintenancePanel', () => {
       logout: vi.fn(),
     } as ReturnType<typeof useAuth>);
     mockDefaultLoads();
+    mockApiFetch.mockResolvedValue(
+      new Response(JSON.stringify(newReceiptDoc), { status: 201 })
+    );
   });
 
   function openAddEvent() {
@@ -584,5 +626,175 @@ describe('CarMaintenancePanel', () => {
     expect(
       screen.getByLabelText('Delete maintenance event e9 on 2025-12-01')
     ).not.toBeDisabled();
+
+    // When editing on inactive Car then Create receipt stays hidden
+    fireEvent.press(
+      screen.getByLabelText('Edit maintenance event e9 on 2025-12-01')
+    );
+    expect(screen.getByLabelText('Maintenance event form')).toBeTruthy();
+    expect(screen.queryByLabelText('Create receipt document')).toBeNull();
+  });
+
+  it('Scenario: Create receipt Document on new maintenance event', async () => {
+    // Given active Car and Add event with no receipt selected
+    renderPanel();
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/documents',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+    openAddEvent();
+
+    expect(screen.getByLabelText('Create receipt document')).toBeTruthy();
+    expect(receiptDocumentTitlePrefill('Daily')).toBe('Daily receipt');
+
+    // When create receipt succeeds
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    expect(screen.getByLabelText('Create receipt document form')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
+      'Daily receipt'
+    );
+    expect(screen.getByLabelText('Document tags').props.value).toBe('receipt');
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Document content'),
+      'Oil change invoice'
+    );
+    fireEvent.press(screen.getByLabelText('Submit'));
+
+    // Then picker selects the new Document; event is not POSTed yet
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select receipt document Daily receipt')
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByLabelText('Select receipt document Daily receipt').props
+        .accessibilityState?.selected
+    ).toBe(true);
+    expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
+    expect(
+      mockAuthenticatedFetch.mock.calls.some(
+        ([path, init]) =>
+          path === '/car-maintenance-events' &&
+          (init as RequestInit | undefined)?.method === 'POST'
+      )
+    ).toBe(false);
+    expect(mockApiFetch).toHaveBeenCalled();
+  });
+
+  it('Scenario: Confirm before replace existing receipt on edit', async () => {
+    // Given edit of an event that already has receipt R1
+    const listed = {
+      id: 'e1',
+      car_id: 'c1',
+      occurred_on: '2026-01-15',
+      event_type: 'service',
+      odometer_miles: null,
+      cost_cents: null,
+      title: null,
+      notes: null,
+      document_id: receiptDoc.id,
+      created_at: 't',
+      updated_at: 't',
+    };
+    mockDefaultLoads([listed], [receiptDoc]);
+
+    renderPanel();
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(`Receipt: ${receiptDoc.title}`)
+      ).toBeTruthy();
+    });
+    fireEvent.press(
+      screen.getByLabelText('Edit maintenance event e1 on 2026-01-15')
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
+          .props.accessibilityState?.selected
+      ).toBe(true);
+    });
+
+    // When start create receipt then ConfirmDialog asks to replace
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    expect(screen.getByText('Replace receipt document?')).toBeTruthy();
+
+    // When cancel then R1 stays selected and create form stays closed
+    fireEvent.press(screen.getByLabelText('Dismiss dialog'));
+    await waitFor(() => {
+      expect(screen.queryByText('Replace receipt document?')).toBeNull();
+    });
+    expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
+    expect(
+      screen.getByLabelText(`Select receipt document ${receiptDoc.title}`).props
+        .accessibilityState?.selected
+    ).toBe(true);
+
+    // When confirm replace and create succeeds then picker selects new Document
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.press(screen.getByLabelText('Replace'));
+    expect(screen.getByLabelText('Create receipt document form')).toBeTruthy();
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Document content'),
+      'New receipt body'
+    );
+    fireEvent.press(screen.getByLabelText('Submit'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Select receipt document Daily receipt')
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByLabelText('Select receipt document Daily receipt').props
+        .accessibilityState?.selected
+    ).toBe(true);
+    expect(
+      mockAuthenticatedFetch.mock.calls.some(
+        ([path, init]) =>
+          path === '/car-maintenance-events/e1' &&
+          (init as RequestInit | undefined)?.method === 'PUT'
+      )
+    ).toBe(false);
+  });
+
+  it('Scenario: Pick existing receipt still works', async () => {
+    // Given owned Document D on Add event
+    mockDefaultLoads([], [receiptDoc]);
+    renderPanel();
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/documents',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+    openAddEvent();
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
+      ).toBeTruthy();
+    });
+    fireEvent.press(
+      screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
+    );
+    // Validation needs title, notes, odometer, or cost in addition to document.
+    fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Oil');
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
+        '/car-maintenance-events',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+    const postCall = mockAuthenticatedFetch.mock.calls.find(
+      ([path, init]) =>
+        path === '/car-maintenance-events' &&
+        (init as RequestInit | undefined)?.method === 'POST'
+    );
+    const body = JSON.parse(String((postCall![1] as RequestInit).body));
+    expect(body.document_id).toBe(receiptDoc.id);
   });
 });

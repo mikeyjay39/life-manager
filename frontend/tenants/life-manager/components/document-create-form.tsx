@@ -47,6 +47,10 @@ type DocumentCreateFormProps = {
   onDocumentCreated?: (document: DocumentDto) => void;
   /** Lets the parent block Cancel while a create request is in flight. */
   onSubmittingChange?: (submitting: boolean) => void;
+  /** Editable title seed (Car Manager receipt / insurance / registration). */
+  initialTitle?: string;
+  /** Editable tags seed as comma-separated text (for example `receipt`). */
+  initialTags?: string;
 };
 
 /**
@@ -67,10 +71,12 @@ type DocumentCreateFormProps = {
 export default function DocumentCreateForm({
   onDocumentCreated,
   onSubmittingChange,
+  initialTitle = '',
+  initialTags = '',
 }: DocumentCreateFormProps) {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagsInput, setTagsInput] = useState(initialTags);
   const [issuedDateInput, setIssuedDateInput] = useState('');
   const [expireDateInput, setExpireDateInput] = useState('');
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);
@@ -81,6 +87,10 @@ export default function DocumentCreateForm({
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
   const mountedRef = useRef(true);
+  const initialTitleRef = useRef(initialTitle);
+  const initialTagsRef = useRef(initialTags);
+  initialTitleRef.current = initialTitle;
+  initialTagsRef.current = initialTags;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -174,9 +184,9 @@ export default function DocumentCreateForm({
   );
 
   const resetForm = () => {
-    setTitle('');
+    setTitle(initialTitleRef.current);
     setContent('');
-    setTagsInput('');
+    setTagsInput(initialTagsRef.current);
     setIssuedDateInput('');
     setExpireDateInput('');
     setPickedFile(null);
@@ -390,6 +400,7 @@ export default function DocumentCreateForm({
         onChangeText={setTagsInput}
         placeholder="e.g. work, notes"
         placeholderTextColor={palette.icon}
+        accessibilityLabel="Document tags"
       />
 
       <Text style={styles.label}>Issue date (optional)</Text>
