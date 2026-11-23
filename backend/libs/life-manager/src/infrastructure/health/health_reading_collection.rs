@@ -4,12 +4,12 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::{
+    application::health::health_reading_repository::{
         DuplicateHealthReadingDate, HealthReadingRepository, MissingHealthReading,
     },
     domain::{
-        health_member::HealthMemberId,
-        health_reading::{HealthReading, HealthReadingId},
+        health::health_member::HealthMemberId,
+        health::health_reading::{HealthReading, HealthReadingId},
     },
 };
 

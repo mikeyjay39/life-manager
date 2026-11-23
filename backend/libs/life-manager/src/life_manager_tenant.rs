@@ -4,13 +4,13 @@ use axum::Router;
 use server_host::{AppBootstrap, TenantMount};
 
 use crate::infrastructure::{
-    app_state::{LifeManagerDeps, LifeManagerState, LifeManagerStateBuilder},
+    shared::app_state::{LifeManagerDeps, LifeManagerState, LifeManagerStateBuilder},
     car::car_router::car_router,
-    car_maintenance_event::car_maintenance_event_router::car_maintenance_event_router,
-    doctor_visit::doctor_visit_router::doctor_visit_router,
+    car::car_maintenance_event_router::car_maintenance_event_router,
+    health::doctor_visit_router::doctor_visit_router,
     document::document_router::document_router,
     health::health_reading_router::health_reading_router,
-    health_member::health_member_router::health_member_router,
+    health::health_member_router::health_member_router,
 };
 
 pub struct LifeManagerTenant;

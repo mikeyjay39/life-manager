@@ -5,11 +5,11 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::create_car_command::CreateCarCommand;
-use crate::application::deactivate_car_command::DeactivateCarCommand;
-use crate::application::delete_car_command::DeleteCarCommand;
-use crate::application::list_cars_query::ListCarsQuery;
-use crate::application::update_car_command::UpdateCarCommand;
+use crate::application::car::create_car_command::CreateCarCommand;
+use crate::application::car::deactivate_car_command::DeactivateCarCommand;
+use crate::application::car::delete_car_command::DeleteCarCommand;
+use crate::application::car::list_cars_query::ListCarsQuery;
+use crate::application::car::update_car_command::UpdateCarCommand;
 use crate::domain::car::CarId;
 use crate::infrastructure::car::car_api_types::{
     CreateCarCommandDto, GetCarsQueryParams, UpdateCarCommandDto,
@@ -176,8 +176,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::application::car_use_cases::CarUseCases;
-    use crate::application::document_repository::DocumentRepository;
+    use crate::application::car::car_use_cases::CarUseCases;
+    use crate::application::document::document_repository::DocumentRepository;
     use crate::domain::document::Document;
     use crate::infrastructure::car::car_collection::CarCollection;
     use crate::infrastructure::document::document_collection::DocumentCollection;

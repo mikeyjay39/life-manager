@@ -2,7 +2,7 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use serde::Serialize;
 
-use crate::domain::document_storage_ref::DocumentStorageRef;
+use crate::domain::document::document_storage_ref::DocumentStorageRef;
 
 #[derive(Serialize, Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::documents)]

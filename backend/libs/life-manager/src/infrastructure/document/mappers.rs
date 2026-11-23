@@ -2,7 +2,7 @@ use backend_utils::AppResult;
 use uuid::Uuid;
 
 use crate::{
-    domain::uploaded_document_input::UploadedDocumentInput,
+    domain::document::uploaded_document_input::UploadedDocumentInput,
     infrastructure::document::document_api_types::CreateDocumentCommandDto,
 };
 

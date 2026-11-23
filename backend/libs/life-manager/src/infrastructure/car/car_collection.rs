@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::car_repository::{
+    application::car::car_repository::{
         CarRepository, DuplicateCarLicensePlate, DuplicateCarVin, MissingCar,
     },
     domain::car::{Car, CarId},

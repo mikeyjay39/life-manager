@@ -1,15 +1,4 @@
-pub mod app_state;
-pub mod auth_integration;
 pub mod car;
-pub mod car_maintenance_event;
-pub mod db;
-pub mod doctor_visit;
 pub mod document;
-pub mod document_text_extraction;
 pub mod health;
-pub mod health_member;
-pub mod http_client;
-pub mod noop_document_text_reader;
-pub mod ollama_document_summarizer_adapter;
-pub mod reqwest_http_client;
-pub mod tesseract_adapter;
+pub mod shared;

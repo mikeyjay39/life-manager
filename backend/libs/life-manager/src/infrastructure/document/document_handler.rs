@@ -1,9 +1,9 @@
-use crate::application::create_document_command::CreateDocumentCommand;
-use crate::application::delete_document_command::DeleteDocumentCommand;
-use crate::application::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
-use crate::application::update_document_command::UpdateDocumentCommand;
+use crate::application::document::create_document_command::CreateDocumentCommand;
+use crate::application::document::delete_document_command::DeleteDocumentCommand;
+use crate::application::document::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
+use crate::application::document::update_document_command::UpdateDocumentCommand;
 use crate::domain::document::Document;
-use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::document::document_api_types::{
     CreateDocumentCommandDto, GetDocumentsQueryParams, UpdateDocumentCommandDto,
 };
@@ -356,11 +356,11 @@ mod tests {
     use std::error::Error;
     use std::sync::Arc;
 
-    use crate::application::document_repository::DocumentRepository;
-    use crate::application::document_use_cases::DocumentUseCases;
-    use crate::domain::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
-    use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
-    use crate::domain::document_text_reader::DocumentTextReader;
+    use crate::application::document::document_repository::DocumentRepository;
+    use crate::application::document::document_use_cases::DocumentUseCases;
+    use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
+    use crate::domain::document::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
+    use crate::domain::document::document_text_reader::DocumentTextReader;
     use crate::infrastructure::document::document_collection::DocumentCollection;
 
     use crate::infrastructure::document::document_api_types::DocumentStorageRefDto;

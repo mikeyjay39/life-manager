@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::application::document_repository::DocumentRepository;
+use crate::application::document::document_repository::DocumentRepository;
 use crate::infrastructure::document::document_tags::{
     load_tags_by_document_ids, persist_document_tags, replace_document_tags,
 };

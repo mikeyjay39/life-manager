@@ -1,7 +1,7 @@
 use axum::{Router, routing::post};
 
 use crate::infrastructure::{
-    app_state::LifeManagerState,
+    shared::app_state::LifeManagerState,
     health::health_reading_handler::{
         create_health_reading, delete_health_reading, list_health_readings, update_health_reading,
     },

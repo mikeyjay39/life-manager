@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::health_reading::HealthReading;
+use crate::domain::health::health_reading::HealthReading;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS, PartialEq)]
 #[ts(
@@ -49,8 +49,8 @@ impl HealthReadingDto {
 mod tests {
     use super::*;
     use crate::domain::{
-        health_member::HealthMember,
-        health_reading::{HealthReading, HealthReadingVitals},
+        health::health_member::HealthMember,
+        health::health_reading::{HealthReading, HealthReadingVitals},
     };
     use chrono::Utc;
     use uuid::Uuid;

@@ -17,9 +17,9 @@ backend/
       migrations/         # Author SQL here; user runs diesel migration run
     life-manager/
       src/life_manager_tenant.rs  # LifeManagerTenant (TenantMount impl)
-      src/domain/
-      src/application/
-      src/infrastructure/ # HTTP handlers, Diesel, adapters
+      src/domain/           # By aggregate: car/, document/, health/
+      src/application/      # By aggregate: car/, document/, health/
+      src/infrastructure/ # By aggregate: car/, document/, health/ + shared/
       src/schema.rs       # Generated — do not hand-edit
       migrations/         # Author SQL here; user runs diesel migration run
     test-tenant/
@@ -55,7 +55,9 @@ Applies within **`libs/life-manager/src/`**:
 | `application` | `domain`, `application` |
 | `infrastructure` | any layer |
 
-New features: `domain` / `application` first, then `infrastructure/<feature>/` (see `infrastructure/document/`).
+New features: `domain` / `application` first, then `infrastructure/<aggregate>/` (see `infrastructure/document/`). Platform adapters (DB pool, OCR, HTTP client, `app_state`) live under `infrastructure/shared/`.
+
+Domain, application, and infrastructure feature modules live under flat aggregate folders (`…/car`, `…/document`, `…/health`). Import as `crate::<layer>::<aggregate>::<module>::…` (for example `crate::domain::health::health_member::HealthMember`, `crate::application::car::create_car_command::CreateCarCommand`, `crate::infrastructure::health::health_member_handler::…`). The car and document domain aggregate roots re-export their primary types at `crate::domain::car::…` and `crate::domain::document::…`.
 
 ## Auth email (port)
 
@@ -85,7 +87,7 @@ Rust is the source of truth for **HTTP contract types** (request/response DTOs).
 | Crate | Annotated types | Output |
 |-------|-----------------|--------|
 | `auth` | `LoginRequest`, `LoginResponse` in `domain/login_request.rs`; `SignupRequest`, `SignupResponse` in `domain/signup_request.rs`; `VerifyEmailRequest`, `VerifyEmailResponse` in `domain/verify_email_request.rs`; `PasswordResetRequestRequest`, `PasswordResetRequestResponse`, `PasswordResetConfirmRequest`, `PasswordResetConfirmResponse` in `domain/password_reset_request.rs` | `frontend/lib/api/generated/auth/` |
-| `life-manager` | `DocumentDto`, `CreateDocumentCommand`, `DocumentStorageRefDto`, `GetDocumentsQueryParams` in `infrastructure/document/`; `HealthMemberDto`, `CreateHealthMemberCommand`, `UpdateHealthMemberCommand`, `GetHealthMembersQueryParams` in `infrastructure/health_member/`; `HealthReadingDto`, `CreateHealthReadingCommand`, `UpdateHealthReadingCommand`, `GetHealthReadingsQueryParams` in `infrastructure/health/`; `DoctorVisitDto`, `CreateDoctorVisitCommand`, `UpdateDoctorVisitCommand`, `GetDoctorVisitsQueryParams` in `infrastructure/doctor_visit/`; `CarDto`, `CreateCarCommand`, `UpdateCarCommand`, `GetCarsQueryParams` in `infrastructure/car/`; `CarMaintenanceEventDto`, `CreateCarMaintenanceEventCommand`, `UpdateCarMaintenanceEventCommand`, `GetCarMaintenanceEventsQueryParams` in `infrastructure/car_maintenance_event/` | `frontend/lib/api/generated/life-manager/` |
+| `life-manager` | Document DTOs in `infrastructure/document/`; HealthMember / HealthReading / DoctorVisit DTOs in `infrastructure/health/`; Car / CarMaintenanceEvent DTOs in `infrastructure/car/` | `frontend/lib/api/generated/life-manager/` |
 
 **Do not** export domain aggregates (e.g. `Document` with `user_id`) or server-only types (e.g. JWT `Claims`).
 
@@ -116,20 +118,20 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 | Handler + unit tests + ASCII sequence diagram | `libs/life-manager/src/infrastructure/document/document_handler.rs` (`create_document` doc comment — see hub **Definition of done**) |
 | Router | `libs/life-manager/src/infrastructure/document/document_router.rs` |
 | Integration | `tests/documents_tests.rs` |
-| HealthMember handler + diagram | `libs/life-manager/src/infrastructure/health_member/health_member_handler.rs` |
-| HealthMember router | `libs/life-manager/src/infrastructure/health_member/health_member_router.rs` |
+| HealthMember handler + diagram | `libs/life-manager/src/infrastructure/health/health_member_handler.rs` |
+| HealthMember router | `libs/life-manager/src/infrastructure/health/health_member_router.rs` |
 | HealthMember integration | `tests/health_members_tests.rs` |
 | HealthReading handler + diagram | `libs/life-manager/src/infrastructure/health/health_reading_handler.rs` |
 | HealthReading router | `libs/life-manager/src/infrastructure/health/health_reading_router.rs` |
 | HealthReading integration | `tests/health_readings_tests.rs` |
-| DoctorVisit handler + diagram | `libs/life-manager/src/infrastructure/doctor_visit/doctor_visit_handler.rs` |
-| DoctorVisit router | `libs/life-manager/src/infrastructure/doctor_visit/doctor_visit_router.rs` |
+| DoctorVisit handler + diagram | `libs/life-manager/src/infrastructure/health/doctor_visit_handler.rs` |
+| DoctorVisit router | `libs/life-manager/src/infrastructure/health/doctor_visit_router.rs` |
 | DoctorVisit integration | `tests/doctor_visits_tests.rs` |
 | Car handler + diagram | `libs/life-manager/src/infrastructure/car/car_handler.rs` |
 | Car router | `libs/life-manager/src/infrastructure/car/car_router.rs` |
 | Car integration | `tests/cars_tests.rs` |
-| CarMaintenanceEvent handler + diagram | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_handler.rs` |
-| CarMaintenanceEvent router | `libs/life-manager/src/infrastructure/car_maintenance_event/car_maintenance_event_router.rs` |
+| CarMaintenanceEvent handler + diagram | `libs/life-manager/src/infrastructure/car/car_maintenance_event_handler.rs` |
+| CarMaintenanceEvent router | `libs/life-manager/src/infrastructure/car/car_maintenance_event_router.rs` |
 | CarMaintenanceEvent integration | `tests/car_maintenance_events_tests.rs` |
 | Multitenancy pilot | `tests/test_tenant_auth_tests.rs`, `libs/test-tenant/` |
 | Auth email tokens (issue / find_valid / consume; hash only) | `libs/auth/src/domain/email_token_service.rs`, `libs/auth/src/infrastructure/email_token_orm_collection.rs`, migration `libs/auth/migrations/2026-11-10-000000_create_auth_email_tokens/` |
