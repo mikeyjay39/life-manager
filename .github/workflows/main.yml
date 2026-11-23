@@ -270,8 +270,17 @@ jobs:
         if: always()
         run: bash e2e/scripts/down.sh
 
+  # path-filter is skipped on push; test jobs still run via always().
+  # Deploy must also use always() + explicit success checks, or GitHub skips
+  # this job when a skipped ancestor sits in the needs graph (#264 regression).
   deploy-prod-images:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >
+      always() && !cancelled() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.frontend-unit-tests.result == 'success' &&
+      needs.backend-unit-tests.result == 'success' &&
+      needs.integration-tests.result == 'success' &&
+      needs.e2e-tests.result == 'success'
     needs: [frontend-unit-tests, backend-unit-tests, integration-tests, e2e-tests]
     runs-on: ubuntu-latest
     env:
@@ -364,7 +373,10 @@ jobs:
             ${{ env.ECR_REGISTRY }}/${{ env.ALLOY_REPO }}:${{ github.sha }}
 
   deploy-prod-lightsail:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >
+      always() && !cancelled() &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.deploy-prod-images.result == 'success'
     needs: deploy-prod-images
     runs-on: ubuntu-latest
     env:

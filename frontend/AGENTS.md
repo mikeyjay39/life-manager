@@ -80,7 +80,7 @@ Shared patterns for Documents, Health, and Cars. Prefer these over one-off scree
 
 Do not invent per-screen width or full-bleed CTA stretch.
 
-`MANAGER_CONTENT_MAX_WIDTH` is **960** (`manager-layout.ts`). Documents, Health, and Cars all share that content max width via `ManagerPageContent`. Do not set a per-screen `maxWidth` (or other content-column override) on manager bodies.
+`MANAGER_CONTENT_MAX_WIDTH` is **960** (`manager-layout.ts`). Documents, Health, and Cars all share that content max width via `ManagerPageContent`. Do not set a per-screen `maxWidth` (or other content-column override) on manager bodies. Prod serves this token only from the `life-manager-frontend` image; a `main` push must change `frontend/**` so CI rebuilds that image.
 
 | Primitive | Role |
 |-----------|------|
