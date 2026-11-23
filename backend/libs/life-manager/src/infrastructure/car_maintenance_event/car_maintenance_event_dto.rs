@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::car_maintenance_event::CarMaintenanceEvent;
+use crate::domain::car::car_maintenance_event::CarMaintenanceEvent;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS, PartialEq)]
 #[ts(
@@ -48,7 +48,7 @@ mod tests {
     use super::*;
     use crate::domain::{
         car::{Car, CarProfileInput},
-        car_maintenance_event::{CarMaintenanceEventInput, CarMaintenanceEventType},
+        car::car_maintenance_event::{CarMaintenanceEventInput, CarMaintenanceEventType},
     };
     use chrono::Utc;
 

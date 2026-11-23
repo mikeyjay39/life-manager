@@ -11,7 +11,7 @@ use crate::{
         },
         document_repository::DocumentRepository,
     },
-    domain::car_maintenance_event::{
+    domain::car::car_maintenance_event::{
         CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventInput,
         CarMaintenanceEventType,
     },

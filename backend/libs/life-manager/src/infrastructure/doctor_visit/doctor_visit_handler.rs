@@ -10,8 +10,8 @@ use crate::application::create_doctor_visit_command::CreateDoctorVisitCommand;
 use crate::application::delete_doctor_visit_command::DeleteDoctorVisitCommand;
 use crate::application::list_doctor_visits_query::ListDoctorVisitsQuery;
 use crate::application::update_doctor_visit_command::UpdateDoctorVisitCommand;
-use crate::domain::doctor_visit::DoctorVisitId;
-use crate::domain::health_member::HealthMemberId;
+use crate::domain::health::doctor_visit::DoctorVisitId;
+use crate::domain::health::health_member::HealthMemberId;
 use crate::infrastructure::doctor_visit::doctor_visit_api_types::{
     CreateDoctorVisitCommandDto, GetDoctorVisitsQueryParams, UpdateDoctorVisitCommandDto,
 };
@@ -192,7 +192,7 @@ mod tests {
     use super::*;
     use crate::application::doctor_visit_use_cases::DoctorVisitUseCases;
     use crate::application::health_member_repository::HealthMemberRepository;
-    use crate::domain::health_member::HealthMember;
+    use crate::domain::health::health_member::HealthMember;
     use crate::infrastructure::doctor_visit::doctor_visit_collection::DoctorVisitCollection;
     use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
 

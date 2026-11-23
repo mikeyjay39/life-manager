@@ -3,7 +3,7 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::health_member::{
+use crate::domain::health::health_member::{
     DISPLAY_NAME_MAX_LEN, HealthMember, HealthMemberId, NOTES_MAX_LEN,
 };
 

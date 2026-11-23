@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use uuid::Uuid;
 
-use crate::domain::health_member::{HealthMember, HealthMemberId};
+use crate::domain::health::health_member::{HealthMember, HealthMemberId};
 
 /**
  * Port for HealthMember persistence.

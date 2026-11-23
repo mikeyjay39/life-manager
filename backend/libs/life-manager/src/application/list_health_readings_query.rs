@@ -9,7 +9,7 @@ use crate::{
         health_member_repository::HealthMemberRepository,
         health_reading_repository::HealthReadingRepository,
     },
-    domain::{health_member::HealthMemberId, health_reading::HealthReading},
+    domain::{health::health_member::HealthMemberId, health::health_reading::HealthReading},
 };
 
 pub struct ListHealthReadingsQuery {

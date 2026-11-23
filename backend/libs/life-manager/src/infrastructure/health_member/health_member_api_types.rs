@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
-use crate::domain::health_member::DISPLAY_NAME_MAX_LEN;
+use crate::domain::health::health_member::DISPLAY_NAME_MAX_LEN;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(

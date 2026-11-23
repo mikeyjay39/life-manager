@@ -9,7 +9,7 @@ use crate::application::create_health_member_command::CreateHealthMemberCommand;
 use crate::application::deactivate_health_member_command::DeactivateHealthMemberCommand;
 use crate::application::list_health_members_query::ListHealthMembersQuery;
 use crate::application::update_health_member_command::UpdateHealthMemberCommand;
-use crate::domain::health_member::HealthMemberId;
+use crate::domain::health::health_member::HealthMemberId;
 use crate::infrastructure::health_member::health_member_api_types::{
     CreateHealthMemberCommandDto, GetHealthMembersQueryParams, UpdateHealthMemberCommandDto,
 };

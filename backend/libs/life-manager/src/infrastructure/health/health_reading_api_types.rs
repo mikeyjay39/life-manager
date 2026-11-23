@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::health_reading::HealthReadingVitals;
+use crate::domain::health::health_reading::HealthReadingVitals;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(

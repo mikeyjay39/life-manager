@@ -6,11 +6,11 @@ use serde::Deserialize;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::domain::document_storage_ref::DocumentStorageRef;
-use crate::domain::document_summarizer::DocumentSummarizer;
-use crate::domain::document_summarizer::DocumentSummaryResult;
-use crate::domain::document_text_reader::DocumentTextReader;
-use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::domain::document::document_storage_ref::DocumentStorageRef;
+use crate::domain::document::document_summarizer::DocumentSummarizer;
+use crate::domain::document::document_summarizer::DocumentSummaryResult;
+use crate::domain::document::document_text_reader::DocumentTextReader;
+use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Document {
@@ -204,8 +204,8 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::document_summarizer::DocumentSummarizer;
-    use crate::domain::document_text_reader::DocumentTextReader;
+    use crate::domain::document::document_summarizer::DocumentSummarizer;
+    use crate::domain::document::document_text_reader::DocumentTextReader;
     use async_trait::async_trait;
 
     #[test]

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::car_maintenance_event::CarMaintenanceEventType;
+use crate::domain::car::car_maintenance_event::CarMaintenanceEventType;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(

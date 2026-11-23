@@ -13,7 +13,7 @@ use crate::{
         },
         health_member_repository::HealthMemberRepository,
     },
-    domain::doctor_visit::{DoctorVisit, DoctorVisitId},
+    domain::health::doctor_visit::{DoctorVisit, DoctorVisitId},
 };
 
 /// Updates mutable fields on an owned DoctorVisit.

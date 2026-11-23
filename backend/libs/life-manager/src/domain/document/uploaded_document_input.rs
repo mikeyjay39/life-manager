@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use uuid::Uuid;
 
-use crate::domain::document_storage_ref::DocumentStorageRef;
+use crate::domain::document::document_storage_ref::DocumentStorageRef;
 
 #[derive(Clone, Debug)]
 /**

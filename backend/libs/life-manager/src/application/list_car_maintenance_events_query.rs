@@ -11,7 +11,7 @@ use crate::{
     },
     domain::{
         car::CarId,
-        car_maintenance_event::{CarMaintenanceEvent, CarMaintenanceEventType},
+        car::car_maintenance_event::{CarMaintenanceEvent, CarMaintenanceEventType},
     },
 };
 

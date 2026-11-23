@@ -13,8 +13,8 @@ use crate::{
         },
     },
     domain::{
-        health_member::HealthMemberId,
-        health_reading::{HealthReading, HealthReadingVitals},
+        health::health_member::HealthMemberId,
+        health::health_reading::{HealthReading, HealthReadingVitals},
     },
 };
 

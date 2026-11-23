@@ -3,8 +3,8 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::domain::{
-    doctor_visit::{DoctorVisit, DoctorVisitId},
-    health_member::HealthMemberId,
+    health::doctor_visit::{DoctorVisit, DoctorVisitId},
+    health::health_member::HealthMemberId,
 };
 
 /// Write rejected because the HealthMember row is gone.

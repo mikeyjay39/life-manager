@@ -3,8 +3,8 @@ use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::domain::{
-    health_member::HealthMemberId,
-    health_reading::{HealthReading, HealthReadingId},
+    health::health_member::HealthMemberId,
+    health::health_reading::{HealthReading, HealthReadingId},
 };
 
 /// Unique `(health_member_id, recorded_on)` conflict on insert.

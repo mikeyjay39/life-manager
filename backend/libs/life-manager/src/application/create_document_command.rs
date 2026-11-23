@@ -5,8 +5,8 @@ use backend_utils::{AppError, AppResult};
 use crate::{
     application::document_repository::DocumentRepository,
     domain::{
-        document::Document, document_summarizer::DocumentSummarizer,
-        document_text_reader::DocumentTextReader, uploaded_document_input::UploadedDocumentInput,
+        document::Document, document::document_summarizer::DocumentSummarizer,
+        document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
     },
 };
 

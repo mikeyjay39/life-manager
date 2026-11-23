@@ -11,7 +11,7 @@ use crate::application::delete_car_maintenance_event_command::DeleteCarMaintenan
 use crate::application::list_car_maintenance_events_query::ListCarMaintenanceEventsQuery;
 use crate::application::update_car_maintenance_event_command::UpdateCarMaintenanceEventCommand;
 use crate::domain::car::CarId;
-use crate::domain::car_maintenance_event::CarMaintenanceEventId;
+use crate::domain::car::car_maintenance_event::CarMaintenanceEventId;
 use crate::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
     CreateCarMaintenanceEventCommandDto, GetCarMaintenanceEventsQueryParams,
     UpdateCarMaintenanceEventCommandDto,

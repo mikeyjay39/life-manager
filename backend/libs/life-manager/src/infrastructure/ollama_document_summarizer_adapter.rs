@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use ollama_rs::{Ollama, generation::completion::request::GenerationRequest};
 use reqwest::Url;
 
-use crate::domain::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
+use crate::domain::document::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
 
 const MODEL_NAME: &str = "llama2";
 const SUMMARY_CHAR_MAX_LENGTH: usize = 200;
@@ -62,7 +62,7 @@ impl DocumentSummarizer for OllamaDocumentSummarizerAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::document_summarizer::DocumentSummarizer;
+    use crate::domain::document::document_summarizer::DocumentSummarizer;
     use tokio;
     use tracing_test::traced_test;
 

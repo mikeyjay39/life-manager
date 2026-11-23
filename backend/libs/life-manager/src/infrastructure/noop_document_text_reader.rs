@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{
     domain::{
-        document_text_reader::DocumentTextReader, uploaded_document_input::UploadedDocumentInput,
+        document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
     },
     infrastructure::document_text_extraction::{get_text_from_pdf, needs_ocr},
 };
@@ -64,7 +64,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::domain::document_text_reader::DocumentTextReader;
+    use crate::domain::document::document_text_reader::DocumentTextReader;
 
     fn test_resources_path(file_name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

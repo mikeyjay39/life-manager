@@ -6,8 +6,8 @@ use uuid::Uuid;
 use crate::{
     application::doctor_visit_repository::{DoctorVisitRepository, MissingDoctorVisit},
     domain::{
-        doctor_visit::{DoctorVisit, DoctorVisitId},
-        health_member::HealthMemberId,
+        health::doctor_visit::{DoctorVisit, DoctorVisitId},
+        health::health_member::HealthMemberId,
     },
 };
 

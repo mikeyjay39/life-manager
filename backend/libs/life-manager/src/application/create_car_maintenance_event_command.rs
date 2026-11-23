@@ -15,7 +15,7 @@ use crate::{
     },
     domain::{
         car::CarId,
-        car_maintenance_event::{
+        car::car_maintenance_event::{
             CarMaintenanceEvent, CarMaintenanceEventInput, CarMaintenanceEventType,
         },
     },

@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     domain::{
-        document_text_reader::DocumentTextReader, uploaded_document_input::UploadedDocumentInput,
+        document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
     },
     infrastructure::{
         document_text_extraction::{get_text_from_pdf, needs_ocr},
@@ -134,8 +134,8 @@ mod tests {
 
     use crate::{
         domain::{
-            document_text_reader::DocumentTextReader,
-            uploaded_document_input::UploadedDocumentInput,
+            document::document_text_reader::DocumentTextReader,
+            document::uploaded_document_input::UploadedDocumentInput,
         },
         infrastructure::{
             http_client::{HttpClient, HttpResponse},

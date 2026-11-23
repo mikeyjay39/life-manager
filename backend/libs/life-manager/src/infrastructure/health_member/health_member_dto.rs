@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::health_member::HealthMember;
+use crate::domain::health::health_member::HealthMember;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS, PartialEq, Eq)]
 #[ts(
@@ -39,7 +39,7 @@ impl HealthMemberDto {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::health_member::HealthMember;
+    use crate::domain::health::health_member::HealthMember;
     use uuid::Uuid;
 
     #[test]

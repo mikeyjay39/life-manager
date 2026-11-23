@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     application::doctor_visit_repository::{DoctorVisitRepository, MissingDoctorVisit},
-    domain::doctor_visit::DoctorVisitId,
+    domain::health::doctor_visit::DoctorVisitId,
 };
 
 /// Hard-deletes an owned DoctorVisit. Missing or other user's id → NotFound.

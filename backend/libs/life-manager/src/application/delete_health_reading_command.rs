@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     application::health_reading_repository::{HealthReadingRepository, MissingHealthReading},
-    domain::health_reading::HealthReadingId,
+    domain::health::health_reading::HealthReadingId,
 };
 
 /// Hard-deletes an owned HealthReading. Missing or other user's id → NotFound.

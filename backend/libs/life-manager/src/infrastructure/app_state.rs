@@ -11,7 +11,7 @@ use crate::{
         health_member_use_cases::HealthMemberUseCases,
         health_reading_use_cases::HealthReadingUseCases,
     },
-    domain::document_text_reader::DocumentTextReader,
+    domain::document::document_text_reader::DocumentTextReader,
     infrastructure::{
         car::car_orm_collection::CarOrmCollection,
         car_maintenance_event::car_maintenance_event_orm_collection::CarMaintenanceEventOrmCollection,

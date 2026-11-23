@@ -1,10 +1,3 @@
 pub mod car;
-pub mod car_maintenance_event;
-pub mod doctor_visit;
 pub mod document;
-pub mod document_storage_ref;
-pub mod document_summarizer;
-pub mod document_text_reader;
-pub mod health_member;
-pub mod health_reading;
-pub mod uploaded_document_input;
+pub mod health;

@@ -3,7 +3,7 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::domain::health_member::{HealthMember, HealthMemberId, NOTES_MAX_LEN};
+use crate::domain::health::health_member::{HealthMember, HealthMemberId, NOTES_MAX_LEN};
 
 /// Stable identity of a HealthReading aggregate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -9,7 +9,7 @@ use crate::{
         doctor_visit_repository::DoctorVisitRepository,
         health_member_repository::HealthMemberRepository,
     },
-    domain::{doctor_visit::DoctorVisit, health_member::HealthMemberId},
+    domain::{health::doctor_visit::DoctorVisit, health::health_member::HealthMemberId},
 };
 
 pub struct ListDoctorVisitsQuery {

@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     application::health_member_repository::HealthMemberRepository,
-    domain::health_member::{HealthMember, HealthMemberId},
+    domain::health::health_member::{HealthMember, HealthMemberId},
 };
 
 pub struct HealthMemberCollection {

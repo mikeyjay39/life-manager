@@ -8,7 +8,7 @@ use crate::{
     application::health_reading_repository::{
         DuplicateHealthReadingDate, HealthReadingRepository, MissingHealthReading,
     },
-    domain::health_reading::{HealthReading, HealthReadingId, HealthReadingVitals},
+    domain::health::health_reading::{HealthReading, HealthReadingId, HealthReadingVitals},
 };
 
 /// Updates mutable metric fields on an owned HealthReading.

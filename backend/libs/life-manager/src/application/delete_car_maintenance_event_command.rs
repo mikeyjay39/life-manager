@@ -7,7 +7,7 @@ use crate::{
     application::car_maintenance_event_repository::{
         CarMaintenanceEventRepository, MissingCarMaintenanceEvent,
     },
-    domain::car_maintenance_event::CarMaintenanceEventId,
+    domain::car::car_maintenance_event::CarMaintenanceEventId,
 };
 
 /// Hard-deletes an owned CarMaintenanceEvent. Missing or other user's id → NotFound.

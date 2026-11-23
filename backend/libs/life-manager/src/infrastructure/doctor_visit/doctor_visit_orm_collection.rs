@@ -15,8 +15,8 @@ use crate::{
         MissingHealthMemberForVisit,
     },
     domain::{
-        doctor_visit::{DoctorVisit, DoctorVisitId},
-        health_member::HealthMemberId,
+        health::doctor_visit::{DoctorVisit, DoctorVisitId},
+        health::health_member::HealthMemberId,
     },
     infrastructure::doctor_visit::doctor_visit_entity::{
         DoctorVisitEntity, NewDoctorVisitEntity, UpdateDoctorVisitEntity,

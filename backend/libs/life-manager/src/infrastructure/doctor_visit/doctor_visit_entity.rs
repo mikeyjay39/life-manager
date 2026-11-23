@@ -3,8 +3,8 @@ use diesel::prelude::*;
 use serde::Serialize;
 
 use crate::domain::{
-    doctor_visit::{DoctorVisit, DoctorVisitId},
-    health_member::HealthMemberId,
+    health::doctor_visit::{DoctorVisit, DoctorVisitId},
+    health::health_member::HealthMemberId,
 };
 
 #[derive(Serialize, Queryable, Selectable, Debug, Clone)]

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use async_trait::async_trait;
 
-use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 
 /**
  * Port for reading text from documents.

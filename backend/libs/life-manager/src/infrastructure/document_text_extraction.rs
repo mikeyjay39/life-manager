@@ -5,7 +5,7 @@ use std::{collections::HashSet, error::Error, io::Write};
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 
-use crate::domain::uploaded_document_input::UploadedDocumentInput;
+use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 
 static OCR_EXTENSIONS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| HashSet::from(["png", "jpg", "jpeg", "tiff", "bmp", "gif"]));

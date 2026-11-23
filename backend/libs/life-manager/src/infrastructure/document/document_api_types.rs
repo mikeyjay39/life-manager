@@ -3,7 +3,7 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::domain::document_storage_ref::DocumentStorageRef;
+use crate::domain::document::document_storage_ref::DocumentStorageRef;
 
 #[derive(Serialize, Deserialize, Clone, Debug, TS)]
 #[ts(

@@ -10,8 +10,8 @@ use crate::application::create_health_reading_command::CreateHealthReadingComman
 use crate::application::delete_health_reading_command::DeleteHealthReadingCommand;
 use crate::application::list_health_readings_query::ListHealthReadingsQuery;
 use crate::application::update_health_reading_command::UpdateHealthReadingCommand;
-use crate::domain::health_member::HealthMemberId;
-use crate::domain::health_reading::HealthReadingId;
+use crate::domain::health::health_member::HealthMemberId;
+use crate::domain::health::health_reading::HealthReadingId;
 use crate::infrastructure::health::health_reading_api_types::{
     CreateHealthReadingCommandDto, GetHealthReadingsQueryParams, UpdateHealthReadingCommandDto,
 };
@@ -194,7 +194,7 @@ mod tests {
     use crate::application::health_member_repository::HealthMemberRepository;
     use crate::application::health_member_use_cases::HealthMemberUseCases;
     use crate::application::health_reading_use_cases::HealthReadingUseCases;
-    use crate::domain::health_member::HealthMember;
+    use crate::domain::health::health_member::HealthMember;
     use crate::infrastructure::health::health_reading_collection::HealthReadingCollection;
     use crate::infrastructure::health_member::health_member_api_types::CreateHealthMemberCommandDto;
     use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
@@ -322,7 +322,7 @@ mod tests {
         let stored = use_cases
             .health_reading_repository
             .load_owned(
-                &crate::domain::health_reading::HealthReadingId(dto.id),
+                &crate::domain::health::health_reading::HealthReadingId(dto.id),
                 &auth_user.user_id,
             )
             .await

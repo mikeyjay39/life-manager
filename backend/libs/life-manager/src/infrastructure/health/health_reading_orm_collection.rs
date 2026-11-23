@@ -14,8 +14,8 @@ use crate::{
         MissingHealthMemberForReading, MissingHealthReading,
     },
     domain::{
-        health_member::HealthMemberId,
-        health_reading::{HealthReading, HealthReadingId},
+        health::health_member::HealthMemberId,
+        health::health_reading::{HealthReading, HealthReadingId},
     },
     infrastructure::health::health_reading_entity::{
         HealthReadingEntity, NewHealthReadingEntity, UpdateHealthReadingEntity,

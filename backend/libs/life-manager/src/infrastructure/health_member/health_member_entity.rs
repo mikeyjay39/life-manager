@@ -2,7 +2,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
 use serde::Serialize;
 
-use crate::domain::health_member::{HealthMember, HealthMemberId};
+use crate::domain::health::health_member::{HealthMember, HealthMemberId};
 
 #[derive(Serialize, Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::health_members)]
