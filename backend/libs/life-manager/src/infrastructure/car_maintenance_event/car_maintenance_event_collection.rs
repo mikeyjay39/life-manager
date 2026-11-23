@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::car_maintenance_event_repository::{
+    application::car::car_maintenance_event_repository::{
         CarMaintenanceEventRepository, MissingCarMaintenanceEvent,
     },
     domain::{

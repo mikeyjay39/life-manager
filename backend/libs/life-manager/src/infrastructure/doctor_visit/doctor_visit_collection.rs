@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::doctor_visit_repository::{DoctorVisitRepository, MissingDoctorVisit},
+    application::health::doctor_visit_repository::{DoctorVisitRepository, MissingDoctorVisit},
     domain::{
         health::doctor_visit::{DoctorVisit, DoctorVisitId},
         health::health_member::HealthMemberId,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::FromRef;
 
 use crate::{
-    application::health_reading_use_cases::HealthReadingUseCases,
+    application::health::health_reading_use_cases::HealthReadingUseCases,
     infrastructure::app_state::LifeManagerState,
 };
 

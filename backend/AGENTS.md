@@ -18,7 +18,7 @@ backend/
     life-manager/
       src/life_manager_tenant.rs  # LifeManagerTenant (TenantMount impl)
       src/domain/           # By aggregate: car/, document/, health/
-      src/application/
+      src/application/      # By aggregate: car/, document/, health/
       src/infrastructure/ # HTTP handlers, Diesel, adapters
       src/schema.rs       # Generated — do not hand-edit
       migrations/         # Author SQL here; user runs diesel migration run
@@ -57,7 +57,7 @@ Applies within **`libs/life-manager/src/`**:
 
 New features: `domain` / `application` first, then `infrastructure/<feature>/` (see `infrastructure/document/`).
 
-Domain modules live under aggregate folders (`domain/car`, `domain/document`, `domain/health`). Import nested types as `crate::domain::<aggregate>::<module>::…` (for example `crate::domain::health::health_member::HealthMember`). The car and document aggregate roots re-export their primary types at `crate::domain::car::…` and `crate::domain::document::…`.
+Domain and application modules live under aggregate folders (`domain|application` `/car`, `/document`, `/health`). Import nested types as `crate::<layer>::<aggregate>::<module>::…` (for example `crate::domain::health::health_member::HealthMember`, `crate::application::car::create_car_command::CreateCarCommand`). The car and document domain aggregate roots re-export their primary types at `crate::domain::car::…` and `crate::domain::document::…`.
 
 ## Auth email (port)
 

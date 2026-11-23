@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{application::document_repository::DocumentRepository, domain::document::Document};
+use crate::{application::document::document_repository::DocumentRepository, domain::document::Document};
 
 pub struct DocumentCollection {
     pub documents: Mutex<Vec<Document>>,

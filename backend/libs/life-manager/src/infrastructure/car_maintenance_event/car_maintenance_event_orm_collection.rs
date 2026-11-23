@@ -10,7 +10,7 @@ use diesel::{
 use uuid::Uuid;
 
 use crate::{
-    application::car_maintenance_event_repository::{
+    application::car::car_maintenance_event_repository::{
         CarMaintenanceEventRepository, InactiveCarForMaintenanceEvent,
         MissingCarForMaintenanceEvent, MissingCarMaintenanceEvent,
     },

@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    application::health_member_repository::HealthMemberRepository,
+    application::health::health_member_repository::HealthMemberRepository,
     domain::health::health_member::{HealthMember, HealthMemberId},
 };
 

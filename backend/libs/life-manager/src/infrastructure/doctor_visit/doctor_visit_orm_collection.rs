@@ -10,7 +10,7 @@ use diesel::{
 use uuid::Uuid;
 
 use crate::{
-    application::doctor_visit_repository::{
+    application::health::doctor_visit_repository::{
         DoctorVisitRepository, InactiveHealthMemberForVisit, MissingDoctorVisit,
         MissingHealthMemberForVisit,
     },

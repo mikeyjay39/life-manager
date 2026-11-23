@@ -9,7 +9,7 @@ use diesel::{
 use uuid::Uuid;
 
 use crate::{
-    application::health_reading_repository::{
+    application::health::health_reading_repository::{
         DuplicateHealthReadingDate, HealthReadingRepository, InactiveHealthMemberForReading,
         MissingHealthMemberForReading, MissingHealthReading,
     },

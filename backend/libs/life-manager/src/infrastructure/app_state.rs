@@ -6,10 +6,10 @@ use deadpool_diesel::sqlite::Pool;
 
 use crate::{
     application::{
-        car_maintenance_event_use_cases::CarMaintenanceEventUseCases, car_use_cases::CarUseCases,
-        doctor_visit_use_cases::DoctorVisitUseCases, document_use_cases::DocumentUseCases,
-        health_member_use_cases::HealthMemberUseCases,
-        health_reading_use_cases::HealthReadingUseCases,
+        car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases, car::car_use_cases::CarUseCases,
+        health::doctor_visit_use_cases::DoctorVisitUseCases, document::document_use_cases::DocumentUseCases,
+        health::health_member_use_cases::HealthMemberUseCases,
+        health::health_reading_use_cases::HealthReadingUseCases,
     },
     domain::document::document_text_reader::DocumentTextReader,
     infrastructure::{

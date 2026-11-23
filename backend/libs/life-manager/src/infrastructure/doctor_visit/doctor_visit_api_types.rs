@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::application::create_doctor_visit_command::DoctorVisitText;
+use crate::application::health::create_doctor_visit_command::DoctorVisitText;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(

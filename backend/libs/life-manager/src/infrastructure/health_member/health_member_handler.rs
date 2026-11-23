@@ -5,10 +5,10 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::create_health_member_command::CreateHealthMemberCommand;
-use crate::application::deactivate_health_member_command::DeactivateHealthMemberCommand;
-use crate::application::list_health_members_query::ListHealthMembersQuery;
-use crate::application::update_health_member_command::UpdateHealthMemberCommand;
+use crate::application::health::create_health_member_command::CreateHealthMemberCommand;
+use crate::application::health::deactivate_health_member_command::DeactivateHealthMemberCommand;
+use crate::application::health::list_health_members_query::ListHealthMembersQuery;
+use crate::application::health::update_health_member_command::UpdateHealthMemberCommand;
 use crate::domain::health::health_member::HealthMemberId;
 use crate::infrastructure::health_member::health_member_api_types::{
     CreateHealthMemberCommandDto, GetHealthMembersQueryParams, UpdateHealthMemberCommandDto,
@@ -151,7 +151,7 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::application::health_member_use_cases::HealthMemberUseCases;
+    use crate::application::health::health_member_use_cases::HealthMemberUseCases;
     use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
 
     fn test_auth_user() -> AuthUser {

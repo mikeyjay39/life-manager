@@ -6,10 +6,10 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::create_doctor_visit_command::CreateDoctorVisitCommand;
-use crate::application::delete_doctor_visit_command::DeleteDoctorVisitCommand;
-use crate::application::list_doctor_visits_query::ListDoctorVisitsQuery;
-use crate::application::update_doctor_visit_command::UpdateDoctorVisitCommand;
+use crate::application::health::create_doctor_visit_command::CreateDoctorVisitCommand;
+use crate::application::health::delete_doctor_visit_command::DeleteDoctorVisitCommand;
+use crate::application::health::list_doctor_visits_query::ListDoctorVisitsQuery;
+use crate::application::health::update_doctor_visit_command::UpdateDoctorVisitCommand;
 use crate::domain::health::doctor_visit::DoctorVisitId;
 use crate::domain::health::health_member::HealthMemberId;
 use crate::infrastructure::doctor_visit::doctor_visit_api_types::{
@@ -190,8 +190,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::application::doctor_visit_use_cases::DoctorVisitUseCases;
-    use crate::application::health_member_repository::HealthMemberRepository;
+    use crate::application::health::doctor_visit_use_cases::DoctorVisitUseCases;
+    use crate::application::health::health_member_repository::HealthMemberRepository;
     use crate::domain::health::health_member::HealthMember;
     use crate::infrastructure::doctor_visit::doctor_visit_collection::DoctorVisitCollection;
     use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;

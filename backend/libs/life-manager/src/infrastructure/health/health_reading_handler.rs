@@ -6,10 +6,10 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::create_health_reading_command::CreateHealthReadingCommand;
-use crate::application::delete_health_reading_command::DeleteHealthReadingCommand;
-use crate::application::list_health_readings_query::ListHealthReadingsQuery;
-use crate::application::update_health_reading_command::UpdateHealthReadingCommand;
+use crate::application::health::create_health_reading_command::CreateHealthReadingCommand;
+use crate::application::health::delete_health_reading_command::DeleteHealthReadingCommand;
+use crate::application::health::list_health_readings_query::ListHealthReadingsQuery;
+use crate::application::health::update_health_reading_command::UpdateHealthReadingCommand;
 use crate::domain::health::health_member::HealthMemberId;
 use crate::domain::health::health_reading::HealthReadingId;
 use crate::infrastructure::health::health_reading_api_types::{
@@ -191,9 +191,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::application::health_member_repository::HealthMemberRepository;
-    use crate::application::health_member_use_cases::HealthMemberUseCases;
-    use crate::application::health_reading_use_cases::HealthReadingUseCases;
+    use crate::application::health::health_member_repository::HealthMemberRepository;
+    use crate::application::health::health_member_use_cases::HealthMemberUseCases;
+    use crate::application::health::health_reading_use_cases::HealthReadingUseCases;
     use crate::domain::health::health_member::HealthMember;
     use crate::infrastructure::health::health_reading_collection::HealthReadingCollection;
     use crate::infrastructure::health_member::health_member_api_types::CreateHealthMemberCommandDto;

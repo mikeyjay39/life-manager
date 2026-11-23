@@ -87,7 +87,7 @@ mod migration_tests {
     use diesel::{QueryableByName, RunQueryDsl};
     use uuid::Uuid;
 
-    use crate::application::document_repository::DocumentRepository;
+    use crate::application::document::document_repository::DocumentRepository;
     use crate::infrastructure::document::document_orm_collection::DocumentOrmCollection;
 
     use super::*;

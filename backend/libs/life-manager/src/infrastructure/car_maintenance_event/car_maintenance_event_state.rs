@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::extract::FromRef;
 
 use crate::{
-    application::car_maintenance_event_use_cases::CarMaintenanceEventUseCases,
+    application::car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases,
     infrastructure::app_state::LifeManagerState,
 };
 

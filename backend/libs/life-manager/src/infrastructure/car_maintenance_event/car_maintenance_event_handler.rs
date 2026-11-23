@@ -6,10 +6,10 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::create_car_maintenance_event_command::CreateCarMaintenanceEventCommand;
-use crate::application::delete_car_maintenance_event_command::DeleteCarMaintenanceEventCommand;
-use crate::application::list_car_maintenance_events_query::ListCarMaintenanceEventsQuery;
-use crate::application::update_car_maintenance_event_command::UpdateCarMaintenanceEventCommand;
+use crate::application::car::create_car_maintenance_event_command::CreateCarMaintenanceEventCommand;
+use crate::application::car::delete_car_maintenance_event_command::DeleteCarMaintenanceEventCommand;
+use crate::application::car::list_car_maintenance_events_query::ListCarMaintenanceEventsQuery;
+use crate::application::car::update_car_maintenance_event_command::UpdateCarMaintenanceEventCommand;
 use crate::domain::car::CarId;
 use crate::domain::car::car_maintenance_event::CarMaintenanceEventId;
 use crate::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
@@ -203,8 +203,8 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::application::car_maintenance_event_use_cases::CarMaintenanceEventUseCases;
-    use crate::application::car_repository::CarRepository;
+    use crate::application::car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases;
+    use crate::application::car::car_repository::CarRepository;
     use crate::domain::car::{Car, CarProfileInput};
     use crate::infrastructure::car::car_collection::CarCollection;
     use crate::infrastructure::car_maintenance_event::car_maintenance_event_collection::CarMaintenanceEventCollection;
