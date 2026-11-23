@@ -152,7 +152,7 @@ Car Manager reuses `DocumentCreateForm` (modal / inline) with editable prefills.
 | Registration (`registration_document_id`) | Same picker pattern | **Create registration document** (active Car only) | Same as insurance | Title `{carLabel} registration`, tags `registration` |
 | Maintenance receipt (`document_id` on event) | Receipt picker on Add/Edit event | **Create receipt** (active Car; form open) | Set form `documentId` only; event Save owns POST/PUT | Title `{carLabel} receipt`, tags `receipt` |
 
-Inactive Cars: show linked titles; hide create and edit-link controls. Expiry alerts for insurance/registration stay on Document epic #131 — do not invent Car-side expiry UI here.
+Inactive Cars: show linked titles. Hide create-from-Car controls (insurance, registration, receipt). Car detail stays view-only (no edit-link). Maintenance edit on an inactive Car may still pick an existing receipt Document; Create receipt stays hidden. Expiry alerts for insurance/registration stay on Document epic #131 — do not invent Car-side expiry UI here.
 
 ### Web keyboard and focus
 
@@ -228,6 +228,6 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
-| Document create form + tests (Document Manager + Car) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; optional `initialTitle` / `initialTags` prefills; reused by Car Manager for insurance / registration / receipt create-from-Car; also used by `DocumentManagerScreen` |
+| Document create form + tests (Document Manager + Car) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; `onDocumentCreated` receives `DocumentDto` (id + title); optional `initialTitle` / `initialTags` prefills; Document Manager builds the success banner; reused by Car Manager for insurance / registration / receipt create-from-Car |
 | API client | `lib/api/client.ts` |
 | Tenant resolution | `lib/tenant/resolve.ts`, `lib/tenant/TenantContext.tsx` |
