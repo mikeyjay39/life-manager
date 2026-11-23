@@ -404,10 +404,22 @@ export default function CarMaintenancePanel({
     deleting ||
     receiptCreateSubmitting;
   const canSubmitCreate =
-    Boolean(token) && Boolean(selectedCar?.active) && !submitting && !deleting;
+    Boolean(token) &&
+    Boolean(selectedCar?.active) &&
+    !submitting &&
+    !deleting &&
+    !receiptCreateOpen &&
+    !receiptCreateSubmitting;
   const canSubmitEdit =
-    Boolean(token) && Boolean(selectedCar) && !submitting && !deleting;
+    Boolean(token) &&
+    Boolean(selectedCar) &&
+    !submitting &&
+    !deleting &&
+    !receiptCreateOpen &&
+    !receiptCreateSubmitting;
   const canSubmit = isEditing ? canSubmitEdit : canSubmitCreate;
+  const listActionsLocked =
+    !selectedCar || submitting || deleting || receiptCreateSubmitting;
   // Active Car only: no new receipt create when Add-event create is blocked.
   const canCreateReceiptDocument =
     Boolean(selectedCar?.active) && !formInputsLocked && !receiptCreateOpen;
@@ -644,7 +656,11 @@ export default function CarMaintenancePanel({
       `${selectedCar.year} ${selectedCar.make} ${selectedCar.model}`
     : null;
 
-  const addDisabled = !selectedCar?.active || submitting || deleting;
+  const addDisabled =
+    !selectedCar?.active ||
+    submitting ||
+    deleting ||
+    receiptCreateSubmitting;
 
   const emptyMessage = !selectedCar
     ? ''
@@ -1083,14 +1099,14 @@ export default function CarMaintenancePanel({
                       variant="outline"
                       label="Edit"
                       accessibilityLabel={`Edit maintenance event ${event.id} on ${event.occurred_on}`}
-                      disabled={!selectedCar || submitting || deleting}
+                      disabled={listActionsLocked}
                       onPress={() => startEdit(event)}
                     />
                     <Button
                       variant="outline"
                       label="Delete"
                       accessibilityLabel={`Delete maintenance event ${event.id} on ${event.occurred_on}`}
-                      disabled={!selectedCar || submitting || deleting}
+                      disabled={listActionsLocked}
                       onPress={() => setDeleteTarget(event)}
                     />
                   </>
@@ -1143,7 +1159,7 @@ export default function CarMaintenancePanel({
           }}
           form={eventForm}
           onEnterSubmit={
-            canSubmit && !formInputsLocked && !receiptCreateOpen
+            canSubmit && !formInputsLocked
               ? () => {
                   void handleSubmit();
                 }

@@ -421,7 +421,9 @@ export default function DocumentCreateForm({
 
       <Text style={styles.label}>File (optional)</Text>
       {isWeb && protonSupported && !protonSession ? (
-        <Text style={styles.hint}>Connect Proton Drive above to attach files on web.</Text>
+        <Text style={styles.hint}>
+          Connect Proton Drive (Document Manager) to attach files on web.
+        </Text>
       ) : null}
       <View style={styles.fileRow}>
         <Button
