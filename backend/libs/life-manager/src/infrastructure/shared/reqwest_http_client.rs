@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::multipart::Form;
 
-use crate::infrastructure::http_client::{HttpClient, HttpResponse};
+use crate::infrastructure::shared::http_client::{HttpClient, HttpResponse};
 
 pub struct ReqwestHttpClient {
     client: reqwest::Client,

@@ -10,11 +10,11 @@ use crate::application::health::deactivate_health_member_command::DeactivateHeal
 use crate::application::health::list_health_members_query::ListHealthMembersQuery;
 use crate::application::health::update_health_member_command::UpdateHealthMemberCommand;
 use crate::domain::health::health_member::HealthMemberId;
-use crate::infrastructure::health_member::health_member_api_types::{
+use crate::infrastructure::health::health_member_api_types::{
     CreateHealthMemberCommandDto, GetHealthMembersQueryParams, UpdateHealthMemberCommandDto,
 };
-use crate::infrastructure::health_member::health_member_dto::HealthMemberDto;
-use crate::infrastructure::health_member::health_member_state::HealthMemberState;
+use crate::infrastructure::health::health_member_dto::HealthMemberDto;
+use crate::infrastructure::health::health_member_state::HealthMemberState;
 
 /// Creates a HealthMember owned by the authenticated user.
 ///
@@ -152,7 +152,7 @@ mod tests {
 
     use super::*;
     use crate::application::health::health_member_use_cases::HealthMemberUseCases;
-    use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
+    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {

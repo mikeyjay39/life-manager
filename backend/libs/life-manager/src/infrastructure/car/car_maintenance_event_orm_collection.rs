@@ -20,7 +20,7 @@ use crate::{
             CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventType,
         },
     },
-    infrastructure::car_maintenance_event::car_maintenance_event_entity::{
+    infrastructure::car::car_maintenance_event_entity::{
         CarMaintenanceEventEntity, NewCarMaintenanceEventEntity, UpdateCarMaintenanceEventEntity,
     },
     schema::{car_maintenance_events, cars},

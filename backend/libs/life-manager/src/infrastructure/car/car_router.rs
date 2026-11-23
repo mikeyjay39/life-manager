@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    app_state::LifeManagerState,
+    shared::app_state::LifeManagerState,
     car::car_handler::{
         create_car, deactivate_car, delete_car, get_car, list_cars, update_car,
     },

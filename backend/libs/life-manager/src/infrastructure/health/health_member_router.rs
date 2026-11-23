@@ -4,8 +4,8 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    app_state::LifeManagerState,
-    health_member::health_member_handler::{
+    shared::app_state::LifeManagerState,
+    health::health_member_handler::{
         create_health_member, deactivate_health_member, get_health_member, list_health_members,
         update_health_member,
     },

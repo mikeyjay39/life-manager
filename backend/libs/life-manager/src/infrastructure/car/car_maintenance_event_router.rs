@@ -4,8 +4,8 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    app_state::LifeManagerState,
-    car_maintenance_event::car_maintenance_event_handler::{
+    shared::app_state::LifeManagerState,
+    car::car_maintenance_event_handler::{
         create_car_maintenance_event, delete_car_maintenance_event, get_car_maintenance_event,
         list_car_maintenance_events, update_car_maintenance_event,
     },

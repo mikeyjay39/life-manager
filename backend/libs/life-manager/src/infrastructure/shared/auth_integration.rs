@@ -1,7 +1,7 @@
 use auth::AuthState;
 use axum::extract::FromRef;
 
-use crate::infrastructure::app_state::LifeManagerState;
+use crate::infrastructure::shared::app_state::LifeManagerState;
 
 impl FromRef<LifeManagerState> for AuthState {
     fn from_ref(state: &LifeManagerState) -> Self {

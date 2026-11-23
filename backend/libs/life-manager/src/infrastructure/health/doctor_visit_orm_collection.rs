@@ -18,7 +18,7 @@ use crate::{
         health::doctor_visit::{DoctorVisit, DoctorVisitId},
         health::health_member::HealthMemberId,
     },
-    infrastructure::doctor_visit::doctor_visit_entity::{
+    infrastructure::health::doctor_visit_entity::{
         DoctorVisitEntity, NewDoctorVisitEntity, UpdateDoctorVisitEntity,
     },
     schema::{doctor_visits, health_members},

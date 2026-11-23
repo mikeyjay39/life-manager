@@ -12,12 +12,12 @@ use crate::application::car::list_car_maintenance_events_query::ListCarMaintenan
 use crate::application::car::update_car_maintenance_event_command::UpdateCarMaintenanceEventCommand;
 use crate::domain::car::CarId;
 use crate::domain::car::car_maintenance_event::CarMaintenanceEventId;
-use crate::infrastructure::car_maintenance_event::car_maintenance_event_api_types::{
+use crate::infrastructure::car::car_maintenance_event_api_types::{
     CreateCarMaintenanceEventCommandDto, GetCarMaintenanceEventsQueryParams,
     UpdateCarMaintenanceEventCommandDto,
 };
-use crate::infrastructure::car_maintenance_event::car_maintenance_event_dto::CarMaintenanceEventDto;
-use crate::infrastructure::car_maintenance_event::car_maintenance_event_state::CarMaintenanceEventState;
+use crate::infrastructure::car::car_maintenance_event_dto::CarMaintenanceEventDto;
+use crate::infrastructure::car::car_maintenance_event_state::CarMaintenanceEventState;
 
 /// Creates a CarMaintenanceEvent for an owned active Car.
 ///
@@ -207,7 +207,7 @@ mod tests {
     use crate::application::car::car_repository::CarRepository;
     use crate::domain::car::{Car, CarProfileInput};
     use crate::infrastructure::car::car_collection::CarCollection;
-    use crate::infrastructure::car_maintenance_event::car_maintenance_event_collection::CarMaintenanceEventCollection;
+    use crate::infrastructure::car::car_maintenance_event_collection::CarMaintenanceEventCollection;
     use crate::infrastructure::document::document_collection::DocumentCollection;
 
     fn test_auth_user() -> AuthUser {

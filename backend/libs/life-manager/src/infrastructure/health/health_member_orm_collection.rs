@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     application::health::health_member_repository::HealthMemberRepository,
     domain::health::health_member::{HealthMember, HealthMemberId},
-    infrastructure::health_member::health_member_entity::{
+    infrastructure::health::health_member_entity::{
         HealthMemberEntity, NewHealthMemberEntity, UpdateHealthMemberEntity,
     },
     schema::health_members,

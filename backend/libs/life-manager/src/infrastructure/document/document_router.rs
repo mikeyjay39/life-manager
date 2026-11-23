@@ -4,7 +4,7 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    app_state::LifeManagerState,
+    shared::app_state::LifeManagerState,
     document::document_handler::{
         create_document, create_document_json, delete_document, get_document, get_documents_by_title,
         update_document, update_document_json,

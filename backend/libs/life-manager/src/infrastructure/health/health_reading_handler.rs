@@ -196,10 +196,10 @@ mod tests {
     use crate::application::health::health_reading_use_cases::HealthReadingUseCases;
     use crate::domain::health::health_member::HealthMember;
     use crate::infrastructure::health::health_reading_collection::HealthReadingCollection;
-    use crate::infrastructure::health_member::health_member_api_types::CreateHealthMemberCommandDto;
-    use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
-    use crate::infrastructure::health_member::health_member_handler::create_health_member;
-    use crate::infrastructure::health_member::health_member_state::HealthMemberState;
+    use crate::infrastructure::health::health_member_api_types::CreateHealthMemberCommandDto;
+    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
+    use crate::infrastructure::health::health_member_handler::create_health_member;
+    use crate::infrastructure::health::health_member_state::HealthMemberState;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {

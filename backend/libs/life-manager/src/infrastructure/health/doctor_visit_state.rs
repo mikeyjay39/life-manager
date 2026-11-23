@@ -4,7 +4,7 @@ use axum::extract::FromRef;
 
 use crate::{
     application::health::doctor_visit_use_cases::DoctorVisitUseCases,
-    infrastructure::app_state::LifeManagerState,
+    infrastructure::shared::app_state::LifeManagerState,
 };
 
 /**

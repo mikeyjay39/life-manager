@@ -9,8 +9,8 @@ use crate::{
         document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
     },
     infrastructure::{
-        document_text_extraction::{get_text_from_pdf, needs_ocr},
-        http_client::{HttpClient, HttpResponse},
+        shared::document_text_extraction::{get_text_from_pdf, needs_ocr},
+        shared::http_client::{HttpClient, HttpResponse},
     },
 };
 
@@ -138,8 +138,8 @@ mod tests {
             document::uploaded_document_input::UploadedDocumentInput,
         },
         infrastructure::{
-            http_client::{HttpClient, HttpResponse},
-            tesseract_adapter::{TesseractData, TesseractResponse},
+            shared::http_client::{HttpClient, HttpResponse},
+            shared::tesseract_adapter::{TesseractData, TesseractResponse},
         },
     };
 

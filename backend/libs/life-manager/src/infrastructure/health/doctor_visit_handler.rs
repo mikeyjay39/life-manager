@@ -12,11 +12,11 @@ use crate::application::health::list_doctor_visits_query::ListDoctorVisitsQuery;
 use crate::application::health::update_doctor_visit_command::UpdateDoctorVisitCommand;
 use crate::domain::health::doctor_visit::DoctorVisitId;
 use crate::domain::health::health_member::HealthMemberId;
-use crate::infrastructure::doctor_visit::doctor_visit_api_types::{
+use crate::infrastructure::health::doctor_visit_api_types::{
     CreateDoctorVisitCommandDto, GetDoctorVisitsQueryParams, UpdateDoctorVisitCommandDto,
 };
-use crate::infrastructure::doctor_visit::doctor_visit_dto::DoctorVisitDto;
-use crate::infrastructure::doctor_visit::doctor_visit_state::DoctorVisitState;
+use crate::infrastructure::health::doctor_visit_dto::DoctorVisitDto;
+use crate::infrastructure::health::doctor_visit_state::DoctorVisitState;
 
 /// Creates a DoctorVisit for an owned active HealthMember.
 ///
@@ -193,8 +193,8 @@ mod tests {
     use crate::application::health::doctor_visit_use_cases::DoctorVisitUseCases;
     use crate::application::health::health_member_repository::HealthMemberRepository;
     use crate::domain::health::health_member::HealthMember;
-    use crate::infrastructure::doctor_visit::doctor_visit_collection::DoctorVisitCollection;
-    use crate::infrastructure::health_member::health_member_collection::HealthMemberCollection;
+    use crate::infrastructure::health::doctor_visit_collection::DoctorVisitCollection;
+    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {

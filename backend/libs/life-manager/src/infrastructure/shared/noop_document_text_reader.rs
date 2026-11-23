@@ -6,7 +6,7 @@ use crate::{
     domain::{
         document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
     },
-    infrastructure::document_text_extraction::{get_text_from_pdf, needs_ocr},
+    infrastructure::shared::document_text_extraction::{get_text_from_pdf, needs_ocr},
 };
 
 /// Reader used when `TESSERACT_ENABLED` is false: extracts embedded PDF text locally; returns an
