@@ -3,7 +3,7 @@ import { Text } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { authenticatedFetch } from '@/lib/api/client';
+import { apiFetch, authenticatedFetch } from '@/lib/api/client';
 import { TenantTestProvider } from '@/lib/tenant/TenantContext';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
@@ -74,6 +74,7 @@ vi.mock('@/lib/api/client', async (importOriginal) => {
   return {
     ...actual,
     authenticatedFetch: vi.fn(),
+    apiFetch: vi.fn(),
   };
 });
 
@@ -87,6 +88,7 @@ vi.mock('expo-document-picker', () => ({
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
+const mockApiFetch = vi.mocked(apiFetch);
 
 const tenant: TenantModule = {
   ...lifeManagerTenantMeta,
@@ -120,6 +122,21 @@ describe('DocumentManagerScreen', () => {
     } as ReturnType<typeof useAuth>);
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(JSON.stringify([]), { status: 200 })
+    );
+    mockApiFetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          title: 'My Title',
+          content: 'Body',
+          tags: [],
+          created_at: '2024-01-01T00:00:00Z',
+          issued_date: null,
+          expire_date: null,
+          storage: null,
+        }),
+        { status: 201 }
+      )
     );
   });
 
@@ -176,5 +193,21 @@ describe('DocumentManagerScreen', () => {
     expect(screen.getByLabelText('Document create form')).toBeTruthy();
     expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
     expect(screen.getByLabelText('Cancel')).toBeTruthy();
+  });
+
+  it('shows a success banner after create with DocumentDto from the form', async () => {
+    // Given create is open
+    renderDocumentManagerScreen();
+    fireEvent.press(screen.getByLabelText('Add document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'My Title');
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Body');
+    // When create succeeds
+    fireEvent.press(screen.getByLabelText('Submit'));
+    // Then Document Manager shows the success message and collapses create
+    await waitFor(() => {
+      expect(screen.getByText('Document "My Title" created.')).toBeTruthy();
+    });
+    expect(screen.getByTestId('manager-feedback-success')).toBeTruthy();
+    expect(screen.queryByLabelText('Document create form')).toBeNull();
   });
 });

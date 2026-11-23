@@ -19,14 +19,11 @@ import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
 import type { CreateDocumentCommand, DocumentDto } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
-import { parseOptionalDateInput } from './document-create-form-utils';
-
-function parseTags(input: string): string[] {
-  return input
-    .split(',')
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0);
-}
+import {
+  parseCreatedDocumentResponse,
+  parseOptionalDateInput,
+  parseTags,
+} from './document-create-form-utils';
 
 async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
   const filename = asset.name?.trim() || 'upload';
@@ -46,8 +43,8 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
 }
 
 type DocumentCreateFormProps = {
-  /** Fires after a successful create with a short success message. */
-  onDocumentCreated?: (successMessage: string) => void;
+  /** Fires after a successful create with the created DocumentDto (id + title). */
+  onDocumentCreated?: (document: DocumentDto) => void;
   /** Lets the parent block Cancel while a create request is in flight. */
   onSubmittingChange?: (submitting: boolean) => void;
 };
@@ -62,7 +59,9 @@ type DocumentCreateFormProps = {
  *         | invalid --> showSubmitError (inline banner) --> [*]
  *         | valid --> POST (multipart or Proton JSON)
  *             | fail --> showSubmitError; keep form open --> [*]
- *             | ok --> clear error; onDocumentCreated(message) --> [*]
+ *             | ok, body invalid --> showSubmitError; no parent callback --> [*]
+ *             | ok, body valid --> clear error; onDocumentCreated(DocumentDto) --> [*]
+ *             | unmounted mid-request --> skip setState and parent callback --> [*]
  * ```
  */
 export default function DocumentCreateForm({
@@ -81,6 +80,14 @@ export default function DocumentCreateForm({
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     onSubmittingChange?.(loading);
@@ -194,6 +201,21 @@ export default function DocumentCreateForm({
 
   const clearFile = () => setPickedFile(null);
 
+  const finishCreateSuccess = (bodyText: string) => {
+    if (!mountedRef.current) {
+      return;
+    }
+    const created = parseCreatedDocumentResponse(bodyText);
+    if (!created) {
+      showSubmitError(
+        'Document may have been created, but the response could not be read. Refresh the list and try again if needed.'
+      );
+      return;
+    }
+    resetForm();
+    onDocumentCreated?.(created);
+  };
+
   const handleSubmit = async () => {
     if (loading) {
       return;
@@ -268,17 +290,7 @@ export default function DocumentCreateForm({
           );
         }
 
-        let message = 'Document created.';
-        try {
-          const data = JSON.parse(bodyText) as DocumentDto;
-          if (data.id) {
-            message = `Document "${data.title ?? title.trim()}" created.`;
-          }
-        } catch {
-          // use default message
-        }
-        resetForm();
-        onDocumentCreated?.(message);
+        finishCreateSuccess(bodyText);
         return;
       }
 
@@ -323,23 +335,18 @@ export default function DocumentCreateForm({
         );
       }
 
-      let message = 'Document created.';
-      try {
-        const data = JSON.parse(bodyText) as DocumentDto;
-        if (data.id) {
-          message = `Document "${data.title ?? title.trim()}" created.`;
-        }
-      } catch {
-        // use default message
-      }
-      resetForm();
-      onDocumentCreated?.(message);
+      finishCreateSuccess(bodyText);
     } catch (err: unknown) {
       console.error(err);
+      if (!mountedRef.current) {
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       showSubmitError(msg);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 

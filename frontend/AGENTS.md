@@ -214,6 +214,6 @@ Multi-step UI flows (auth → fetch → render, wizards, tenant resolution, etc.
 | Health unit helpers (shared) | `lib/health/units.ts` (conversions, display formatters, `loadUnitPreference` / `saveUnitPreference`; locale default US/LR/MM → imperial when no saved pref) — never send imperial fields to the API. Distinct from `lib/format/display.ts` list/date/money display |
 | Document list + tests (Document Manager) | `tenants/life-manager/components/document-list.tsx`, `document-list.test.tsx` (includes delete + ConfirmDialog); used by `DocumentManagerScreen` |
 | Proton preview in modal (Document Manager) | `tenants/life-manager/components/document-proton-preview.tsx` (web; SDK thumb then download fallback) |
-| Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; used by `DocumentManagerScreen` |
+| Document create form + tests (Document Manager) | `tenants/life-manager/components/document-create-form.tsx`, `document-create-form.test.tsx`; `onDocumentCreated` receives `DocumentDto` (id + title); Document Manager builds the success banner; used by `DocumentManagerScreen` |
 | API client | `lib/api/client.ts` |
 | Tenant resolution | `lib/tenant/resolve.ts`, `lib/tenant/TenantContext.tsx` |
