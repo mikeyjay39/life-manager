@@ -40,6 +40,11 @@ import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import DocumentCreateForm from './document-create-form';
 import { parseDocumentDto } from './document-create-form-utils';
+import {
+  mergeCreatedDocuments,
+  pruneCreatedDocuments,
+  type CreatedDocument,
+} from './document-list-merge';
 import DocumentPickerModal from './document-picker-modal';
 import {
   CAR_MAINTENANCE_EVENT_TYPES,
@@ -61,20 +66,6 @@ import {
 export function receiptDocumentTitlePrefill(carLabel: string): string {
   const trimmed = carLabel.trim();
   return trimmed ? `${trimmed} receipt` : 'receipt';
-}
-
-/** A receipt created while the document GET with `loadGeneration` was the latest. */
-type CreatedReceiptDocument = { document: DocumentDto; loadGeneration: number };
-
-/**
- * Receipts created after GET `generation` started can be missing from its
- * response. A GET that started later already includes the older receipts.
- */
-function receiptsCreatedSince(
-  created: CreatedReceiptDocument[],
-  generation: number
-): CreatedReceiptDocument[] {
-  return created.filter((receipt) => receipt.loadGeneration >= generation);
 }
 
 type CarMaintenancePanelProps = {
@@ -196,7 +187,8 @@ export default function CarMaintenancePanel({
 
   const loadGenerationRef = useRef(0);
   const docsLoadGenerationRef = useRef(0);
-  const createdReceiptsRef = useRef<CreatedReceiptDocument[]>([]);
+  const documentSequenceRef = useRef(0);
+  const createdReceiptsRef = useRef<CreatedDocument[]>([]);
   const selectedCarIdRef = useRef<string | null>(null);
   selectedCarIdRef.current = selectedCar?.id ?? null;
   const prevCarIdRef = useRef<string | null>(selectedCar?.id ?? null);
@@ -321,13 +313,7 @@ export default function CarMaintenancePanel({
       }
       return;
     }
-    const takeReceiptsMissingFromThisLoad = (): DocumentDto[] => {
-      createdReceiptsRef.current = receiptsCreatedSince(
-        createdReceiptsRef.current,
-        generation
-      );
-      return createdReceiptsRef.current.map((receipt) => receipt.document);
-    };
+    const getStartedSequence = documentSequenceRef.current;
     setDocumentsLoading(true);
     setDocumentsError(null);
     try {
@@ -349,10 +335,13 @@ export default function CarMaintenancePanel({
       if (generation !== docsLoadGenerationRef.current) {
         return;
       }
-      const missing = takeReceiptsMissingFromThisLoad().filter(
-        (created) => !list.some((d) => d.id === created.id)
+      setDocuments(
+        mergeCreatedDocuments(list, createdReceiptsRef.current, getStartedSequence)
       );
-      setDocuments([...missing, ...list]);
+      createdReceiptsRef.current = pruneCreatedDocuments(
+        createdReceiptsRef.current,
+        getStartedSequence
+      );
     } catch (err: unknown) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
@@ -361,7 +350,8 @@ export default function CarMaintenancePanel({
       const msg =
         err instanceof Error ? err.message : 'Failed to load documents';
       setDocumentsError(msg);
-      setDocuments(takeReceiptsMissingFromThisLoad());
+      // A failed GET covers no receipt, so keep every created one.
+      setDocuments(createdReceiptsRef.current.map((receipt) => receipt.document));
     } finally {
       if (generation === docsLoadGenerationRef.current) {
         setDocumentsLoading(false);
@@ -526,10 +516,10 @@ export default function CarMaintenancePanel({
 
   const handleReceiptDocumentCreated = useCallback(
     (document: DocumentDto) => {
-      // An in-flight GET can return without this receipt; see receiptsCreatedSince.
+      // An in-flight GET can return without this receipt; see document-list-merge.
       createdReceiptsRef.current = [
         ...createdReceiptsRef.current,
-        { document, loadGeneration: docsLoadGenerationRef.current },
+        { document, createdSequence: ++documentSequenceRef.current },
       ];
       setDocuments((prev) => {
         if (prev.some((d) => d.id === document.id)) {

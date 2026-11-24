@@ -905,15 +905,17 @@ describe('CarMaintenancePanel', () => {
     expect(screen.getByText('File type: image/jpeg')).toBeTruthy();
   });
 
-  it('given a pending document load when it fails after receipt creation then the new receipt title stays linked', async () => {
+  it('given a pending document load when it and its retry fail after receipt creation then the new receipt title stays linked', async () => {
     // Given a document list request that started before receipt creation
     let rejectDocuments!: (error: Error) => void;
     const pendingDocuments = new Promise<Response>((_resolve, reject) => {
       rejectDocuments = reject;
     });
+    let documentLoads = 0;
     mockAuthenticatedFetch.mockImplementation(async (path: string) => {
-      if (path === '/documents') return pendingDocuments;
-      return new Response(JSON.stringify([]), { status: 200 });
+      if (path !== '/documents') return new Response(JSON.stringify([]), { status: 200 });
+      documentLoads += 1;
+      return documentLoads === 1 ? pendingDocuments : new Response('retry down', { status: 500 });
     });
     renderPanel();
     await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
@@ -923,17 +925,23 @@ describe('CarMaintenancePanel', () => {
     fireEvent.press(screen.getByLabelText('Submit'));
     await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
 
-    // When the older GET fails
+    // When the older GET fails and then its retry fails
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await act(async () => {
       rejectDocuments(new Error('network down'));
       await pendingDocuments.catch(() => undefined);
     });
 
-    // Then the new receipt title stays linked and the picker offers the load error
     expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     fireEvent.press(screen.getByLabelText('Change receipt document'));
     expect(screen.getByText('network down')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Retry loading documents'));
+    await waitFor(() => expect(screen.getByText(/retry down/)).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Close document picker'));
+
+    // Then the new receipt title stays linked
+    expect(documentLoads).toBe(2);
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
   });
 
   it('given a created receipt when a later document load omits it then the list follows the server', async () => {
