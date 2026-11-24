@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api/client';
+import type { DocumentDto } from '@/lib/api/types';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
@@ -61,7 +62,7 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockApiFetch = vi.mocked(apiFetch);
 
 function renderDocumentCreateForm(
-  props: { onDocumentCreated?: (successMessage: string) => void } = {}
+  props: { onDocumentCreated?: (document: DocumentDto) => void } = {}
 ) {
   return render(
     <TenantThemeTestProvider theme={defaultResolvedTheme}>
@@ -69,6 +70,11 @@ function renderDocumentCreateForm(
     </TenantThemeTestProvider>
   );
 }
+
+const createdDto = {
+  id: '550e8400-e29b-41d4-a716-446655440000',
+  title: 'My Title',
+};
 
 function defaultAuth(overrides: Partial<ReturnType<typeof useAuth>> = {}): ReturnType<typeof useAuth> {
   return {
@@ -246,14 +252,20 @@ describe('DocumentCreateForm', () => {
     expect(screen.queryByText(/first fail/)).toBeNull();
   });
 
-  it('passes a brief success message when response contains id', async () => {
+  it('passes created DocumentDto with id and title when create succeeds', async () => {
+    // Given
     const onDocumentCreated = vi.fn();
     renderDocumentCreateForm({ onDocumentCreated });
     fillRequiredFields();
+    // When
     submitForm();
+    // Then
     await waitFor(() => {
-      expect(onDocumentCreated).toHaveBeenCalledWith('Document "My Title" created.');
+      expect(onDocumentCreated).toHaveBeenCalledTimes(1);
     });
+    const arg = onDocumentCreated.mock.calls[0][0] as DocumentDto;
+    expect(arg.id).toBe(createdDto.id);
+    expect(arg.title).toBe(createdDto.title);
   });
 
   it('resets fields after a successful submit', async () => {
@@ -297,6 +309,65 @@ describe('DocumentCreateForm', () => {
     await waitFor(() => {
       expect(mockApiFetch).toHaveBeenCalled();
     });
+    expect(onDocumentCreated).not.toHaveBeenCalled();
+    expect(screen.getByTestId('manager-feedback-error')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
+  });
+
+  it('does not invent an id when response body cannot be parsed', async () => {
+    // Given
+    const onDocumentCreated = vi.fn();
+    mockApiFetch.mockResolvedValue(new Response('not-json', { status: 201 }));
+    renderDocumentCreateForm({ onDocumentCreated });
+    fillRequiredFields();
+    // When
+    submitForm();
+    // Then
+    await waitFor(() => {
+      expect(screen.getByText(/response could not be read/i)).toBeTruthy();
+    });
+    expect(onDocumentCreated).not.toHaveBeenCalled();
+  });
+
+  it('does not invent an id when response omits id', async () => {
+    const onDocumentCreated = vi.fn();
+    mockApiFetch.mockResolvedValue(
+      new Response(JSON.stringify({ title: 'No Id' }), { status: 201 })
+    );
+    renderDocumentCreateForm({ onDocumentCreated });
+    fillRequiredFields();
+    submitForm();
+    await waitFor(() => {
+      expect(screen.getByText(/response could not be read/i)).toBeTruthy();
+    });
+    expect(onDocumentCreated).not.toHaveBeenCalled();
+  });
+
+  it('does not call onDocumentCreated after unmount mid-request', async () => {
+    // Given a slow create request
+    let resolveResponse!: (value: Response) => void;
+    const pending = new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+    });
+    mockApiFetch.mockReturnValue(pending);
+    const onDocumentCreated = vi.fn();
+    const { unmount } = renderDocumentCreateForm({ onDocumentCreated });
+    fillRequiredFields();
+    submitForm();
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+
+    // When the form unmounts before the response returns
+    unmount();
+    resolveResponse(
+      new Response(JSON.stringify(createdDto), { status: 201 })
+    );
+    // Let the in-flight promise settle after unmount
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Then the parent callback does not run
     expect(onDocumentCreated).not.toHaveBeenCalled();
   });
 

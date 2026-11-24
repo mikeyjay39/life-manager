@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatIsoDateForInput,
+  parseCreatedDocumentResponse,
   parseOptionalDateInput,
   parseTags,
 } from './document-create-form-utils';
@@ -45,5 +46,39 @@ describe('formatIsoDateForInput', () => {
 describe('parseTags', () => {
   it('splits comma-separated tags and trims empty entries', () => {
     expect(parseTags('tax, 2024, , finance')).toEqual(['tax', '2024', 'finance']);
+  });
+});
+
+describe('parseCreatedDocumentResponse', () => {
+  it('returns DocumentDto with id and title when body is valid', () => {
+    // Given a create response with id and title
+    const body = JSON.stringify({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      title: 'Policy',
+      content: 'body',
+      tags: ['car'],
+      created_at: '2026-01-01T00:00:00',
+      issued_date: null,
+      expire_date: null,
+      storage: null,
+    });
+    // When parsed
+    const parsed = parseCreatedDocumentResponse(body);
+    // Then id and title are present
+    expect(parsed).toMatchObject({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      title: 'Policy',
+    });
+  });
+
+  it('returns null when JSON is invalid', () => {
+    expect(parseCreatedDocumentResponse('not-json')).toBeNull();
+  });
+
+  it('returns null when id is missing or blank', () => {
+    expect(parseCreatedDocumentResponse(JSON.stringify({ title: 'X' }))).toBeNull();
+    expect(
+      parseCreatedDocumentResponse(JSON.stringify({ id: '  ', title: 'X' }))
+    ).toBeNull();
   });
 });
