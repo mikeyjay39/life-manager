@@ -176,6 +176,67 @@ function mockDefaultLoads(events: unknown[] = [], docs: unknown[] = []) {
   });
 }
 
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status });
+}
+
+type EventStoreOptions = {
+  events?: Record<string, unknown>[];
+  listDocuments?: () => Response | Promise<Response>;
+  createdDocument?: typeof newReceiptDoc;
+  fetchCreatedDocument?: () => Response;
+  failedWrites?: number;
+};
+
+/**
+ * Stateful API fake. An event write that embeds `new_receipt_document` links
+ * `createdDocument`, as the backend does in one transaction.
+ */
+function mockEventStore({
+  events = [],
+  listDocuments = () => jsonResponse([]),
+  createdDocument = newReceiptDoc,
+  fetchCreatedDocument = () => jsonResponse(createdDocument),
+  failedWrites = 0,
+}: EventStoreOptions = {}) {
+  let savedEvents = [...events];
+  let failuresLeft = failedWrites;
+  mockAuthenticatedFetch.mockImplementation(async (path: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (path.startsWith('/car-maintenance-events') && method !== 'GET') {
+      if (failuresLeft > 0) {
+        failuresLeft -= 1;
+        return new Response('write failed', { status: 500 });
+      }
+      const { new_receipt_document: draft, ...fields } = JSON.parse(String(init?.body));
+      const id = method === 'PUT' ? path.split('/').at(-1)! : 'e-new';
+      const saved = {
+        id, car_id: 'c1', created_at: 't', updated_at: 't', ...fields,
+        document_id: draft ? createdDocument.id : fields.document_id,
+      };
+      savedEvents = [saved, ...savedEvents.filter((event) => event.id !== id)];
+      return jsonResponse(saved, method === 'POST' ? 201 : 200);
+    }
+    if (path.startsWith('/car-maintenance-events')) return jsonResponse(savedEvents);
+    if (path === `/documents/${createdDocument.id}`) return fetchCreatedDocument();
+    if (path === '/documents') return listDocuments();
+    return jsonResponse([]);
+  });
+}
+
+function eventWriteBodies(): Record<string, unknown>[] {
+  return mockAuthenticatedFetch.mock.calls
+    .filter(([path, init]) =>
+      String(path).startsWith('/car-maintenance-events') &&
+      (init as RequestInit | undefined)?.method !== undefined &&
+      (init as RequestInit).method !== 'GET')
+    .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+}
+
+function createdDocumentFetches(): number {
+  return mockAuthenticatedFetch.mock.calls.filter(([path]) => path === `/documents/${newReceiptDoc.id}`).length;
+}
+
 describe('CarMaintenancePanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -196,6 +257,23 @@ describe('CarMaintenancePanel', () => {
 
   function openAddEvent() {
     fireEvent.press(screen.getByLabelText('Add maintenance event'));
+  }
+
+  async function createReceiptDraft(content = 'Receipt body') {
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), content);
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt (new)');
+    });
+  }
+
+  async function renderAddEventWithTitle(car: CarDto = activeCar) {
+    const view = renderPanel(car);
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Oil');
+    return view;
   }
 
   it('given no Car when render then prompts to select and disables add', async () => {
@@ -640,84 +718,131 @@ describe('CarMaintenancePanel', () => {
 
   it('Scenario: Create receipt Document on new maintenance event', async () => {
     // Given active Car and Add event with no receipt selected
-    renderPanel();
-    await waitFor(() => {
-      expect(mockAuthenticatedFetch).toHaveBeenCalledWith(
-        '/documents',
-        expect.objectContaining({ method: 'GET' })
-      );
-    });
-    openAddEvent();
-
-    expect(screen.getByLabelText('Create receipt document')).toBeTruthy();
+    mockEventStore({ listDocuments: () => jsonResponse([receiptDoc]) });
+    await renderAddEventWithTitle();
     expect(receiptDocumentTitlePrefill('Daily')).toBe('Daily receipt');
 
-    // When create receipt succeeds
+    // When the user fills the create receipt form and submits it
     fireEvent.press(screen.getByLabelText('Create receipt document'));
     expect(screen.getByLabelText('Create receipt document form')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
-      'Daily receipt'
-    );
-    expect(screen.getByLabelText('Document tags').props.value).toBe('receipt');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('Document content'),
-      'Oil change invoice'
-    );
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe('Daily receipt');
+    expect(screen.getByPlaceholderText('e.g. work, notes').props.value).toBe('receipt');
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Oil change invoice');
     fireEvent.press(screen.getByLabelText('Submit'));
 
-    // Then picker selects the new Document; event is not POSTed yet
+    // Then the form links a draft and nothing is written yet
     await waitFor(() => {
-      expect(
-        screen.getByLabelText('Linked receipt document')
-      ).toBeTruthy();
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt (new)');
     });
-    expect(
-      screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
-    expect(
-      mockAuthenticatedFetch.mock.calls.some(
-        ([path, init]) =>
-          path === '/car-maintenance-events' &&
-          (init as RequestInit | undefined)?.method === 'POST'
-      )
-    ).toBe(false);
-    expect(mockApiFetch).toHaveBeenCalled();
+    expect(eventWriteBodies()).toHaveLength(0);
+    expect(mockApiFetch).not.toHaveBeenCalled();
+
+    // When the event is saved
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    // Then one event write carries the draft, with no POST /documents
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
+    expect(eventWriteBodies()).toEqual([
+      expect.objectContaining({
+        document_id: null,
+        new_receipt_document: {
+          title: 'Daily receipt',
+          content: 'Oil change invoice',
+          tags: ['receipt'],
+          issued_date: null,
+          expire_date: null,
+          storage: null,
+        },
+      }),
+    ]);
+    expect(createdDocumentFetches()).toBe(1);
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
-  it('given a pending document load when receipt creation finishes first then the new receipt stays selected', async () => {
-    // Given a document list request that started before receipt creation
+  it('given a receipt draft when the event write fails then the draft stays and the next Save sends it again', async () => {
+    // Given an event write that fails once
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockEventStore({ failedWrites: 1 });
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+
+    // When the first Save fails
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    // Then the error shows, the draft stays, and no Document is fetched
+    await waitFor(() => expect(screen.getByText(/write failed/)).toBeTruthy());
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt (new)');
+    expect(createdDocumentFetches()).toBe(0);
+
+    // When the user saves again
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    // Then the same draft is sent and the receipt is linked
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
+    const [failed, retried] = eventWriteBodies();
+    expect(retried.new_receipt_document).toEqual(failed.new_receipt_document);
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('given a receipt draft when Remove is pressed then Save sends no receipt', async () => {
+    // Given a form with a receipt draft
+    mockEventStore();
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+
+    // When the user removes the draft and saves
+    fireEvent.press(screen.getByLabelText('Remove receipt document'));
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    // Then the write has no receipt id and no draft
+    await waitFor(() => expect(eventWriteBodies()).toHaveLength(1));
+    expect(eventWriteBodies()[0].document_id).toBeNull();
+    expect(eventWriteBodies()[0]).not.toHaveProperty('new_receipt_document');
+    expect(createdDocumentFetches()).toBe(0);
+  });
+
+  it('given the created receipt fetch fails after a successful write then the event stays saved', async () => {
+    // Given a write that succeeds and a receipt fetch that fails
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockEventStore({ fetchCreatedDocument: () => new Response('gone', { status: 500 }) });
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+
+    // When the event is saved
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+
+    // Then the form closes with no error and the failure is logged
+    await waitFor(() => expect(createdDocumentFetches()).toBe(1));
+    await waitFor(() => expect(screen.queryByLabelText('Maintenance title')).toBeNull());
+    expect(screen.queryByText(/Request failed/)).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Request failed (500): gone' }));
+  });
+
+  it('given a pending document load when a receipt is saved first then the late load keeps the new receipt', async () => {
+    // Given a document list request that started before the receipt was saved
     let resolveDocuments!: (response: Response) => void;
     const pendingDocuments = new Promise<Response>((resolve) => {
       resolveDocuments = resolve;
     });
-    mockAuthenticatedFetch.mockImplementation(async (path: string) => {
-      if (path === '/documents') return pendingDocuments;
-      return new Response(JSON.stringify([]), { status: 200 });
-    });
-    renderPanel();
-    await waitFor(() => {
-      expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
-    });
-    openAddEvent();
-    fireEvent.press(screen.getByLabelText('Create receipt document'));
-    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
-    fireEvent.press(screen.getByLabelText('Submit'));
-    await waitFor(() => {
-      expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
-    });
+    mockEventStore({ listDocuments: () => pendingDocuments });
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
 
     // When the older GET returns a list without the new receipt
     await act(async () => {
-      resolveDocuments(new Response(JSON.stringify([receiptDoc]), { status: 200 }));
+      resolveDocuments(jsonResponse([receiptDoc]));
       await pendingDocuments;
     });
 
-    // Then the new receipt remains selected and no event write has occurred
-    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
-    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    // Then the library keeps both Documents
+    expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy();
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
     expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy();
-    expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`).props.accessibilityState.selected).toBe(true);
-    expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+    expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeTruthy();
   });
 
   it('Scenario: Confirm before replace existing receipt on edit', async () => {
@@ -729,13 +854,13 @@ describe('CarMaintenancePanel', () => {
       event_type: 'service',
       odometer_miles: null,
       cost_cents: null,
-      title: null,
+      title: 'Service',
       notes: null,
       document_id: receiptDoc.id,
       created_at: 't',
       updated_at: 't',
     };
-    mockDefaultLoads([listed], [receiptDoc]);
+    mockEventStore({ events: [listed], listDocuments: () => jsonResponse([receiptDoc]) });
 
     renderPanel();
     await waitFor(() => {
@@ -766,7 +891,7 @@ describe('CarMaintenancePanel', () => {
     expect(
       screen.getByLabelText('Linked receipt document').props.children).toBe(receiptDoc.title);
 
-    // When confirm replace and create succeeds then picker selects new Document
+    // When confirm replace and submit the receipt form then the draft replaces R1
     fireEvent.press(screen.getByLabelText('Create receipt document'));
     fireEvent.press(screen.getByLabelText('Replace'));
     expect(screen.getByLabelText('Create receipt document form')).toBeTruthy();
@@ -775,21 +900,30 @@ describe('CarMaintenancePanel', () => {
       'New receipt body'
     );
     fireEvent.press(screen.getByLabelText('Submit'));
-
     await waitFor(() => {
       expect(
-        screen.getByLabelText('Linked receipt document')
-      ).toBeTruthy();
+        screen.getByLabelText('Linked receipt document').props.children
+      ).toBe('Daily receipt (new)');
     });
-    expect(
-      screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
+    expect(eventWriteBodies()).toHaveLength(0);
+
+    // When Update is pressed then one PUT carries the draft instead of R1
+    fireEvent.press(screen.getByLabelText('Update maintenance event'));
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
+    expect(eventWriteBodies()).toEqual([
+      expect.objectContaining({
+        document_id: null,
+        new_receipt_document: expect.objectContaining({ content: 'New receipt body' }),
+      }),
+    ]);
     expect(
       mockAuthenticatedFetch.mock.calls.some(
         ([path, init]) =>
           path === '/car-maintenance-events/e1' &&
           (init as RequestInit | undefined)?.method === 'PUT'
       )
-    ).toBe(false);
+    ).toBe(true);
+    expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
   it('Scenario: Pick existing receipt still works', async () => {
@@ -879,24 +1013,21 @@ describe('CarMaintenancePanel', () => {
     expect(screen.getByText(/^Expires:/)).toBeTruthy();
   });
 
-  it('given a created receipt file when searching its filename then shows its file type', async () => {
-    // Given a receipt create response with file storage metadata
+  it('given a saved receipt file when searching its filename then shows its file type', async () => {
+    // Given an event write that creates a receipt with file storage metadata
     const createdFileReceipt = {
       ...newReceiptDoc,
       storage: { provider: 'proton', share_id: 'share', node_id: 'node', filename: 'scan.jpg', mime_type: 'image/jpeg' },
     };
-    mockApiFetch.mockResolvedValue(new Response(JSON.stringify(createdFileReceipt), { status: 201 }));
-    mockDefaultLoads([], [receiptDoc]);
-    renderPanel();
-    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
-    openAddEvent();
-    fireEvent.press(screen.getByLabelText('Create receipt document'));
-    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
-    fireEvent.press(screen.getByLabelText('Submit'));
-    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+    mockEventStore({ listDocuments: () => jsonResponse([receiptDoc]), createdDocument: createdFileReceipt });
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
 
     // When the picker searches the new receipt filename
-    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
     fireEvent.changeText(screen.getByLabelText('Search documents'), 'SCAN.JPG');
 
     // Then only the new receipt matches and its file type shows
@@ -905,25 +1036,23 @@ describe('CarMaintenancePanel', () => {
     expect(screen.getByText('File type: image/jpeg')).toBeTruthy();
   });
 
-  it('given a pending document load when it and its retry fail after receipt creation then the new receipt title stays linked', async () => {
-    // Given a document list request that started before receipt creation
+  it('given a pending document load when it and its retry fail after a receipt is saved then the receipt title stays', async () => {
+    // Given a document list request that started before the receipt was saved
     let rejectDocuments!: (error: Error) => void;
     const pendingDocuments = new Promise<Response>((_resolve, reject) => {
       rejectDocuments = reject;
     });
     let documentLoads = 0;
-    mockAuthenticatedFetch.mockImplementation(async (path: string) => {
-      if (path !== '/documents') return new Response(JSON.stringify([]), { status: 200 });
-      documentLoads += 1;
-      return documentLoads === 1 ? pendingDocuments : new Response('retry down', { status: 500 });
+    mockEventStore({
+      listDocuments: () => {
+        documentLoads += 1;
+        return documentLoads === 1 ? pendingDocuments : new Response('retry down', { status: 500 });
+      },
     });
-    renderPanel();
-    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
-    openAddEvent();
-    fireEvent.press(screen.getByLabelText('Create receipt document'));
-    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
-    fireEvent.press(screen.getByLabelText('Submit'));
-    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
 
     // When the older GET fails and then its retry fails
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -931,34 +1060,34 @@ describe('CarMaintenancePanel', () => {
       rejectDocuments(new Error('network down'));
       await pendingDocuments.catch(() => undefined);
     });
-
-    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
-    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy();
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
     expect(screen.getByText('network down')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Retry loading documents'));
     await waitFor(() => expect(screen.getByText(/retry down/)).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Close document picker'));
 
-    // Then the new receipt title stays linked
+    // Then the saved receipt title stays in the history
     expect(documentLoads).toBe(2);
-    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
+    expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy();
   });
 
-  it('given a created receipt when a later document load omits it then the list follows the server', async () => {
-    // Given a receipt created after the first document load finished
+  it('given a saved receipt when a later document load omits it then the list follows the server', async () => {
+    // Given a receipt saved after the first document load finished
     const listed = {
       id: 'e1', car_id: 'c1', occurred_on: '2026-01-15', event_type: 'service',
-      odometer_miles: null, cost_cents: null, title: null, notes: null,
+      odometer_miles: null, cost_cents: null, title: 'Service', notes: null,
       document_id: receiptDoc.id, created_at: 't', updated_at: 't',
     };
-    mockDefaultLoads([listed], [receiptDoc]);
+    mockEventStore({ events: [listed], listDocuments: () => jsonResponse([receiptDoc]) });
     renderPanel();
     await waitFor(() => expect(screen.getByLabelText(`Receipt: ${receiptDoc.title}`)).toBeTruthy());
     openAddEvent();
-    fireEvent.press(screen.getByLabelText('Create receipt document'));
-    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
-    fireEvent.press(screen.getByLabelText('Submit'));
-    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+    fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Oil');
+    await createReceiptDraft();
+    fireEvent.press(screen.getByLabelText('Save maintenance event'));
+    await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
 
     // When edit starts a new document load that no longer has the receipt
     fireEvent.press(screen.getByLabelText('Edit maintenance event e1 on 2026-01-15'));
@@ -972,34 +1101,23 @@ describe('CarMaintenancePanel', () => {
     expect(screen.queryByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeNull();
   });
 
-  it('given a pending receipt create when the Car changes then the response does not link to the new form', async () => {
-    // Given a receipt create request that is still running
-    let resolveCreate!: (response: Response) => void;
-    mockApiFetch.mockReturnValue(new Promise<Response>((resolve) => {
-      resolveCreate = resolve;
-    }));
-    mockDefaultLoads([], [receiptDoc]);
-    const { rerender } = renderPanel();
-    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
-    openAddEvent();
-    fireEvent.press(screen.getByLabelText('Create receipt document'));
-    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
-    fireEvent.press(screen.getByLabelText('Submit'));
-    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+  it('given a receipt draft when the Car changes then the new Car form has no receipt', async () => {
+    // Given a form with a receipt draft
+    mockEventStore({ listDocuments: () => jsonResponse([receiptDoc]) });
+    const { rerender } = await renderAddEventWithTitle();
+    await createReceiptDraft();
 
-    // When the Car changes and then the create response arrives
+    // When the Car changes
     rerender(<TenantThemeTestProvider theme={defaultResolvedTheme}>
       <CarMaintenancePanel selectedCar={{ ...activeCar, id: 'another-car' }} />
     </TenantThemeTestProvider>);
-    await act(async () => {
-      resolveCreate(new Response(JSON.stringify(newReceiptDoc), { status: 201 }));
-    });
 
-    // Then the new Car form has no linked receipt
+    // Then the new Car form has no linked receipt and nothing was written
     await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
     openAddEvent();
     expect(screen.queryByLabelText('Linked receipt document')).toBeNull();
     expect(screen.getByLabelText('Choose receipt document')).toBeTruthy();
+    expect(eventWriteBodies()).toHaveLength(0);
   });
 
   it.each(['Cancel document selection', 'Close document picker', 'escape', 'back'])(

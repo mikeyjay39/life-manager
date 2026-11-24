@@ -30,6 +30,7 @@ import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CarDto,
   CarMaintenanceEventDto,
+  CreateDocumentCommand,
   DocumentDto,
 } from '@/lib/api/types';
 import {
@@ -46,6 +47,7 @@ import {
   type CreatedDocument,
 } from './document-list-merge';
 import DocumentPickerModal from './document-picker-modal';
+import { fetchDocumentById } from './fetch-document';
 import {
   CAR_MAINTENANCE_EVENT_TYPES,
   EVENT_TYPE_LABELS,
@@ -60,9 +62,26 @@ import {
   parseCarMaintenanceEventDto,
   type CarMaintenanceEventTypeValue,
   type CarMaintenanceFormInput,
+  type ReceiptLink,
 } from './car-maintenance-form-utils';
 
 /** Prefill title for a new receipt Document from the selected Car label. */
+/** Reads the linked receipt id from a maintenance write response. */
+function linkedReceiptId(eventBodyText: string): string | null {
+  return parseCarMaintenanceEventDto(JSON.parse(eventBodyText)).document_id;
+}
+
+/** A draft shows its title with "(new)": the Document exists only after the event Save. */
+function receiptLinkLabel(
+  receipt: ReceiptLink,
+  documentTitleById: ReadonlyMap<string, string>
+): string {
+  if (receipt.kind === 'new') {
+    return `${receipt.draft.title} (new)`;
+  }
+  return documentTitleById.get(receipt.id) ?? 'Document unavailable';
+}
+
 export function receiptDocumentTitlePrefill(carLabel: string): string {
   const trimmed = carLabel.trim();
   return trimmed ? `${trimmed} receipt` : 'receipt';
@@ -115,31 +134,39 @@ function todayYmd(): string {
  *     DocumentPickerModal -> Panel : close; preserve form
  *   end
  * else remove receipt
- *   Panel -> form : clear documentId only; do not delete Document
+ *   Panel -> form : clear receipt only; do not delete Document
  * end
  * alt create receipt Document (active Car; form open)
- *   alt form.documentId already set
+ *   alt form.receipt already set
  *     Panel -> ConfirmDialog : replace receipt link?
  *     User -> ConfirmDialog : cancel --> keep old id
  *     User -> ConfirmDialog : confirm --> open DocumentCreateForm
  *   else
  *     Panel -> DocumentCreateForm : open (title/tag prefill)
  *   end
- *   DocumentCreateForm -> API : POST /documents
- *   DocumentCreateForm -> Panel : DocumentDto (skipped if the form unmounted)
- *   Panel -> Panel : add receipt to documents; keep it if an older GET /documents returns without it
- *   Panel -> form : set documentId only (event Save still owns POST/PUT)
+ *   DocumentCreateForm -> Proton : upload file first (web + Proton only)
+ *   DocumentCreateForm -> Panel : CreateDocumentCommand draft (skipped if the form unmounted)
+ *   Panel -> form : receipt = new draft; no POST /documents (event Save owns the write)
  * else create event (form mode create; active Car only)
- *   Panel -> API : POST /car-maintenance-events
+ *   Panel -> API : POST /car-maintenance-events [new_receipt_document] (one transaction)
  *   Panel -> API : GET /car-maintenance-events (refresh)
  *   Panel -> Parent : onEventsChanged (charts refresh)
  *   Panel -> ManagerFormVsResults : collapse
  * else edit (form mode edit; allowed on inactive Car)
- *   Panel -> API : PUT /car-maintenance-events/{id}
+ *   Panel -> API : PUT /car-maintenance-events/{id} [new_receipt_document] (one transaction)
  *   Panel -> API : GET /car-maintenance-events (refresh)
  *   Panel -> Parent : onEventsChanged (charts refresh)
  *   Panel -> ManagerFormVsResults : collapse
- * else delete
+ * end
+ * alt create or edit sent new_receipt_document
+ *   alt write ok
+ *     Panel -> API : GET /documents/{document_id} (fetchDocumentById)
+ *     Panel -> Panel : add receipt to documents; keep it if an older GET /documents returns without it
+ *   else write failed
+ *     Panel -> form : keep the draft (and its Proton ref) for the next Save
+ *   end
+ * end
+ * alt delete
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm
  *   Panel -> API : DELETE /car-maintenance-events/{id}
@@ -507,31 +534,51 @@ export default function CarMaintenancePanel({
   }, []);
 
   const handleCreateReceiptPress = useCallback(() => {
-    if (form.documentId) {
+    if (form.receipt) {
       setReplaceReceiptConfirmVisible(true);
       return;
     }
     openReceiptCreate();
-  }, [form.documentId, openReceiptCreate]);
+  }, [form.receipt, openReceiptCreate]);
 
-  const handleReceiptDocumentCreated = useCallback(
-    (document: DocumentDto) => {
-      // An in-flight GET can return without this receipt; see document-list-merge.
-      createdReceiptsRef.current = [
-        ...createdReceiptsRef.current,
-        { document, createdSequence: ++documentSequenceRef.current },
-      ];
-      setDocuments((prev) => {
-        if (prev.some((d) => d.id === document.id)) {
-          return prev.map((d) => (d.id === document.id ? document : d));
-        }
-        return [document, ...prev];
-      });
-      updateField('documentId', document.id);
+  const handleReceiptDraft = useCallback(
+    (draft: CreateDocumentCommand) => {
+      updateField('receipt', { kind: 'new', draft });
       setReceiptCreateOpen(false);
       setReceiptCreateSubmitting(false);
     },
     [updateField]
+  );
+
+  /**
+   * Adds the receipt that the event write created to the library. The write
+   * already succeeded, so a failure here only logs; the next list load shows it.
+   */
+  const recordCreatedReceipt = useCallback(
+    async (eventBodyText: string) => {
+      if (!token) {
+        return;
+      }
+      try {
+        const documentId = linkedReceiptId(eventBodyText);
+        if (!documentId) {
+          return;
+        }
+        const document = await fetchDocumentById(documentId, {
+          token,
+          onUnauthorized: handleUnauthorized,
+        });
+        // An in-flight GET can return without this receipt; see document-list-merge.
+        createdReceiptsRef.current = [
+          ...createdReceiptsRef.current,
+          { document, createdSequence: ++documentSequenceRef.current },
+        ];
+        setDocuments((prev) => [document, ...prev.filter((d) => d.id !== document.id)]);
+      } catch (err: unknown) {
+        console.error(err);
+      }
+    },
+    [token, handleUnauthorized]
   );
 
   const handleSubmit = async () => {
@@ -572,6 +619,9 @@ export default function CarMaintenancePanel({
               ? `Request failed (${response.status}): ${bodyText}`
               : `Request failed with status ${response.status}`
           );
+        }
+        if (built.command.new_receipt_document) {
+          void recordCreatedReceipt(bodyText);
         }
         if (selectedCarIdRef.current === carIdAtSubmit) {
           collapseForm();
@@ -616,6 +666,9 @@ export default function CarMaintenancePanel({
             ? `Request failed (${response.status}): ${bodyText}`
             : `Request failed with status ${response.status}`
         );
+      }
+      if (built.command.new_receipt_document) {
+        void recordCreatedReceipt(bodyText);
       }
       if (selectedCarIdRef.current === carIdAtSubmit) {
         collapseForm();
@@ -824,26 +877,26 @@ export default function CarMaintenancePanel({
 
       <View style={styles.fieldBlock}>
         <FieldLabel label="Receipt document" />
-        {form.documentId ? (
+        {form.receipt ? (
           <ThemedText accessibilityLabel="Linked receipt document">
-            {documentTitleById.get(form.documentId) ?? 'Document unavailable'}
+            {receiptLinkLabel(form.receipt, documentTitleById)}
           </ThemedText>
         ) : null}
         <View style={styles.formActions}>
           <Button
             variant="outline"
-            label={form.documentId ? 'Change' : 'Choose document'}
-            accessibilityLabel={form.documentId ? 'Change receipt document' : 'Choose receipt document'}
+            label={form.receipt ? 'Change' : 'Choose document'}
+            accessibilityLabel={form.receipt ? 'Change receipt document' : 'Choose receipt document'}
             disabled={formInputsLocked || receiptCreateOpen}
             onPress={() => setReceiptPickerOpen(true)}
           />
-          {form.documentId ? (
+          {form.receipt ? (
             <Button
               variant="outline"
               label="Remove"
               accessibilityLabel="Remove receipt document"
               disabled={formInputsLocked || receiptCreateOpen}
-              onPress={() => updateField('documentId', null)}
+              onPress={() => updateField('receipt', null)}
             />
           ) : null}
         </View>
@@ -863,13 +916,13 @@ export default function CarMaintenancePanel({
             style={styles.receiptCreateBlock}
             accessibilityLabel="Create receipt document form">
             <ThemedText style={styles.hint}>
-              Create a receipt Document. Save the event to store the link.
+              Create a receipt Document. Save the event to create it and store the link.
             </ThemedText>
             <DocumentCreateForm
               key={`receipt-create-${selectedCar?.id ?? 'none'}`}
               initialTitle={receiptDocumentTitlePrefill(carLabel)}
               initialTags="receipt"
-              onDocumentCreated={handleReceiptDocumentCreated}
+              onDraft={handleReceiptDraft}
               onSubmittingChange={setReceiptCreateSubmitting}
             />
             <View style={styles.formActions}>
@@ -1200,12 +1253,12 @@ export default function CarMaintenancePanel({
         visible={receiptPickerOpen && formMode !== 'collapsed'}
         title="Choose receipt document"
         documents={documents}
-        selectedDocumentId={form.documentId}
+        selectedDocumentId={form.receipt?.kind === 'existing' ? form.receipt.id : null}
         loading={documentsLoading}
         error={documentsError}
         onRetry={() => { void loadDocuments(); }}
         onSelect={(document) => {
-          updateField('documentId', document.id);
+          updateField('receipt', { kind: 'existing', id: document.id });
           setReceiptPickerOpen(false);
         }}
         onClose={() => setReceiptPickerOpen(false)}
