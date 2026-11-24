@@ -31,12 +31,14 @@ import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CarDto,
   CreateCarCommand,
+  CreateDocumentCommand,
   DocumentDto,
   UpdateCarCommand,
 } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentPickerModal from './document-picker-modal';
+import { fetchDocumentById } from './fetch-document';
 import {
   type CreatedDocument,
   mergeCreatedDocuments,
@@ -45,14 +47,24 @@ import {
 
 import {
   carDisplayLabel,
+  carDocumentLinkFromId,
+  carDocumentLinksFromCar,
+  carDocumentLinkTitle,
   carDocumentPrefillTags,
   carDocumentPrefillTitle,
+  carDocumentRequestFields,
   carFormDraftLabel,
+  createdCarDocumentIds,
+  existingLinkId,
+  newCarDocumentField,
   parseCarDto,
   parseOwnedDocumentDto,
   unicodeScalarLength,
   yearMax,
   type CarDocumentLinkRole,
+  type CarDocumentLinks,
+  type CarDocumentLinkValue,
+  type CarDocumentRequestFields,
 } from './car-panel-utils';
 
 export {
@@ -155,8 +167,7 @@ type CarFormFields = {
   vin: string;
   licensePlate: string;
   notes: string;
-  insuranceDocumentId: string | null;
-  registrationDocumentId: string | null;
+  documentLinks: CarDocumentLinks;
 };
 
 function emptyCarForm(): CarFormFields {
@@ -168,8 +179,7 @@ function emptyCarForm(): CarFormFields {
     vin: '',
     licensePlate: '',
     notes: '',
-    insuranceDocumentId: null,
-    registrationDocumentId: null,
+    documentLinks: { insurance: null, registration: null },
   };
 }
 
@@ -182,8 +192,7 @@ function formFromCar(car: CarDto): CarFormFields {
     vin: car.vin ?? '',
     licensePlate: car.license_plate ?? '',
     notes: car.notes ?? '',
-    insuranceDocumentId: car.insurance_document_id,
-    registrationDocumentId: car.registration_document_id,
+    documentLinks: carDocumentLinksFromCar(car),
   };
 }
 
@@ -195,9 +204,7 @@ type ValidatedCarFields = {
   vin: string | null;
   license_plate: string | null;
   notes: string | null;
-  insurance_document_id: string | null;
-  registration_document_id: string | null;
-};
+} & CarDocumentRequestFields;
 
 function validateCarForm(fields: CarFormFields):
   | { ok: true; value: ValidatedCarFields }
@@ -256,8 +263,7 @@ function validateCarForm(fields: CarFormFields):
       vin: vin.value,
       license_plate: licensePlate.value,
       notes: notes.value,
-      insurance_document_id: fields.insuranceDocumentId,
-      registration_document_id: fields.registrationDocumentId,
+      ...carDocumentRequestFields(fields.documentLinks),
     },
   };
 }
@@ -269,10 +275,10 @@ type CarPanelProps = {
 type DocumentLinkPickerProps = {
   label: string;
   accessibilityPrefix: string;
-  selectedId: string | null;
-  documents: DocumentDto[];
+  value: CarDocumentLinkValue | null;
+  documentTitleById: ReadonlyMap<string, string>;
   onChoose: () => void;
-  onChange: (id: string | null) => void;
+  onRemove: () => void;
   onCreatePress?: () => void;
   /** True while the parent Car form submits, so no link action can start. */
   disabled?: boolean;
@@ -284,35 +290,43 @@ type DocumentLinkPickerProps = {
 function DocumentLinkPicker({
   label,
   accessibilityPrefix,
-  selectedId,
-  documents,
+  value,
+  documentTitleById,
   onChoose,
-  onChange,
+  onRemove,
   onCreatePress,
   disabled = false,
   createAccessibilityLabel,
   actionRowStyle,
   actionButtonStyle,
 }: DocumentLinkPickerProps) {
+  const isNew = value?.kind === 'new';
   return (
     <View>
       <FieldLabel label={label} />
-      {selectedId ? (
-        <ThemedText accessibilityLabel={`Selected ${accessibilityPrefix} document`}>
-          {documents.find((document) => document.id === selectedId)?.title ?? selectedId}
+      {value ? (
+        <ThemedText
+          accessibilityLabel={
+            isNew
+              ? `Selected ${accessibilityPrefix} document, new, created when you save the Car`
+              : `Selected ${accessibilityPrefix} document`
+          }>
+          {isNew
+            ? `${carDocumentLinkTitle(value, documentTitleById)} (new)`
+            : carDocumentLinkTitle(value, documentTitleById)}
         </ThemedText>
       ) : null}
       <View style={actionRowStyle}>
         <Button
-          label={selectedId ? 'Change' : 'Choose document'}
+          label={value ? 'Change' : 'Choose document'}
           variant="outline"
-          accessibilityLabel={`${selectedId ? 'Change' : 'Choose'} ${accessibilityPrefix} document`}
+          accessibilityLabel={`${value ? 'Change' : 'Choose'} ${accessibilityPrefix} document`}
           onPress={onChoose}
           disabled={disabled}
           style={actionButtonStyle}
         />
-        {selectedId ? (
-          <Button label="Remove" variant="outline" accessibilityLabel={`Remove ${accessibilityPrefix} document`} onPress={() => onChange(null)} disabled={disabled} style={actionButtonStyle} />
+        {value ? (
+          <Button label="Remove" variant="outline" accessibilityLabel={`Remove ${accessibilityPrefix} document`} onPress={onRemove} disabled={disabled} style={actionButtonStyle} />
         ) : null}
       </View>
       {onCreatePress ? (
@@ -351,12 +365,6 @@ type ReplaceDocumentConfirm = {
   existingTitle: string;
 };
 
-type PendingDocumentLink = {
-  role: CarDocumentLinkRole;
-  carId: string;
-  document: DocumentDto;
-};
-
 /**
  * Manage Cars on the Car Manager screen.
  *
@@ -365,28 +373,27 @@ type PendingDocumentLink = {
  * Panel -> API : GET /cars(?include_inactive=true)
  * Panel -> API : GET /documents
  * alt create Car
- *   Panel -> API : POST /cars
+ *   Panel -> API : POST /cars (new_*_document for each new draft)
  * else update Car
- *   Panel -> API : PUT /cars/{id}
+ *   Panel -> API : PUT /cars/{id} (new_*_document for each new draft)
  * else create insurance/registration Document (not while the form saves)
- *   opt existing link
+ *   opt existing link or draft
  *     Panel -> ConfirmDialog : replace?
  *     User -> ConfirmDialog : confirm | cancel
- *   Panel -> DocumentCreateForm : modal (prefill title+tags)
- *   DocumentCreateForm -> API : POST /documents
+ *   Panel -> DocumentCreateForm : modal, draft mode (prefill title+tags)
+ *   DocumentCreateForm -> Panel : CreateDocumentCommand (no POST /documents)
  *   alt apply persist (saved Car detail)
- *     Panel -> API : PUT /cars/{id} (document id)
- *     Panel -> Panel : refresh Cars + Documents
- *     opt PUT failed; user retries on active Car
- *       opt role has a linked Document
- *         Panel -> ConfirmDialog : confirm replacement before retry
- *       Panel -> API : PUT /cars/{id} (kept Document id)
+ *     Panel -> API : PUT /cars/{id} (only new_<role>_document)
+ *     note : API creates the Document and links it in one transaction
+ *     alt write failed
+ *       Panel -> DocumentCreateForm : reject; form keeps values for retry
+ *     else ok
+ *       Panel -> Panel : refresh Cars; close modal
  *   else apply form (create/edit) still open
- *     Panel -> Panel : set form field only; Save owns persist
+ *     Panel -> Panel : set field to new draft; Save sends it
  *   else form closed
- *     Panel -> Panel : keep Document in library; show error
+ *     Panel -> Panel : drop draft; show error
  *   end
- *   Panel -> Panel : merge DTOs created after a GET /documents started
  * else choose existing Document in form
  *   Panel -> DocumentPickerModal : authorized list, current id
  *   User -> DocumentPickerModal : search, stage choice
@@ -409,6 +416,10 @@ type PendingDocumentLink = {
  *   User -> ConfirmDialog : confirm | cancel
  *   opt confirm
  *     Panel -> API : DELETE /cars/{id}
+ * end
+ * opt a Car write created Documents
+ *   Panel -> API : GET /documents/{id} for each new id
+ *   Panel -> Panel : merge DTOs created after a GET /documents started
  * end
  * Panel -> Panel : refresh picker
  * ```
@@ -458,11 +469,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     useState<ReplaceDocumentConfirm | null>(null);
   const [documentCreateSubmitting, setDocumentCreateSubmitting] =
     useState(false);
-  const [pendingDocumentLink, setPendingDocumentLink] =
-    useState<PendingDocumentLink | null>(null);
-  const [retryLinkConfirm, setRetryLinkConfirm] = useState<
-    (PendingDocumentLink & { existingTitle: string }) | null
-  >(null);
   const [linkingDocument, setLinkingDocument] = useState(false);
   const documentCreateFormKeyRef = useRef(0);
 
@@ -892,24 +898,17 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     [isFormSubmitting]
   );
 
-  const existingLinkIdForTarget = useCallback(
+  const linkForTarget = useCallback(
     (
       role: CarDocumentLinkRole,
       apply: DocumentCreateApplyTarget
-    ): string | null => {
+    ): CarDocumentLinkValue | null => {
       if (apply.kind === 'persist') {
         const car = cars.find((c) => c.id === apply.carId);
-        if (!car) {
-          return null;
-        }
-        return role === 'insurance'
-          ? car.insurance_document_id
-          : car.registration_document_id;
+        return car ? carDocumentLinksFromCar(car)[role] : null;
       }
       const form = apply.mode === 'create' ? createForm : editForm;
-      return role === 'insurance'
-        ? form.insuranceDocumentId
-        : form.registrationDocumentId;
+      return form.documentLinks[role];
     },
     [cars, createForm, editForm]
   );
@@ -927,13 +926,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (isFormSubmitting(apply)) {
         return;
       }
-      const existingId = existingLinkIdForTarget(role, apply);
-      if (existingId) {
+      const existingLink = linkForTarget(role, apply);
+      if (existingLink) {
         setReplaceDocumentConfirm({
           role,
           apply,
           carLabel,
-          existingTitle: documentTitleById.get(existingId) ?? existingId,
+          existingTitle: carDocumentLinkTitle(existingLink, documentTitleById),
         });
         return;
       }
@@ -941,32 +940,59 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     },
     [
       documentTitleById,
-      existingLinkIdForTarget,
+      linkForTarget,
       isFormSubmitting,
       openDocumentCreateSession,
     ]
   );
 
-  const persistDocumentLink = useCallback(
-    async (carId: string, role: CarDocumentLinkRole, document: DocumentDto) => {
+  const refreshCreatedDocuments = useCallback(
+    async (car: CarDto | null, links: CarDocumentLinks) => {
       if (!token) {
-        upsertDocumentLocally(document);
-        showError('No authentication token available.');
-        setPendingDocumentLink({ role, carId, document });
         return;
+      }
+      if (!car) {
+        // The response was not readable, so the new ids are unknown.
+        await loadDocuments();
+        return;
+      }
+      const results = await Promise.allSettled(
+        createdCarDocumentIds(car, links).map((id) =>
+          fetchDocumentById(id, { token, onUnauthorized: handleUnauthorized })
+        )
+      );
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          upsertDocumentLocally(result.value);
+          continue;
+        }
+        // The Car write is done; only the title is missing until a refresh.
+        console.error(result.reason);
+        setDocumentsError(
+          result.reason instanceof Error
+            ? result.reason.message
+            : 'Failed to load the new Document'
+        );
+      }
+    },
+    [token, handleUnauthorized, loadDocuments, upsertDocumentLocally]
+  );
+
+  /**
+   * Saved-Car detail: one PUT creates the Document and links it in one
+   * transaction. A thrown Error keeps the create form open with its values.
+   */
+  const persistNewDocument = useCallback(
+    async (carId: string, role: CarDocumentLinkRole, draft: CreateDocumentCommand) => {
+      if (!token) {
+        throw new Error('No authentication token available.');
       }
       const car = cars.find((c) => c.id === carId);
       if (!car) {
-        upsertDocumentLocally(document);
-        showError('Car not found. Refresh and try again.');
-        setPendingDocumentLink({ role, carId, document });
-        return;
+        throw new Error('Car not found. Refresh and try again.');
       }
       if (!car.active) {
-        upsertDocumentLocally(document);
-        showError('The Document was kept. Reactivate the Car before linking it.');
-        setPendingDocumentLink({ role, carId, document });
-        return;
+        throw new Error('Reactivate the Car before you add a Document to it.');
       }
       setLinkingDocument(true);
       clearError();
@@ -976,9 +1002,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           model: car.model,
           year: car.year,
           active: null,
-          ...(role === 'insurance'
-            ? { insurance_document_id: document.id }
-            : { registration_document_id: document.id }),
+          ...newCarDocumentField(role, draft),
         };
         const response = await authenticatedFetch(`/cars/${carId}`, {
           method: 'PUT',
@@ -1001,32 +1025,24 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         } catch {
           // refresh will sync
         }
-        setPendingDocumentLink(null);
-        upsertDocumentLocally(document);
         if (updated?.id) {
           upsertCarLocally(updated);
           selectCar(updated);
         }
-        await Promise.all([load(), loadDocuments()]);
+        const links: CarDocumentLinks = {
+          insurance: null,
+          registration: null,
+          [role]: { kind: 'new', draft },
+        };
+        await Promise.all([load(), refreshCreatedDocuments(updated, links)]);
         // The user can select another Car during the refresh; keep that choice.
         if (updated?.id && selectedIdRef.current === carId) {
           selectCar(updated);
         }
         showSuccess(
           role === 'insurance'
-            ? `Insurance document "${document.title}" linked.`
-            : `Registration document "${document.title}" linked.`
-        );
-      } catch (err: unknown) {
-        console.error(err);
-        const msg =
-          err instanceof Error
-            ? err.message
-            : 'Document was created, but linking to the Car failed.';
-        upsertDocumentLocally(document);
-        setPendingDocumentLink({ role, carId, document });
-        showError(
-          `${msg} The Document was kept. Use Retry link to attach it.`
+            ? `Insurance document "${draft.title}" created and linked.`
+            : `Registration document "${draft.title}" created and linked.`
         );
       } finally {
         setLinkingDocument(false);
@@ -1037,95 +1053,56 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       cars,
       handleUnauthorized,
       clearError,
-      showError,
       showSuccess,
       upsertCarLocally,
-      upsertDocumentLocally,
       selectCar,
       load,
-      loadDocuments,
+      refreshCreatedDocuments,
     ]
   );
 
-  const applyCreatedDocumentToForm = useCallback(
-    (mode: 'create' | 'edit', role: CarDocumentLinkRole, document: DocumentDto) => {
-      upsertDocumentLocally(document);
+  const applyDraftToForm = useCallback(
+    (mode: 'create' | 'edit', role: CarDocumentLinkRole, draft: CreateDocumentCommand) => {
       const setForm = mode === 'create' ? setCreateForm : setEditForm;
-      setForm((prev) =>
-        role === 'insurance'
-          ? { ...prev, insuranceDocumentId: document.id }
-          : { ...prev, registrationDocumentId: document.id }
-      );
+      setForm((prev) => ({
+        ...prev,
+        documentLinks: { ...prev.documentLinks, [role]: { kind: 'new', draft } },
+      }));
       showSuccess(
         role === 'insurance'
-          ? `Insurance document "${document.title}" selected. Save the Car to keep the link.`
-          : `Registration document "${document.title}" selected. Save the Car to keep the link.`
+          ? `Insurance document "${draft.title}" is ready. Save the Car to create and link it.`
+          : `Registration document "${draft.title}" is ready. Save the Car to create and link it.`
       );
     },
-    [showSuccess, upsertDocumentLocally]
+    [showSuccess]
   );
 
-  const handleDocumentCreated = useCallback(
-    (document: DocumentDto) => {
+  const handleDocumentDrafted = useCallback(
+    async (draft: CreateDocumentCommand) => {
       const session = documentCreateSession;
       if (!session) {
         return;
       }
-      setDocumentCreateSession(null);
       if (session.apply.kind === 'persist') {
-        void persistDocumentLink(session.apply.carId, session.role, document);
+        await persistNewDocument(session.apply.carId, session.role, draft);
+        setDocumentCreateSession(null);
         return;
       }
+      setDocumentCreateSession(null);
       if (!isFormOpen(session.apply)) {
-        upsertDocumentLocally(document);
-        showError(
-          `Document "${document.title}" was kept, but the Car form closed. Choose it from the Car form to link it.`
-        );
+        showError('The Car form closed, so the new Document was not added.');
         return;
       }
-      applyCreatedDocumentToForm(session.apply.mode, session.role, document);
+      applyDraftToForm(session.apply.mode, session.role, draft);
     },
     [
       documentCreateSession,
       isFormOpen,
-      persistDocumentLink,
-      applyCreatedDocumentToForm,
-      upsertDocumentLocally,
+      persistNewDocument,
+      applyDraftToForm,
       showError,
     ]
   );
-
-  const handleRetryPendingLink = useCallback(() => {
-    if (!pendingDocumentLink || linkingDocument) {
-      return;
-    }
-    const car = cars.find((c) => c.id === pendingDocumentLink.carId);
-    if (!car?.active) {
-      return;
-    }
-    const existingId =
-      pendingDocumentLink.role === 'insurance'
-        ? car.insurance_document_id
-        : car.registration_document_id;
-    if (existingId && existingId !== pendingDocumentLink.document.id) {
-      setRetryLinkConfirm({
-        ...pendingDocumentLink,
-        existingTitle: documentTitleById.get(existingId) ?? existingId,
-      });
-      return;
-    }
-    void persistDocumentLink(
-      pendingDocumentLink.carId,
-      pendingDocumentLink.role,
-      pendingDocumentLink.document
-    );
-  }, [
-    pendingDocumentLink,
-    linkingDocument,
-    cars,
-    documentTitleById,
-    persistDocumentLink,
-  ]);
 
   const handleCreate = async () => {
     if (creating || documentPickerTarget != null) {
@@ -1143,6 +1120,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     }
 
     const payload: CreateCarCommand = { ...validated.value };
+    const { documentLinks } = createForm;
 
     setCreating(true);
     try {
@@ -1172,7 +1150,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(created);
         selectCar(created);
       }
-      await load();
+      await Promise.all([load(), refreshCreatedDocuments(created, documentLinks)]);
       if (created?.id) {
         selectCar(created);
       }
@@ -1209,6 +1187,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       ...validated.value,
       active: null,
     };
+    const { documentLinks } = editForm;
 
     setSaving(true);
     try {
@@ -1238,7 +1217,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(updated);
         selectCar(updated);
       }
-      await load();
+      await Promise.all([load(), refreshCreatedDocuments(updated, documentLinks)]);
       if (updated?.id) {
         selectCar(updated);
       }
@@ -1476,11 +1455,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         <DocumentLinkPicker
           label="Insurance document"
           accessibilityPrefix="insurance"
-          selectedId={form.insuranceDocumentId}
-          documents={documents}
+          value={form.documentLinks.insurance}
+          documentTitleById={documentTitleById}
           onChoose={() => openDocumentPicker(mode, 'insurance')}
-          onChange={(insuranceDocumentId) =>
-            setForm((prev) => ({ ...prev, insuranceDocumentId }))
+          onRemove={() =>
+            setForm((prev) => ({
+              ...prev,
+              documentLinks: { ...prev.documentLinks, insurance: null },
+            }))
           }
           onCreatePress={() =>
             requestCreateDocument(
@@ -1497,11 +1479,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         <DocumentLinkPicker
           label="Registration document"
           accessibilityPrefix="registration"
-          selectedId={form.registrationDocumentId}
-          documents={documents}
+          value={form.documentLinks.registration}
+          documentTitleById={documentTitleById}
           onChoose={() => openDocumentPicker(mode, 'registration')}
-          onChange={(registrationDocumentId) =>
-            setForm((prev) => ({ ...prev, registrationDocumentId }))
+          onRemove={() =>
+            setForm((prev) => ({
+              ...prev,
+              documentLinks: { ...prev.documentLinks, registration: null },
+            }))
           }
           onCreatePress={() =>
             requestCreateDocument(
@@ -1749,21 +1734,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   />
                 </View>
               ) : null}
-              {pendingDocumentLink &&
-               selected.active &&
-               pendingDocumentLink.carId === selected.id ? (
-                <View style={styles.actionRow}>
-                  <Button
-                    variant="secondary"
-                    label={linkingDocument ? 'Linking…' : 'Retry link'}
-                    onPress={handleRetryPendingLink}
-                    disabled={linkingDocument}
-                    loading={linkingDocument}
-                    accessibilityLabel="Retry document link"
-                    style={styles.actionButton}
-                  />
-                </View>
-              ) : null}
               <View style={styles.actionRow}>
                 {selected.active ? (
                   <>
@@ -1876,7 +1846,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         error={documentsError}
         onRetry={() => void loadDocuments()}
         selectedDocumentId={documentPickerTarget
-          ? existingLinkIdForTarget(documentPickerTarget.role, { kind: 'form', mode: documentPickerTarget.mode })
+          ? existingLinkId(linkForTarget(documentPickerTarget.role, { kind: 'form', mode: documentPickerTarget.mode }))
           : null}
         onClose={() => setDocumentPickerTarget(null)}
         onSelect={(document) => {
@@ -1884,7 +1854,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           const { mode, role } = documentPickerTarget;
           if (mode === 'edit' && (!editing || !selected?.active)) return;
           const setForm = mode === 'create' ? setCreateForm : setEditForm;
-          setForm((form) => ({ ...form, [role === 'insurance' ? 'insuranceDocumentId' : 'registrationDocumentId']: document.id }));
+          setForm((form) => ({
+            ...form,
+            documentLinks: {
+              ...form.documentLinks,
+              [role]: carDocumentLinkFromId(document.id),
+            },
+          }));
           setDocumentPickerTarget(null);
         }}
       />
@@ -1914,7 +1890,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   initialTags={carDocumentPrefillTags(
                     documentCreateSession.role
                   )}
-                  onDocumentCreated={handleDocumentCreated}
+                  onDraft={handleDocumentDrafted}
                   onSubmittingChange={setDocumentCreateSubmitting}
                 />
               ) : null}
@@ -1955,30 +1931,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             pending.apply,
             pending.carLabel
           );
-        }}
-      />
-
-      <ConfirmDialog
-        visible={retryLinkConfirm != null}
-        title="Replace linked document?"
-        message={
-          retryLinkConfirm
-            ? `Replace "${retryLinkConfirm.existingTitle}" with "${retryLinkConfirm.document.title}"?`
-            : ''
-        }
-        confirmLabel="Replace"
-        cancelLabel="Cancel"
-        onCancel={() => setRetryLinkConfirm(null)}
-        onConfirm={() => {
-          const pending = retryLinkConfirm;
-          setRetryLinkConfirm(null);
-          if (pending) {
-            void persistDocumentLink(
-              pending.carId,
-              pending.role,
-              pending.document
-            );
-          }
         }}
       />
 

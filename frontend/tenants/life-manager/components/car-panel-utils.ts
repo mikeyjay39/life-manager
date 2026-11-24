@@ -1,4 +1,9 @@
-import type { CarDto, DocumentDto } from '@/lib/api/types';
+import type {
+  CarDto,
+  CreateCarCommand,
+  CreateDocumentCommand,
+  DocumentDto,
+} from '@/lib/api/types';
 
 /** Count Unicode scalars (matches Rust `chars().count()`). */
 export function unicodeScalarLength(value: string): number {
@@ -90,4 +95,86 @@ export function carDocumentPrefillTags(role: CarDocumentLinkRole): string {
 
 export function yearMax(): number {
   return new Date().getFullYear() + 1;
+}
+
+/**
+ * One Document field of the Car form: a link to an owned Document, or a new
+ * Document that the Car write creates in the same transaction.
+ */
+export type CarDocumentLinkValue =
+  | { kind: 'existing'; id: string }
+  | { kind: 'new'; draft: CreateDocumentCommand };
+
+export type CarDocumentLinks = Record<CarDocumentLinkRole, CarDocumentLinkValue | null>;
+
+export type CarDocumentRequestFields = Pick<
+  CreateCarCommand,
+  | 'insurance_document_id'
+  | 'registration_document_id'
+  | 'new_insurance_document'
+  | 'new_registration_document'
+>;
+
+const CAR_DOCUMENT_LINK_ROLES: readonly CarDocumentLinkRole[] = ['insurance', 'registration'];
+
+export function carDocumentLinkFromId(id: string | null): CarDocumentLinkValue | null {
+  return id ? { kind: 'existing', id } : null;
+}
+
+export function carDocumentLinksFromCar(car: CarDto): CarDocumentLinks {
+  return {
+    insurance: carDocumentLinkFromId(car.insurance_document_id),
+    registration: carDocumentLinkFromId(car.registration_document_id),
+  };
+}
+
+/** The title to show for a link. A link to a Document that is not loaded shows its id. */
+export function carDocumentLinkTitle(
+  link: CarDocumentLinkValue,
+  titleById: ReadonlyMap<string, string>
+): string {
+  return link.kind === 'new' ? link.draft.title : titleById.get(link.id) ?? link.id;
+}
+
+/** The request field that creates a new Document for one role. */
+export function newCarDocumentField(
+  role: CarDocumentLinkRole,
+  draft: CreateDocumentCommand
+): Pick<CreateCarCommand, 'new_insurance_document' | 'new_registration_document'> {
+  return role === 'insurance'
+    ? { new_insurance_document: draft }
+    : { new_registration_document: draft };
+}
+
+export function existingLinkId(link: CarDocumentLinkValue | null): string | null {
+  return link?.kind === 'existing' ? link.id : null;
+}
+
+/**
+ * Document fields for POST /cars and PUT /cars/{id}. A role with a new draft
+ * sends a null id, because the API rejects a set id together with new_* for
+ * the same role. Absent new_* means no new Document.
+ */
+export function carDocumentRequestFields(links: CarDocumentLinks): CarDocumentRequestFields {
+  const { insurance, registration } = links;
+  return {
+    insurance_document_id: existingLinkId(insurance),
+    registration_document_id: existingLinkId(registration),
+    ...(insurance?.kind === 'new' ? newCarDocumentField('insurance', insurance.draft) : {}),
+    ...(registration?.kind === 'new'
+      ? newCarDocumentField('registration', registration.draft)
+      : {}),
+  };
+}
+
+/** Ids of the Documents that a Car write created for the roles that held a new draft. */
+export function createdCarDocumentIds(car: CarDto, links: CarDocumentLinks): string[] {
+  return CAR_DOCUMENT_LINK_ROLES.flatMap((role) => {
+    if (links[role]?.kind !== 'new') {
+      return [];
+    }
+    const id =
+      role === 'insurance' ? car.insurance_document_id : car.registration_document_id;
+    return id ? [id] : [];
+  });
 }
