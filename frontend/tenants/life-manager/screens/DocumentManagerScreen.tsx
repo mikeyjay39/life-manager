@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/manager-form-vs-results';
 import { ManagerScrollView } from '@/components/ui/manager-scroll-view';
 import { ManagerSection } from '@/components/ui/manager-section';
+import type { DocumentDto } from '@/lib/api/types';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentList from '@/tenants/life-manager/components/document-list';
 import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect-panel';
@@ -25,7 +26,7 @@ import ProtonConnectPanel from '@/tenants/life-manager/components/proton-connect
  * DocumentManagerScreen -> ManagerFormVsResults : collapsed until Add document
  * DocumentManagerScreen -> DocumentCreateForm : inline fields when expanded
  * DocumentCreateForm -> API : POST /documents (multipart or Proton JSON)
- * DocumentCreateForm -> DocumentManagerScreen : collapse + bump refreshKey; showSuccess
+ * DocumentCreateForm -> DocumentManagerScreen : DocumentDto; collapse + bump refreshKey; showSuccess
  * DocumentManagerScreen -> ManagerSection : Documents list + Refresh
  * DocumentManagerScreen -> DocumentList : refreshKey; showToolbar false
  * DocumentList -> DocumentManagerScreen : onLoadingChange (disable Refresh)
@@ -44,10 +45,10 @@ export default function DocumentManagerScreen() {
   }, []);
 
   const handleDocumentCreated = useCallback(
-    (successMessage: string) => {
+    (document: DocumentDto) => {
       setCreateMode('collapsed');
       bumpDocumentsRefresh();
-      showSuccess(successMessage);
+      showSuccess(`Document "${document.title}" created.`);
     },
     [bumpDocumentsRefresh, showSuccess]
   );

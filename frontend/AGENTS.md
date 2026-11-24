@@ -140,11 +140,13 @@ Hub tiles and `AppMenuBar` share `IconSymbol` names from `manager-registry.ts`. 
 
 Prefer `confirm-dialog.tsx` over `Alert.alert` / `window.confirm` (themed, blurred backdrop, works on web). Keep `ConfirmDialog` for destructive confirms. Delete/deactivate **triggers** use `outline` (not the primary section CTA). The ConfirmDialog confirm control uses `destructive` (fills from `palette.danger`).
 
-Also use `ConfirmDialog` before **replace** of a linked Document on Car Manager (insurance, registration, or maintenance receipt). Cancel keeps the current link. Confirm opens create. Titles: "Replace linked document?" (Cars) and "Replace receipt document?" (maintenance). Confirm label is **Replace** (not destructive fill).
+Also use `ConfirmDialog` before create-from-Car replaces a selected Document link (insurance, registration, or maintenance receipt). Cancel keeps the current link. Confirm opens create. Retry link also needs confirmation if it would replace a different Document linked after the failed attempt; confirm retries the link without creating another Document. Titles: "Replace linked document?" (Cars, including retry) and "Replace receipt document?" (maintenance). Confirm label is **Replace** (not destructive fill). Pick-existing remains a direct form selection.
 
 ### Car Document links (create-from-Car)
 
-Car Manager reuses `DocumentCreateForm` (modal / inline) with editable prefills. Do not add Car-only Document API routes. Document stays a separate aggregate; Car and events store UUID refs only.
+This section records the implementation in PR #305 (`e2531bd`) and PR #306 (`cd5d850`). Both PRs remain unmerged. It does not describe a release on `main`.
+
+Car Manager reuses `DocumentCreateForm` (modal for insurance/registration; inline for receipts) with editable prefills. Do not add Car-only Document API routes. Document stays a separate aggregate; Car and events store UUID refs only.
 
 | Link | Pick existing | Create-from-Car | When the link is written | Prefill |
 |------|---------------|-----------------|--------------------------|---------|
@@ -152,7 +154,9 @@ Car Manager reuses `DocumentCreateForm` (modal / inline) with editable prefills.
 | Registration (`registration_document_id`) | Same picker pattern | **Create registration document** (active Car only) | Same as insurance | Title `{carLabel} registration`, tags `registration` |
 | Maintenance receipt (`document_id` on event) | Receipt picker on Add/Edit event | **Create receipt** (active Car; form open) | Set form `documentId` only; event Save owns POST/PUT | Title `{carLabel} receipt`, tags `receipt` |
 
-Inactive Cars: show linked titles. Hide create-from-Car controls (insurance, registration, receipt). Car detail stays view-only (no edit-link). Maintenance edit on an inactive Car may still pick an existing receipt Document; Create receipt stays hidden. Expiry alerts for insurance/registration stay on Document epic #131 — do not invent Car-side expiry UI here.
+If Document create succeeds but the detail Car PUT fails, keep the Document and show an error. **Retry link** reuses that Document; it does not create another one. Retry is available only for an active Car. If the role now links to a different Document, show `ConfirmDialog` before replacement. Cancel keeps the current link.
+
+Inactive Cars: show linked titles. Hide create-from-Car controls (insurance, registration, receipt) and Retry link. Block retry even if a pending link exists. Car detail has no edit-link control. Maintenance edit on an inactive Car may still pick an existing receipt Document; Create receipt stays hidden. Expiry alerts for insurance/registration stay on Document epic #131 — do not invent Car-side expiry UI here.
 
 ### Web keyboard and focus
 
