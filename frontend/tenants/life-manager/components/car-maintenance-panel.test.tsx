@@ -714,6 +714,9 @@ describe('CarMaintenancePanel', () => {
 
     // Then the new receipt remains selected and no event write has occurred
     expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
+    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy();
+    expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`).props.accessibilityState.selected).toBe(true);
     expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
   });
 
@@ -851,6 +854,144 @@ describe('CarMaintenancePanel', () => {
     expect(screen.getByLabelText('Change receipt document')).toBeTruthy();
     expect(screen.getByLabelText('Remove receipt document')).toBeTruthy();
     expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+  });
+
+  it('given a stored receipt when searching its filename then shows existing file and date metadata', async () => {
+    const fileReceipt = {
+      ...receiptDoc,
+      created_at: '2026-01-01T12:00:00Z',
+      issued_date: '2026-01-01',
+      expire_date: '2027-01-01',
+      storage: { provider: 'proton', share_id: 'share', node_id: 'node', filename: 'invoice.pdf', mime_type: 'application/pdf' },
+    };
+    mockDefaultLoads([], [fileReceipt, newReceiptDoc]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
+    await waitFor(() => expect(screen.getByText('invoice.pdf')).toBeTruthy());
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'INVOICE.PDF');
+    expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy();
+    expect(screen.queryByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeNull();
+    expect(screen.getByText('File type: application/pdf')).toBeTruthy();
+    expect(screen.getByText(/^Created:/)).toBeTruthy();
+    expect(screen.getByText(/^Issued:/)).toBeTruthy();
+    expect(screen.getByText(/^Expires:/)).toBeTruthy();
+  });
+
+  it('given a created receipt file when searching its filename then shows its file type', async () => {
+    // Given a receipt create response with file storage metadata
+    const createdFileReceipt = {
+      ...newReceiptDoc,
+      storage: { provider: 'proton', share_id: 'share', node_id: 'node', filename: 'scan.jpg', mime_type: 'image/jpeg' },
+    };
+    mockApiFetch.mockResolvedValue(new Response(JSON.stringify(createdFileReceipt), { status: 201 }));
+    mockDefaultLoads([], [receiptDoc]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+
+    // When the picker searches the new receipt filename
+    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'SCAN.JPG');
+
+    // Then only the new receipt matches and its file type shows
+    expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeTruthy();
+    expect(screen.queryByLabelText(`Choose document ${receiptDoc.title}`)).toBeNull();
+    expect(screen.getByText('File type: image/jpeg')).toBeTruthy();
+  });
+
+  it('given a pending document load when it fails after receipt creation then the new receipt title stays linked', async () => {
+    // Given a document list request that started before receipt creation
+    let rejectDocuments!: (error: Error) => void;
+    const pendingDocuments = new Promise<Response>((_resolve, reject) => {
+      rejectDocuments = reject;
+    });
+    mockAuthenticatedFetch.mockImplementation(async (path: string) => {
+      if (path === '/documents') return pendingDocuments;
+      return new Response(JSON.stringify([]), { status: 200 });
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+
+    // When the older GET fails
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await act(async () => {
+      rejectDocuments(new Error('network down'));
+      await pendingDocuments.catch(() => undefined);
+    });
+
+    // Then the new receipt title stays linked and the picker offers the load error
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
+    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    expect(screen.getByText('network down')).toBeTruthy();
+  });
+
+  it('given a created receipt when a later document load omits it then the list follows the server', async () => {
+    // Given a receipt created after the first document load finished
+    const listed = {
+      id: 'e1', car_id: 'c1', occurred_on: '2026-01-15', event_type: 'service',
+      odometer_miles: null, cost_cents: null, title: null, notes: null,
+      document_id: receiptDoc.id, created_at: 't', updated_at: 't',
+    };
+    mockDefaultLoads([listed], [receiptDoc]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText(`Receipt: ${receiptDoc.title}`)).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => expect(screen.getByLabelText('Change receipt document')).toBeTruthy());
+
+    // When edit starts a new document load that no longer has the receipt
+    fireEvent.press(screen.getByLabelText('Edit maintenance event e1 on 2026-01-15'));
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch.mock.calls.filter(([path]) => path === '/documents')).toHaveLength(2);
+    });
+
+    // Then the picker lists only the documents from the server
+    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    await waitFor(() => expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy());
+    expect(screen.queryByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeNull();
+  });
+
+  it('given a pending receipt create when the Car changes then the response does not link to the new form', async () => {
+    // Given a receipt create request that is still running
+    let resolveCreate!: (response: Response) => void;
+    mockApiFetch.mockReturnValue(new Promise<Response>((resolve) => {
+      resolveCreate = resolve;
+    }));
+    mockDefaultLoads([], [receiptDoc]);
+    const { rerender } = renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => expect(mockApiFetch).toHaveBeenCalled());
+
+    // When the Car changes and then the create response arrives
+    rerender(<TenantThemeTestProvider theme={defaultResolvedTheme}>
+      <CarMaintenancePanel selectedCar={{ ...activeCar, id: 'another-car' }} />
+    </TenantThemeTestProvider>);
+    await act(async () => {
+      resolveCreate(new Response(JSON.stringify(newReceiptDoc), { status: 201 }));
+    });
+
+    // Then the new Car form has no linked receipt
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    expect(screen.queryByLabelText('Linked receipt document')).toBeNull();
+    expect(screen.getByLabelText('Choose receipt document')).toBeTruthy();
   });
 
   it.each(['Cancel document selection', 'Close document picker', 'escape', 'back'])(
