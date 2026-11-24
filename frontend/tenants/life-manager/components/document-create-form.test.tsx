@@ -1,9 +1,13 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { Platform } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import DocumentCreateForm from './document-create-form';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
-import type { DocumentDto } from '@/lib/api/types';
+import type { CreateDocumentCommand, DocumentDto } from '@/lib/api/types';
+import * as loadProton from '@/lib/proton-drive/load-proton.web';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
 
@@ -58,8 +62,16 @@ vi.mock('expo-document-picker', () => ({
   getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
 }));
 
+vi.mock('@/lib/proton-drive/load-proton.web', () => ({
+  uploadToLifeManagerFolder: vi.fn(),
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
+const mockUseProtonConnect = vi.mocked(useProtonConnect);
 const mockApiFetch = vi.mocked(apiFetch);
+const mockGetDocumentAsync = vi.mocked(DocumentPicker.getDocumentAsync);
+const mockUploadToLifeManagerFolder = vi.mocked(loadProton.uploadToLifeManagerFolder);
+const originalPlatformOs = Object.getOwnPropertyDescriptor(Platform, 'OS');
 
 function renderDocumentCreateForm(
   props: {
@@ -126,26 +138,6 @@ describe('DocumentCreateForm', () => {
     );
   });
 
-  it('given initialTitle and initialTags when mount then fields are prefilled and editable', () => {
-    // Given Car Manager passes receipt prefills
-    renderDocumentCreateForm({
-      initialTitle: 'Daily receipt',
-      initialTags: 'receipt',
-    });
-    // Then title and tags start filled; user can still edit
-    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
-      'Daily receipt'
-    );
-    expect(screen.getByLabelText('Document tags').props.value).toBe('receipt');
-    fireEvent.changeText(
-      screen.getByPlaceholderText('Document title'),
-      'Daily oil receipt'
-    );
-    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
-      'Daily oil receipt'
-    );
-  });
-
   it('shows inline form fields when mounted', () => {
     // Given the create form is expanded by the parent
     // When it mounts
@@ -155,6 +147,33 @@ describe('DocumentCreateForm', () => {
     expect(screen.getByPlaceholderText('Document title')).toBeTruthy();
     expect(screen.getByPlaceholderText('Document content')).toBeTruthy();
     expect(screen.getByLabelText('Submit')).toBeTruthy();
+  });
+
+  it('prefills editable title and tags from initial props', async () => {
+    renderDocumentCreateForm({
+      initialTitle: 'Daily insurance',
+      initialTags: 'insurance',
+    });
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe(
+      'Daily insurance'
+    );
+    expect(screen.getByPlaceholderText('e.g. work, notes').props.value).toBe(
+      'insurance'
+    );
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Document title'),
+      'Daily insurance card'
+    );
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'body');
+    submitForm();
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+    expect(getSubmittedPayloadJson()).toMatchObject({
+      title: 'Daily insurance card',
+      tags: ['insurance'],
+    });
   });
 
   it('shows inline error when there is no token', () => {
@@ -442,5 +461,195 @@ describe('DocumentCreateForm', () => {
     const payload = getSubmittedPayloadJson();
     expect(payload.issued_date).toBeNull();
     expect(payload.expire_date).toBeNull();
+  });
+});
+
+describe('DocumentCreateForm draft mode', () => {
+  const draftFile = new File(['policy'], 'policy.pdf', { type: 'application/pdf' });
+  const draftAsset = {
+    name: 'policy.pdf',
+    uri: 'blob:policy',
+    mimeType: 'application/pdf',
+    file: draftFile,
+  } as DocumentPicker.DocumentPickerAsset;
+
+  function renderDraftForm(onDraft: (draft: CreateDocumentCommand) => void | Promise<void>) {
+    return render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <DocumentCreateForm onDraft={onDraft} />
+      </TenantThemeTestProvider>
+    );
+  }
+
+  function useWebWithProtonSession() {
+    Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'web' });
+    mockUseProtonConnect.mockReturnValue({
+      isSupported: true,
+      session: {} as ReturnType<typeof useProtonConnect>['session'],
+      isConnecting: false,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    } as ReturnType<typeof useProtonConnect>);
+  }
+
+  async function pickDraftFile() {
+    mockGetDocumentAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [draftAsset],
+    } as Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>);
+    fireEvent.press(screen.getByLabelText('Choose file'));
+    await waitFor(() => {
+      expect(screen.getByText('policy.pdf')).toBeTruthy();
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue(defaultAuth());
+    mockUploadToLifeManagerFolder.mockResolvedValue({
+      provider: 'proton_drive',
+      shareId: 'share-1',
+      nodeId: 'node-1',
+      filename: 'policy.pdf',
+      mimeType: 'application/pdf',
+    });
+  });
+
+  afterEach(() => {
+    if (originalPlatformOs) {
+      Object.defineProperty(Platform, 'OS', originalPlatformOs);
+    }
+    mockUseProtonConnect.mockReturnValue({
+      isSupported: false,
+      session: null,
+      isConnecting: false,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    } as ReturnType<typeof useProtonConnect>);
+  });
+
+  it('given valid fields when submitted then gives the payload to onDraft and sends no request', async () => {
+    // Given a draft-mode form with valid fields
+    const onDraft = vi.fn();
+    renderDraftForm(onDraft);
+    fillRequiredFields();
+    fireEvent.changeText(screen.getByPlaceholderText('e.g. work, notes'), 'car, insurance');
+    // When the user submits
+    submitForm();
+    // Then the parent gets the payload with no file and no POST /documents
+    await waitFor(() => {
+      expect(onDraft).toHaveBeenCalledTimes(1);
+    });
+    expect(onDraft).toHaveBeenCalledWith({
+      title: 'Hello',
+      content: 'World',
+      tags: ['car', 'insurance'],
+      issued_date: null,
+      expire_date: null,
+      storage: null,
+    });
+    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe('');
+  });
+
+  it('given no Proton session when shown then hides the file pick and shows a hint', () => {
+    // Given a draft-mode form without a Proton session
+    // When it mounts
+    renderDraftForm(vi.fn());
+    // Then no device file can be picked
+    expect(screen.queryByLabelText('Choose file')).toBeNull();
+    expect(screen.getByText('To attach a file, connect Proton Drive on web.')).toBeTruthy();
+  });
+
+  it('given invalid fields when submitted then does not call onDraft', () => {
+    // Given a draft-mode form with no content
+    const onDraft = vi.fn();
+    renderDraftForm(onDraft);
+    fireEvent.changeText(screen.getByPlaceholderText('Document title'), 'Hello');
+    // When the user submits
+    submitForm();
+    // Then the form shows the error and keeps the draft local
+    expect(screen.getByText('Please enter a title and content.')).toBeTruthy();
+    expect(onDraft).not.toHaveBeenCalled();
+  });
+
+  it('given web with Proton and a file when submitted then uploads once and sends storage in the draft', async () => {
+    // Given web with a Proton session and a picked file
+    useWebWithProtonSession();
+    const onDraft = vi.fn();
+    renderDraftForm(onDraft);
+    fillRequiredFields();
+    await pickDraftFile();
+    // When the user submits
+    submitForm();
+    // Then the file goes to Proton and the draft holds its reference
+    await waitFor(() => {
+      expect(onDraft).toHaveBeenCalledTimes(1);
+    });
+    expect(mockUploadToLifeManagerFolder).toHaveBeenCalledTimes(1);
+    expect(onDraft.mock.calls[0][0].storage).toEqual({
+      provider: 'proton_drive',
+      share_id: 'share-1',
+      node_id: 'node-1',
+      filename: 'policy.pdf',
+      mime_type: 'application/pdf',
+    });
+    expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('given onDraft rejects when submitted again then keeps the values and reuses the upload', async () => {
+    // Given the parent write fails once
+    useWebWithProtonSession();
+    const onDraft = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Request failed (409): duplicate VIN'))
+      .mockResolvedValueOnce(undefined);
+    renderDraftForm(onDraft);
+    fillRequiredFields();
+    await pickDraftFile();
+    // When the user submits
+    submitForm();
+    // Then the form shows the error and keeps its values
+    await waitFor(() => {
+      expect(screen.getByText('Request failed (409): duplicate VIN')).toBeTruthy();
+    });
+    expect(screen.getByPlaceholderText('Document title').props.value).toBe('Hello');
+    expect(screen.getByText('policy.pdf')).toBeTruthy();
+    // When the user submits again
+    submitForm();
+    // Then the same Proton file is sent with no second upload
+    await waitFor(() => {
+      expect(onDraft).toHaveBeenCalledTimes(2);
+    });
+    expect(mockUploadToLifeManagerFolder).toHaveBeenCalledTimes(1);
+    expect(onDraft.mock.calls[1][0].storage).toEqual(onDraft.mock.calls[0][0].storage);
+  });
+
+  it('given onDraft is pending when shown then the form reports that it submits', async () => {
+    // Given a parent write that does not finish yet
+    let finishDraft: () => void = () => {};
+    const onDraft = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDraft = resolve;
+        })
+    );
+    const onSubmittingChange = vi.fn();
+    render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <DocumentCreateForm onDraft={onDraft} onSubmittingChange={onSubmittingChange} />
+      </TenantThemeTestProvider>
+    );
+    fillRequiredFields();
+    // When the user submits
+    submitForm();
+    // Then the parent sees the busy state until the write settles
+    await waitFor(() => {
+      expect(onSubmittingChange).toHaveBeenLastCalledWith(true);
+    });
+    finishDraft();
+    await waitFor(() => {
+      expect(onSubmittingChange).toHaveBeenLastCalledWith(false);
+    });
   });
 });
