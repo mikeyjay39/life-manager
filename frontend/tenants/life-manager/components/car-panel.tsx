@@ -450,6 +450,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [creating, setCreating] = useState(false);
 
   const [editing, setEditing] = useState(false);
+  const editingRef = useRef(false);
+  editingRef.current = editing;
   const [editForm, setEditForm] = useState<CarFormFields>(emptyCarForm);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -638,6 +640,20 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       notifySelection(car);
     },
     [notifySelection]
+  );
+
+  /**
+   * Applies a saved Car after its refresh. The user can select another Car
+   * or open a new edit during the refresh; keep that choice and that form.
+   */
+  const reselectSavedCar = useCallback(
+    (car: CarDto | null) => {
+      if (!car?.id || selectedIdRef.current !== car.id || editingRef.current) {
+        return;
+      }
+      selectCar(car);
+    },
+    [selectCar]
   );
 
   const syncSelectionToList = useCallback(
@@ -1035,10 +1051,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           [role]: { kind: 'new', draft },
         };
         await Promise.all([load(), refreshCreatedDocuments(updated, links)]);
-        // The user can select another Car during the refresh; keep that choice.
-        if (updated?.id && selectedIdRef.current === carId) {
-          selectCar(updated);
-        }
+        reselectSavedCar(updated);
         showSuccess(
           role === 'insurance'
             ? `Insurance document "${draft.title}" created and linked.`
@@ -1056,6 +1069,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       showSuccess,
       upsertCarLocally,
       selectCar,
+      reselectSavedCar,
       load,
       refreshCreatedDocuments,
     ]
@@ -1151,10 +1165,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         selectCar(created);
       }
       await Promise.all([load(), refreshCreatedDocuments(created, documentLinks)]);
-      // The user can select another Car during the refresh; keep that choice.
-      if (created?.id && selectedIdRef.current === created.id) {
-        selectCar(created);
-      }
+      reselectSavedCar(created);
       showSuccess(
         created?.display_name
           ? `Car "${created.display_name}" created.`
@@ -1219,10 +1230,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         selectCar(updated);
       }
       await Promise.all([load(), refreshCreatedDocuments(updated, documentLinks)]);
-      // The user can select another Car during the refresh; keep that choice.
-      if (updated?.id && selectedIdRef.current === updated.id) {
-        selectCar(updated);
-      }
+      reselectSavedCar(updated);
       showSuccess(
         updated?.display_name
           ? `Car "${updated.display_name}" updated.`

@@ -1428,6 +1428,46 @@ describe('CarPanel', () => {
     expect(screen.getByLabelText('Select Car 2020 Honda Civic').props.accessibilityState.selected).toBe(true);
   });
 
+  it('given an edit save with a new draft when the user opens a new edit during the refresh then the form stays open', async () => {
+    // Given an edit save whose GET /documents/{id} is slow
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const linked = { ...before, insurance_document_id: 'd-created' };
+    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
+    let resolveDocument!: (response: Response) => void;
+    let serverCar = before;
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c1' && init?.method === 'PUT') {
+        serverCar = linked;
+        return jsonResponse(linked);
+      }
+      if (path.startsWith('/cars')) {
+        return jsonResponse([serverCar]);
+      }
+      if (path.startsWith('/documents/')) {
+        return new Promise<Response>((resolve) => { resolveDocument = resolve; });
+      }
+      return jsonResponse([]);
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    fireEvent.press(screen.getByLabelText('Save Car'));
+    await waitFor(() => expect(resolveDocument).toBeTruthy());
+
+    // When the user opens a new edit and types before the refresh ends
+    await waitFor(() => expect(screen.getByLabelText('Edit Car')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.changeText(screen.getByLabelText('Edit notes'), 'Typed during refresh');
+    await act(async () => { resolveDocument(jsonResponse(created)); });
+
+    // Then the new edit form and its text stay
+    await waitFor(() => expect(screen.getByText(/updated\./)).toBeTruthy());
+    expect(screen.getByLabelText('Edit notes').props.value).toBe('Typed during refresh');
+  });
+
   it('Scenario: Inactive Car blocks create and link change', async () => {
     const inactive = car({
       id: 'c-in',
