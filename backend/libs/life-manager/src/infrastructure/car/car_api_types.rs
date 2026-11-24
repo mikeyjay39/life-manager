@@ -3,6 +3,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::domain::car::{DISPLAY_NAME_MAX_LEN, MAKE_MODEL_MAX_LEN};
+use crate::infrastructure::document::document_api_types::CreateDocumentCommandDto;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
@@ -26,6 +27,16 @@ pub struct CreateCarCommandDto {
     pub insurance_document_id: Option<Uuid>,
     #[serde(default)]
     pub registration_document_id: Option<Uuid>,
+    /// Creates this Document in the same transaction and links it as the insurance document.
+    /// Omit or `null`: no new Document. Not allowed with a set `insurance_document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_insurance_document: Option<CreateDocumentCommandDto>,
+    /// Creates this Document in the same transaction and links it as the registration document.
+    /// Omit or `null`: no new Document. Not allowed with a set `registration_document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_registration_document: Option<CreateDocumentCommandDto>,
 }
 
 /// Present-or-absent optional field for PATCH-style PUT bodies.
@@ -98,6 +109,16 @@ pub struct UpdateCarCommandDto {
     )]
     #[ts(optional, type = "string | null")]
     pub registration_document_id: Option<Option<Uuid>>,
+    /// Creates this Document in the same transaction and links it as the insurance document.
+    /// Omit or `null`: no new Document. Not allowed with a set `insurance_document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_insurance_document: Option<CreateDocumentCommandDto>,
+    /// Creates this Document in the same transaction and links it as the registration document.
+    /// Omit or `null`: no new Document. Not allowed with a set `registration_document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_registration_document: Option<CreateDocumentCommandDto>,
     /// When set, reactivate (`true`) or deactivate (`false`). Prefer POST .../deactivate to deactivate.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active: Option<bool>,

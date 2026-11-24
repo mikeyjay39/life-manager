@@ -39,6 +39,7 @@ fn event_payload(car_id: Uuid, occurred_on: NaiveDate) -> CreateCarMaintenanceEv
         title: None,
         notes: None,
         document_id: None,
+        new_receipt_document: None,
     }
 }
 
@@ -226,6 +227,7 @@ async fn given_empty_detail_fields_when_create_then_400() {
                 title: Some("  ".to_string()),
                 notes: Some("".to_string()),
                 document_id: None,
+                new_receipt_document: None,
             },
         )
         .await;
@@ -355,6 +357,7 @@ async fn given_owned_event_when_update_odometer_and_cost_then_200() {
                 title: None,
                 notes: None,
                 document_id: None,
+                new_receipt_document: None,
             },
         )
         .await;
@@ -392,6 +395,7 @@ async fn given_inactive_car_when_update_event_then_200() {
                 title: None,
                 notes: None,
                 document_id: None,
+                new_receipt_document: None,
             },
         )
         .await;
@@ -426,6 +430,7 @@ async fn given_other_users_event_when_update_then_404() {
                 title: None,
                 notes: None,
                 document_id: None,
+                new_receipt_document: None,
             },
         )
         .await;
@@ -455,6 +460,7 @@ async fn given_negative_cost_when_update_then_400() {
                 title: None,
                 notes: None,
                 document_id: None,
+                new_receipt_document: None,
             },
         )
         .await;
@@ -524,6 +530,7 @@ async fn given_no_auth_when_put_or_delete_then_401() {
                 title: None,
                 notes: None,
                 document_id: None,
+                new_receipt_document: None,
             })
             .send()
             .await
@@ -561,6 +568,8 @@ async fn create_car_named(
             notes: None,
             insurance_document_id: None,
             registration_document_id: None,
+            new_insurance_document: None,
+            new_registration_document: None,
         })
         .send()
         .await

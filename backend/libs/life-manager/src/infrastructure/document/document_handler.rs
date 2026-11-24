@@ -2,13 +2,14 @@ use crate::application::document::create_document_command::CreateDocumentCommand
 use crate::application::document::delete_document_command::DeleteDocumentCommand;
 use crate::application::document::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
 use crate::application::document::update_document_command::UpdateDocumentCommand;
-use crate::domain::document::Document;
 use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::document::document_api_types::{
     CreateDocumentCommandDto, GetDocumentsQueryParams, UpdateDocumentCommandDto,
 };
 use crate::infrastructure::document::document_state::DocumentState;
-use crate::infrastructure::document::mappers::from_create_to_uploaded_document_input;
+use crate::infrastructure::document::mappers::{
+    from_create_to_uploaded_document_input, new_document_from_create_dto,
+};
 use auth::AuthUser;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::response::IntoResponse;
@@ -92,12 +93,7 @@ pub async fn create_document_json(
         );
     }
 
-    let document = Document::from_uploaded_input(from_create_to_uploaded_document_input(
-        payload,
-        user_id,
-        None,
-        Vec::new(),
-    )?);
+    let document = new_document_from_create_dto(payload, user_id)?;
     document.print_details();
 
     let repo = document_use_cases.document_repository.clone();
@@ -358,6 +354,7 @@ mod tests {
 
     use crate::application::document::document_repository::DocumentRepository;
     use crate::application::document::document_use_cases::DocumentUseCases;
+    use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::domain::document::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
     use crate::domain::document::document_text_reader::DocumentTextReader;
