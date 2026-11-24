@@ -79,6 +79,7 @@ Domain, application, and infrastructure feature modules live under flat aggregat
 - Per feature: `*_router.rs`, `*_handler.rs`, `*_state.rs` (handler state via `FromRef<LifeManagerState>`)
 - Health API: metric vitals only; no imperial request fields. Ownership: auth `user_id` on `HealthMember`; readings/visits reference `HealthMemberId`.
 - Car API: auth `user_id` on `Car`; events reference `CarId`. Optional Document links are UUID refs only (owned Documents). Hard-delete of a Car cascades events.
+- Cross-aggregate writes: when one request must write two aggregates atomically (for example a Car and its new Documents), add a write-only **use-case port** in `application/<aggregate>/` (`CarDocumentsWriter`, `CarMaintenanceEventDocumentsWriter`) with a Diesel adapter that runs one transaction. Do not make one repository write another aggregate. Share connection-level SQL functions (`insert_document_with_tags`, `insert_car`, `update_car`, `insert_maintenance_event`, `update_maintenance_event`) between the repository and the adapter. SQLite adapter tests use `infrastructure/shared/sqlite_test_support.rs`.
 
 ## TypeScript DTO codegen (ts-rs)
 

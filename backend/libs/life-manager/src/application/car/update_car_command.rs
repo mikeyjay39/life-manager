@@ -5,8 +5,12 @@ use uuid::Uuid;
 
 use crate::{
     application::{
-        car::car_repository::{CarRepository, DuplicateCarLicensePlate, DuplicateCarVin},
-        car::create_car_command::{ensure_unique_identity, verify_owned_document_links},
+        car::car_documents_writer::CarDocumentsWriter,
+        car::car_repository::CarRepository,
+        car::create_car_command::{
+            NewCarDocuments, ensure_unique_identity, map_car_write_error,
+            verify_owned_document_links,
+        },
         document::document_repository::DocumentRepository,
     },
     domain::car::{Car, CarId, CarProfileInput},
@@ -26,8 +30,10 @@ pub struct UpdateCarCommand {
     registration_document_id: Option<Option<Uuid>>,
     /// When set, reactivate (`true`) or deactivate (`false`). When `None`, leave active state.
     active: Option<bool>,
+    new_documents: NewCarDocuments,
     car_repository: Arc<dyn CarRepository>,
     document_repository: Arc<dyn DocumentRepository>,
+    car_documents_writer: Arc<dyn CarDocumentsWriter>,
 }
 
 impl UpdateCarCommand {
@@ -45,8 +51,10 @@ impl UpdateCarCommand {
         insurance_document_id: Option<Option<Uuid>>,
         registration_document_id: Option<Option<Uuid>>,
         active: Option<bool>,
+        new_documents: NewCarDocuments,
         car_repository: Arc<dyn CarRepository>,
         document_repository: Arc<dyn DocumentRepository>,
+        car_documents_writer: Arc<dyn CarDocumentsWriter>,
     ) -> Self {
         Self {
             car_id,
@@ -61,12 +69,21 @@ impl UpdateCarCommand {
             insurance_document_id,
             registration_document_id,
             active,
+            new_documents,
             car_repository,
             document_repository,
+            car_documents_writer,
         }
     }
 
     pub async fn execute(self) -> AppResult<Car> {
+        // Only a set id conflicts with a new Document. `null` (clear) and a new
+        // Document for the same role means: link the new Document.
+        self.new_documents.ensure_no_role_conflict(
+            matches!(self.insurance_document_id, Some(Some(_))),
+            matches!(self.registration_document_id, Some(Some(_))),
+        )?;
+
         let Some(mut car) = self
             .car_repository
             .load_owned(&self.car_id, &self.user_id)
@@ -91,14 +108,16 @@ impl UpdateCarCommand {
             None => car.notes.clone(),
             Some(v) => v.clone(),
         };
-        let insurance_document_id = match self.insurance_document_id {
-            None => car.insurance_document_id,
-            Some(v) => v,
-        };
-        let registration_document_id = match self.registration_document_id {
-            None => car.registration_document_id,
-            Some(v) => v,
-        };
+        let insurance_document_id = resolve_document_link(
+            self.new_documents.insurance_id(),
+            self.insurance_document_id,
+            car.insurance_document_id,
+        );
+        let registration_document_id = resolve_document_link(
+            self.new_documents.registration_id(),
+            self.registration_document_id,
+            car.registration_document_id,
+        );
 
         // Only verify Document ownership when the client sets a new id.
         // Omit (keep) must not re-check: a later Document hard-delete must not
@@ -139,18 +158,26 @@ impl UpdateCarCommand {
 
         ensure_unique_identity(&self.car_repository, &car, Some(&car.id)).await?;
 
-        match self.car_repository.update(car).await {
-            Ok(saved) => Ok(saved),
-            Err(e) => {
-                if e.downcast_ref::<DuplicateCarVin>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                if e.downcast_ref::<DuplicateCarLicensePlate>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                tracing::error!("Error updating Car: {}", e);
-                Err(AppError::from(e))
-            }
-        }
+        let new_documents = self.new_documents.into_vec();
+        let updated = if new_documents.is_empty() {
+            self.car_repository.update(car).await
+        } else {
+            self.car_documents_writer.update(car, new_documents).await
+        };
+        updated.map_err(|e| map_car_write_error(e, "updating"))
+    }
+}
+
+/// A new Document wins. Otherwise apply the PATCH rule: omit keeps the stored
+/// id, `null` clears it, and a value sets it.
+fn resolve_document_link(
+    new_document_id: Option<Uuid>,
+    patch: Option<Option<Uuid>>,
+    stored: Option<Uuid>,
+) -> Option<Uuid> {
+    match (new_document_id, patch) {
+        (Some(new_id), _) => Some(new_id),
+        (None, None) => stored,
+        (None, Some(value)) => value,
     }
 }

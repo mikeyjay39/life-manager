@@ -15,7 +15,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use deadpool_diesel::sqlite::Pool;
-use diesel::sqlite::Sqlite;
+use diesel::sqlite::{Sqlite, SqliteConnection};
 use diesel::{
     Connection, EscapeExpressionMethods, ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl,
     SelectableHelper, TextExpressionMethods,
@@ -30,6 +30,64 @@ fn title_contains_like_pattern(raw: &str) -> String {
         .replace('%', "\\%")
         .replace('_', "\\_");
     format!("%{escaped}%")
+}
+
+/// Inserts one Document row and its tag links on `conn`.
+///
+/// Callers own the transaction, so a Car or maintenance-event write can add
+/// its own row to the same transaction.
+pub(crate) fn insert_document_with_tags(
+    conn: &mut SqliteConnection,
+    document: &Document,
+) -> QueryResult<DocumentEntity> {
+    let (storage_provider, storage_share_id, storage_node_id, storage_filename, storage_mime_type) =
+        storage_columns_from_ref(&document.storage);
+    let new_document = NewDocumentEntity {
+        id: document.id.to_string(),
+        title: document.title.clone(),
+        content: document.content.clone(),
+        user_id: document.user_id.to_string(),
+        created_at: document.created_at,
+        issued_date: document.issued_date,
+        expire_date: document.expire_date,
+        storage_provider,
+        storage_share_id,
+        storage_node_id,
+        storage_filename,
+        storage_mime_type,
+    };
+    let saved_doc = diesel::insert_into(documents::table)
+        .values(&new_document)
+        .returning(DocumentEntity::as_returning())
+        .get_result::<DocumentEntity>(conn)?;
+    persist_document_tags(conn, &saved_doc.id, document.get_tags())?;
+    Ok(saved_doc)
+}
+
+/// Inserts each Document and its tag links on `conn`, in order.
+pub(crate) fn insert_documents_with_tags(
+    conn: &mut SqliteConnection,
+    documents: &[Document],
+) -> QueryResult<()> {
+    for document in documents {
+        insert_document_with_tags(conn, document)?;
+    }
+    Ok(())
+}
+
+/// Returns `document` with the dates that the database stored.
+fn document_with_saved_dates(document: &Document, saved_doc: &DocumentEntity) -> Document {
+    Document::with_id(
+        document.id,
+        &document.title,
+        &document.content,
+        document.user_id,
+        document.get_tags().clone(),
+        saved_doc.created_at,
+        saved_doc.issued_date,
+        saved_doc.expire_date,
+        document.storage.clone(),
+    )
 }
 
 #[derive(Clone)]
@@ -250,69 +308,24 @@ impl DocumentRepository for DocumentOrmCollection {
 
     async fn save_document(&self, document: Document) -> Result<Document, Box<dyn Error>> {
         let conn = self.pool.get().await?;
-        let (
-            storage_provider,
-            storage_share_id,
-            storage_node_id,
-            storage_filename,
-            storage_mime_type,
-        ) = storage_columns_from_ref(&document.storage);
-        let new_document = NewDocumentEntity {
-            id: document.id.to_string(),
-            title: document.title.clone(),
-            content: document.content.clone(),
-            user_id: document.user_id.to_string(),
-            created_at: document.created_at,
-            issued_date: document.issued_date,
-            expire_date: document.expire_date,
-            storage_provider,
-            storage_share_id,
-            storage_node_id,
-            storage_filename,
-            storage_mime_type,
-        };
-        let tag_names = document.get_tags().clone();
-        let tag_names_for_return = tag_names.clone();
         let doc_id = document.id;
-        let title = document.title.clone();
-        let content = document.content.clone();
-        let user_id = document.user_id;
-        let storage = document.storage.clone();
+        let document_for_insert = document.clone();
 
         let result = conn
             .interact(move |conn| -> QueryResult<DocumentEntity> {
-                conn.transaction(|conn| {
-                    let saved_doc = diesel::insert_into(documents::table)
-                        .values(&new_document)
-                        .returning(DocumentEntity::as_returning())
-                        .get_result::<DocumentEntity>(conn)?;
-                    persist_document_tags(conn, &saved_doc.id, &tag_names)?;
-                    Ok(saved_doc)
-                })
+                conn.transaction(|conn| insert_document_with_tags(conn, &document_for_insert))
             })
             .await;
 
         match result {
-            Ok(success) => match success {
-                Ok(saved_doc) => {
-                    tracing::info!("Document saved with ID: {}", doc_id);
-                    Ok(Document::with_id(
-                        doc_id,
-                        &title,
-                        &content,
-                        user_id,
-                        tag_names_for_return,
-                        saved_doc.created_at,
-                        saved_doc.issued_date,
-                        saved_doc.expire_date,
-                        storage,
-                    ))
-                }
-                Err(e) => {
-                    tracing::error!("Error saving document: {}", e);
-                    Err(Box::new(e))
-                }
-            },
+            Ok(Ok(saved_doc)) => {
+                tracing::info!("Document saved with ID: {}", doc_id);
+                Ok(document_with_saved_dates(&document, &saved_doc))
+            }
+            Ok(Err(e)) => {
+                tracing::error!("Error saving document: {}", e);
+                Err(Box::new(e))
+            }
             Err(e) => {
                 tracing::error!("Error saving document: {}", e);
                 Err(Box::new(e))
