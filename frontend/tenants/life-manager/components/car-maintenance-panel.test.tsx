@@ -5,7 +5,7 @@ import * as ReactNative from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
 import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
-import type { CarDto } from '@/lib/api/types';
+import type { CarDto, DocumentDto } from '@/lib/api/types';
 import { formatUsdFromCents } from '@/lib/format/display';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
 import { defaultResolvedTheme } from '@/lib/tenant/theme/defaults';
@@ -183,7 +183,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 type EventStoreOptions = {
   events?: Record<string, unknown>[];
   listDocuments?: () => Response | Promise<Response>;
-  createdDocument?: typeof newReceiptDoc;
+  createdDocument?: DocumentDto;
   fetchCreatedDocument?: () => Response;
   failedWrites?: number;
 };
@@ -924,6 +924,71 @@ describe('CarMaintenancePanel', () => {
       )
     ).toBe(true);
     expect(mockApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('given an edited event with a receipt when the document load is pending or fails then the field says so and can retry', async () => {
+    // Given an event with receipt R1 and a document load that fails once
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const listed = {
+      id: 'e1', car_id: 'c1', occurred_on: '2026-01-15', event_type: 'service',
+      odometer_miles: null, cost_cents: null, title: 'Service', notes: null,
+      document_id: receiptDoc.id, created_at: 't', updated_at: 't',
+    };
+    let rejectEditLoad!: (error: Error) => void;
+    let documentLoads = 0;
+    mockEventStore({
+      events: [listed],
+      listDocuments: () => {
+        documentLoads += 1;
+        if (documentLoads === 2) {
+          return new Promise<Response>((_resolve, reject) => { rejectEditLoad = reject; });
+        }
+        return jsonResponse([]);
+      },
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Edit maintenance event e1 on 2026-01-15')).toBeTruthy());
+
+    // When edit starts a document load
+    fireEvent.press(screen.getByLabelText('Edit maintenance event e1 on 2026-01-15'));
+
+    // Then the field shows loading, not a missing Document
+    await waitFor(() => {
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Loading document…');
+    });
+
+    // When the load fails
+    await act(async () => {
+      rejectEditLoad(new Error('network down'));
+    });
+
+    // Then the field shows the error with a retry
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Document unavailable');
+    expect(screen.getByText('Documents could not be loaded: network down')).toBeTruthy();
+
+    // When the retry returns R1
+    mockEventStore({ events: [listed], listDocuments: () => jsonResponse([receiptDoc]) });
+    fireEvent.press(screen.getByLabelText('Retry loading receipt document'));
+
+    // Then the title shows and the error clears
+    await waitFor(() => {
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe(receiptDoc.title);
+    });
+    expect(screen.queryByText(/Documents could not be loaded/)).toBeNull();
+  });
+
+  it('given a receipt draft when Create receipt is pressed again then the confirm talks about the draft', async () => {
+    // Given a form with a receipt draft
+    mockEventStore();
+    await renderAddEventWithTitle();
+    await createReceiptDraft();
+
+    // When the user starts another receipt
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+
+    // Then the dialog says the draft is discarded, not an event link
+    expect(screen.getByText(/already has a new receipt draft/)).toBeTruthy();
+    expect(screen.queryByText(/This event already has a receipt Document/)).toBeNull();
   });
 
   it('Scenario: Pick existing receipt still works', async () => {

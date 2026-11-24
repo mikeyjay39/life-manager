@@ -65,7 +65,6 @@ import {
   type ReceiptLink,
 } from './car-maintenance-form-utils';
 
-/** Prefill title for a new receipt Document from the selected Car label. */
 /** Reads the linked receipt id from a maintenance write response. */
 function linkedReceiptId(eventBodyText: string): string | null {
   return parseCarMaintenanceEventDto(JSON.parse(eventBodyText)).document_id;
@@ -74,14 +73,20 @@ function linkedReceiptId(eventBodyText: string): string | null {
 /** A draft shows its title with "(new)": the Document exists only after the event Save. */
 function receiptLinkLabel(
   receipt: ReceiptLink,
-  documentTitleById: ReadonlyMap<string, string>
+  documentTitleById: ReadonlyMap<string, string>,
+  documentsLoading: boolean
 ): string {
   if (receipt.kind === 'new') {
     return `${receipt.draft.title} (new)`;
   }
-  return documentTitleById.get(receipt.id) ?? 'Document unavailable';
+  const title = documentTitleById.get(receipt.id);
+  if (title !== undefined) {
+    return title;
+  }
+  return documentsLoading ? 'Loading document…' : 'Document unavailable';
 }
 
+/** Prefill title for a new receipt Document from the selected Car label. */
 export function receiptDocumentTitlePrefill(carLabel: string): string {
   const trimmed = carLabel.trim();
   return trimmed ? `${trimmed} receipt` : 'receipt';
@@ -765,6 +770,12 @@ export default function CarMaintenancePanel({
           ? 'No matching maintenance events.'
           : 'No maintenance events yet.';
 
+  // The title of an existing receipt comes from GET /documents, so show its failure next to the field.
+  const linkedReceiptLoadFailed =
+    documentsError !== null &&
+    form.receipt?.kind === 'existing' &&
+    !documentTitleById.has(form.receipt.id);
+
   const formHint = !selectedCar
     ? null
     : isEditing
@@ -879,8 +890,22 @@ export default function CarMaintenancePanel({
         <FieldLabel label="Receipt document" />
         {form.receipt ? (
           <ThemedText accessibilityLabel="Linked receipt document">
-            {receiptLinkLabel(form.receipt, documentTitleById)}
+            {receiptLinkLabel(form.receipt, documentTitleById, documentsLoading)}
           </ThemedText>
+        ) : null}
+        {linkedReceiptLoadFailed ? (
+          <View style={styles.formActions}>
+            <Text style={styles.errorText} accessibilityRole="alert">
+              {`Documents could not be loaded: ${documentsError}`}
+            </Text>
+            <Button
+              variant="outline"
+              label="Retry"
+              accessibilityLabel="Retry loading receipt document"
+              disabled={documentsLoading}
+              onPress={() => { void loadDocuments(); }}
+            />
+          </View>
         ) : null}
         <View style={styles.formActions}>
           <Button
@@ -1240,7 +1265,11 @@ export default function CarMaintenancePanel({
       <ConfirmDialog
         visible={replaceReceiptConfirmVisible}
         title="Replace receipt document?"
-        message="This event already has a receipt Document. Create a new receipt and replace the link? Cancel keeps the current receipt."
+        message={
+          form.receipt?.kind === 'new'
+            ? 'This form already has a new receipt draft. Create another draft and discard this one? Cancel keeps the current draft.'
+            : 'This event already has a receipt Document. Create a new receipt and replace the link? Cancel keeps the current receipt.'
+        }
         confirmLabel="Replace"
         cancelLabel="Cancel"
         onCancel={() => {
