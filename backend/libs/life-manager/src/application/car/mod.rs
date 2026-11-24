@@ -1,3 +1,5 @@
+pub mod car_documents_writer;
+pub mod car_maintenance_event_documents_writer;
 pub mod car_maintenance_event_repository;
 pub mod car_maintenance_event_use_cases;
 pub mod car_repository;

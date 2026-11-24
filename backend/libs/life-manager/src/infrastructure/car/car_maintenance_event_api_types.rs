@@ -5,6 +5,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::domain::car::car_maintenance_event::CarMaintenanceEventType;
+use crate::infrastructure::document::document_api_types::CreateDocumentCommandDto;
 
 #[derive(Deserialize, Serialize, Clone, Debug, TS)]
 #[ts(
@@ -27,6 +28,11 @@ pub struct CreateCarMaintenanceEventCommandDto {
     pub notes: Option<String>,
     #[serde(default)]
     pub document_id: Option<Uuid>,
+    /// Creates this Document in the same transaction and links it as the receipt.
+    /// Omit or `null`: no new Document. Not allowed with a set `document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_receipt_document: Option<CreateDocumentCommandDto>,
 }
 
 impl CreateCarMaintenanceEventCommandDto {
@@ -57,6 +63,11 @@ pub struct UpdateCarMaintenanceEventCommandDto {
     pub notes: Option<String>,
     #[serde(default)]
     pub document_id: Option<Uuid>,
+    /// Creates this Document in the same transaction and links it as the receipt.
+    /// Omit or `null`: no new Document. Not allowed with a set `document_id`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub new_receipt_document: Option<CreateDocumentCommandDto>,
 }
 
 impl UpdateCarMaintenanceEventCommandDto {

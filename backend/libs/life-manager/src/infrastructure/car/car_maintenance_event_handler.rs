@@ -18,27 +18,35 @@ use crate::infrastructure::car::car_maintenance_event_api_types::{
 };
 use crate::infrastructure::car::car_maintenance_event_dto::CarMaintenanceEventDto;
 use crate::infrastructure::car::car_maintenance_event_state::CarMaintenanceEventState;
+use crate::infrastructure::document::mappers::optional_new_document;
 
 /// Creates a CarMaintenanceEvent for an owned active Car.
 ///
 /// Many events on the same day are allowed. Optional `document_id` must be owned.
+/// Optional `new_receipt_document` creates the receipt Document and links it in
+/// the same IMMEDIATE transaction as the event INSERT.
 ///
 /// ```text
-/// +--------+     +---------------------------+     +--------------------+     +------------------+
-/// |        |     | Handler                   |     | Create command     |     | SQLite           |
-/// | Client |---->| create_car_maintenance_   |---->| verify document,   |---->| cars +           |
-/// |        |     | event (JWT user_id)       |     | load car, validate,|     | car_maintenance_ |
-/// +--------+     +---------------------------+     | save               |     | events           |
-///      |                    |                      +--------------------+     +------------------+
-///      |  POST /car-maintenance-events              |                                  |
-///      |  { car_id, occurred_on, event_type, ... }  |                                  |
-///      |------------------->|                       |                                  |
-///      |                    |  load_owned Document (when document_id set)              |
-///      |                    |  load_owned Car                                          |
-///      |                    |  CarMaintenanceEvent::create (active, fields)            |
-///      |                    |  save (tx: active check + INSERT)----------------------->|
-///      |  201 CarMaintenanceEventDto                |                                  |
-///      |<-------------------|                       |                                  |
+/// Client        create_car_maintenance_event   Create command        Repository /
+///   |           (handler)                           |                DocumentsWriter (SQLite)
+///   | POST /car-maintenance-events                  |                       |
+///   | { car_id, occurred_on, event_type, ...,       |                       |
+///   |   new_receipt_document? }                     |                       |
+///   |-------------------->|                         |                       |
+///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | (bad storage -> 400)    |                       |
+///   |                     |------------------------>|                       |
+///   |                     |                         | document_id + new -> 400
+///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned Car (else 404)
+///   |                     |                         | CarMaintenanceEvent::create (link new id)
+///   |                     |                         | no new: save -------->| BEGIN IMMEDIATE
+///   |                     |                         | new: writer.create -->|  [new] INSERT documents + tags
+///   |                     |                         |                       |  active-Car check
+///   |                     |                         |                       |  INSERT event
+///   |                     |                         |                       | COMMIT (any error: ROLLBACK)
+///   |  201 CarMaintenanceEventDto                   |                       |
+///   |<--------------------|<------------------------|<----------------------|
 /// ```
 pub async fn create_car_maintenance_event(
     AuthUser {
@@ -54,6 +62,7 @@ pub async fn create_car_maintenance_event(
         payload.event_type
     );
     let event_type = payload.parse_event_type()?;
+    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
     let car_id = CarId(payload.car_id);
     let event = CreateCarMaintenanceEventCommand::new(
         user_id,
@@ -65,9 +74,11 @@ pub async fn create_car_maintenance_event(
         payload.title,
         payload.notes,
         payload.document_id,
+        new_receipt_document,
         use_cases.car_repository.clone(),
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
+        use_cases.car_maintenance_event_documents_writer.clone(),
     )
     .execute()
     .await?;
@@ -126,23 +137,30 @@ pub async fn get_car_maintenance_event(
 /// Updates an owned CarMaintenanceEvent. `car_id` is immutable.
 ///
 /// Allowed on inactive Cars (history correction). Same field validation as create.
+/// Optional `new_receipt_document` creates the receipt Document and links it in
+/// the same IMMEDIATE transaction as the event UPDATE.
 ///
 /// ```text
-/// +--------+     +---------------------------+     +--------------------+     +------------------+
-/// |        |     | Handler                   |     | Update command     |     | SQLite           |
-/// | Client |---->| update_car_maintenance_   |---->| verify document,   |---->| car_maintenance_ |
-/// |        |     | event (JWT user_id)       |     | load_owned, update,|     | events           |
-/// +--------+     +---------------------------+     | repo.update        |     +------------------+
-///      |                    |                      +--------------------+              |
-///      |  PUT /car-maintenance-events/{id}         |                                  |
-///      |  { occurred_on, event_type, ... }         |                                  |
-///      |------------------->|                       |                                  |
-///      |                    |  load_owned Document (when document_id set)              |
-///      |                    |  load_owned event                                        |
-///      |                    |  event.update (no active-car check)                      |
-///      |                    |  repo.update-------------------------------------------->|
-///      |  200 CarMaintenanceEventDto                |                                  |
-///      |<-------------------|                       |                                  |
+/// Client        update_car_maintenance_event   Update command        Repository /
+///   |           (handler)                           |                DocumentsWriter (SQLite)
+///   | PUT /car-maintenance-events/{id}              |                       |
+///   | { occurred_on, event_type, ...,               |                       |
+///   |   new_receipt_document? }                     |                       |
+///   |-------------------->|                         |                       |
+///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | (bad storage -> 400)    |                       |
+///   |                     |------------------------>|                       |
+///   |                     |                         | document_id + new -> 400
+///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned event (else 404)
+///   |                     |                         | event.update (no active-Car check)
+///   |                     |                         | no new: update ------>| UPDATE event
+///   |                     |                         | new: writer.update -->| BEGIN IMMEDIATE
+///   |                     |                         |                       |  INSERT documents + tags
+///   |                     |                         |                       |  UPDATE event (0 rows: 404)
+///   |                     |                         |                       | COMMIT (any error: ROLLBACK)
+///   |  200 CarMaintenanceEventDto                   |                       |
+///   |<--------------------|<------------------------|<----------------------|
 /// ```
 pub async fn update_car_maintenance_event(
     AuthUser {
@@ -155,6 +173,7 @@ pub async fn update_car_maintenance_event(
 ) -> ApiResult<CarMaintenanceEventDto> {
     tracing::info!("Updating CarMaintenanceEvent id={}", id);
     let event_type = payload.parse_event_type()?;
+    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
     let event = UpdateCarMaintenanceEventCommand::new(
         CarMaintenanceEventId(id),
         user_id,
@@ -165,8 +184,10 @@ pub async fn update_car_maintenance_event(
         payload.title,
         payload.notes,
         payload.document_id,
+        new_receipt_document,
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
+        use_cases.car_maintenance_event_documents_writer.clone(),
     )
     .execute()
     .await?;
@@ -208,6 +229,11 @@ mod tests {
     use crate::domain::car::{Car, CarProfileInput};
     use crate::infrastructure::car::car_collection::CarCollection;
     use crate::infrastructure::car::car_maintenance_event_collection::CarMaintenanceEventCollection;
+    use crate::infrastructure::car::car_maintenance_event_documents_collection::CarMaintenanceEventDocumentsCollection;
+    use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
+    use crate::infrastructure::document::document_api_types::{
+        CreateDocumentCommandDto, DocumentStorageRefDto,
+    };
     use crate::infrastructure::document::document_collection::DocumentCollection;
 
     fn test_auth_user() -> AuthUser {
@@ -221,6 +247,7 @@ mod tests {
         use_cases: Arc<CarMaintenanceEventUseCases>,
         cars: Arc<CarCollection>,
         events: Arc<CarMaintenanceEventCollection>,
+        documents: Arc<DocumentCollection>,
     }
 
     fn fixture() -> Fixture {
@@ -230,12 +257,16 @@ mod tests {
         let use_cases = Arc::new(CarMaintenanceEventUseCases {
             car_maintenance_event_repository: events.clone(),
             car_repository: cars.clone(),
-            document_repository: documents,
+            document_repository: documents.clone(),
+            car_maintenance_event_documents_writer: Arc::new(
+                CarMaintenanceEventDocumentsCollection::new(events.clone(), documents.clone()),
+            ),
         });
         Fixture {
             use_cases,
             cars,
             events,
+            documents,
         }
     }
 
@@ -272,6 +303,7 @@ mod tests {
             title: None,
             notes: None,
             document_id: None,
+            new_receipt_document: None,
         }
     }
 
@@ -454,6 +486,7 @@ mod tests {
             title: None,
             notes: None,
             document_id: None,
+            new_receipt_document: None,
         }
     }
 
@@ -602,5 +635,189 @@ mod tests {
 
         assert!(matches!(result, Err(AppError::NotFound)));
         assert_eq!(fx.events.events.lock().await.len(), 1);
+    }
+
+    fn new_receipt_payload(title: &str) -> CreateDocumentCommandDto {
+        CreateDocumentCommandDto {
+            title: title.to_string(),
+            content: "receipt".to_string(),
+            tags: vec![],
+            issued_date: None,
+            expire_date: None,
+            storage: Some(DocumentStorageRefDto {
+                provider: STORAGE_PROVIDER_PROTON_DRIVE.to_string(),
+                share_id: "share".to_string(),
+                node_id: "node".to_string(),
+                filename: "receipt.pdf".to_string(),
+                mime_type: Some("application/pdf".to_string()),
+            }),
+        }
+    }
+
+    #[tokio::test]
+    async fn given_new_receipt_document_when_create_event_then_201_and_receipt_linked() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let mut payload = create_payload(car.id.0, Utc::now().date_naive());
+        payload.new_receipt_document = Some(new_receipt_payload("Oil receipt"));
+
+        // When
+        let dto = create_car_maintenance_event(
+            auth_user.clone(),
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Json(payload),
+        )
+        .await
+        .unwrap()
+        .data;
+
+        // Then
+        let linked = dto.document_id.expect("receipt linked");
+        let docs = fx.documents.documents.lock().await;
+        assert_eq!(docs.len(), 1);
+        assert_eq!(docs[0].id, linked);
+        assert_eq!(docs[0].title, "Oil receipt");
+        assert_eq!(docs[0].user_id, auth_user.user_id);
+    }
+
+    #[tokio::test]
+    async fn given_owned_event_when_update_with_new_receipt_document_then_200_and_receipt_linked() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let created = create_event(
+            auth_user.clone(),
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+        let mut payload = update_payload(created.occurred_on);
+        payload.new_receipt_document = Some(new_receipt_payload("Service receipt"));
+
+        // When
+        let dto = update_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+            Json(payload),
+        )
+        .await
+        .unwrap()
+        .data;
+
+        // Then
+        let linked = dto.document_id.expect("receipt linked");
+        let docs = fx.documents.documents.lock().await;
+        assert_eq!(docs.len(), 1);
+        assert_eq!(docs[0].id, linked);
+    }
+
+    #[tokio::test]
+    async fn given_document_id_and_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let mut payload = create_payload(car.id.0, Utc::now().date_naive());
+        payload.document_id = Some(Uuid::new_v4());
+        payload.new_receipt_document = Some(new_receipt_payload("Receipt"));
+
+        // When
+        let result = create_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Json(payload),
+        )
+        .await;
+
+        // Then
+        assert!(matches!(result, Err(AppError::Validation(_))));
+        assert!(fx.events.events.lock().await.is_empty());
+        assert!(fx.documents.documents.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_document_id_and_new_receipt_when_update_event_then_validation_and_nothing_stored() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let created = create_event(
+            auth_user.clone(),
+            &fx,
+            car.id.0,
+            NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+        )
+        .await;
+        let mut payload = update_payload(created.occurred_on);
+        payload.document_id = Some(Uuid::new_v4());
+        payload.new_receipt_document = Some(new_receipt_payload("Receipt"));
+
+        // When
+        let result = update_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Path(created.id),
+            Json(payload),
+        )
+        .await;
+
+        // Then
+        assert!(matches!(result, Err(AppError::Validation(_))));
+        assert!(fx.documents.documents.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_invalid_storage_in_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, true).await;
+        let mut receipt = new_receipt_payload("Receipt");
+        if let Some(storage) = receipt.storage.as_mut() {
+            storage.node_id = String::new();
+        }
+        let mut payload = create_payload(car.id.0, Utc::now().date_naive());
+        payload.new_receipt_document = Some(receipt);
+
+        // When
+        let result = create_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Json(payload),
+        )
+        .await;
+
+        // Then
+        assert!(matches!(result, Err(AppError::Validation(_))));
+        assert!(fx.events.events.lock().await.is_empty());
+        assert!(fx.documents.documents.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn given_inactive_car_when_create_event_with_new_receipt_then_validation_and_no_document() {
+        // Given
+        let auth_user = test_auth_user();
+        let fx = fixture();
+        let car = save_car(&fx.cars, auth_user.user_id, false).await;
+        let mut payload = create_payload(car.id.0, Utc::now().date_naive());
+        payload.new_receipt_document = Some(new_receipt_payload("Receipt"));
+
+        // When
+        let result = create_car_maintenance_event(
+            auth_user,
+            State(CarMaintenanceEventState(fx.use_cases.clone())),
+            Json(payload),
+        )
+        .await;
+
+        // Then
+        assert!(matches!(result, Err(AppError::Validation(_))));
+        assert!(fx.events.events.lock().await.is_empty());
+        assert!(fx.documents.documents.lock().await.is_empty());
     }
 }

@@ -72,6 +72,8 @@ async fn given_owned_car_when_put_vin_and_plate_then_200_updated() {
             insurance_document_id: None,
             registration_document_id: None,
             active: None,
+            new_insurance_document: None,
+            new_registration_document: None,
         };
         let res = reqwest::Client::new()
             .put(url)
@@ -119,6 +121,8 @@ async fn given_duplicate_vin_same_user_when_create_then_400() {
                 notes: None,
                 insurance_document_id: None,
                 registration_document_id: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -159,6 +163,8 @@ async fn given_duplicate_plate_same_user_when_create_then_400() {
                 notes: None,
                 insurance_document_id: None,
                 registration_document_id: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -200,6 +206,8 @@ async fn given_same_vin_different_users_when_create_then_201() {
                 notes: None,
                 insurance_document_id: None,
                 registration_document_id: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -237,6 +245,8 @@ async fn given_owned_document_when_link_insurance_then_200() {
                 insurance_document_id: Some(Some(doc.id)),
                 registration_document_id: None,
                 active: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -277,6 +287,8 @@ async fn given_other_users_document_when_link_insurance_then_400() {
                 insurance_document_id: Some(Some(other_doc.id)),
                 registration_document_id: None,
                 active: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -414,6 +426,8 @@ async fn given_other_users_car_when_update_deactivate_or_delete_then_404() {
                 insurance_document_id: None,
                 registration_document_id: None,
                 active: None,
+                new_insurance_document: None,
+                new_registration_document: None,
             })
             .send()
             .await
@@ -466,6 +480,8 @@ async fn create_car(
             notes: None,
             insurance_document_id: None,
             registration_document_id: None,
+            new_insurance_document: None,
+            new_registration_document: None,
         })
         .send()
         .await

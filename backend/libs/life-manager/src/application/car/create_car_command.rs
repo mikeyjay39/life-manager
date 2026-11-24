@@ -5,11 +5,64 @@ use uuid::Uuid;
 
 use crate::{
     application::{
-        car::car_repository::{CarRepository, DuplicateCarLicensePlate, DuplicateCarVin},
+        car::car_documents_writer::CarDocumentsWriter,
+        car::car_repository::{
+            CarRepository, DuplicateCarLicensePlate, DuplicateCarVin, MissingCar,
+        },
         document::document_repository::DocumentRepository,
     },
-    domain::car::{Car, CarProfileInput},
+    domain::{
+        car::{Car, CarProfileInput},
+        document::Document,
+    },
 };
+
+/// Documents to create in the same transaction as the Car write, by role.
+#[derive(Default)]
+pub struct NewCarDocuments {
+    pub insurance: Option<Document>,
+    pub registration: Option<Document>,
+}
+
+impl NewCarDocuments {
+    /// Rejects a role that has both a linked id and a new Document.
+    pub(crate) fn ensure_no_role_conflict(
+        &self,
+        insurance_document_id_set: bool,
+        registration_document_id_set: bool,
+    ) -> AppResult<()> {
+        for (role, id_set, new_document) in [
+            ("insurance", insurance_document_id_set, &self.insurance),
+            (
+                "registration",
+                registration_document_id_set,
+                &self.registration,
+            ),
+        ] {
+            if id_set && new_document.is_some() {
+                return Err(AppError::Validation(format!(
+                    "set either {role}_document_id or new_{role}_document, not both"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn insurance_id(&self) -> Option<Uuid> {
+        self.insurance.as_ref().map(|d| d.id)
+    }
+
+    pub(crate) fn registration_id(&self) -> Option<Uuid> {
+        self.registration.as_ref().map(|d| d.id)
+    }
+
+    pub(crate) fn into_vec(self) -> Vec<Document> {
+        self.insurance
+            .into_iter()
+            .chain(self.registration)
+            .collect()
+    }
+}
 
 pub struct CreateCarCommand {
     user_id: Uuid,
@@ -22,8 +75,10 @@ pub struct CreateCarCommand {
     notes: Option<String>,
     insurance_document_id: Option<Uuid>,
     registration_document_id: Option<Uuid>,
+    new_documents: NewCarDocuments,
     car_repository: Arc<dyn CarRepository>,
     document_repository: Arc<dyn DocumentRepository>,
+    car_documents_writer: Arc<dyn CarDocumentsWriter>,
 }
 
 impl CreateCarCommand {
@@ -39,8 +94,10 @@ impl CreateCarCommand {
         notes: Option<String>,
         insurance_document_id: Option<Uuid>,
         registration_document_id: Option<Uuid>,
+        new_documents: NewCarDocuments,
         car_repository: Arc<dyn CarRepository>,
         document_repository: Arc<dyn DocumentRepository>,
+        car_documents_writer: Arc<dyn CarDocumentsWriter>,
     ) -> Self {
         Self {
             user_id,
@@ -53,12 +110,18 @@ impl CreateCarCommand {
             notes,
             insurance_document_id,
             registration_document_id,
+            new_documents,
             car_repository,
             document_repository,
+            car_documents_writer,
         }
     }
 
     pub async fn execute(self) -> AppResult<Car> {
+        self.new_documents.ensure_no_role_conflict(
+            self.insurance_document_id.is_some(),
+            self.registration_document_id.is_some(),
+        )?;
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
@@ -77,27 +140,42 @@ impl CreateCarCommand {
                 vin: self.vin.as_deref(),
                 license_plate: self.license_plate.as_deref(),
                 notes: self.notes.as_deref(),
-                insurance_document_id: self.insurance_document_id,
-                registration_document_id: self.registration_document_id,
+                insurance_document_id: self
+                    .new_documents
+                    .insurance_id()
+                    .or(self.insurance_document_id),
+                registration_document_id: self
+                    .new_documents
+                    .registration_id()
+                    .or(self.registration_document_id),
             },
         )?;
 
         ensure_unique_identity(&self.car_repository, &car, None).await?;
 
-        match self.car_repository.save(car).await {
-            Ok(saved) => Ok(saved),
-            Err(e) => {
-                if e.downcast_ref::<DuplicateCarVin>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                if e.downcast_ref::<DuplicateCarLicensePlate>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                tracing::error!("Error saving Car: {}", e);
-                Err(AppError::from(e))
-            }
-        }
+        let new_documents = self.new_documents.into_vec();
+        let saved = if new_documents.is_empty() {
+            self.car_repository.save(car).await
+        } else {
+            self.car_documents_writer.create(car, new_documents).await
+        };
+        saved.map_err(|e| map_car_write_error(e, "saving"))
     }
+}
+
+/// Maps a Car write error to the API error. Duplicates are validation errors.
+/// A Car row removed after load is not found.
+pub(crate) fn map_car_write_error(e: Box<dyn std::error::Error>, context: &str) -> AppError {
+    if e.downcast_ref::<MissingCar>().is_some() {
+        return AppError::NotFound;
+    }
+    if e.downcast_ref::<DuplicateCarVin>().is_some()
+        || e.downcast_ref::<DuplicateCarLicensePlate>().is_some()
+    {
+        return AppError::Validation(e.to_string());
+    }
+    tracing::error!("Error {} Car: {}", context, e);
+    AppError::from(e)
 }
 
 pub(crate) async fn verify_owned_document_links(
