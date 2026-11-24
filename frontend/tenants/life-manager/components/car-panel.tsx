@@ -1151,7 +1151,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         selectCar(created);
       }
       await Promise.all([load(), refreshCreatedDocuments(created, documentLinks)]);
-      if (created?.id) {
+      // The user can select another Car during the refresh; keep that choice.
+      if (created?.id && selectedIdRef.current === created.id) {
         selectCar(created);
       }
       showSuccess(
@@ -1218,7 +1219,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         selectCar(updated);
       }
       await Promise.all([load(), refreshCreatedDocuments(updated, documentLinks)]);
-      if (updated?.id) {
+      // The user can select another Car during the refresh; keep that choice.
+      if (updated?.id && selectedIdRef.current === updated.id) {
         selectCar(updated);
       }
       showSuccess(

@@ -1389,6 +1389,45 @@ describe('CarPanel', () => {
     expect(callsTo('/documents/d-created')).toHaveLength(1);
   });
 
+  it('given an edit save with a new draft when the user selects another Car during the refresh then the selection stays', async () => {
+    // Given an edit save whose GET /documents/{id} is slow
+    const first = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const second = car({ id: 'c2', make: 'Honda', model: 'Civic', year: 2020 });
+    const linked = { ...first, insurance_document_id: 'd-created' };
+    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
+    let resolveDocument!: (response: Response) => void;
+    let serverCars = [first, second];
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c1' && init?.method === 'PUT') {
+        serverCars = [linked, second];
+        return jsonResponse(linked);
+      }
+      if (path.startsWith('/cars')) {
+        return jsonResponse(serverCars);
+      }
+      if (path.startsWith('/documents/')) {
+        return new Promise<Response>((resolve) => { resolveDocument = resolve; });
+      }
+      return jsonResponse([]);
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    fireEvent.press(screen.getByLabelText('Save Car'));
+    await waitFor(() => expect(resolveDocument).toBeTruthy());
+
+    // When the user selects another Car before the refresh ends
+    fireEvent.press(screen.getByLabelText('Select Car 2020 Honda Civic'));
+    await act(async () => { resolveDocument(jsonResponse(created)); });
+
+    // Then the selection stays on that Car
+    await waitFor(() => expect(screen.getByText(/updated\./)).toBeTruthy());
+    expect(screen.getByLabelText('Select Car 2020 Honda Civic').props.accessibilityState.selected).toBe(true);
+  });
+
   it('Scenario: Inactive Car blocks create and link change', async () => {
     const inactive = car({
       id: 'c-in',
