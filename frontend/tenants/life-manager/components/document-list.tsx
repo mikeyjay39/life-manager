@@ -35,35 +35,11 @@ import { formatDisplayDate as formatLocaleDisplayDate } from '@/lib/format/displ
 import {
   formatIsoDateForInput,
   parseOptionalDateInput,
+  parseDocumentDto,
   parseTags,
 } from './document-create-form-utils';
 
-export function parseDocumentDto(item: unknown): DocumentDto {
-  const d = item as Record<string, unknown>;
-  const storageRaw = d.storage as Record<string, unknown> | null | undefined;
-  const storage =
-    storageRaw && typeof storageRaw === 'object'
-      ? {
-          provider: String(storageRaw.provider ?? ''),
-          share_id: String(storageRaw.share_id ?? ''),
-          node_id: String(storageRaw.node_id ?? ''),
-          filename: String(storageRaw.filename ?? ''),
-          mime_type:
-            storageRaw.mime_type != null ? String(storageRaw.mime_type) : null,
-        }
-      : null;
-
-  return {
-    id: String(d.id ?? ''),
-    title: String(d.title ?? ''),
-    content: String(d.content ?? ''),
-    tags: Array.isArray(d.tags) ? d.tags.map(String) : [],
-    created_at: String(d.created_at ?? ''),
-    issued_date: d.issued_date != null ? String(d.issued_date) : null,
-    expire_date: d.expire_date != null ? String(d.expire_date) : null,
-    storage,
-  };
-}
+export { parseDocumentDto };
 
 function formatDisplayDate(iso: string | null | undefined): string {
   return formatLocaleDisplayDate(iso);
