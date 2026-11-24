@@ -37,6 +37,11 @@ import type {
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentPickerModal from './document-picker-modal';
+import {
+  type CreatedDocument,
+  mergeCreatedDocuments,
+  pruneCreatedDocuments,
+} from './document-list-merge';
 
 import {
   carDisplayLabel,
@@ -381,7 +386,7 @@ type PendingDocumentLink = {
  *   else form closed
  *     Panel -> Panel : keep Document in library; show error
  *   end
- *   Panel -> Panel : later GET /documents results merge created DTOs
+ *   Panel -> Panel : merge DTOs created after a GET /documents started
  * else choose existing Document in form
  *   Panel -> DocumentPickerModal : authorized list, current id
  *   User -> DocumentPickerModal : search, stage choice
@@ -424,7 +429,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const selectedIdRef = useRef<string | null>(null);
   const loadGenerationRef = useRef(0);
   const docsLoadGenerationRef = useRef(0);
-  const createdDocumentsRef = useRef(new Map<string, DocumentDto>());
+  const createdDocumentsRef = useRef<CreatedDocument[]>([]);
+  const documentSequenceRef = useRef(0);
   selectedIdRef.current = selectedId;
 
   const [createVisible, setCreateVisible] = useState(false);
@@ -653,9 +659,15 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   }, []);
 
   const upsertDocumentLocally = useCallback((document: DocumentDto) => {
-    // A GET that started before creation can omit this Document, so later
-    // list responses merge it back in.
-    createdDocumentsRef.current.set(document.id, document);
+    // A GET that started before creation can omit this Document, so the
+    // list responses of such GETs merge it back in.
+    if (!createdDocumentsRef.current.some((entry) => entry.document.id === document.id)) {
+      documentSequenceRef.current += 1;
+      createdDocumentsRef.current = [
+        ...createdDocumentsRef.current,
+        { document, createdSequence: documentSequenceRef.current },
+      ];
+    }
     setDocuments((prev) => {
       if (prev.some((d) => d.id === document.id)) {
         return prev;
@@ -664,16 +676,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     });
   }, []);
 
-  const withCreatedDocuments = useCallback((list: DocumentDto[]) => {
-    const listedIds = new Set(list.map((d) => d.id));
-    const missing = [...createdDocumentsRef.current.values()].filter(
-      (d) => !listedIds.has(d.id)
-    );
-    return [...list, ...missing];
-  }, []);
-
   const loadDocuments = useCallback(async () => {
     const generation = ++docsLoadGenerationRef.current;
+    const getStartedSequence = documentSequenceRef.current;
     if (!token) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
@@ -703,7 +708,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
       }
-      setDocuments(withCreatedDocuments(list));
+      setDocuments(
+        mergeCreatedDocuments(list, createdDocumentsRef.current, getStartedSequence)
+      );
+      createdDocumentsRef.current = pruneCreatedDocuments(
+        createdDocumentsRef.current,
+        getStartedSequence
+      );
     } catch (err: unknown) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
@@ -712,13 +723,14 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       const msg =
         err instanceof Error ? err.message : 'Failed to load documents';
       setDocumentsError(msg);
-      setDocuments(withCreatedDocuments([]));
+      // A failed GET covers no created Document, so keep all of them.
+      setDocuments(createdDocumentsRef.current.map((entry) => entry.document));
     } finally {
       if (generation === docsLoadGenerationRef.current) {
         setDocumentsLoading(false);
       }
     }
-  }, [token, handleUnauthorized, withCreatedDocuments]);
+  }, [token, handleUnauthorized]);
 
   const load = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
@@ -774,7 +786,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
 
   useEffect(() => {
     // Created DTOs belong to the signed-in user only.
-    createdDocumentsRef.current = new Map();
+    createdDocumentsRef.current = [];
   }, [token]);
 
   useEffect(() => {

@@ -1099,7 +1099,8 @@ describe('CarPanel', () => {
       title: 'Loaded policy',
       storage: { provider: 'proton', share_id: 's', node_id: 'n1', filename: 'loaded-scan.pdf', mime_type: 'application/pdf' },
     });
-    mockCreatedDocument.storage = { provider: 'proton', share_id: 's', node_id: 'n2', filename: 'created-card.png', mime_type: 'image/png' };
+    const createdStorage = { provider: 'proton', share_id: 's', node_id: 'n2', filename: 'created-card.png', mime_type: 'image/png' };
+    mockCreatedDocument.storage = createdStorage;
     mockInitialLoads([before], [loaded]);
     renderPanel();
     await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
@@ -1109,23 +1110,26 @@ describe('CarPanel', () => {
     fireEvent.press(screen.getByLabelText('Submit mocked document create'));
     await waitFor(() => expect(screen.getByLabelText('Selected registration document')).toBeTruthy());
 
+    const createdTitle = '2018 Toyota Corolla registration';
+    mockInitialLoads([before], [loaded, document({ id: 'd-created', title: createdTitle, storage: createdStorage })]);
     fireEvent.press(screen.getByLabelText('Choose insurance document'));
     await waitFor(() => expect(screen.getByLabelText('Choose document Loaded policy')).toBeTruthy());
     fireEvent.changeText(screen.getByLabelText('Search documents'), 'LOADED-SCAN');
     expect(screen.getByText('loaded-scan.pdf')).toBeTruthy();
     expect(screen.getByText('File type: application/pdf')).toBeTruthy();
-    expect(screen.queryByLabelText('Choose document 2018 Toyota Corolla registration')).toBeNull();
+    expect(screen.queryByLabelText(`Choose document ${createdTitle}`)).toBeNull();
     fireEvent.changeText(screen.getByLabelText('Search documents'), 'created-card');
-    expect(screen.getByLabelText('Choose document 2018 Toyota Corolla registration')).toBeTruthy();
+    expect(screen.getByLabelText(`Choose document ${createdTitle}`)).toBeTruthy();
     expect(screen.getByText('created-card.png')).toBeTruthy();
     expect(screen.getByText('File type: image/png')).toBeTruthy();
     expect(screen.queryByLabelText('Choose document Loaded policy')).toBeNull();
   });
 
   it('given an older document GET that omits a new Document when it resolves then the library and the new link both stay', async () => {
-    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
-    const existing = document({ id: 'd1', title: 'Existing policy' });
-    mockInitialLoads([before], [existing]);
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, registration_document_id: 'd1' });
+    const existing = document({ id: 'd1', title: 'Existing registration' });
+    mockAuthenticatedFetch.mockImplementation(async (path) =>
+      path.startsWith('/cars') ? jsonResponse([before]) : jsonResponse({ error: 'down' }, 500));
     renderPanel();
     await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
@@ -1137,10 +1141,46 @@ describe('CarPanel', () => {
     await act(async () => { resolveOld(jsonResponse([existing])); });
 
     expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
+    expect(screen.getByLabelText('Selected registration document').props.children).toBe('Existing registration');
+  });
+
+  it('given a created Document when two document GETs fail then its linked title stays', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    mockInitialLoads([before], []);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
+
+    const documentGetsBefore = mockAuthenticatedFetch.mock.calls.filter((call) => call[0] === '/documents').length;
+    mockAuthenticatedFetch.mockImplementation(async () => jsonResponse({ error: 'down' }, 500));
+    fireEvent.press(screen.getByLabelText('Choose registration document'));
+    await waitFor(() => expect(screen.getByLabelText('Retry loading documents')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Retry loading documents'));
+    await waitFor(() => expect(screen.getByLabelText('Retry loading documents')).toBeTruthy());
+    expect(mockAuthenticatedFetch.mock.calls.filter((call) => call[0] === '/documents')).toHaveLength(documentGetsBefore + 2);
+    fireEvent.press(screen.getByLabelText('Close document picker'));
+    expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
+  });
+
+  it('given a created Document deleted later when a newer GET omits it then it is not added back', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const existing = document({ id: 'd1', title: 'Existing policy' });
     mockInitialLoads([before], [existing]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    fireEvent.press(screen.getByLabelText('Remove insurance document'));
+
     fireEvent.press(screen.getByLabelText('Choose registration document'));
     await waitFor(() => expect(screen.getByLabelText('Choose document Existing policy')).toBeTruthy());
-    expect(screen.getByLabelText('Choose document 2018 Toyota Corolla insurance')).toBeTruthy();
+    expect(screen.queryByLabelText('Choose document 2018 Toyota Corolla insurance')).toBeNull();
   });
 
   it('Scenario: Inactive Car blocks create and link change', async () => {
