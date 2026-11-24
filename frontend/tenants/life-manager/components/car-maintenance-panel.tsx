@@ -481,6 +481,10 @@ export default function CarMaintenancePanel({
 
   const handleReceiptDocumentCreated = useCallback(
     (document: DocumentDto) => {
+      // A GET started before create can omit the new receipt.
+      docsLoadGenerationRef.current += 1;
+      setDocumentsLoading(false);
+      setDocumentsError(null);
       setDocuments((prev) => {
         if (prev.some((d) => d.id === document.id)) {
           return prev.map((d) => (d.id === document.id ? document : d));

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as ReactNative from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -681,6 +681,41 @@ describe('CarMaintenancePanel', () => {
       )
     ).toBe(false);
     expect(mockApiFetch).toHaveBeenCalled();
+  });
+
+  it('given a pending document load when receipt creation finishes first then the new receipt stays selected', async () => {
+    // Given a document list request that started before receipt creation
+    let resolveDocuments!: (response: Response) => void;
+    const pendingDocuments = new Promise<Response>((resolve) => {
+      resolveDocuments = resolve;
+    });
+    mockAuthenticatedFetch.mockImplementation(async (path: string) => {
+      if (path === '/documents') return pendingDocuments;
+      return new Response(JSON.stringify([]), { status: 200 });
+    });
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Add maintenance event')).toBeTruthy();
+    });
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Create receipt document'));
+    fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
+    fireEvent.press(screen.getByLabelText('Submit'));
+    await waitFor(() => {
+      expect(screen.getByLabelText('Select receipt document Daily receipt').props
+        .accessibilityState?.selected).toBe(true);
+    });
+
+    // When the older GET returns a list without the new receipt
+    await act(async () => {
+      resolveDocuments(new Response(JSON.stringify([receiptDoc]), { status: 200 }));
+      await pendingDocuments;
+    });
+
+    // Then the new receipt remains selected and no event write has occurred
+    expect(screen.getByLabelText('Select receipt document Daily receipt').props
+      .accessibilityState?.selected).toBe(true);
+    expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
   });
 
   it('Scenario: Confirm before replace existing receipt on edit', async () => {
