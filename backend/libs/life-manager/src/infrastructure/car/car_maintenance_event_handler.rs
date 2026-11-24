@@ -41,8 +41,8 @@ use crate::infrastructure::document::mappers::optional_new_document;
 ///   |                     |                         | load_owned Car (else 404)
 ///   |                     |                         | CarMaintenanceEvent::create (link new id)
 ///   |                     |                         | no new: save -------->| BEGIN IMMEDIATE
-///   |                     |                         | new: writer.create -->|  active-Car check
-///   |                     |                         |                       |  [new] INSERT documents + tags
+///   |                     |                         | new: writer.create -->|  [new] INSERT documents + tags
+///   |                     |                         |                       |  active-Car check
 ///   |                     |                         |                       |  INSERT event
 ///   |                     |                         |                       | COMMIT (any error: ROLLBACK)
 ///   |  201 CarMaintenanceEventDto                   |                       |

@@ -19,7 +19,8 @@ use crate::domain::{car::car_maintenance_event::CarMaintenanceEvent, document::D
  */
 #[async_trait]
 pub trait CarMaintenanceEventDocumentsWriter: Sync + Send {
-    /// Checks that the Car is active, inserts `new_documents`, then inserts `event`.
+    /// Inserts `new_documents`, then checks that the Car is active and inserts
+    /// `event`. An inactive or missing Car rolls back the Documents.
     async fn create(
         &self,
         event: CarMaintenanceEvent,
