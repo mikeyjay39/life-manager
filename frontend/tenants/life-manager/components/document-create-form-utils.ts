@@ -6,6 +6,34 @@ export type ParseOptionalDateResult =
   | { ok: true; value: string | null }
   | { ok: false };
 
+/** Parses one Document from a GET /documents or PUT /documents/{id} response. */
+export function parseDocumentDto(item: unknown): DocumentDto {
+  const d = item as Record<string, unknown>;
+  const storageRaw = d.storage as Record<string, unknown> | null | undefined;
+  const storage =
+    storageRaw && typeof storageRaw === 'object'
+      ? {
+          provider: String(storageRaw.provider ?? ''),
+          share_id: String(storageRaw.share_id ?? ''),
+          node_id: String(storageRaw.node_id ?? ''),
+          filename: String(storageRaw.filename ?? ''),
+          mime_type:
+            storageRaw.mime_type != null ? String(storageRaw.mime_type) : null,
+        }
+      : null;
+
+  return {
+    id: String(d.id ?? ''),
+    title: String(d.title ?? ''),
+    content: String(d.content ?? ''),
+    tags: Array.isArray(d.tags) ? d.tags.map(String) : [],
+    created_at: String(d.created_at ?? ''),
+    issued_date: d.issued_date != null ? String(d.issued_date) : null,
+    expire_date: d.expire_date != null ? String(d.expire_date) : null,
+    storage,
+  };
+}
+
 /**
  * Parses a create-document response body.
  * Returns null when JSON is invalid or id is missing — never invents an id.
