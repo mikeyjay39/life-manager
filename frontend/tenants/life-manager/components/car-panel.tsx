@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -37,6 +36,7 @@ import type {
 } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
+import DocumentPickerModal from './document-picker-modal';
 
 import {
   carDisplayLabel,
@@ -266,19 +266,11 @@ type DocumentLinkPickerProps = {
   accessibilityPrefix: string;
   selectedId: string | null;
   documents: DocumentDto[];
-  documentsLoading: boolean;
-  documentsError: string | null;
+  onChoose: () => void;
   onChange: (id: string | null) => void;
   onCreatePress?: () => void;
   createDisabled?: boolean;
   createAccessibilityLabel?: string;
-  chipStyle: object;
-  chipSelectedStyle: object;
-  chipTextStyle: object;
-  chipTextSelectedStyle: object;
-  hintStyle: object;
-  errorTextStyle: object;
-  pickerStyle: object;
   actionRowStyle: object;
   actionButtonStyle: object;
 };
@@ -288,76 +280,34 @@ function DocumentLinkPicker({
   accessibilityPrefix,
   selectedId,
   documents,
-  documentsLoading,
-  documentsError,
+  onChoose,
   onChange,
   onCreatePress,
   createDisabled = false,
   createAccessibilityLabel,
-  chipStyle,
-  chipSelectedStyle,
-  chipTextStyle,
-  chipTextSelectedStyle,
-  hintStyle,
-  errorTextStyle,
-  pickerStyle,
   actionRowStyle,
   actionButtonStyle,
 }: DocumentLinkPickerProps) {
   return (
     <View>
       <FieldLabel label={label} />
-      {documentsLoading ? (
-        <ActivityIndicator accessibilityLabel={`Loading documents for ${label}`} />
-      ) : documentsError ? (
-        <Text
-          style={errorTextStyle}
-          accessibilityRole="alert"
-          accessibilityLabel={`${label} documents error`}>
-          {documentsError}
-        </Text>
-      ) : documents.length === 0 ? (
-        <Text style={hintStyle} accessibilityLabel={`${label} empty documents`}>
-          No documents yet. Create one or leave the link empty.
-        </Text>
-      ) : (
-        <View style={pickerStyle} accessibilityLabel={`${label} document picker`}>
-          <Pressable
-            onPress={() => onChange(null)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: selectedId == null }}
-            accessibilityLabel={`Clear ${accessibilityPrefix} document`}
-            style={[chipStyle, selectedId == null && chipSelectedStyle]}>
-            <Text
-              style={[
-                chipTextStyle,
-                selectedId == null && chipTextSelectedStyle,
-              ]}>
-              None
-            </Text>
-          </Pressable>
-          {documents.map((doc) => {
-            const isSelected = doc.id === selectedId;
-            return (
-              <Pressable
-                key={doc.id}
-                onPress={() => onChange(doc.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Select ${accessibilityPrefix} document ${doc.title}`}
-                style={[chipStyle, isSelected && chipSelectedStyle]}>
-                <Text
-                  style={[
-                    chipTextStyle,
-                    isSelected && chipTextSelectedStyle,
-                  ]}>
-                  {doc.title}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+      {selectedId ? (
+        <ThemedText accessibilityLabel={`Selected ${accessibilityPrefix} document`}>
+          {documents.find((document) => document.id === selectedId)?.title ?? selectedId}
+        </ThemedText>
+      ) : null}
+      <View style={actionRowStyle}>
+        <Button
+          label={selectedId ? 'Change' : 'Choose document'}
+          variant="outline"
+          accessibilityLabel={`${selectedId ? 'Change' : 'Choose'} ${accessibilityPrefix} document`}
+          onPress={onChoose}
+          style={actionButtonStyle}
+        />
+        {selectedId ? (
+          <Button label="Remove" variant="outline" accessibilityLabel={`Remove ${accessibilityPrefix} document`} onPress={() => onChange(null)} style={actionButtonStyle} />
+        ) : null}
+      </View>
       {onCreatePress ? (
         <View style={actionRowStyle}>
           <Button
@@ -426,6 +376,13 @@ type PendingDocumentLink = {
  *       Panel -> API : PUT /cars/{id} (kept Document id)
  *   else apply form (create/edit)
  *     Panel -> Panel : set form field only; Save owns persist
+ * else choose existing Document in form
+ *   Panel -> DocumentPickerModal : authorized list, current id
+ *   User -> DocumentPickerModal : search, stage choice
+ *   alt Select document
+ *     DocumentPickerModal -> Panel : set form field only
+ *   else dismiss
+ *     DocumentPickerModal -> Panel : keep old id and form values
  * end
  * else deactivate
  *   Panel -> ConfirmDialog : show
@@ -481,6 +438,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
 
   const [documentCreateSession, setDocumentCreateSession] =
     useState<DocumentCreateSession | null>(null);
+  const [documentPickerTarget, setDocumentPickerTarget] = useState<{
+    mode: 'create' | 'edit'; role: CarDocumentLinkRole;
+  } | null>(null);
   const [replaceDocumentConfirm, setReplaceDocumentConfirm] =
     useState<ReplaceDocumentConfirm | null>(null);
   const [documentCreateSubmitting, setDocumentCreateSubmitting] =
@@ -538,27 +498,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         pickerChipInactive: pickerChipStyles.chipInactive,
         pickerChipText: pickerChipStyles.chipText,
         pickerChipTextSelected: pickerChipStyles.chipTextSelected,
-        // Form field chips stay quieter than entity selection chips.
-        formFieldChip: {
-          borderWidth: 1,
-          borderColor: palette.border,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          backgroundColor: palette.background,
-        },
-        formFieldChipSelected: {
-          borderColor: palette.tint,
-          backgroundColor: palette.surface,
-        },
-        formFieldChipText: {
-          color: palette.text,
-          fontSize: 15,
-        },
-        formFieldChipTextSelected: {
-          color: palette.tint,
-          fontWeight: '600',
-        },
         detailCard: {
           ...selectionSurfaceStyles.selectedSurface,
         },
@@ -651,6 +590,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     [cars, selectedId]
   );
 
+  useEffect(() => {
+    setDocumentPickerTarget(null);
+  }, [selectedId, selected?.active, editing, createVisible]);
+
   const activeCars = useMemo(() => cars.filter((c) => c.active), [cars]);
 
   const documentTitleById = useMemo(() => {
@@ -703,6 +646,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   }, []);
 
   const upsertDocumentLocally = useCallback((document: DocumentDto) => {
+    // A GET started before creation must not discard the new Document.
+    docsLoadGenerationRef.current += 1;
+    setDocumentsLoading(false);
     setDocuments((prev) => {
       if (prev.some((d) => d.id === document.id)) {
         return prev;
@@ -823,6 +769,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const closeCreateModal = useCallback(() => {
     if (
       documentCreateSession != null ||
+      documentPickerTarget != null ||
       replaceDocumentConfirm != null ||
       documentCreateSubmitting
     ) {
@@ -832,6 +779,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     resetCreateForm();
   }, [
     documentCreateSession,
+    documentPickerTarget,
     replaceDocumentConfirm,
     documentCreateSubmitting,
   ]);
@@ -839,6 +787,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   useWebEscapeClose(
     createVisible &&
       documentCreateSession == null &&
+      documentPickerTarget == null &&
       replaceDocumentConfirm == null,
     closeCreateModal
   );
@@ -1091,7 +1040,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   ]);
 
   const handleCreate = async () => {
-    if (creating) {
+    if (creating || documentPickerTarget != null) {
       return;
     }
     setCreateError(null);
@@ -1154,7 +1103,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const handleSaveEdit = async () => {
-    if (saving) {
+    if (saving || documentPickerTarget != null) {
       return;
     }
     setEditError(null);
@@ -1440,8 +1389,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           accessibilityPrefix="insurance"
           selectedId={form.insuranceDocumentId}
           documents={documents}
-          documentsLoading={documentsLoading}
-          documentsError={documentsError}
+          onChoose={() => {
+            setDocumentPickerTarget({ mode, role: 'insurance' });
+            void loadDocuments();
+          }}
           onChange={(insuranceDocumentId) =>
             setForm((prev) => ({ ...prev, insuranceDocumentId }))
           }
@@ -1453,13 +1404,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             )
           }
           createAccessibilityLabel={`${prefix} create insurance document`}
-          chipStyle={styles.formFieldChip}
-          chipSelectedStyle={styles.formFieldChipSelected}
-          chipTextStyle={styles.formFieldChipText}
-          chipTextSelectedStyle={styles.formFieldChipTextSelected}
-          hintStyle={styles.hint}
-          errorTextStyle={styles.errorText}
-          pickerStyle={styles.picker}
           actionRowStyle={styles.actionRow}
           actionButtonStyle={styles.actionButton}
         />
@@ -1468,8 +1412,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           accessibilityPrefix="registration"
           selectedId={form.registrationDocumentId}
           documents={documents}
-          documentsLoading={documentsLoading}
-          documentsError={documentsError}
+          onChoose={() => {
+            setDocumentPickerTarget({ mode, role: 'registration' });
+            void loadDocuments();
+          }}
           onChange={(registrationDocumentId) =>
             setForm((prev) => ({ ...prev, registrationDocumentId }))
           }
@@ -1481,13 +1427,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             )
           }
           createAccessibilityLabel={`${prefix} create registration document`}
-          chipStyle={styles.formFieldChip}
-          chipSelectedStyle={styles.formFieldChipSelected}
-          chipTextStyle={styles.formFieldChipText}
-          chipTextSelectedStyle={styles.formFieldChipTextSelected}
-          hintStyle={styles.hint}
-          errorTextStyle={styles.errorText}
-          pickerStyle={styles.picker}
           actionRowStyle={styles.actionRow}
           actionButtonStyle={styles.actionButton}
         />
@@ -1613,7 +1552,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                 <Button
                   label={saving ? 'Saving…' : 'Save'}
                   onPress={() => void handleSaveEdit()}
-                  disabled={saving}
+                  disabled={saving || documentPickerTarget != null}
                   loading={saving}
                   accessibilityLabel="Save Car"
                   style={styles.actionButton}
@@ -1622,7 +1561,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   variant="outline"
                   label="Cancel"
                   onPress={cancelEdit}
-                  disabled={saving}
+                  disabled={saving || documentPickerTarget != null}
                   accessibilityLabel="Cancel edit Car"
                   style={styles.actionButton}
                 />
@@ -1826,7 +1765,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
               <Button
                 label={creating ? 'Creating…' : 'Create'}
                 onPress={() => void handleCreate()}
-                disabled={creating}
+                disabled={creating || documentPickerTarget != null}
                 loading={creating}
                 accessibilityLabel="Submit create Car"
                 style={styles.modalActionButton}
@@ -1835,7 +1774,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                 variant="outline"
                 label="Cancel"
                 onPress={closeCreateModal}
-                disabled={creating}
+                disabled={creating || documentPickerTarget != null}
                 accessibilityLabel="Cancel create Car"
                 style={styles.modalActionButton}
               />
@@ -1843,6 +1782,27 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           </View>
         </View>
       </Modal>
+
+      <DocumentPickerModal
+        visible={documentPickerTarget != null}
+        title={`Choose ${documentPickerTarget?.role ?? ''} document`}
+        documents={documents}
+        loading={documentsLoading}
+        error={documentsError}
+        onRetry={() => void loadDocuments()}
+        selectedDocumentId={documentPickerTarget
+          ? existingLinkIdForTarget(documentPickerTarget.role, { kind: 'form', mode: documentPickerTarget.mode })
+          : null}
+        onClose={() => setDocumentPickerTarget(null)}
+        onSelect={(document) => {
+          if (!documentPickerTarget) return;
+          const { mode, role } = documentPickerTarget;
+          if (mode === 'edit' && (!editing || !selected?.active)) return;
+          const setForm = mode === 'create' ? setCreateForm : setEditForm;
+          setForm((form) => ({ ...form, [role === 'insurance' ? 'insuranceDocumentId' : 'registrationDocumentId']: document.id }));
+          setDocumentPickerTarget(null);
+        }}
+      />
 
       <Modal
         visible={documentCreateSession != null}

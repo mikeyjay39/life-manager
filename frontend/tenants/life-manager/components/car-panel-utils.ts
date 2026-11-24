@@ -33,6 +33,7 @@ export function parseCarDto(item: unknown): CarDto {
 /** Minimal Document parse for owned-document pickers (id + title). */
 export function parseOwnedDocumentDto(item: unknown): DocumentDto {
   const d = item as Record<string, unknown>;
+  const storage = d.storage as DocumentDto['storage'];
   return {
     id: String(d.id ?? ''),
     title: String(d.title ?? ''),
@@ -41,7 +42,7 @@ export function parseOwnedDocumentDto(item: unknown): DocumentDto {
     created_at: String(d.created_at ?? ''),
     issued_date: d.issued_date != null ? String(d.issued_date) : null,
     expire_date: d.expire_date != null ? String(d.expire_date) : null,
-    storage: null,
+    storage: storage && typeof storage === 'object' ? storage : null,
   };
 }
 

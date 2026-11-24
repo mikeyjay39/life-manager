@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedFetch } from '@/lib/api/client';
@@ -14,6 +14,7 @@ import CarPanel, {
   carDocumentPrefillTitle,
   carFormDraftLabel,
   parseCarDto,
+  parseOwnedDocumentDto,
   unicodeScalarLength,
 } from './car-panel';
 
@@ -148,6 +149,15 @@ function mockInitialLoads(cars: CarDto[] = [], docs: DocumentDto[] = []) {
   });
 }
 
+async function chooseDocument(role: 'insurance' | 'registration', title: string, change = false) {
+  fireEvent.press(screen.getByLabelText(`${change ? 'Change' : 'Choose'} ${role} document`));
+  await waitFor(() => {
+    expect(screen.getByLabelText(`Choose document ${title}`)).toBeTruthy();
+  });
+  fireEvent.press(screen.getByLabelText(`Choose document ${title}`));
+  fireEvent.press(screen.getByLabelText('Select document'));
+}
+
 async function givenFailedDocumentLink(role: 'insurance' | 'registration') {
   let savedCar = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
   let failLink = true;
@@ -190,6 +200,14 @@ describe('unicodeScalarLength', () => {
     expect(hundredEmoji.length).toBe(200);
     expect(unicodeScalarLength(hundredEmoji)).toBe(100);
   });
+});
+
+it('given document metadata from the API then preserves it for the picker', () => {
+  const owned = document({
+    id: 'd1', title: 'Policy', issued_date: '2026-01-01', expire_date: '2027-01-01',
+    storage: { provider: 'proton', share_id: 'share', node_id: 'node', filename: 'policy.pdf', mime_type: 'application/pdf' },
+  });
+  expect(parseOwnedDocumentDto(owned)).toEqual(owned);
 });
 
 describe('carDisplayLabel', () => {
@@ -388,14 +406,8 @@ describe('CarPanel', () => {
 
     // When I set C’s registration link to D
     fireEvent.press(screen.getByLabelText('Edit Car'));
-    await waitFor(() => {
-      expect(
-        screen.getByLabelText('Select registration document Registration 2018')
-      ).toBeTruthy();
-    });
-    fireEvent.press(
-      screen.getByLabelText('Select registration document Registration 2018')
-    );
+    expect(screen.queryByText('Registration 2018')).toBeNull();
+    await chooseDocument('registration', 'Registration 2018');
     fireEvent.press(screen.getByLabelText('Save Car'));
 
     // Then the UI shows the linked document for C
@@ -868,7 +880,7 @@ describe('CarPanel', () => {
     await waitFor(() => {
       expect(
         screen.getByLabelText(
-          'Select insurance document 2018 Toyota Corolla insurance'
+          'Selected insurance document'
         )
       ).toBeTruthy();
     });
@@ -903,10 +915,7 @@ describe('CarPanel', () => {
     async (role) => {
       await givenFailedDocumentLink(role);
       fireEvent.press(screen.getByLabelText('Edit Car'));
-      await waitFor(() => {
-        expect(screen.getByLabelText(`Select ${role} document Other document`)).toBeTruthy();
-      });
-      fireEvent.press(screen.getByLabelText(`Select ${role} document Other document`));
+      await chooseDocument(role, 'Other document');
       fireEvent.press(screen.getByLabelText('Save Car'));
       await waitFor(() => {
         expect(screen.getByLabelText(`Linked ${role} document Other document`)).toBeTruthy();
@@ -926,6 +935,79 @@ describe('CarPanel', () => {
       expect(JSON.parse(String(puts[2][1]?.body))).toMatchObject({ [`${role}_document_id`]: 'd-created' });
     }
   );
+
+  it.each(['insurance', 'registration'] as const)(
+    'given a new Car form when choosing, changing, cancelling, and removing %s then only confirmation updates the field',
+    async (role) => {
+      const first = document({ id: 'd1', title: 'Policy first' });
+      const second = document({ id: 'd2', title: 'Policy second' });
+      mockInitialLoads([], [first, second]);
+      renderPanel();
+      await waitFor(() => expect(screen.getByLabelText('Create Car')).toBeTruthy());
+      fireEvent.press(screen.getByLabelText('Create Car'));
+      fireEvent.changeText(screen.getByLabelText('Create make'), 'Unsaved make');
+      expect(screen.queryByText(first.title)).toBeNull();
+      expect(screen.queryByText(second.title)).toBeNull();
+      expect(screen.getByLabelText(`Choose ${role} document`)).toBeTruthy();
+      fireEvent.press(screen.getByLabelText(`Choose ${role} document`));
+      await waitFor(() => expect(screen.getByLabelText(`Choose document ${first.title}`)).toBeTruthy());
+      expect(screen.getByLabelText('Submit create Car', { includeHiddenElements: true }).props.accessibilityState.disabled).toBe(true);
+      fireEvent.changeText(screen.getByLabelText('Search documents'), 'first');
+      expect(screen.queryByLabelText(`Choose document ${second.title}`)).toBeNull();
+      fireEvent.press(screen.getByLabelText(`Choose document ${first.title}`));
+      expect(screen.queryByLabelText(`Selected ${role} document`)).toBeNull();
+      fireEvent.press(screen.getByLabelText('Select document'));
+      expect(screen.getByLabelText(`Selected ${role} document`).props.children).toBe(first.title);
+      expect(screen.queryByLabelText(`Choose document ${first.title}`)).toBeNull();
+      expect(screen.queryByText(second.title)).toBeNull();
+      fireEvent.press(screen.getByLabelText(`Change ${role} document`));
+      await waitFor(() => expect(screen.getByLabelText(`Choose document ${second.title}`)).toBeTruthy());
+      fireEvent.press(screen.getByLabelText(`Choose document ${second.title}`));
+      fireEvent.press(screen.getByLabelText('Cancel document selection'));
+      expect(screen.getByLabelText(`Selected ${role} document`).props.children).toBe(first.title);
+      expect(screen.getByLabelText('Create make').props.value).toBe('Unsaved make');
+      fireEvent.press(screen.getByLabelText(`Change ${role} document`));
+      fireEvent.press(screen.getByLabelText('Close document picker'));
+      expect(screen.getByLabelText(`Selected ${role} document`).props.children).toBe(first.title);
+      fireEvent.press(screen.getByLabelText(`Remove ${role} document`));
+      expect(screen.queryByLabelText(`Selected ${role} document`)).toBeNull();
+      expect(screen.getByLabelText(`Choose ${role} document`)).toBeTruthy();
+      expect(mockAuthenticatedFetch.mock.calls.every((call) => !call[1]?.method || call[1]?.method === 'GET')).toBe(true);
+    }
+  );
+
+  it('given an open picker when the selected Car changes then closes without applying the draft', async () => {
+    const first = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const second = car({ ...first, id: 'c2', display_name: 'Second Car' });
+    mockInitialLoads([first, second], [document({ id: 'd1', title: 'Insurance' })]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Choose insurance document'));
+    await waitFor(() => expect(screen.getByLabelText('Choose document Insurance')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Choose document Insurance'));
+    fireEvent.press(screen.getByLabelText('Select Car Second Car', { includeHiddenElements: true }));
+    expect(screen.queryByLabelText('Search documents')).toBeNull();
+    expect(screen.getByLabelText('No insurance document linked')).toBeTruthy();
+  });
+
+  it('given an older document GET when a new Document is created then keeps its selected title', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    mockInitialLoads([before], []);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    let resolveOld!: (response: Response) => void;
+    mockAuthenticatedFetch.mockImplementation(() => new Promise((resolve) => { resolveOld = resolve; }));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    await act(async () => { resolveOld(jsonResponse([])); });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
+    });
+  });
 
   it('Scenario: Inactive Car blocks create and link change', async () => {
     const inactive = car({

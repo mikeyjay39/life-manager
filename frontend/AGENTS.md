@@ -128,6 +128,8 @@ Use `ManagerStickyFilterChrome` for filter controls that should stay under `AppM
 
 Use `createManagerPickerChipStyles` for HealthMember and Car pickers (tint border, left accent, tinted surface). Place `ManagerSelectionContext` near dependent sections (vitals, visits, charts, maintenance) so users see `Selected: Name` or clear empty copy without opening the picker alone.
 
+**Document links in forms:** do not render the full Document list inline. Show **Choose document** for an empty link, or its name with **Change** and **Remove**. Remove clears only the UUID field, never the Document. `tenants/life-manager/components/document-picker-modal.tsx` provides the searchable modal. The caller supplies its authorized `DocumentDto[]`, loading/error/retry state, and selected id; it retains newly created DTOs locally so names and metadata remain available. The modal stages a choice; only **Select document** calls `onSelect(DocumentDto)`. The caller applies the id and closes. Cancel, Close, Escape, and native back call `onClose` without applying. Gate form submit and parent Escape while the modal is open; close it when the Car or form changes. Metadata uses existing DTO dates and optional storage filename/MIME type only.
+
 ### Feedback
 
 Prefer `manager-feedback.tsx` (`ManagerFeedbackBanner` + `useManagerFeedback`) for create/update success and form/API errors. Brief success banners auto-clear. Errors stay until dismiss or the user fixes the cause. Error copy uses `palette.danger`.
