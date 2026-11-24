@@ -420,6 +420,10 @@ type PendingDocumentLink = {
  *   alt apply persist (saved Car detail)
  *     Panel -> API : PUT /cars/{id} (document id)
  *     Panel -> Panel : refresh Cars + Documents
+ *     opt PUT failed; user retries on active Car
+ *       opt role has a linked Document
+ *         Panel -> ConfirmDialog : confirm replacement before retry
+ *       Panel -> API : PUT /cars/{id} (kept Document id)
  *   else apply form (create/edit)
  *     Panel -> Panel : set form field only; Save owns persist
  * end
@@ -483,6 +487,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     useState(false);
   const [pendingDocumentLink, setPendingDocumentLink] =
     useState<PendingDocumentLink | null>(null);
+  const [retryLinkConfirm, setRetryLinkConfirm] = useState<
+    (PendingDocumentLink & { existingTitle: string }) | null
+  >(null);
   const [linkingDocument, setLinkingDocument] = useState(false);
   const documentCreateFormKeyRef = useRef(0);
 
@@ -933,6 +940,12 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         setPendingDocumentLink({ role, carId, document });
         return;
       }
+      if (!car.active) {
+        upsertDocumentLocally(document);
+        showError('The Document was kept. Reactivate the Car before linking it.');
+        setPendingDocumentLink({ role, carId, document });
+        return;
+      }
       setLinkingDocument(true);
       clearError();
       try {
@@ -1049,12 +1062,33 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     if (!pendingDocumentLink || linkingDocument) {
       return;
     }
+    const car = cars.find((c) => c.id === pendingDocumentLink.carId);
+    if (!car?.active) {
+      return;
+    }
+    const existingId =
+      pendingDocumentLink.role === 'insurance'
+        ? car.insurance_document_id
+        : car.registration_document_id;
+    if (existingId && existingId !== pendingDocumentLink.document.id) {
+      setRetryLinkConfirm({
+        ...pendingDocumentLink,
+        existingTitle: documentTitleById.get(existingId) ?? existingId,
+      });
+      return;
+    }
     void persistDocumentLink(
       pendingDocumentLink.carId,
       pendingDocumentLink.role,
       pendingDocumentLink.document
     );
-  }, [pendingDocumentLink, linkingDocument, persistDocumentLink]);
+  }, [
+    pendingDocumentLink,
+    linkingDocument,
+    cars,
+    documentTitleById,
+    persistDocumentLink,
+  ]);
 
   const handleCreate = async () => {
     if (creating) {
@@ -1692,7 +1726,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                 </View>
               ) : null}
               {pendingDocumentLink &&
-              pendingDocumentLink.carId === selected.id ? (
+               selected.active &&
+               pendingDocumentLink.carId === selected.id ? (
                 <View style={styles.actionRow}>
                   <Button
                     variant="secondary"
@@ -1875,6 +1910,30 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
             pending.apply,
             pending.carLabel
           );
+        }}
+      />
+
+      <ConfirmDialog
+        visible={retryLinkConfirm != null}
+        title="Replace linked document?"
+        message={
+          retryLinkConfirm
+            ? `Replace "${retryLinkConfirm.existingTitle}" with "${retryLinkConfirm.document.title}"?`
+            : ''
+        }
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        onCancel={() => setRetryLinkConfirm(null)}
+        onConfirm={() => {
+          const pending = retryLinkConfirm;
+          setRetryLinkConfirm(null);
+          if (pending) {
+            void persistDocumentLink(
+              pending.carId,
+              pending.role,
+              pending.document
+            );
+          }
         }}
       />
 

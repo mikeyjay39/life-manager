@@ -148,6 +148,41 @@ function mockInitialLoads(cars: CarDto[] = [], docs: DocumentDto[] = []) {
   });
 }
 
+async function givenFailedDocumentLink(role: 'insurance' | 'registration') {
+  let savedCar = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+  let failLink = true;
+  mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+    if (path === '/cars/c1' && init?.method === 'PUT') {
+      if (failLink) {
+        failLink = false;
+        return jsonResponse({ error: 'Link failed' }, 500);
+      }
+      const payload = JSON.parse(String(init.body));
+      savedCar = { ...savedCar, ...payload, active: payload.active ?? savedCar.active };
+      return jsonResponse(savedCar);
+    }
+    if (path === '/cars/c1/deactivate') {
+      savedCar = { ...savedCar, active: false };
+      return emptyResponse();
+    }
+    if (path.startsWith('/cars')) {
+      return jsonResponse(savedCar.active || path.includes('include_inactive=true')
+        ? [savedCar] : []);
+    }
+    return jsonResponse([document({ id: 'd-other', title: 'Other document' })]);
+  });
+  renderPanel();
+  await waitFor(() => {
+    expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy();
+  });
+  fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+  fireEvent.press(screen.getByLabelText(`Create ${role} document`));
+  fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+  await waitFor(() => {
+    expect(screen.getByLabelText('Retry document link')).toBeTruthy();
+  });
+}
+
 describe('unicodeScalarLength', () => {
   it('counts Unicode scalars like Rust chars().count()', () => {
     expect(unicodeScalarLength('Toyota')).toBe(6);
@@ -843,6 +878,54 @@ describe('CarPanel', () => {
     expect(putCallsAfter).toBe(putCallsBefore);
     expect(screen.getByLabelText('Save Car')).toBeTruthy();
   });
+
+  it.each(['insurance', 'registration'] as const)(
+    'given a failed %s link when the Car is deactivated then retry is hidden',
+    async (role) => {
+      await givenFailedDocumentLink(role);
+      fireEvent.press(screen.getByLabelText('Deactivate Car'));
+      fireEvent.press(screen.getByLabelText('Deactivate'));
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Car details')).toBeNull();
+      });
+      fireEvent(screen.getByLabelText('Include inactive Cars'), 'valueChange', true);
+      await waitFor(() => {
+        expect(screen.getByLabelText('Select inactive Car 2018 Toyota Corolla')).toBeTruthy();
+      });
+      fireEvent.press(screen.getByLabelText('Select inactive Car 2018 Toyota Corolla'));
+      expect(screen.queryByLabelText('Retry document link')).toBeNull();
+      expect(mockAuthenticatedFetch.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(1);
+    }
+  );
+
+  it.each(['insurance', 'registration'] as const)(
+    'given a failed %s link and a later selection when retry is pressed then replacement needs confirmation',
+    async (role) => {
+      await givenFailedDocumentLink(role);
+      fireEvent.press(screen.getByLabelText('Edit Car'));
+      await waitFor(() => {
+        expect(screen.getByLabelText(`Select ${role} document Other document`)).toBeTruthy();
+      });
+      fireEvent.press(screen.getByLabelText(`Select ${role} document Other document`));
+      fireEvent.press(screen.getByLabelText('Save Car'));
+      await waitFor(() => {
+        expect(screen.getByLabelText(`Linked ${role} document Other document`)).toBeTruthy();
+      });
+      fireEvent.press(screen.getByLabelText('Retry document link'));
+      expect(screen.getByText('Replace linked document?')).toBeTruthy();
+      fireEvent.press(screen.getByLabelText('Cancel'));
+      expect(screen.getByLabelText(`Linked ${role} document Other document`)).toBeTruthy();
+      expect(mockAuthenticatedFetch.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(2);
+      fireEvent.press(screen.getByLabelText('Retry document link'));
+      fireEvent.press(screen.getByLabelText('Replace'));
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Retry document link')).toBeNull();
+      });
+      const puts = mockAuthenticatedFetch.mock.calls.filter((call) => call[1]?.method === 'PUT');
+      expect(puts).toHaveLength(3);
+      expect(JSON.parse(String(puts[2][1]?.body))).toMatchObject({ [`${role}_document_id`]: 'd-created' });
+    }
+  );
 
   it('Scenario: Inactive Car blocks create and link change', async () => {
     const inactive = car({
