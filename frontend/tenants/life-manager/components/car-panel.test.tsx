@@ -34,6 +34,10 @@ vi.mock('expo-blur', () => ({
   BlurView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+const mockCreatedDocument = vi.hoisted(() => ({
+  storage: null as DocumentDto['storage'],
+}));
+
 vi.mock('./document-create-form', () => ({
   default: ({
     onDocumentCreated,
@@ -60,7 +64,7 @@ vi.mock('./document-create-form', () => ({
             created_at: '2026-01-01T00:00:00Z',
             issued_date: null,
             expire_date: null,
-            storage: null,
+            storage: mockCreatedDocument.storage,
           })
         }
       >
@@ -293,6 +297,7 @@ describe('car document create prefills', () => {
 describe('CarPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreatedDocument.storage = null;
     mockUseAuth.mockReturnValue(defaultAuth());
     mockInitialLoads();
   });
@@ -1007,6 +1012,135 @@ describe('CarPanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
     });
+  });
+
+  it.each([
+    {
+      mode: 'create',
+      open: () => {
+        fireEvent.press(screen.getByLabelText('Create Car'));
+        fireEvent.changeText(screen.getByLabelText('Create make'), 'Toyota');
+        fireEvent.changeText(screen.getByLabelText('Create model'), 'Corolla');
+        fireEvent.changeText(screen.getByLabelText('Create year'), '2018');
+      },
+      submitLabel: 'Submit create Car',
+      isCarRequest: (path: string, method?: string) => path === '/cars' && method === 'POST',
+      prefix: 'Create',
+    },
+    {
+      mode: 'edit',
+      open: () => {
+        fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+        fireEvent.press(screen.getByLabelText('Edit Car'));
+      },
+      submitLabel: 'Save Car',
+      isCarRequest: (path: string, method?: string) => path === '/cars/c1' && method === 'PUT',
+      prefix: 'Edit',
+    },
+  ])(
+    'given a slow $mode Car request when document actions are pressed then no document session opens',
+    async ({ open, submitLabel, isCarRequest, prefix }) => {
+      const saved = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+      const existing = document({ id: 'd1', title: 'Existing policy' });
+      let resolveCar!: (response: Response) => void;
+      mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+        if (isCarRequest(path, init?.method)) {
+          return new Promise<Response>((resolve) => { resolveCar = resolve; });
+        }
+        if (path.startsWith('/cars')) {
+          return jsonResponse([saved]);
+        }
+        return jsonResponse([existing]);
+      });
+      renderPanel();
+      await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+      open();
+      fireEvent.press(screen.getByLabelText(submitLabel));
+
+      for (const role of ['insurance', 'registration'] as const) {
+        const create = screen.getByLabelText(`${prefix} create ${role} document`, { includeHiddenElements: true });
+        const choose = screen.getByLabelText(`Choose ${role} document`, { includeHiddenElements: true });
+        expect(create.props.accessibilityState.disabled).toBe(true);
+        expect(choose.props.accessibilityState.disabled).toBe(true);
+        fireEvent.press(create);
+        fireEvent.press(choose);
+      }
+      expect(screen.queryByLabelText('Document create form')).toBeNull();
+      expect(screen.queryByLabelText('Search documents')).toBeNull();
+
+      await act(async () => { resolveCar(jsonResponse(saved)); });
+      await waitFor(() => expect(screen.queryByLabelText(submitLabel)).toBeNull());
+      expect(screen.queryByLabelText('Document create form')).toBeNull();
+      expect(mockAuthenticatedFetch.mock.calls.filter((call) => call[1]?.method === 'PUT' || call[1]?.method === 'POST')).toHaveLength(1);
+    }
+  );
+
+  it('given a document session when the edit form closes before creation then the Document is kept but not linked', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    mockInitialLoads([before], []);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Cancel edit Car', { includeHiddenElements: true }));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    expect(screen.getByText(/was kept, but the Car form closed/)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    expect(screen.queryByLabelText('Selected insurance document')).toBeNull();
+    expect(mockAuthenticatedFetch.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(0);
+  });
+
+  it('given loaded and created Documents with files when searching by filename then the picker shows file metadata', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const loaded = document({
+      id: 'd1',
+      title: 'Loaded policy',
+      storage: { provider: 'proton', share_id: 's', node_id: 'n1', filename: 'loaded-scan.pdf', mime_type: 'application/pdf' },
+    });
+    mockCreatedDocument.storage = { provider: 'proton', share_id: 's', node_id: 'n2', filename: 'created-card.png', mime_type: 'image/png' };
+    mockInitialLoads([before], [loaded]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create registration document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    await waitFor(() => expect(screen.getByLabelText('Selected registration document')).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText('Choose insurance document'));
+    await waitFor(() => expect(screen.getByLabelText('Choose document Loaded policy')).toBeTruthy());
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'LOADED-SCAN');
+    expect(screen.getByText('loaded-scan.pdf')).toBeTruthy();
+    expect(screen.getByText('File type: application/pdf')).toBeTruthy();
+    expect(screen.queryByLabelText('Choose document 2018 Toyota Corolla registration')).toBeNull();
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'created-card');
+    expect(screen.getByLabelText('Choose document 2018 Toyota Corolla registration')).toBeTruthy();
+    expect(screen.getByText('created-card.png')).toBeTruthy();
+    expect(screen.getByText('File type: image/png')).toBeTruthy();
+    expect(screen.queryByLabelText('Choose document Loaded policy')).toBeNull();
+  });
+
+  it('given an older document GET that omits a new Document when it resolves then the library and the new link both stay', async () => {
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const existing = document({ id: 'd1', title: 'Existing policy' });
+    mockInitialLoads([before], [existing]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    let resolveOld!: (response: Response) => void;
+    mockAuthenticatedFetch.mockImplementation(() => new Promise((resolve) => { resolveOld = resolve; }));
+    fireEvent.press(screen.getByLabelText('Edit Car'));
+    fireEvent.press(screen.getByLabelText('Edit create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    await act(async () => { resolveOld(jsonResponse([existing])); });
+
+    expect(screen.getByLabelText('Selected insurance document').props.children).toBe('2018 Toyota Corolla insurance');
+    mockInitialLoads([before], [existing]);
+    fireEvent.press(screen.getByLabelText('Choose registration document'));
+    await waitFor(() => expect(screen.getByLabelText('Choose document Existing policy')).toBeTruthy());
+    expect(screen.getByLabelText('Choose document 2018 Toyota Corolla insurance')).toBeTruthy();
   });
 
   it('Scenario: Inactive Car blocks create and link change', async () => {
