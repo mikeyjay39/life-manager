@@ -1183,6 +1183,41 @@ describe('CarPanel', () => {
     expect(screen.queryByLabelText('Choose document 2018 Toyota Corolla insurance')).toBeNull();
   });
 
+  it('given a saved Car link refresh when the user selects another Car then the selection stays on that Car', async () => {
+    const first = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
+    const second = car({ id: 'c2', make: 'Honda', model: 'Civic', year: 2020 });
+    const linked = { ...first, insurance_document_id: 'd-created' };
+    mockInitialLoads([first, second], []);
+    const onSelectedCarChange = vi.fn();
+    render(
+      <TenantThemeTestProvider theme={defaultResolvedTheme}>
+        <CarPanel onSelectedCarChange={onSelectedCarChange} />
+      </TenantThemeTestProvider>
+    );
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    let resolveCars!: (response: Response) => void;
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c1' && init?.method === 'PUT') {
+        return jsonResponse(linked);
+      }
+      if (path.startsWith('/cars')) {
+        return new Promise<Response>((resolve) => { resolveCars = resolve; });
+      }
+      return jsonResponse([]);
+    });
+    fireEvent.press(screen.getByLabelText('Create insurance document'));
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+    await waitFor(() => expect(resolveCars).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText('Select Car 2020 Honda Civic'));
+    await act(async () => { resolveCars(jsonResponse([linked, second])); });
+
+    await waitFor(() => expect(screen.getByText(/linked\./)).toBeTruthy());
+    expect(screen.getByLabelText('Select Car 2020 Honda Civic').props.accessibilityState.selected).toBe(true);
+    expect(onSelectedCarChange).toHaveBeenLastCalledWith(second);
+  });
+
   it('Scenario: Inactive Car blocks create and link change', async () => {
     const inactive = car({
       id: 'c-in',
