@@ -4,6 +4,7 @@ import * as ReactNative from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch, authenticatedFetch } from '@/lib/api/client';
+import { useWebEscapeClose } from '@/hooks/use-web-escape-close';
 import type { CarDto } from '@/lib/api/types';
 import { formatUsdFromCents } from '@/lib/format/display';
 import { TenantThemeTestProvider } from '@/lib/tenant/TenantThemeContext';
@@ -78,6 +79,8 @@ vi.mock('expo-blur', () => ({
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
+
+vi.mock('@/hooks/use-web-escape-close', () => ({ useWebEscapeClose: vi.fn() }));
 
 vi.mock('@/contexts/ProtonConnectContext', () => ({
   useProtonConnect: vi.fn(() => ({
@@ -665,13 +668,11 @@ describe('CarMaintenancePanel', () => {
     // Then picker selects the new Document; event is not POSTed yet
     await waitFor(() => {
       expect(
-        screen.getByLabelText('Select receipt document Daily receipt')
+        screen.getByLabelText('Linked receipt document')
       ).toBeTruthy();
     });
     expect(
-      screen.getByLabelText('Select receipt document Daily receipt').props
-        .accessibilityState?.selected
-    ).toBe(true);
+      screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
     expect(
       mockAuthenticatedFetch.mock.calls.some(
@@ -702,8 +703,7 @@ describe('CarMaintenancePanel', () => {
     fireEvent.changeText(screen.getByPlaceholderText('Document content'), 'Receipt body');
     fireEvent.press(screen.getByLabelText('Submit'));
     await waitFor(() => {
-      expect(screen.getByLabelText('Select receipt document Daily receipt').props
-        .accessibilityState?.selected).toBe(true);
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     });
 
     // When the older GET returns a list without the new receipt
@@ -713,8 +713,7 @@ describe('CarMaintenancePanel', () => {
     });
 
     // Then the new receipt remains selected and no event write has occurred
-    expect(screen.getByLabelText('Select receipt document Daily receipt').props
-      .accessibilityState?.selected).toBe(true);
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
   });
 
@@ -746,9 +745,9 @@ describe('CarMaintenancePanel', () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
-          .props.accessibilityState?.selected
-      ).toBe(true);
+        screen.getByLabelText('Linked receipt document')
+          .props.children
+      ).toBe(receiptDoc.title);
     });
 
     // When start create receipt then ConfirmDialog asks to replace
@@ -762,9 +761,7 @@ describe('CarMaintenancePanel', () => {
     });
     expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
     expect(
-      screen.getByLabelText(`Select receipt document ${receiptDoc.title}`).props
-        .accessibilityState?.selected
-    ).toBe(true);
+      screen.getByLabelText('Linked receipt document').props.children).toBe(receiptDoc.title);
 
     // When confirm replace and create succeeds then picker selects new Document
     fireEvent.press(screen.getByLabelText('Create receipt document'));
@@ -778,13 +775,11 @@ describe('CarMaintenancePanel', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByLabelText('Select receipt document Daily receipt')
+        screen.getByLabelText('Linked receipt document')
       ).toBeTruthy();
     });
     expect(
-      screen.getByLabelText('Select receipt document Daily receipt').props
-        .accessibilityState?.selected
-    ).toBe(true);
+      screen.getByLabelText('Linked receipt document').props.children).toBe('Daily receipt');
     expect(
       mockAuthenticatedFetch.mock.calls.some(
         ([path, init]) =>
@@ -806,14 +801,12 @@ describe('CarMaintenancePanel', () => {
     });
     openAddEvent();
 
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
     await waitFor(() => {
-      expect(
-        screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
-      ).toBeTruthy();
+      expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy();
     });
-    fireEvent.press(
-      screen.getByLabelText(`Select receipt document ${receiptDoc.title}`)
-    );
+    fireEvent.press(screen.getByLabelText(`Choose document ${receiptDoc.title}`));
+    fireEvent.press(screen.getByLabelText('Select document'));
     // Validation needs title, notes, odometer, or cost in addition to document.
     fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Oil');
     fireEvent.press(screen.getByLabelText('Save maintenance event'));
@@ -831,5 +824,106 @@ describe('CarMaintenancePanel', () => {
     );
     const body = JSON.parse(String((postCall![1] as RequestInit).body));
     expect(body.document_id).toBe(receiptDoc.id);
+  });
+
+  it('given no receipt when choosing then uses a searchable modal and applies only the confirmed selection', async () => {
+    mockDefaultLoads([], [receiptDoc, newReceiptDoc]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Unsaved event');
+    expect(screen.getByLabelText('Choose receipt document')).toBeTruthy();
+    expect(screen.queryByText(receiptDoc.title)).toBeNull();
+    expect(screen.queryByText(newReceiptDoc.title)).toBeNull();
+    expect(screen.queryByLabelText('Receipt document picker')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
+    await waitFor(() => expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy());
+    expect(screen.getByLabelText('Save maintenance event', { includeHiddenElements: true })).toBeDisabled();
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'Daily');
+    expect(screen.queryByLabelText(`Choose document ${receiptDoc.title}`)).toBeNull();
+    fireEvent.press(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`));
+    expect(screen.queryByLabelText('Linked receipt document')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Select document'));
+    expect(screen.queryByLabelText('Search documents')).toBeNull();
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe(newReceiptDoc.title);
+    expect(screen.getByLabelText('Maintenance title').props.value).toBe('Unsaved event');
+    expect(screen.getByLabelText('Change receipt document')).toBeTruthy();
+    expect(screen.getByLabelText('Remove receipt document')).toBeTruthy();
+    expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+  });
+
+  it.each(['Cancel document selection', 'Close document picker', 'escape', 'back'])(
+    'given a linked receipt when Change is dismissed with %s then preserves the link and unsaved fields', async (dismissal) => {
+      mockDefaultLoads([], [receiptDoc, newReceiptDoc]);
+      renderPanel();
+      await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+      openAddEvent();
+      fireEvent.press(screen.getByLabelText('Choose receipt document'));
+      await waitFor(() => expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy());
+      fireEvent.press(screen.getByLabelText(`Choose document ${receiptDoc.title}`));
+      fireEvent.press(screen.getByLabelText('Select document'));
+      fireEvent.changeText(screen.getByLabelText('Maintenance title'), 'Keep title');
+      fireEvent.changeText(screen.getByLabelText('Maintenance notes'), 'Keep notes');
+
+      fireEvent.press(screen.getByLabelText('Change receipt document'));
+      expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`).props.accessibilityState.selected).toBe(true);
+      expect(screen.getByText('Current selection')).toBeTruthy();
+      fireEvent.changeText(screen.getByLabelText('Search documents'), 'Daily');
+      fireEvent.press(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`));
+      if (dismissal === 'escape') {
+        act(() => vi.mocked(useWebEscapeClose).mock.calls.at(-1)![1]());
+      } else if (dismissal === 'back') {
+        const modal = screen.UNSAFE_getAllByType(ReactNative.Modal).find((node) => node.props.visible);
+        fireEvent(modal!, 'requestClose');
+      } else {
+        fireEvent.press(screen.getByLabelText(dismissal));
+      }
+      expect(screen.queryByLabelText('Search documents')).toBeNull();
+      expect(screen.getByLabelText('Linked receipt document').props.children).toBe(receiptDoc.title);
+      expect(screen.getByLabelText('Maintenance title').props.value).toBe('Keep title');
+      expect(screen.getByLabelText('Maintenance notes').props.value).toBe('Keep notes');
+      fireEvent.press(screen.getByLabelText('Change receipt document'));
+      expect(screen.getByLabelText('Search documents').props.value).toBe('');
+      expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`).props.accessibilityState.selected).toBe(true);
+      expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+    }
+  );
+
+  it('given a linked receipt when Change is confirmed then Remove clears only the form link', async () => {
+    mockDefaultLoads([], [receiptDoc, newReceiptDoc]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
+    await waitFor(() => expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy());
+    fireEvent.press(screen.getByLabelText(`Choose document ${receiptDoc.title}`));
+    fireEvent.press(screen.getByLabelText('Select document'));
+    fireEvent.press(screen.getByLabelText('Change receipt document'));
+    fireEvent.press(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`));
+    fireEvent.press(screen.getByLabelText('Select document'));
+    expect(screen.getByLabelText('Linked receipt document').props.children).toBe(newReceiptDoc.title);
+    fireEvent.press(screen.getByLabelText('Remove receipt document'));
+    expect(screen.queryByLabelText('Linked receipt document')).toBeNull();
+    expect(screen.getByLabelText('Choose receipt document')).toBeTruthy();
+    expect(screen.queryByText(receiptDoc.title)).toBeNull();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
+    expect(screen.getByLabelText(`Choose document ${receiptDoc.title}`)).toBeTruthy();
+    expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeTruthy();
+    expect(mockAuthenticatedFetch.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true);
+  });
+
+  it('given an open receipt picker when the Car changes then closes and clears its draft', async () => {
+    mockDefaultLoads([], [receiptDoc]);
+    const { rerender } = renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Add maintenance event')).toBeTruthy());
+    openAddEvent();
+    fireEvent.press(screen.getByLabelText('Choose receipt document'));
+    expect(screen.getByLabelText('Search documents')).toBeTruthy();
+    rerender(<TenantThemeTestProvider theme={defaultResolvedTheme}>
+      <CarMaintenancePanel selectedCar={{ ...activeCar, id: 'another-car' }} />
+    </TenantThemeTestProvider>);
+    expect(screen.queryByLabelText('Search documents')).toBeNull();
+    expect(screen.queryByLabelText('Maintenance event form')).toBeNull();
   });
 });
