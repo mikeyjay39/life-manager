@@ -1,10 +1,43 @@
-import type { DocumentDto } from '@/lib/api/types';
+import type {
+  CreateDocumentCommand,
+  DocumentDto,
+  DocumentStorageRefDto,
+} from '@/lib/api/types';
+import type { ProtonStorageUploadResult } from '@/lib/proton-drive/types';
 
 const DATE_INPUT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export type ParseOptionalDateResult =
   | { ok: true; value: string | null }
   | { ok: false };
+
+/** Parses one Document from a GET /documents or PUT /documents/{id} response. */
+export function parseDocumentDto(item: unknown): DocumentDto {
+  const d = item as Record<string, unknown>;
+  const storageRaw = d.storage as Record<string, unknown> | null | undefined;
+  const storage =
+    storageRaw && typeof storageRaw === 'object'
+      ? {
+          provider: String(storageRaw.provider ?? ''),
+          share_id: String(storageRaw.share_id ?? ''),
+          node_id: String(storageRaw.node_id ?? ''),
+          filename: String(storageRaw.filename ?? ''),
+          mime_type:
+            storageRaw.mime_type != null ? String(storageRaw.mime_type) : null,
+        }
+      : null;
+
+  return {
+    id: String(d.id ?? ''),
+    title: String(d.title ?? ''),
+    content: String(d.content ?? ''),
+    tags: Array.isArray(d.tags) ? d.tags.map(String) : [],
+    created_at: String(d.created_at ?? ''),
+    issued_date: d.issued_date != null ? String(d.issued_date) : null,
+    expire_date: d.expire_date != null ? String(d.expire_date) : null,
+    storage,
+  };
+}
 
 /**
  * Parses a create-document response body.
@@ -86,4 +119,89 @@ export function parseTags(input: string): string[] {
     .split(',')
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
+}
+
+/** Raw text values of the Document create form. */
+export type DocumentFormInput = {
+  title: string;
+  content: string;
+  tagsInput: string;
+  issuedDateInput: string;
+  expireDateInput: string;
+};
+
+export type BuildCreateDocumentCommandResult =
+  | { ok: true; value: CreateDocumentCommand }
+  | { ok: false; message: string };
+
+/**
+ * Validates the form text and builds the create payload with `storage: null`.
+ * The caller sets `storage` after a Proton upload.
+ */
+export function buildCreateDocumentCommand(
+  input: DocumentFormInput
+): BuildCreateDocumentCommandResult {
+  const title = input.title.trim();
+  const content = input.content.trim();
+  if (!title || !content) {
+    return { ok: false, message: 'Please enter a title and content.' };
+  }
+
+  const issuedDate = parseOptionalDateInput(input.issuedDateInput);
+  if (!issuedDate.ok) {
+    return { ok: false, message: 'Issue date must be in YYYY-MM-DD format.' };
+  }
+
+  const expireDate = parseOptionalDateInput(input.expireDateInput);
+  if (!expireDate.ok) {
+    return { ok: false, message: 'Expire date must be in YYYY-MM-DD format.' };
+  }
+
+  return {
+    ok: true,
+    value: {
+      title,
+      content,
+      tags: parseTags(input.tagsInput),
+      issued_date: issuedDate.value,
+      expire_date: expireDate.value,
+      storage: null,
+    },
+  };
+}
+
+/**
+ * Builds the Document that a Car or maintenance write created from `draft`.
+ * The write response gives only the id, and the client already has the rest,
+ * so it does not read the Document again. `created_at` is the client time in
+ * the server format (naive UTC). The next GET /documents list replaces it.
+ */
+export function documentFromDraft(
+  id: string,
+  draft: CreateDocumentCommand,
+  createdAt: Date = new Date()
+): DocumentDto {
+  return {
+    id,
+    title: draft.title,
+    content: draft.content,
+    tags: [...draft.tags],
+    created_at: createdAt.toISOString().replace(/Z$/, ''),
+    issued_date: draft.issued_date,
+    expire_date: draft.expire_date,
+    storage: draft.storage ? { ...draft.storage } : null,
+  };
+}
+
+/** Maps a Proton Drive upload result to the API storage reference. */
+export function storageRefFromProtonUpload(
+  upload: ProtonStorageUploadResult
+): DocumentStorageRefDto {
+  return {
+    provider: upload.provider,
+    share_id: upload.shareId,
+    node_id: upload.nodeId,
+    filename: upload.filename,
+    mime_type: upload.mimeType,
+  };
 }

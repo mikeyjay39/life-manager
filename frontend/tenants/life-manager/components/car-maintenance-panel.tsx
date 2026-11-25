@@ -39,7 +39,7 @@ import {
 } from '@/lib/format/display';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
-import { parseOwnedDocumentDto } from './car-panel';
+import { parseOwnedDocumentDto } from './car-panel-utils';
 import {
   CAR_MAINTENANCE_EVENT_TYPES,
   EVENT_TYPE_LABELS,
