@@ -82,6 +82,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 
 - Do not implement [docs/todos.md](docs/todos.md) unless asked.
 - Respect domain aggregates in [README.md](README.md) (Document, HealthMember, HealthReading, DoctorVisit, Car, CarMaintenanceEvent, etc.).
+- Car form Document links use the shared searchable picker, not an inline document library. Remove clears the link only. See [frontend/AGENTS.md](frontend/AGENTS.md) for the caller/modal contract.
 
 ## Before changing code
 

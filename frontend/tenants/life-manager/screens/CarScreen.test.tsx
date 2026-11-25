@@ -55,6 +55,20 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock('@/contexts/ProtonConnectContext', () => ({
+  useProtonConnect: vi.fn(() => ({
+    isSupported: false,
+    session: null,
+    isConnecting: false,
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  })),
+}));
+
+vi.mock('expo-document-picker', () => ({
+  getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
 vi.mock('@/lib/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/client')>();
   return {
