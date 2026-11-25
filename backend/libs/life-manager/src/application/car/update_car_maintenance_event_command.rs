@@ -10,25 +10,21 @@ use crate::{
         car::car_maintenance_event_repository::{
             CarMaintenanceEventRepository, MissingCarMaintenanceEvent,
         },
-        car::create_car_maintenance_event_command::{
-            ensure_no_receipt_conflict, receipt_document_id,
-        },
+        car::create_car_maintenance_event_command::verify_owned_receipt,
+        car::document_link::DocumentLink,
         document::document_repository::DocumentRepository,
     },
-    domain::{
-        car::car_maintenance_event::{
-            CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventInput,
-            CarMaintenanceEventType,
-        },
-        document::Document,
+    domain::car::car_maintenance_event::{
+        CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventInput,
+        CarMaintenanceEventType,
     },
 };
 
 /// Updates mutable fields on an owned CarMaintenanceEvent.
 ///
 /// `car_id` and ownership stay fixed. Inactive Cars are allowed (history
-/// correction). Optional `document_id` must be an owned Document when set.
-/// Optional `new_receipt_document` is created and linked in one transaction.
+/// correction). A linked receipt must be an owned Document. A new receipt is
+/// created and linked in one transaction.
 pub struct UpdateCarMaintenanceEventCommand {
     event_id: CarMaintenanceEventId,
     user_id: Uuid,
@@ -38,8 +34,7 @@ pub struct UpdateCarMaintenanceEventCommand {
     cost_cents: Option<i64>,
     title: Option<String>,
     notes: Option<String>,
-    document_id: Option<Uuid>,
-    new_receipt_document: Option<Document>,
+    receipt_document: DocumentLink,
     car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
     document_repository: Arc<dyn DocumentRepository>,
     car_maintenance_event_documents_writer: Arc<dyn CarMaintenanceEventDocumentsWriter>,
@@ -56,8 +51,7 @@ impl UpdateCarMaintenanceEventCommand {
         cost_cents: Option<i64>,
         title: Option<String>,
         notes: Option<String>,
-        document_id: Option<Uuid>,
-        new_receipt_document: Option<Document>,
+        receipt_document: DocumentLink,
         car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
         document_repository: Arc<dyn DocumentRepository>,
         car_maintenance_event_documents_writer: Arc<dyn CarMaintenanceEventDocumentsWriter>,
@@ -71,8 +65,7 @@ impl UpdateCarMaintenanceEventCommand {
             cost_cents,
             title,
             notes,
-            document_id,
-            new_receipt_document,
+            receipt_document,
             car_maintenance_event_repository,
             document_repository,
             car_maintenance_event_documents_writer,
@@ -80,18 +73,12 @@ impl UpdateCarMaintenanceEventCommand {
     }
 
     pub async fn execute(self) -> AppResult<CarMaintenanceEvent> {
-        ensure_no_receipt_conflict(self.document_id, &self.new_receipt_document)?;
-        if let Some(doc_id) = self.document_id
-            && self
-                .document_repository
-                .load_owned_document(&doc_id, &self.user_id)
-                .await
-                .is_none()
-        {
-            return Err(AppError::Validation(
-                "document_id must reference an owned Document".to_string(),
-            ));
-        }
+        verify_owned_receipt(
+            &self.document_repository,
+            &self.user_id,
+            &self.receipt_document,
+        )
+        .await?;
 
         let Some(mut event) = self
             .car_maintenance_event_repository
@@ -108,15 +95,17 @@ impl UpdateCarMaintenanceEventCommand {
             cost_cents: self.cost_cents,
             title: self.title.as_deref(),
             notes: self.notes.as_deref(),
-            document_id: receipt_document_id(self.document_id, &self.new_receipt_document),
+            document_id: self.receipt_document.linked_id(),
         })?;
 
-        let updated = match self.new_receipt_document {
-            None => self.car_maintenance_event_repository.update(event).await,
-            Some(receipt) => {
+        let updated = match self.receipt_document {
+            DocumentLink::New(receipt) => {
                 self.car_maintenance_event_documents_writer
-                    .update(event, vec![receipt])
+                    .update(event, vec![receipt.into_document()])
                     .await
+            }
+            DocumentLink::None | DocumentLink::Existing(_) => {
+                self.car_maintenance_event_repository.update(event).await
             }
         };
         match updated {

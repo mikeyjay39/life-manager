@@ -18,11 +18,16 @@ use crate::infrastructure::car::car_maintenance_event_api_types::{
 };
 use crate::infrastructure::car::car_maintenance_event_dto::CarMaintenanceEventDto;
 use crate::infrastructure::car::car_maintenance_event_state::CarMaintenanceEventState;
-use crate::infrastructure::document::mappers::optional_new_document;
+use crate::infrastructure::document::mappers::{DocumentLinkFields, document_link_from_dto};
+
+const RECEIPT_DOCUMENT_FIELDS: DocumentLinkFields = DocumentLinkFields {
+    id: "document_id",
+    new: "new_receipt_document",
+};
 
 /// Creates a CarMaintenanceEvent for an owned active Car.
 ///
-/// Many events on the same day are allowed. Optional `document_id` must be owned.
+/// Many events on the same day are allowed. A linked `document_id` must be owned.
 /// Optional `new_receipt_document` creates the receipt Document and links it in
 /// the same IMMEDIATE transaction as the event INSERT.
 ///
@@ -33,11 +38,12 @@ use crate::infrastructure::document::mappers::optional_new_document;
 ///   | { car_id, occurred_on, event_type, ...,       |                       |
 ///   |   new_receipt_document? }                     |                       |
 ///   |-------------------->|                         |                       |
-///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | document_id + new -> 400|                       |
+///   |                     | -> DocumentLink: None / Existing(id) /          |
+///   |                     |    New(Document, owner = JWT user)              |
 ///   |                     | (bad storage -> 400)    |                       |
 ///   |                     |------------------------>|                       |
-///   |                     |                         | document_id + new -> 400
-///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned Document (when Existing)
 ///   |                     |                         | load_owned Car (else 404)
 ///   |                     |                         | CarMaintenanceEvent::create (link new id)
 ///   |                     |                         | no new: save -------->| BEGIN IMMEDIATE
@@ -62,7 +68,12 @@ pub async fn create_car_maintenance_event(
         payload.event_type
     );
     let event_type = payload.parse_event_type()?;
-    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
+    let receipt_document = document_link_from_dto(
+        payload.document_id,
+        payload.new_receipt_document,
+        user_id,
+        &RECEIPT_DOCUMENT_FIELDS,
+    )?;
     let car_id = CarId(payload.car_id);
     let event = CreateCarMaintenanceEventCommand::new(
         user_id,
@@ -73,8 +84,7 @@ pub async fn create_car_maintenance_event(
         payload.cost_cents,
         payload.title,
         payload.notes,
-        payload.document_id,
-        new_receipt_document,
+        receipt_document,
         use_cases.car_repository.clone(),
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
@@ -147,11 +157,12 @@ pub async fn get_car_maintenance_event(
 ///   | { occurred_on, event_type, ...,               |                       |
 ///   |   new_receipt_document? }                     |                       |
 ///   |-------------------->|                         |                       |
-///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | document_id + new -> 400|                       |
+///   |                     | -> DocumentLink: None / Existing(id) /          |
+///   |                     |    New(Document, owner = JWT user)              |
 ///   |                     | (bad storage -> 400)    |                       |
 ///   |                     |------------------------>|                       |
-///   |                     |                         | document_id + new -> 400
-///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned Document (when Existing)
 ///   |                     |                         | load_owned event (else 404)
 ///   |                     |                         | event.update (no active-Car check)
 ///   |                     |                         | no new: update ------>| UPDATE event
@@ -173,7 +184,12 @@ pub async fn update_car_maintenance_event(
 ) -> ApiResult<CarMaintenanceEventDto> {
     tracing::info!("Updating CarMaintenanceEvent id={}", id);
     let event_type = payload.parse_event_type()?;
-    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
+    let receipt_document = document_link_from_dto(
+        payload.document_id,
+        payload.new_receipt_document,
+        user_id,
+        &RECEIPT_DOCUMENT_FIELDS,
+    )?;
     let event = UpdateCarMaintenanceEventCommand::new(
         CarMaintenanceEventId(id),
         user_id,
@@ -183,8 +199,7 @@ pub async fn update_car_maintenance_event(
         payload.cost_cents,
         payload.title,
         payload.notes,
-        payload.document_id,
-        new_receipt_document,
+        receipt_document,
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
         use_cases.car_maintenance_event_documents_writer.clone(),

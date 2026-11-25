@@ -8,9 +8,10 @@ use crate::{
         car::car_documents_writer::CarDocumentsWriter,
         car::car_repository::CarRepository,
         car::create_car_command::{
-            NewCarDocuments, ensure_unique_identity, map_car_write_error,
+            ensure_unique_identity, map_car_write_error, new_documents_to_create,
             verify_owned_document_links,
         },
+        car::document_link::DocumentLink,
         document::document_repository::DocumentRepository,
     },
     domain::car::{Car, CarId, CarProfileInput},
@@ -26,11 +27,12 @@ pub struct UpdateCarCommand {
     vin: Option<Option<String>>,
     license_plate: Option<Option<String>>,
     notes: Option<Option<String>>,
-    insurance_document_id: Option<Option<Uuid>>,
-    registration_document_id: Option<Option<Uuid>>,
+    /// `None` keeps the stored link. `Some` replaces it.
+    insurance_document: Option<DocumentLink>,
+    /// `None` keeps the stored link. `Some` replaces it.
+    registration_document: Option<DocumentLink>,
     /// When set, reactivate (`true`) or deactivate (`false`). When `None`, leave active state.
     active: Option<bool>,
-    new_documents: NewCarDocuments,
     car_repository: Arc<dyn CarRepository>,
     document_repository: Arc<dyn DocumentRepository>,
     car_documents_writer: Arc<dyn CarDocumentsWriter>,
@@ -48,10 +50,9 @@ impl UpdateCarCommand {
         vin: Option<Option<String>>,
         license_plate: Option<Option<String>>,
         notes: Option<Option<String>>,
-        insurance_document_id: Option<Option<Uuid>>,
-        registration_document_id: Option<Option<Uuid>>,
+        insurance_document: Option<DocumentLink>,
+        registration_document: Option<DocumentLink>,
         active: Option<bool>,
-        new_documents: NewCarDocuments,
         car_repository: Arc<dyn CarRepository>,
         document_repository: Arc<dyn DocumentRepository>,
         car_documents_writer: Arc<dyn CarDocumentsWriter>,
@@ -66,10 +67,9 @@ impl UpdateCarCommand {
             vin,
             license_plate,
             notes,
-            insurance_document_id,
-            registration_document_id,
+            insurance_document,
+            registration_document,
             active,
-            new_documents,
             car_repository,
             document_repository,
             car_documents_writer,
@@ -77,13 +77,6 @@ impl UpdateCarCommand {
     }
 
     pub async fn execute(self) -> AppResult<Car> {
-        // Only a set id conflicts with a new Document. `null` (clear) and a new
-        // Document for the same role means: link the new Document.
-        self.new_documents.ensure_no_role_conflict(
-            matches!(self.insurance_document_id, Some(Some(_))),
-            matches!(self.registration_document_id, Some(Some(_))),
-        )?;
-
         let Some(mut car) = self
             .car_repository
             .load_owned(&self.car_id, &self.user_id)
@@ -108,33 +101,20 @@ impl UpdateCarCommand {
             None => car.notes.clone(),
             Some(v) => v.clone(),
         };
-        let insurance_document_id = resolve_document_link(
-            self.new_documents.insurance_id(),
-            self.insurance_document_id,
-            car.insurance_document_id,
-        );
+        let insurance_document_id =
+            resolve_document_link(self.insurance_document.as_ref(), car.insurance_document_id);
         let registration_document_id = resolve_document_link(
-            self.new_documents.registration_id(),
-            self.registration_document_id,
+            self.registration_document.as_ref(),
             car.registration_document_id,
         );
 
-        // Only verify Document ownership when the client sets a new id.
-        // Omit (keep) must not re-check: a later Document hard-delete must not
-        // block unrelated Car field updates. Clear (`null`) needs no check.
-        let insurance_to_verify = match self.insurance_document_id {
-            Some(Some(id)) => Some(id),
-            _ => None,
-        };
-        let registration_to_verify = match self.registration_document_id {
-            Some(Some(id)) => Some(id),
-            _ => None,
-        };
+        // Only a newly linked id needs an ownership check. Keep must not re-check:
+        // a later Document hard-delete must not block unrelated Car field updates.
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
-            insurance_to_verify,
-            registration_to_verify,
+            self.insurance_document.as_ref(),
+            self.registration_document.as_ref(),
         )
         .await?;
 
@@ -158,7 +138,8 @@ impl UpdateCarCommand {
 
         ensure_unique_identity(&self.car_repository, &car, Some(&car.id)).await?;
 
-        let new_documents = self.new_documents.into_vec();
+        let new_documents =
+            new_documents_to_create(self.insurance_document, self.registration_document);
         let updated = if new_documents.is_empty() {
             self.car_repository.update(car).await
         } else {
@@ -168,16 +149,10 @@ impl UpdateCarCommand {
     }
 }
 
-/// A new Document wins. Otherwise apply the PATCH rule: omit keeps the stored
-/// id, `null` clears it, and a value sets it.
-fn resolve_document_link(
-    new_document_id: Option<Uuid>,
-    patch: Option<Option<Uuid>>,
-    stored: Option<Uuid>,
-) -> Option<Uuid> {
-    match (new_document_id, patch) {
-        (Some(new_id), _) => Some(new_id),
-        (None, None) => stored,
-        (None, Some(value)) => value,
+/// Keep (`None`) leaves the stored id. Otherwise the link gives the new id.
+fn resolve_document_link(link: Option<&DocumentLink>, stored: Option<Uuid>) -> Option<Uuid> {
+    match link {
+        None => stored,
+        Some(link) => link.linked_id(),
     }
 }
