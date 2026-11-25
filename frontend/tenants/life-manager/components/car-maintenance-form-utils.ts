@@ -1,6 +1,7 @@
 import type {
   CarMaintenanceEventDto,
   CreateCarMaintenanceEventCommand,
+  CreateDocumentCommand,
   UpdateCarMaintenanceEventCommand,
 } from '@/lib/api/types';
 import { formatUsdFromCents } from '@/lib/format/display';
@@ -30,6 +31,14 @@ export const EVENT_TYPE_LABELS: Record<CarMaintenanceEventTypeValue, string> = {
   other: 'Other',
 };
 
+/**
+ * The receipt link on the form: an existing Document, or a draft that the
+ * event write creates in the same transaction.
+ */
+export type ReceiptLink =
+  | { kind: 'existing'; id: string }
+  | { kind: 'new'; draft: CreateDocumentCommand };
+
 export type CarMaintenanceFormInput = {
   occurredOn: string;
   eventType: CarMaintenanceEventTypeValue;
@@ -37,7 +46,7 @@ export type CarMaintenanceFormInput = {
   costDollars: string;
   title: string;
   notes: string;
-  documentId: string | null;
+  receipt: ReceiptLink | null;
 };
 
 export function unicodeScalarLength(value: string): number {
@@ -54,7 +63,7 @@ export function emptyCarMaintenanceForm(
     costDollars: '',
     title: '',
     notes: '',
-    documentId: null,
+    receipt: null,
   };
 }
 
@@ -116,7 +125,9 @@ export function formFromCarMaintenanceEventDto(
     costDollars: formatCostCentsAsDollars(event.cost_cents),
     title: event.title ?? '',
     notes: event.notes ?? '',
-    documentId: event.document_id,
+    receipt: event.document_id
+      ? { kind: 'existing', id: event.document_id }
+      : null,
   };
 }
 
@@ -177,7 +188,18 @@ type ValidatedMaintenanceFields = {
   title: string | null;
   notes: string | null;
   document_id: string | null;
+  new_receipt_document?: CreateDocumentCommand;
 };
+
+/** Omits `new_receipt_document` when there is no draft; the API never gets null. */
+function receiptLinkFields(
+  receipt: ReceiptLink | null
+): Pick<ValidatedMaintenanceFields, 'document_id' | 'new_receipt_document'> {
+  if (receipt?.kind === 'new') {
+    return { document_id: null, new_receipt_document: receipt.draft };
+  }
+  return { document_id: receipt?.id ?? null };
+}
 
 function validateMaintenanceFields(
   form: CarMaintenanceFormInput
@@ -227,7 +249,7 @@ function validateMaintenanceFields(
       cost_cents: cost.value,
       title: title.value,
       notes: notes.value,
-      document_id: form.documentId,
+      ...receiptLinkFields(form.receipt),
     },
   };
 }
