@@ -244,7 +244,13 @@ mod tests {
     use crate::domain::car::{Car, CarProfileInput};
     use crate::infrastructure::car::car_collection::CarCollection;
     use crate::infrastructure::car::car_maintenance_event_collection::CarMaintenanceEventCollection;
-    use crate::infrastructure::car::car_maintenance_event_documents_collection::CarMaintenanceEventDocumentsCollection;
+    use async_trait::async_trait;
+
+    use crate::application::car::car_maintenance_event_documents_writer::CarMaintenanceEventDocumentsWriter;
+    use crate::application::car::car_maintenance_event_repository::CarMaintenanceEventRepository;
+    use crate::application::document::document_repository::DocumentRepository;
+    use crate::domain::car::car_maintenance_event::CarMaintenanceEvent;
+    use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::infrastructure::document::document_api_types::{
         CreateDocumentCommandDto, DocumentStorageRefDto,
@@ -834,5 +840,58 @@ mod tests {
         assert!(matches!(result, Err(AppError::Validation(_))));
         assert!(fx.events.events.lock().await.is_empty());
         assert!(fx.documents.documents.lock().await.is_empty());
+    }
+
+    /// In-memory `CarMaintenanceEventDocumentsWriter` mock for these tests. It writes the
+    /// Documents only after the event write succeeds, so a failed event write
+    /// leaves no Document.
+    struct CarMaintenanceEventDocumentsCollection {
+        car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
+        document_repository: Arc<dyn DocumentRepository>,
+    }
+
+    impl CarMaintenanceEventDocumentsCollection {
+        fn new(
+            car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
+            document_repository: Arc<dyn DocumentRepository>,
+        ) -> Self {
+            Self {
+                car_maintenance_event_repository,
+                document_repository,
+            }
+        }
+
+        async fn save_documents(
+            &self,
+            new_documents: Vec<Document>,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            for document in new_documents {
+                self.document_repository.save_document(document).await?;
+            }
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl CarMaintenanceEventDocumentsWriter for CarMaintenanceEventDocumentsCollection {
+        async fn create(
+            &self,
+            event: CarMaintenanceEvent,
+            new_documents: Vec<Document>,
+        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+            let saved = self.car_maintenance_event_repository.save(event).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
+
+        async fn update(
+            &self,
+            event: CarMaintenanceEvent,
+            new_documents: Vec<Document>,
+        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+            let saved = self.car_maintenance_event_repository.update(event).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
     }
 }
