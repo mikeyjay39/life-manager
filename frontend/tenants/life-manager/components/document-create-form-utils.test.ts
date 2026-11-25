@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCreateDocumentCommand,
+  documentFromDraft,
   formatIsoDateForInput,
   parseCreatedDocumentResponse,
   parseOptionalDateInput,
@@ -147,5 +148,54 @@ describe('storageRefFromProtonUpload', () => {
       filename: 'policy.pdf',
       mime_type: null,
     });
+  });
+});
+
+describe('documentFromDraft', () => {
+  it('copies the draft fields and uses the response id', () => {
+    const storage = {
+      provider: 'proton_drive',
+      share_id: 'share',
+      node_id: 'node',
+      filename: 'insurance.pdf',
+      mime_type: 'application/pdf',
+    };
+
+    const document = documentFromDraft(
+      'doc-1',
+      {
+        title: 'Insurance',
+        content: 'Policy',
+        tags: ['Car'],
+        issued_date: '2026-01-01T00:00:00',
+        expire_date: null,
+        storage,
+      },
+      new Date('2026-11-25T10:20:30.000Z')
+    );
+
+    expect(document).toEqual({
+      id: 'doc-1',
+      title: 'Insurance',
+      content: 'Policy',
+      tags: ['Car'],
+      created_at: '2026-11-25T10:20:30.000',
+      issued_date: '2026-01-01T00:00:00',
+      expire_date: null,
+      storage,
+    });
+  });
+
+  it('keeps a null storage', () => {
+    const document = documentFromDraft('doc-2', {
+      title: 'Receipt',
+      content: '',
+      tags: [],
+      issued_date: null,
+      expire_date: null,
+      storage: null,
+    });
+
+    expect(document.storage).toBeNull();
   });
 });

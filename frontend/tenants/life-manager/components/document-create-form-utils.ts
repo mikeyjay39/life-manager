@@ -170,6 +170,29 @@ export function buildCreateDocumentCommand(
   };
 }
 
+/**
+ * Builds the Document that a Car or maintenance write created from `draft`.
+ * The write response gives only the id, and the client already has the rest,
+ * so it does not read the Document again. `created_at` is the client time in
+ * the server format (naive UTC). The next GET /documents list replaces it.
+ */
+export function documentFromDraft(
+  id: string,
+  draft: CreateDocumentCommand,
+  createdAt: Date = new Date()
+): DocumentDto {
+  return {
+    id,
+    title: draft.title,
+    content: draft.content,
+    tags: [...draft.tags],
+    created_at: createdAt.toISOString().replace(/Z$/, ''),
+    issued_date: draft.issued_date,
+    expire_date: draft.expire_date,
+    storage: draft.storage ? { ...draft.storage } : null,
+  };
+}
+
 /** Maps a Proton Drive upload result to the API storage reference. */
 export function storageRefFromProtonUpload(
   upload: ProtonStorageUploadResult

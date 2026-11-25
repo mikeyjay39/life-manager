@@ -184,7 +184,6 @@ type EventStoreOptions = {
   events?: Record<string, unknown>[];
   listDocuments?: () => Response | Promise<Response>;
   createdDocument?: DocumentDto;
-  fetchCreatedDocument?: () => Response;
   failedWrites?: number;
 };
 
@@ -196,7 +195,6 @@ function mockEventStore({
   events = [],
   listDocuments = () => jsonResponse([]),
   createdDocument = newReceiptDoc,
-  fetchCreatedDocument = () => jsonResponse(createdDocument),
   failedWrites = 0,
 }: EventStoreOptions = {}) {
   let savedEvents = [...events];
@@ -218,7 +216,6 @@ function mockEventStore({
       return jsonResponse(saved, method === 'POST' ? 201 : 200);
     }
     if (path.startsWith('/car-maintenance-events')) return jsonResponse(savedEvents);
-    if (path === `/documents/${createdDocument.id}`) return fetchCreatedDocument();
     if (path === '/documents') return listDocuments();
     return jsonResponse([]);
   });
@@ -756,7 +753,7 @@ describe('CarMaintenancePanel', () => {
         },
       }),
     ]);
-    expect(createdDocumentFetches()).toBe(1);
+    expect(createdDocumentFetches()).toBe(0);
     expect(mockApiFetch).not.toHaveBeenCalled();
   });
 
@@ -800,23 +797,6 @@ describe('CarMaintenancePanel', () => {
     expect(eventWriteBodies()[0].document_id).toBeNull();
     expect(eventWriteBodies()[0]).not.toHaveProperty('new_receipt_document');
     expect(createdDocumentFetches()).toBe(0);
-  });
-
-  it('given the created receipt fetch fails after a successful write then the event stays saved', async () => {
-    // Given a write that succeeds and a receipt fetch that fails
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockEventStore({ fetchCreatedDocument: () => new Response('gone', { status: 500 }) });
-    await renderAddEventWithTitle();
-    await createReceiptDraft();
-
-    // When the event is saved
-    fireEvent.press(screen.getByLabelText('Save maintenance event'));
-
-    // Then the form closes with no error and the failure is logged
-    await waitFor(() => expect(createdDocumentFetches()).toBe(1));
-    await waitFor(() => expect(screen.queryByLabelText('Maintenance title')).toBeNull());
-    expect(screen.queryByText(/Request failed/)).toBeNull();
-    expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Request failed (500): gone' }));
   });
 
   it('given a pending document load when a receipt is saved first then the late load keeps the new receipt', async () => {
@@ -1078,27 +1058,23 @@ describe('CarMaintenancePanel', () => {
     expect(screen.getByText(/^Expires:/)).toBeTruthy();
   });
 
-  it('given a saved receipt file when searching its filename then shows its file type', async () => {
-    // Given an event write that creates a receipt with file storage metadata
-    const createdFileReceipt = {
-      ...newReceiptDoc,
-      storage: { provider: 'proton', share_id: 'share', node_id: 'node', filename: 'scan.jpg', mime_type: 'image/jpeg' },
-    };
-    mockEventStore({ listDocuments: () => jsonResponse([receiptDoc]), createdDocument: createdFileReceipt });
+  it('given a saved receipt draft when searching its title then the picker shows the new receipt', async () => {
+    // Given an event write that creates a receipt from the draft
+    mockEventStore({ listDocuments: () => jsonResponse([receiptDoc]) });
     await renderAddEventWithTitle();
     await createReceiptDraft();
     fireEvent.press(screen.getByLabelText('Save maintenance event'));
     await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
 
-    // When the picker searches the new receipt filename
+    // When the picker searches the new receipt title
     openAddEvent();
     fireEvent.press(screen.getByLabelText('Choose receipt document'));
-    fireEvent.changeText(screen.getByLabelText('Search documents'), 'SCAN.JPG');
+    fireEvent.changeText(screen.getByLabelText('Search documents'), 'DAILY RECEIPT');
 
-    // Then only the new receipt matches and its file type shows
+    // Then the receipt built from the draft matches, with no GET for it
     expect(screen.getByLabelText(`Choose document ${newReceiptDoc.title}`)).toBeTruthy();
     expect(screen.queryByLabelText(`Choose document ${receiptDoc.title}`)).toBeNull();
-    expect(screen.getByText('File type: image/jpeg')).toBeTruthy();
+    expect(createdDocumentFetches()).toBe(0);
   });
 
   it('given a pending document load when it and its retry fail after a receipt is saved then the receipt title stays', async () => {

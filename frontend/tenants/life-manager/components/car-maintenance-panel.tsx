@@ -40,14 +40,13 @@ import {
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
 import DocumentCreateForm from './document-create-form';
-import { parseDocumentDto } from './document-create-form-utils';
+import { documentFromDraft, parseDocumentDto } from './document-create-form-utils';
 import {
   mergeCreatedDocuments,
   pruneCreatedDocuments,
   type CreatedDocument,
 } from './document-list-merge';
 import DocumentPickerModal from './document-picker-modal';
-import { fetchDocumentById } from './fetch-document';
 import {
   CAR_MAINTENANCE_EVENT_TYPES,
   EVENT_TYPE_LABELS,
@@ -165,7 +164,7 @@ function todayYmd(): string {
  * end
  * alt create or edit sent new_receipt_document
  *   alt write ok
- *     Panel -> API : GET /documents/{document_id} (fetchDocumentById)
+ *     Panel -> Panel : build the receipt from the draft and the response document_id
  *     Panel -> Panel : add receipt to documents; keep it if an older GET /documents returns without it
  *   else write failed
  *     Panel -> form : keep the draft (and its Proton ref) for the next Save
@@ -556,23 +555,19 @@ export default function CarMaintenancePanel({
   );
 
   /**
-   * Adds the receipt that the event write created to the library. The write
-   * already succeeded, so a failure here only logs; the next list load shows it.
+   * Adds the receipt that the event write created to the library. It is built
+   * from the draft and the response `document_id`, so no GET is needed. The
+   * write already succeeded, so a bad response only logs; the next list load
+   * shows the receipt.
    */
   const recordCreatedReceipt = useCallback(
-    async (eventBodyText: string) => {
-      if (!token) {
-        return;
-      }
+    (eventBodyText: string, draft: CreateDocumentCommand) => {
       try {
         const documentId = linkedReceiptId(eventBodyText);
         if (!documentId) {
           return;
         }
-        const document = await fetchDocumentById(documentId, {
-          token,
-          onUnauthorized: handleUnauthorized,
-        });
+        const document = documentFromDraft(documentId, draft);
         // An in-flight GET can return without this receipt; see document-list-merge.
         createdReceiptsRef.current = [
           ...createdReceiptsRef.current,
@@ -583,7 +578,7 @@ export default function CarMaintenancePanel({
         console.error(err);
       }
     },
-    [token, handleUnauthorized]
+    []
   );
 
   const handleSubmit = async () => {
@@ -626,7 +621,7 @@ export default function CarMaintenancePanel({
           );
         }
         if (built.command.new_receipt_document) {
-          void recordCreatedReceipt(bodyText);
+          recordCreatedReceipt(bodyText, built.command.new_receipt_document);
         }
         if (selectedCarIdRef.current === carIdAtSubmit) {
           collapseForm();
@@ -673,7 +668,7 @@ export default function CarMaintenancePanel({
         );
       }
       if (built.command.new_receipt_document) {
-        void recordCreatedReceipt(bodyText);
+        recordCreatedReceipt(bodyText, built.command.new_receipt_document);
       }
       if (selectedCarIdRef.current === carIdAtSubmit) {
         collapseForm();
