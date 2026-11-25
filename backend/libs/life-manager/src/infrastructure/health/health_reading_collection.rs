@@ -1,3 +1,5 @@
+//! In-memory `HealthReadingRepository` for unit tests only (`#[cfg(test)]` in `mod.rs`).
+
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use tokio::sync::Mutex;

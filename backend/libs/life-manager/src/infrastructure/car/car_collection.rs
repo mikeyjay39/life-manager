@@ -1,3 +1,5 @@
+//! In-memory `CarRepository` for unit tests only (`#[cfg(test)]` in `mod.rs`).
+
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 use uuid::Uuid;

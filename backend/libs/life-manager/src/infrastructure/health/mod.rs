@@ -1,5 +1,6 @@
 pub mod doctor_visit_api_types;
-pub mod doctor_visit_collection;
+#[cfg(test)]
+pub(crate) mod doctor_visit_collection;
 pub mod doctor_visit_dto;
 pub mod doctor_visit_entity;
 pub mod doctor_visit_handler;
@@ -7,7 +8,8 @@ pub mod doctor_visit_orm_collection;
 pub mod doctor_visit_router;
 pub mod doctor_visit_state;
 pub mod health_member_api_types;
-pub mod health_member_collection;
+#[cfg(test)]
+pub(crate) mod health_member_collection;
 pub mod health_member_dto;
 pub mod health_member_entity;
 pub mod health_member_handler;
@@ -15,7 +17,8 @@ pub mod health_member_orm_collection;
 pub mod health_member_router;
 pub mod health_member_state;
 pub mod health_reading_api_types;
-pub mod health_reading_collection;
+#[cfg(test)]
+pub(crate) mod health_reading_collection;
 pub mod health_reading_dto;
 pub mod health_reading_entity;
 pub mod health_reading_handler;

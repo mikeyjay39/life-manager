@@ -57,6 +57,8 @@ Applies within **`libs/life-manager/src/`**:
 
 New features: `domain` / `application` first, then `infrastructure/<aggregate>/` (see `infrastructure/document/`). Platform adapters (DB pool, OCR, HTTP client, `app_state`) live under `infrastructure/shared/`.
 
+In-memory `<Aggregate>Collection` repository adapters (for example `CarCollection`, `DocumentCollection`) are test doubles. Declare each one as `#[cfg(test)] pub(crate) mod …` in the aggregate `mod.rs`. New in-memory collections must follow the same rule. Do not use them in product code. Product code uses the `*OrmCollection` adapters.
+
 Domain, application, and infrastructure feature modules live under flat aggregate folders (`…/car`, `…/document`, `…/health`). Import as `crate::<layer>::<aggregate>::<module>::…` (for example `crate::domain::health::health_member::HealthMember`, `crate::application::car::create_car_command::CreateCarCommand`, `crate::infrastructure::health::health_member_handler::…`). The car and document domain aggregate roots re-export their primary types at `crate::domain::car::…` and `crate::domain::document::…`.
 
 ## Auth email (port)
