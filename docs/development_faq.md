@@ -36,11 +36,13 @@ Recommend adding users with their own gpg key:
 git-crypt add-gpg-user USER_ID
 ```
 
-After cloninng the repo, unlock with:
+After cloning the repo, unlock and set up worktree support with:
 ```bash
-git-crypt unlock ~/life-manager-symetric.key
+scripts/setup-git-crypt.sh ~/life-manager-symetric.key
 ```
 NOTE: key is stored in my password manager
+
+The script runs `git-crypt unlock`. Then it sets the git-crypt filters to read the key of the main checkout. Without this step, `git worktree add` (and `wt`) fails on `.dev.env`, because git-crypt 0.8 looks for the key in the git dir of each worktree. Run the script again after a `git-crypt lock` and `unlock`.
 
 ## Docker Compose profiles and ports
 
