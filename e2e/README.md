@@ -71,6 +71,7 @@ Prefer these over copy-paste locals in new scenarios.
 | Health | `health/happy-path.spec.ts` | Member, reading, visit (#256) |
 | Documents | `documents/documents-happy-path.spec.ts` | Open + edit seeded doc (#255) |
 | Car | `car/happy-path.spec.ts` | Create, maintenance, edit, deactivate, delete (#257) |
+| Car Document links | `car/document-links.spec.ts` | Create-from-Car insurance, registration and receipt; pick an existing Document (epic #298). Shared Car helpers: `car/ui.ts` |
 
 Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
 

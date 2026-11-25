@@ -34,7 +34,7 @@ npm run test:e2e
 npm run stack:down
 ```
 
-Details: [../../e2e/README.md](../../e2e/README.md). Auth e2e (#259): `createEphemeralUser()` signs up, reads the captured verify link, and verifies via API; UI specs cover signup/verify and password-reset. Health: `e2e/health/happy-path.spec.ts` (#256). Documents: `e2e/documents/` (#255). Car: `e2e/car/happy-path.spec.ts` (#257) — create, maintenance, edit, deactivate, and delete. See the e2e README suite map.
+Details: [../../e2e/README.md](../../e2e/README.md). Auth e2e (#259): `createEphemeralUser()` signs up, reads the captured verify link, and verifies via API; UI specs cover signup/verify and password-reset. Health: `e2e/health/happy-path.spec.ts` (#256). Documents: `e2e/documents/` (#255). Car: `e2e/car/happy-path.spec.ts` (#257) — create, maintenance, edit, deactivate, and delete. Car Document links: `e2e/car/document-links.spec.ts` (epic #298) — create-from-Car insurance, registration and receipt, and pick an existing Document. See the e2e README suite map.
 
 **Playwright (manual-test skill):** `playwright` remains a frontend devDependency for [`.cursor/skills/manual-test/`](../../.cursor/skills/manual-test/). Fetch Chromium with `cd frontend && npm run playwright:install`. For shared manager coverage, prefer the top-level `e2e/` suite; keep the skill for live branch proof.
 
