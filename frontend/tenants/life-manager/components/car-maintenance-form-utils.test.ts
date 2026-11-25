@@ -101,7 +101,7 @@ describe('car-maintenance-form-utils', () => {
     expect(form.odometerMiles).toBe('42000');
     expect(form.costDollars).toBe('120.50');
     expect(form.title).toBe('Rotated');
-    expect(form.documentId).toBe('d1');
+    expect(form.receipt).toEqual({ kind: 'existing', id: 'd1' });
   });
 
   it('given valid edit form when build update then command omits car_id', () => {
@@ -120,6 +120,61 @@ describe('car-maintenance-form-utils', () => {
       expect(result.command.event_type).toBe('brakes');
       expect(result.command.title).toBe('Pads');
       expect(result.command).not.toHaveProperty('car_id');
+    }
+  });
+
+  it('given an existing receipt when build create then sends document_id and omits new_receipt_document', () => {
+    // Given a form linked to an existing Document
+    const form = {
+      ...emptyCarMaintenanceForm('2026-03-01'),
+      title: 'Oil',
+      receipt: { kind: 'existing' as const, id: 'd1' },
+    };
+    // When building create
+    const result = buildCreateCarMaintenanceEventCommand('c1', form);
+    // Then only the id is sent
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.command.document_id).toBe('d1');
+      expect(result.command).not.toHaveProperty('new_receipt_document');
+    }
+  });
+
+  it('given a receipt draft when build update then sends new_receipt_document and a null document_id', () => {
+    // Given a form with a new receipt draft
+    const draft = {
+      title: 'Receipt',
+      content: '',
+      tags: ['receipt'],
+      issued_date: null,
+      expire_date: null,
+      storage: null,
+    };
+    const form = {
+      ...emptyCarMaintenanceForm('2026-03-01'),
+      title: 'Oil',
+      receipt: { kind: 'new' as const, draft },
+    };
+    // When building update
+    const result = buildUpdateCarMaintenanceEventCommand(form);
+    // Then the draft is embedded and no id is sent
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.command.document_id).toBeNull();
+      expect(result.command.new_receipt_document).toEqual(draft);
+    }
+  });
+
+  it('given no receipt when build create then document_id is null and new_receipt_document is omitted', () => {
+    // Given a form without a receipt
+    const form = { ...emptyCarMaintenanceForm('2026-03-01'), title: 'Oil' };
+    // When building create
+    const result = buildCreateCarMaintenanceEventCommand('c1', form);
+    // Then neither link is sent
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.command.document_id).toBeNull();
+      expect(result.command).not.toHaveProperty('new_receipt_document');
     }
   });
 

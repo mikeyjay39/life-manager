@@ -14,6 +14,8 @@ Personal/family life-management app. **Documents**, **Health Manager**, and **Ca
 
 **Reference docs:** [docs/agents/api.md](docs/agents/api.md) · [docs/agents/testing.md](docs/agents/testing.md)
 
+**Document selection in forms:** use the searchable `DocumentPickerModal` with a caller-owned authorized list. Confirm applies the link; dismiss keeps the form unchanged. Remove clears only the UUID reference. See `frontend/AGENTS.md`.
+
 **Cursor skills:** [`.cursor/skills/deliver-feature/`](.cursor/skills/deliver-feature/) (boss: feature branch + story workers → story PRs left for human merge; feature→main PR unmerged; story **pr-review-loop** runs local unit + integration tests) · [`.cursor/skills/manual-test/`](.cursor/skills/manual-test/) (dev stack + live branch proof; optional base branch) · [`.cursor/skills/open-pr/`](.cursor/skills/open-pr/) (PR vs main + summary body + manual-test proof) · [`.cursor/skills/add-tenant/`](.cursor/skills/add-tenant/) (new prod tenant) · [`.cursor/skills/raise-gh-enhancement/`](.cursor/skills/raise-gh-enhancement/) (epic + story sub-issues from a feature idea)
 
 **Cursor rules (when editing matching files):** `.cursor/rules/rust-backend.mdc`, `.cursor/rules/frontend-react.mdc`, `.cursor/rules/dev-stack-limits.mdc`
@@ -80,6 +82,7 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 
 - Do not implement [docs/todos.md](docs/todos.md) unless asked.
 - Respect domain aggregates in [README.md](README.md) (Document, HealthMember, HealthReading, DoctorVisit, Car, CarMaintenanceEvent, etc.).
+- Car form Document links use the shared searchable picker, not an inline document library. Remove clears the link only. See [frontend/AGENTS.md](frontend/AGENTS.md) for the caller/modal contract.
 
 ## Before changing code
 

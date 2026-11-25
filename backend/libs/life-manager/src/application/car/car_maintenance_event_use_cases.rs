@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::application::{
+    car::car_maintenance_event_documents_writer::CarMaintenanceEventDocumentsWriter,
     car::car_maintenance_event_repository::CarMaintenanceEventRepository,
     car::car_repository::CarRepository, document::document_repository::DocumentRepository,
 };
@@ -11,4 +12,6 @@ pub struct CarMaintenanceEventUseCases {
     pub car_repository: Arc<dyn CarRepository>,
     /// Used only to verify owned Document UUID links.
     pub document_repository: Arc<dyn DocumentRepository>,
+    /// Writes an event with a new receipt Document in one transaction.
+    pub car_maintenance_event_documents_writer: Arc<dyn CarMaintenanceEventDocumentsWriter>,
 }

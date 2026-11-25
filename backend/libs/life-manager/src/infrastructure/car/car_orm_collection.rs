@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use deadpool_diesel::sqlite::Pool;
 use diesel::{
     ExpressionMethods, OptionalExtension, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper,
+    SqliteConnection,
 };
 use uuid::Uuid;
 
@@ -27,25 +28,72 @@ impl CarOrmCollection {
     }
 }
 
-fn is_unique_violation(err: &diesel::result::Error) -> bool {
-    matches!(
-        err,
-        diesel::result::Error::DatabaseError(
-            diesel::result::DatabaseErrorKind::UniqueViolation,
-            _
-        )
-    )
+/// Failure of a Car write on one connection. It is `Send`, so it can leave a
+/// Diesel transaction inside `interact`.
+pub(crate) enum CarWriteError {
+    DuplicateVin,
+    DuplicateLicensePlate,
+    MissingCar,
+    Diesel(diesel::result::Error),
 }
 
-fn map_unique_error(err: diesel::result::Error) -> Box<dyn std::error::Error> {
-    let msg = err.to_string().to_lowercase();
-    if msg.contains("license_plate") {
-        Box::new(DuplicateCarLicensePlate)
-    } else if msg.contains("vin") {
-        Box::new(DuplicateCarVin)
-    } else {
-        Box::new(err)
+impl From<diesel::result::Error> for CarWriteError {
+    fn from(err: diesel::result::Error) -> Self {
+        let diesel::result::Error::DatabaseError(
+            diesel::result::DatabaseErrorKind::UniqueViolation,
+            _,
+        ) = &err
+        else {
+            return Self::Diesel(err);
+        };
+        let msg = err.to_string().to_lowercase();
+        if msg.contains("license_plate") {
+            Self::DuplicateLicensePlate
+        } else if msg.contains("vin") {
+            Self::DuplicateVin
+        } else {
+            Self::Diesel(err)
+        }
     }
+}
+
+impl CarWriteError {
+    /// Maps to the repository errors that the Car commands downcast.
+    pub(crate) fn into_repository_error(self, context: &str) -> Box<dyn std::error::Error> {
+        match self {
+            Self::DuplicateVin => Box::new(DuplicateCarVin),
+            Self::DuplicateLicensePlate => Box::new(DuplicateCarLicensePlate),
+            Self::MissingCar => Box::new(MissingCar),
+            Self::Diesel(e) => {
+                tracing::error!("Error {} Car: {}", context, e);
+                Box::new(e)
+            }
+        }
+    }
+}
+
+/// Inserts one Car row on `conn`. The unique indexes map to duplicate errors.
+pub(super) fn insert_car(conn: &mut SqliteConnection, car: &Car) -> Result<Car, CarWriteError> {
+    let entity = diesel::insert_into(cars::table)
+        .values(&NewCarEntity::from(car))
+        .returning(CarEntity::as_returning())
+        .get_result(conn)?;
+    entity
+        .into_domain()
+        .ok_or(CarWriteError::Diesel(diesel::result::Error::DeserializationError(
+            "Failed to map saved Car".into(),
+        )))
+}
+
+/// Updates one Car row on `conn`. Zero rows (removed after load) is `MissingCar`.
+pub(super) fn update_car(conn: &mut SqliteConnection, car: &Car) -> Result<(), CarWriteError> {
+    let rows = diesel::update(cars::table.filter(cars::id.eq(car.id.to_string())))
+        .set(&UpdateCarEntity::from(car))
+        .execute(conn)?;
+    if rows == 0 {
+        return Err(CarWriteError::MissingCar);
+    }
+    Ok(())
 }
 
 #[async_trait]
@@ -129,29 +177,13 @@ impl CarRepository for CarOrmCollection {
 
     async fn save(&self, car: Car) -> Result<Car, Box<dyn std::error::Error>> {
         let conn = self.pool.get().await?;
-        let new_entity = NewCarEntity::from(&car);
-        let car_id = car.id;
-
-        let result = conn
-            .interact(move |conn| -> QueryResult<CarEntity> {
-                diesel::insert_into(cars::table)
-                    .values(&new_entity)
-                    .returning(CarEntity::as_returning())
-                    .get_result(conn)
-            })
-            .await;
+        let result = conn.interact(move |conn| insert_car(conn, &car)).await;
 
         match result {
-            Ok(Ok(entity)) => entity
-                .into_domain()
-                .ok_or_else(|| "Failed to map saved Car".into()),
-            Ok(Err(e)) if is_unique_violation(&e) => Err(map_unique_error(e)),
-            Ok(Err(e)) => {
-                tracing::error!("Error saving Car {}: {}", car_id, e);
-                Err(Box::new(e))
-            }
+            Ok(Ok(saved)) => Ok(saved),
+            Ok(Err(e)) => Err(e.into_repository_error("saving")),
             Err(e) => {
-                tracing::error!("Error saving Car {}: {}", car_id, e);
+                tracing::error!("Error saving Car: {}", e);
                 Err(Box::new(e))
             }
         }
@@ -159,26 +191,14 @@ impl CarRepository for CarOrmCollection {
 
     async fn update(&self, car: Car) -> Result<Car, Box<dyn std::error::Error>> {
         let conn = self.pool.get().await?;
-        let id_str = car.id.to_string();
-        let update_entity = UpdateCarEntity::from(&car);
-        let car_for_return = car.clone();
-
+        let car_for_update = car.clone();
         let result = conn
-            .interact(move |conn| -> QueryResult<usize> {
-                diesel::update(cars::table.filter(cars::id.eq(id_str)))
-                    .set(&update_entity)
-                    .execute(conn)
-            })
+            .interact(move |conn| update_car(conn, &car_for_update))
             .await;
 
         match result {
-            Ok(Ok(rows)) if rows > 0 => Ok(car_for_return),
-            Ok(Ok(_)) => Err("Car not found for update".into()),
-            Ok(Err(e)) if is_unique_violation(&e) => Err(map_unique_error(e)),
-            Ok(Err(e)) => {
-                tracing::error!("Error updating Car: {}", e);
-                Err(Box::new(e))
-            }
+            Ok(Ok(())) => Ok(car),
+            Ok(Err(e)) => Err(e.into_repository_error("updating")),
             Err(e) => {
                 tracing::error!("Error updating Car: {}", e);
                 Err(Box::new(e))
