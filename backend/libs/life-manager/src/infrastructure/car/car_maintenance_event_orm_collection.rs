@@ -83,7 +83,7 @@ fn ensure_car_active(
 ///
 /// Run it in an IMMEDIATE transaction: the write lock stops a concurrent
 /// deactivate between the active check and the INSERT.
-pub(crate) fn insert_maintenance_event(
+pub(super) fn insert_maintenance_event(
     conn: &mut SqliteConnection,
     event: &CarMaintenanceEvent,
 ) -> Result<CarMaintenanceEvent, MaintenanceEventWriteError> {
@@ -102,7 +102,7 @@ pub(crate) fn insert_maintenance_event(
 /// Updates one owned event row on `conn`. No active-car check: history
 /// correction on inactive Cars is allowed. Zero rows (removed after load) is
 /// `EventMissing`.
-pub(crate) fn update_maintenance_event(
+pub(super) fn update_maintenance_event(
     conn: &mut SqliteConnection,
     event: &CarMaintenanceEvent,
 ) -> Result<(), MaintenanceEventWriteError> {

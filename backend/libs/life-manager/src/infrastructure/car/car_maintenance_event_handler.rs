@@ -18,11 +18,16 @@ use crate::infrastructure::car::car_maintenance_event_api_types::{
 };
 use crate::infrastructure::car::car_maintenance_event_dto::CarMaintenanceEventDto;
 use crate::infrastructure::car::car_maintenance_event_state::CarMaintenanceEventState;
-use crate::infrastructure::document::mappers::optional_new_document;
+use crate::infrastructure::document::mappers::{DocumentLinkFields, document_link_from_dto};
+
+const RECEIPT_DOCUMENT_FIELDS: DocumentLinkFields = DocumentLinkFields {
+    id: "document_id",
+    new: "new_receipt_document",
+};
 
 /// Creates a CarMaintenanceEvent for an owned active Car.
 ///
-/// Many events on the same day are allowed. Optional `document_id` must be owned.
+/// Many events on the same day are allowed. A linked `document_id` must be owned.
 /// Optional `new_receipt_document` creates the receipt Document and links it in
 /// the same IMMEDIATE transaction as the event INSERT.
 ///
@@ -33,11 +38,12 @@ use crate::infrastructure::document::mappers::optional_new_document;
 ///   | { car_id, occurred_on, event_type, ...,       |                       |
 ///   |   new_receipt_document? }                     |                       |
 ///   |-------------------->|                         |                       |
-///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | document_id + new -> 400|                       |
+///   |                     | -> DocumentLink: None / Existing(id) /          |
+///   |                     |    New(Document, owner = JWT user)              |
 ///   |                     | (bad storage -> 400)    |                       |
 ///   |                     |------------------------>|                       |
-///   |                     |                         | document_id + new -> 400
-///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned Document (when Existing)
 ///   |                     |                         | load_owned Car (else 404)
 ///   |                     |                         | CarMaintenanceEvent::create (link new id)
 ///   |                     |                         | no new: save -------->| BEGIN IMMEDIATE
@@ -62,7 +68,12 @@ pub async fn create_car_maintenance_event(
         payload.event_type
     );
     let event_type = payload.parse_event_type()?;
-    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
+    let receipt_document = document_link_from_dto(
+        payload.document_id,
+        payload.new_receipt_document,
+        user_id,
+        &RECEIPT_DOCUMENT_FIELDS,
+    )?;
     let car_id = CarId(payload.car_id);
     let event = CreateCarMaintenanceEventCommand::new(
         user_id,
@@ -73,8 +84,7 @@ pub async fn create_car_maintenance_event(
         payload.cost_cents,
         payload.title,
         payload.notes,
-        payload.document_id,
-        new_receipt_document,
+        receipt_document,
         use_cases.car_repository.clone(),
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
@@ -147,11 +157,12 @@ pub async fn get_car_maintenance_event(
 ///   | { occurred_on, event_type, ...,               |                       |
 ///   |   new_receipt_document? }                     |                       |
 ///   |-------------------->|                         |                       |
-///   |                     | new_receipt DTO -> Document (owner = JWT user)  |
+///   |                     | document_id + new -> 400|                       |
+///   |                     | -> DocumentLink: None / Existing(id) /          |
+///   |                     |    New(Document, owner = JWT user)              |
 ///   |                     | (bad storage -> 400)    |                       |
 ///   |                     |------------------------>|                       |
-///   |                     |                         | document_id + new -> 400
-///   |                     |                         | load_owned Document (when document_id set)
+///   |                     |                         | load_owned Document (when Existing)
 ///   |                     |                         | load_owned event (else 404)
 ///   |                     |                         | event.update (no active-Car check)
 ///   |                     |                         | no new: update ------>| UPDATE event
@@ -173,7 +184,12 @@ pub async fn update_car_maintenance_event(
 ) -> ApiResult<CarMaintenanceEventDto> {
     tracing::info!("Updating CarMaintenanceEvent id={}", id);
     let event_type = payload.parse_event_type()?;
-    let new_receipt_document = optional_new_document(payload.new_receipt_document, user_id)?;
+    let receipt_document = document_link_from_dto(
+        payload.document_id,
+        payload.new_receipt_document,
+        user_id,
+        &RECEIPT_DOCUMENT_FIELDS,
+    )?;
     let event = UpdateCarMaintenanceEventCommand::new(
         CarMaintenanceEventId(id),
         user_id,
@@ -183,8 +199,7 @@ pub async fn update_car_maintenance_event(
         payload.cost_cents,
         payload.title,
         payload.notes,
-        payload.document_id,
-        new_receipt_document,
+        receipt_document,
         use_cases.car_maintenance_event_repository.clone(),
         use_cases.document_repository.clone(),
         use_cases.car_maintenance_event_documents_writer.clone(),
@@ -229,7 +244,13 @@ mod tests {
     use crate::domain::car::{Car, CarProfileInput};
     use crate::infrastructure::car::car_collection::CarCollection;
     use crate::infrastructure::car::car_maintenance_event_collection::CarMaintenanceEventCollection;
-    use crate::infrastructure::car::car_maintenance_event_documents_collection::CarMaintenanceEventDocumentsCollection;
+    use async_trait::async_trait;
+
+    use crate::application::car::car_maintenance_event_documents_writer::CarMaintenanceEventDocumentsWriter;
+    use crate::application::car::car_maintenance_event_repository::CarMaintenanceEventRepository;
+    use crate::application::document::document_repository::DocumentRepository;
+    use crate::domain::car::car_maintenance_event::CarMaintenanceEvent;
+    use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::infrastructure::document::document_api_types::{
         CreateDocumentCommandDto, DocumentStorageRefDto,
@@ -819,5 +840,58 @@ mod tests {
         assert!(matches!(result, Err(AppError::Validation(_))));
         assert!(fx.events.events.lock().await.is_empty());
         assert!(fx.documents.documents.lock().await.is_empty());
+    }
+
+    /// In-memory `CarMaintenanceEventDocumentsWriter` mock for these tests. It writes the
+    /// Documents only after the event write succeeds, so a failed event write
+    /// leaves no Document.
+    struct CarMaintenanceEventDocumentsCollection {
+        car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
+        document_repository: Arc<dyn DocumentRepository>,
+    }
+
+    impl CarMaintenanceEventDocumentsCollection {
+        fn new(
+            car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
+            document_repository: Arc<dyn DocumentRepository>,
+        ) -> Self {
+            Self {
+                car_maintenance_event_repository,
+                document_repository,
+            }
+        }
+
+        async fn save_documents(
+            &self,
+            new_documents: Vec<Document>,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            for document in new_documents {
+                self.document_repository.save_document(document).await?;
+            }
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl CarMaintenanceEventDocumentsWriter for CarMaintenanceEventDocumentsCollection {
+        async fn create(
+            &self,
+            event: CarMaintenanceEvent,
+            new_documents: Vec<Document>,
+        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+            let saved = self.car_maintenance_event_repository.save(event).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
+
+        async fn update(
+            &self,
+            event: CarMaintenanceEvent,
+            new_documents: Vec<Document>,
+        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
+            let saved = self.car_maintenance_event_repository.update(event).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
     }
 }

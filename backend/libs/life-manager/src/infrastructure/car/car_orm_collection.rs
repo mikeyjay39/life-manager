@@ -73,7 +73,7 @@ impl CarWriteError {
 }
 
 /// Inserts one Car row on `conn`. The unique indexes map to duplicate errors.
-pub(crate) fn insert_car(conn: &mut SqliteConnection, car: &Car) -> Result<Car, CarWriteError> {
+pub(super) fn insert_car(conn: &mut SqliteConnection, car: &Car) -> Result<Car, CarWriteError> {
     let entity = diesel::insert_into(cars::table)
         .values(&NewCarEntity::from(car))
         .returning(CarEntity::as_returning())
@@ -86,7 +86,7 @@ pub(crate) fn insert_car(conn: &mut SqliteConnection, car: &Car) -> Result<Car, 
 }
 
 /// Updates one Car row on `conn`. Zero rows (removed after load) is `MissingCar`.
-pub(crate) fn update_car(conn: &mut SqliteConnection, car: &Car) -> Result<(), CarWriteError> {
+pub(super) fn update_car(conn: &mut SqliteConnection, car: &Car) -> Result<(), CarWriteError> {
     let rows = diesel::update(cars::table.filter(cars::id.eq(car.id.to_string())))
         .set(&UpdateCarEntity::from(car))
         .execute(conn)?;
