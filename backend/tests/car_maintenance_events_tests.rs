@@ -543,6 +543,95 @@ async fn given_no_auth_when_put_or_delete_then_401() {
     .await;
 }
 
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_new_receipt_document_when_create_event_then_201_and_receipt_stored() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let mut payload = event_payload(car.id, day(2026, 1, 15));
+        payload.new_receipt_document = Some(new_document_payload("Oil receipt", "receipt"));
+
+        // When one POST embeds the new receipt
+        let res = post_event(&server, &auth_header, payload).await;
+
+        // Then the event links it, and SQLite stores the receipt with its tag
+        assert_eq!(res.status(), StatusCode::CREATED);
+        let event = res.json::<CarMaintenanceEventDto>().await.expect("json");
+        let receipt =
+            get_document(&server, &auth_header, event.document_id.expect("receipt")).await;
+        assert_eq!(receipt.title, "Oil receipt");
+        assert_eq!(receipt.tags, vec!["receipt".to_string()]);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_event_when_put_with_new_receipt_document_then_200_and_receipt_stored() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given an event with no receipt
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        let event = create_event(&server, &auth_header, car.id, day(2026, 1, 15)).await;
+
+        // When one PUT embeds a new receipt
+        let res = put_event(
+            &server,
+            &auth_header,
+            event.id,
+            UpdateCarMaintenanceEventCommandDto {
+                occurred_on: day(2026, 1, 15),
+                event_type: "oil_change".to_string(),
+                odometer_miles: Some(50_000),
+                cost_cents: Some(5_999),
+                title: None,
+                notes: None,
+                document_id: None,
+                new_receipt_document: Some(new_document_payload("Service receipt", "receipt")),
+            },
+        )
+        .await;
+
+        // Then the event links it, and SQLite stores the receipt
+        assert_eq!(res.status(), StatusCode::OK);
+        let updated = res.json::<CarMaintenanceEventDto>().await.expect("json");
+        let receipt =
+            get_document(&server, &auth_header, updated.document_id.expect("receipt")).await;
+        assert_eq!(receipt.title, "Service receipt");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_inactive_car_when_create_event_with_new_receipt_then_400_and_no_document_stored() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given an inactive Car
+        let auth_header = build_auth_header(&server).await;
+        let car = create_car(&server, &auth_header).await;
+        deactivate_car(&server, &auth_header, car.id).await;
+        let mut payload = event_payload(car.id, day(2026, 1, 15));
+        payload.new_receipt_document = Some(new_document_payload("Orphan receipt", "receipt"));
+
+        // When an event POST embeds a new receipt
+        let res = post_event(&server, &auth_header, payload).await;
+
+        // Then the write is rejected and no Document is stored
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert!(
+            documents_with_title(&server, &auth_header, "Orphan")
+                .await
+                .is_empty()
+        );
+    })
+    .await;
+}
+
 async fn create_car(server: &TestServer, auth_header: &str) -> CarDto {
     create_car_named(server, auth_header, "Toyota", "Corolla", 2020).await
 }
@@ -719,5 +808,50 @@ async fn create_document(server: &TestServer, auth_header: &str, title: &str) ->
         .await
         .expect("create document");
     assert!(res.status().is_success());
+    res.json().await.expect("json")
+}
+
+fn new_document_payload(title: &str, tag: &str) -> CreateDocumentCommandDto {
+    CreateDocumentCommandDto {
+        title: title.to_string(),
+        content: "scan".to_string(),
+        tags: vec![tag.to_string()],
+        issued_date: None,
+        expire_date: None,
+        storage: None,
+    }
+}
+
+async fn get_document(server: &TestServer, auth_header: &str, id: Uuid) -> DocumentDto {
+    let url = server
+        .server_url(&format!("{DOCUMENTS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    let res = reqwest::Client::new()
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("get document");
+    assert_eq!(res.status(), StatusCode::OK);
+    res.json().await.expect("json")
+}
+
+async fn documents_with_title(
+    server: &TestServer,
+    auth_header: &str,
+    title_contains: &str,
+) -> Vec<DocumentDto> {
+    let url = server
+        .server_url(&format!("{DOCUMENTS_URL}?title_contains={title_contains}"))
+        .expect("url")
+        .to_string();
+    let res = reqwest::Client::new()
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("list documents");
+    assert_eq!(res.status(), StatusCode::OK);
     res.json().await.expect("json")
 }
