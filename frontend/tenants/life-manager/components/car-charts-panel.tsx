@@ -27,7 +27,7 @@ import {
 } from '@/lib/car/chart-series';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 
-import { carDisplayLabel } from './car-panel';
+import { carDisplayLabel } from './car-panel-utils';
 import { parseCarMaintenanceEventDto } from './car-maintenance-form-utils';
 
 type CarChartsPanelProps = {

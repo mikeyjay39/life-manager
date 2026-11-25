@@ -12,3 +12,8 @@ vi.mock('expo-blur', () => {
       React.createElement(View, props, children),
   };
 });
+
+/** Avoid expo-modules-core EventEmitter when tests import DocumentCreateForm. */
+vi.mock('expo-document-picker', () => ({
+  getDocumentAsync: vi.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
