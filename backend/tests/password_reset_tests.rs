@@ -42,20 +42,12 @@ async fn given_active_user_when_requesting_reset_then_generic_success_and_token_
         move |pool| async move {
             unsafe {
                 std::env::set_var("EMAIL_PROVIDER", "log");
-                std::env::set_var(
-                    "APP_PUBLIC_BASE_URL",
-                    "https://life-manager.jeszenka.com",
-                );
+                std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
             }
-            let user_id = test_support::insert_auth_user(
-                &pool,
-                email,
-                "oldpassword",
-                "life-manager",
-                true,
-            )
-            .await
-            .expect("insert user");
+            let user_id =
+                test_support::insert_auth_user(&pool, email, "oldpassword", "life-manager", true)
+                    .await
+                    .expect("insert user");
             *user_id_holder_clone.lock().unwrap() = Some(user_id);
             *pool_holder_clone.lock().unwrap() = Some(pool);
         },
@@ -63,12 +55,7 @@ async fn given_active_user_when_requesting_reset_then_generic_success_and_token_
             let res = do_request(&server, email).await.expect("request");
             assert_eq!(res.status(), StatusCode::OK);
             let body: serde_json::Value = res.json().await.expect("json");
-            assert!(
-                body["message"]
-                    .as_str()
-                    .unwrap()
-                    .contains("password reset")
-            );
+            assert!(body["message"].as_str().unwrap().contains("password reset"));
 
             let pool = pool_holder
                 .lock()
@@ -98,22 +85,14 @@ async fn given_unknown_email_when_requesting_reset_then_same_success_and_no_toke
     run_test_with_test_profile(|server: TestServer| async move {
         unsafe {
             std::env::set_var("EMAIL_PROVIDER", "log");
-            std::env::set_var(
-                "APP_PUBLIC_BASE_URL",
-                "https://life-manager.jeszenka.com",
-            );
+            std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
         }
         let res = do_request(&server, "missing@example.com")
             .await
             .expect("request");
         assert_eq!(res.status(), StatusCode::OK);
         let body: serde_json::Value = res.json().await.expect("json");
-        assert!(
-            body["message"]
-                .as_str()
-                .unwrap()
-                .contains("password reset")
-        );
+        assert!(body["message"].as_str().unwrap().contains("password reset"));
     })
     .await;
 }
@@ -133,20 +112,12 @@ async fn given_inactive_user_when_requesting_reset_then_no_token() {
         move |pool| async move {
             unsafe {
                 std::env::set_var("EMAIL_PROVIDER", "log");
-                std::env::set_var(
-                    "APP_PUBLIC_BASE_URL",
-                    "https://life-manager.jeszenka.com",
-                );
+                std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
             }
-            let user_id = test_support::insert_auth_user(
-                &pool,
-                email,
-                "oldpassword",
-                "life-manager",
-                false,
-            )
-            .await
-            .expect("insert user");
+            let user_id =
+                test_support::insert_auth_user(&pool, email, "oldpassword", "life-manager", false)
+                    .await
+                    .expect("insert user");
             *user_id_holder_clone.lock().unwrap() = Some(user_id);
             *pool_holder_clone.lock().unwrap() = Some(pool);
         },
@@ -186,20 +157,12 @@ async fn given_valid_token_when_confirming_then_password_changes_and_token_not_r
         move |pool| async move {
             unsafe {
                 std::env::set_var("EMAIL_PROVIDER", "log");
-                std::env::set_var(
-                    "APP_PUBLIC_BASE_URL",
-                    "https://life-manager.jeszenka.com",
-                );
+                std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
             }
-            let user_id = test_support::insert_auth_user(
-                &pool,
-                email,
-                old_password,
-                "life-manager",
-                true,
-            )
-            .await
-            .expect("insert user");
+            let user_id =
+                test_support::insert_auth_user(&pool, email, old_password, "life-manager", true)
+                    .await
+                    .expect("insert user");
             let raw = test_support::issue_password_reset_token(&pool, user_id, "life-manager")
                 .await
                 .expect("issue token");
@@ -248,10 +211,7 @@ async fn given_bad_token_when_confirming_then_errors_and_hash_unchanged() {
         move |pool| async move {
             unsafe {
                 std::env::set_var("EMAIL_PROVIDER", "log");
-                std::env::set_var(
-                    "APP_PUBLIC_BASE_URL",
-                    "https://life-manager.jeszenka.com",
-                );
+                std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
             }
             test_support::insert_auth_user(&pool, email, "oldpassword", "life-manager", true)
                 .await
@@ -301,7 +261,11 @@ async fn do_request(server: &TestServer, email: &str) -> Result<Response, Error>
         .await
 }
 
-async fn do_confirm(server: &TestServer, token: &str, new_password: &str) -> Result<Response, Error> {
+async fn do_confirm(
+    server: &TestServer,
+    token: &str,
+    new_password: &str,
+) -> Result<Response, Error> {
     let url = server
         .server_url(format!("{}/password-reset/confirm", AUTH_URL).as_str())
         .expect("url");

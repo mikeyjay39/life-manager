@@ -289,15 +289,7 @@ async fn given_event_type_filter_when_list_then_only_matching() {
         let res = post_event(&server, &auth_header, tire).await;
         assert_eq!(res.status(), StatusCode::CREATED);
 
-        let list = list_events(
-            &server,
-            &auth_header,
-            car.id,
-            None,
-            None,
-            Some("tire"),
-        )
-        .await;
+        let list = list_events(&server, &auth_header, car.id, None, None, Some("tire")).await;
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].event_type, "tire");
     })

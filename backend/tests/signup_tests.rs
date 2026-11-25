@@ -46,7 +46,12 @@ async fn given_valid_signup_when_creating_user_then_sends_verify_email_and_login
                 .expect("Failed to send signup request");
             assert_eq!(signup_res.status(), StatusCode::CREATED);
             let body: serde_json::Value = signup_res.json().await.expect("signup JSON");
-            assert!(body["message"].as_str().unwrap().contains("Check your email"));
+            assert!(
+                body["message"]
+                    .as_str()
+                    .unwrap()
+                    .contains("Check your email")
+            );
 
             let pool = pool_holder
                 .lock()
@@ -111,12 +116,7 @@ async fn given_signup_when_verifying_email_then_login_succeeds() {
                 .expect("Failed to send verify-email request");
             assert_eq!(verify_res.status(), StatusCode::OK);
             let verify_body: serde_json::Value = verify_res.json().await.expect("verify JSON");
-            assert!(
-                verify_body["message"]
-                    .as_str()
-                    .unwrap()
-                    .contains("sign in")
-            );
+            assert!(verify_body["message"].as_str().unwrap().contains("sign in"));
             assert!(verify_body.get("token").is_none());
 
             let reuse = do_verify_email(&server, &token)

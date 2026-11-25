@@ -108,12 +108,7 @@ mod tests {
     use super::*;
 
     fn temp_capture_dir(label: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "lm-capture-{}-{}",
-            label,
-            Uuid::new_v4()
-        ));
-        dir
+        std::env::temp_dir().join(format!("lm-capture-{}-{}", label, Uuid::new_v4()))
     }
 
     #[tokio::test]

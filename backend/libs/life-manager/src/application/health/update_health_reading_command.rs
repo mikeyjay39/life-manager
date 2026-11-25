@@ -53,12 +53,11 @@ impl UpdateHealthReadingCommand {
             .health_reading_repository
             .find_by_member_and_date(&reading.health_member_id, self.recorded_on)
             .await
+            && existing.id != reading.id
         {
-            if existing.id != reading.id {
-                return Err(AppError::Validation(
-                    "a reading already exists for this HealthMember on this date".to_string(),
-                ));
-            }
+            return Err(AppError::Validation(
+                "a reading already exists for this HealthMember on this date".to_string(),
+            ));
         }
 
         reading.update(self.recorded_on, self.vitals)?;

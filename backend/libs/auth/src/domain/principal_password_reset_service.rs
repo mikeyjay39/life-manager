@@ -274,9 +274,7 @@ mod tests {
     impl PrincipalRepository for StubRepo {
         async fn get_principal(&self, username: &str) -> Option<Box<dyn Principal>> {
             let guard = self.active.lock().unwrap();
-            let Some(principal) = guard.as_ref() else {
-                return None;
-            };
+            let principal = guard.as_ref()?;
             // Username is email for signup users; stub ignores name match beyond presence.
             let _ = username;
             Some(Box::new(StubPrincipal {
@@ -551,10 +549,12 @@ mod tests {
 
         // Then
         assert_eq!(response.message, CONFIRM_SUCCESS_MESSAGE);
-        let updates = repo.updated_hashes.lock().unwrap();
-        assert_eq!(updates.len(), 1);
-        assert_eq!(updates[0].0, user_id);
-        assert_eq!(updates[0].1, "hash:newpassword1");
+        {
+            let updates = repo.updated_hashes.lock().unwrap();
+            assert_eq!(updates.len(), 1);
+            assert_eq!(updates[0].0, user_id);
+            assert_eq!(updates[0].1, "hash:newpassword1");
+        }
 
         let reuse = service
             .confirm_reset(&PasswordResetConfirmRequest {

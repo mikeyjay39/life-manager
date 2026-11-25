@@ -4,12 +4,12 @@ mod common;
 
 use axum_test::TestServer;
 use chrono::NaiveDate;
+use life_manager::infrastructure::health::health_member_api_types::CreateHealthMemberCommandDto;
+use life_manager::infrastructure::health::health_member_dto::HealthMemberDto;
 use life_manager::infrastructure::health::health_reading_api_types::{
     CreateHealthReadingCommandDto, UpdateHealthReadingCommandDto,
 };
 use life_manager::infrastructure::health::health_reading_dto::HealthReadingDto;
-use life_manager::infrastructure::health::health_member_api_types::CreateHealthMemberCommandDto;
-use life_manager::infrastructure::health::health_member_dto::HealthMemberDto;
 use reqwest::StatusCode;
 use serial_test::serial;
 use tracing_test::traced_test;
@@ -31,12 +31,7 @@ async fn given_owned_active_member_when_create_reading_then_201_with_dto() {
         let member = create_member(&server, &auth_header, "Alex").await;
         let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
 
-        let res = post_reading(
-            &server,
-            &auth_header,
-            metric_payload(member.id, day),
-        )
-        .await;
+        let res = post_reading(&server, &auth_header, metric_payload(member.id, day)).await;
 
         assert_eq!(res.status(), StatusCode::CREATED);
         let created = res.json::<HealthReadingDto>().await.expect("json");
@@ -58,12 +53,7 @@ async fn given_inactive_member_when_create_reading_then_400_and_nothing_stored()
         deactivate_member(&server, &auth_header, member.id).await;
         let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
 
-        let res = post_reading(
-            &server,
-            &auth_header,
-            metric_payload(member.id, day),
-        )
-        .await;
+        let res = post_reading(&server, &auth_header, metric_payload(member.id, day)).await;
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
         let empty = list_readings(&server, &auth_header, member.id, None, None).await;
@@ -82,12 +72,7 @@ async fn given_other_users_member_when_create_reading_then_404_and_nothing_store
         let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
         let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
 
-        let res = post_reading(
-            &server,
-            &other_header,
-            metric_payload(member.id, day),
-        )
-        .await;
+        let res = post_reading(&server, &other_header, metric_payload(member.id, day)).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
         let list = list_readings(&server, &auth_header, member.id, None, None).await;
@@ -107,7 +92,10 @@ async fn given_no_auth_when_create_reading_then_401() {
             .to_string();
         let res = reqwest::Client::new()
             .post(url)
-            .json(&metric_payload(Uuid::new_v4(), NaiveDate::from_ymd_opt(2026, 1, 15).unwrap()))
+            .json(&metric_payload(
+                Uuid::new_v4(),
+                NaiveDate::from_ymd_opt(2026, 1, 15).unwrap(),
+            ))
             .send()
             .await
             .expect("request");
@@ -152,12 +140,7 @@ async fn given_duplicate_date_when_create_then_400_and_existing_unchanged() {
         let member = create_member(&server, &auth_header, "Alex").await;
         let day = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
 
-        let first_res = post_reading(
-            &server,
-            &auth_header,
-            metric_payload(member.id, day),
-        )
-        .await;
+        let first_res = post_reading(&server, &auth_header, metric_payload(member.id, day)).await;
         assert_eq!(first_res.status(), StatusCode::CREATED);
         let first = first_res.json::<HealthReadingDto>().await.expect("json");
 
@@ -514,11 +497,7 @@ async fn put_reading(
         .expect("put reading")
 }
 
-async fn delete_reading(
-    server: &TestServer,
-    auth_header: &str,
-    id: Uuid,
-) -> reqwest::Response {
+async fn delete_reading(server: &TestServer, auth_header: &str, id: Uuid) -> reqwest::Response {
     let url = server
         .server_url(&format!("{HEALTH_READINGS_URL}/{id}"))
         .expect("url")
