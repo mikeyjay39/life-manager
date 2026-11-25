@@ -241,7 +241,7 @@ pub async fn delete_car(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::Arc;
 
     use axum::body::to_bytes;
@@ -250,6 +250,7 @@ mod tests {
     use axum::response::IntoResponse;
     use axum::Json;
     use serde_json::from_slice;
+    use tokio::sync::Mutex;
     use uuid::Uuid;
 
     use super::*;
@@ -260,13 +261,14 @@ mod tests {
     use crate::infrastructure::document::document_api_types::{
         CreateDocumentCommandDto, DocumentStorageRefDto,
     };
-    use crate::infrastructure::car::car_collection::CarCollection;
     use async_trait::async_trait;
 
     use crate::application::car::car_documents_writer::CarDocumentsWriter;
-    use crate::application::car::car_repository::CarRepository;
-    use crate::domain::car::Car;
-    use crate::infrastructure::document::document_collection::DocumentCollection;
+    use crate::application::car::car_repository::{
+        CarRepository, DuplicateCarLicensePlate, DuplicateCarVin, MissingCar,
+    };
+    use crate::domain::car::{Car, CarId};
+    use crate::infrastructure::document::document_handler::tests::DocumentCollection;
 
     const SAMPLE_VIN: &str = "1HGCM82633A004352";
 
@@ -1200,6 +1202,156 @@ mod tests {
             let saved = self.car_repository.update(car).await?;
             self.save_documents(new_documents).await?;
             Ok(saved)
+        }
+    }
+
+    /// In-memory `CarRepository` for handler tests.
+    pub(crate) struct CarCollection {
+        pub(crate) cars: Mutex<Vec<Car>>,
+    }
+
+    impl CarCollection {
+        pub(crate) fn new() -> Self {
+            Self {
+                cars: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl Default for CarCollection {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    #[async_trait]
+    impl CarRepository for CarCollection {
+        async fn get_by_id(&self, id: &CarId) -> Option<Car> {
+            self.cars
+                .lock()
+                .await
+                .iter()
+                .find(|c| c.id == *id)
+                .cloned()
+        }
+
+        async fn list_by_owner(&self, user_id: &Uuid, include_inactive: bool) -> Vec<Car> {
+            let mut cars: Vec<Car> = self
+                .cars
+                .lock()
+                .await
+                .iter()
+                .filter(|c| c.user_id == *user_id)
+                .filter(|c| include_inactive || c.active)
+                .cloned()
+                .collect();
+            cars.sort_by(|a, b| {
+                a.make
+                    .cmp(&b.make)
+                    .then_with(|| a.model.cmp(&b.model))
+                    .then_with(|| a.year.cmp(&b.year))
+                    .then_with(|| a.id.0.cmp(&b.id.0))
+            });
+            cars
+        }
+
+        async fn save(&self, car: Car) -> Result<Car, Box<dyn std::error::Error>> {
+            if let Some(vin) = &car.vin
+                && self
+                    .find_owned_by_vin(&car.user_id, vin, None)
+                    .await
+                    .is_some()
+            {
+                return Err(Box::new(DuplicateCarVin));
+            }
+            if let Some(plate) = &car.license_plate
+                && self
+                    .find_owned_by_license_plate(&car.user_id, plate, None)
+                    .await
+                    .is_some()
+            {
+                return Err(Box::new(DuplicateCarLicensePlate));
+            }
+            self.cars.lock().await.push(car.clone());
+            Ok(car)
+        }
+
+        async fn update(&self, car: Car) -> Result<Car, Box<dyn std::error::Error>> {
+            if let Some(vin) = &car.vin
+                && self
+                    .find_owned_by_vin(&car.user_id, vin, Some(&car.id))
+                    .await
+                    .is_some()
+            {
+                return Err(Box::new(DuplicateCarVin));
+            }
+            if let Some(plate) = &car.license_plate
+                && self
+                    .find_owned_by_license_plate(&car.user_id, plate, Some(&car.id))
+                    .await
+                    .is_some()
+            {
+                return Err(Box::new(DuplicateCarLicensePlate));
+            }
+            let mut cars = self.cars.lock().await;
+            let index = cars
+                .iter()
+                .position(|c| c.id == car.id)
+                .ok_or("Car not found")?;
+            cars[index] = car.clone();
+            Ok(car)
+        }
+
+        async fn delete(&self, id: &CarId) -> Result<(), Box<dyn std::error::Error>> {
+            let mut cars = self.cars.lock().await;
+            let index = cars.iter().position(|c| c.id == *id).ok_or(MissingCar)?;
+            cars.remove(index);
+            Ok(())
+        }
+
+        async fn load_owned(&self, id: &CarId, user_id: &Uuid) -> Option<Car> {
+            self.cars
+                .lock()
+                .await
+                .iter()
+                .find(|c| c.id == *id && c.user_id == *user_id)
+                .cloned()
+        }
+
+        async fn find_owned_by_vin(
+            &self,
+            user_id: &Uuid,
+            vin: &str,
+            exclude_id: Option<&CarId>,
+        ) -> Option<Car> {
+            self.cars
+                .lock()
+                .await
+                .iter()
+                .find(|c| {
+                    c.user_id == *user_id
+                        && c.vin.as_deref() == Some(vin)
+                        && exclude_id.is_none_or(|ex| c.id != *ex)
+                })
+                .cloned()
+        }
+
+        async fn find_owned_by_license_plate(
+            &self,
+            user_id: &Uuid,
+            license_plate: &str,
+            exclude_id: Option<&CarId>,
+        ) -> Option<Car> {
+            self.cars
+                .lock()
+                .await
+                .iter()
+                .find(|c| {
+                    c.user_id == *user_id
+                        && c.license_plate.as_deref() == Some(license_plate)
+                        && exclude_id.is_none_or(|ex| c.id != *ex)
+                })
+                .cloned()
         }
     }
 }

@@ -179,6 +179,19 @@ pub async fn delete_health_reading(
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+    use tokio::sync::Mutex;
+
+    use crate::{
+        application::health::health_reading_repository::{
+            DuplicateHealthReadingDate, HealthReadingRepository, MissingHealthReading,
+        },
+        domain::{
+            health::health_member::HealthMemberId,
+            health::health_reading::{HealthReading, HealthReadingId},
+        },
+    };
+
     use std::sync::Arc;
 
     use axum::body::to_bytes;
@@ -195,9 +208,8 @@ mod tests {
     use crate::application::health::health_member_use_cases::HealthMemberUseCases;
     use crate::application::health::health_reading_use_cases::HealthReadingUseCases;
     use crate::domain::health::health_member::HealthMember;
-    use crate::infrastructure::health::health_reading_collection::HealthReadingCollection;
     use crate::infrastructure::health::health_member_api_types::CreateHealthMemberCommandDto;
-    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
+    use crate::infrastructure::health::health_member_handler::tests::HealthMemberCollection;
     use crate::infrastructure::health::health_member_handler::create_health_member;
     use crate::infrastructure::health::health_member_state::HealthMemberState;
 
@@ -702,5 +714,127 @@ mod tests {
         )
         .await;
         assert!(matches!(second, Err(AppError::NotFound)));
+    }
+
+    /// In-memory `HealthReadingRepository` for handler tests.
+    struct HealthReadingCollection {
+        readings: Mutex<Vec<HealthReading>>,
+    }
+
+    impl HealthReadingCollection {
+        fn new() -> Self {
+            Self {
+                readings: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl Default for HealthReadingCollection {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    #[async_trait]
+    impl HealthReadingRepository for HealthReadingCollection {
+        async fn get_by_id(&self, id: &HealthReadingId) -> Option<HealthReading> {
+            self.readings
+                .lock()
+                .await
+                .iter()
+                .find(|r| r.id == *id)
+                .cloned()
+        }
+
+        async fn list_by_member(
+            &self,
+            health_member_id: &HealthMemberId,
+            user_id: &Uuid,
+            from: Option<NaiveDate>,
+            to: Option<NaiveDate>,
+        ) -> Vec<HealthReading> {
+            let mut readings: Vec<HealthReading> = self
+                .readings
+                .lock()
+                .await
+                .iter()
+                .filter(|r| r.health_member_id == *health_member_id && r.user_id == *user_id)
+                .filter(|r| from.is_none_or(|f| r.recorded_on >= f))
+                .filter(|r| to.is_none_or(|t| r.recorded_on <= t))
+                .cloned()
+                .collect();
+            readings.sort_by(|a, b| {
+                b.recorded_on
+                    .cmp(&a.recorded_on)
+                    .then_with(|| b.id.0.cmp(&a.id.0))
+            });
+            readings
+        }
+
+        async fn find_by_member_and_date(
+            &self,
+            health_member_id: &HealthMemberId,
+            recorded_on: NaiveDate,
+        ) -> Option<HealthReading> {
+            self.readings
+                .lock()
+                .await
+                .iter()
+                .find(|r| r.health_member_id == *health_member_id && r.recorded_on == recorded_on)
+                .cloned()
+        }
+
+        async fn save(
+            &self,
+            reading: HealthReading,
+        ) -> Result<HealthReading, Box<dyn std::error::Error>> {
+            let mut readings = self.readings.lock().await;
+            if readings.iter().any(|r| {
+                r.health_member_id == reading.health_member_id && r.recorded_on == reading.recorded_on
+            }) {
+                return Err(Box::new(DuplicateHealthReadingDate));
+            }
+            readings.push(reading.clone());
+            Ok(reading)
+        }
+
+        async fn update(
+            &self,
+            reading: HealthReading,
+        ) -> Result<HealthReading, Box<dyn std::error::Error>> {
+            let mut readings = self.readings.lock().await;
+            if readings.iter().any(|r| {
+                r.id != reading.id
+                    && r.health_member_id == reading.health_member_id
+                    && r.recorded_on == reading.recorded_on
+            }) {
+                return Err(Box::new(DuplicateHealthReadingDate));
+            }
+            let index = readings
+                .iter()
+                .position(|r| r.id == reading.id)
+                .ok_or(MissingHealthReading)?;
+            readings[index] = reading.clone();
+            Ok(reading)
+        }
+
+        async fn delete(&self, id: &HealthReadingId) -> Result<(), Box<dyn std::error::Error>> {
+            let mut readings = self.readings.lock().await;
+            let index = readings
+                .iter()
+                .position(|r| r.id == *id)
+                .ok_or(MissingHealthReading)?;
+            readings.remove(index);
+            Ok(())
+        }
+
+        async fn load_owned(&self, id: &HealthReadingId, user_id: &Uuid) -> Option<HealthReading> {
+            self.readings
+                .lock()
+                .await
+                .iter()
+                .find(|r| r.id == *id && r.user_id == *user_id)
+                .cloned()
+        }
     }
 }

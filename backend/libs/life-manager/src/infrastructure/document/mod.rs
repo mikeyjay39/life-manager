@@ -1,6 +1,4 @@
 pub mod document_api_types;
-#[cfg(test)]
-pub(crate) mod document_collection;
 pub mod document_dto;
 pub mod document_entity;
 pub mod document_handler;
