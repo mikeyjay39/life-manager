@@ -64,26 +64,21 @@ try {
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${outDir}/02-after-login.png`, fullPage: true });
 
-  const docsHeading = page.getByText('Your documents');
+  // After login the app opens on the manager hub. Open Documents from its hub tile.
+  const documentsTile = page.locator('[aria-label="Documents"]:visible');
   const loginStill = page.getByLabel('Sign in button');
-  if (await docsHeading.count()) {
-    result.login = 'pass';
-    result.notes.push('Saw "Your documents" after login');
-  } else if (await loginStill.count()) {
+  if (!(await documentsTile.count()) && (await loginStill.count())) {
     const alert = page.getByRole('alert');
     const alertText = (await alert.count()) ? await alert.innerText() : '(no alert)';
     result.notes.push(`Login form still present; alert=${alertText}`);
-    throw new Error('Login did not reach documents UI');
-  } else {
-    await page.goto(BASE, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
-    if (await docsHeading.count()) {
-      result.login = 'pass';
-    } else {
-      result.notes.push('No documents heading after navigation');
-      throw new Error('Could not confirm login');
-    }
+    throw new Error('Login did not reach the manager hub');
   }
+  await documentsTile.first().waitFor({ state: 'visible' });
+  result.login = 'pass';
+  result.notes.push('Saw the manager hub after login');
+
+  await documentsTile.first().click();
+  await page.locator('[aria-label="Document list section"]:visible').first().waitFor({ state: 'visible' });
 
   await page.screenshot({ path: `${outDir}/03-documents.png`, fullPage: true });
 

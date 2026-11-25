@@ -20,11 +20,11 @@ Parent hub: [../../AGENTS.md](../../AGENTS.md). Routing diagrams: [../architectu
 | `POST /test-tenant/api/v1/auth/password-reset/request` | Password-reset request (test-tenant pilot) |
 | `POST /test-tenant/api/v1/auth/password-reset/confirm` | Password-reset confirm (test-tenant pilot) |
 | `GET /test-tenant/api/v1/auth/protected` | Auth smoke test (test-tenant pilot) |
-| `POST /life-manager/api/v1/documents/` | Multipart: `json` (CreateDocumentCommand) + `file` |
+| `POST /life-manager/api/v1/documents` | Multipart: `json` (CreateDocumentCommand) + `file` |
 | `POST /life-manager/api/v1/documents/json` | JSON body: CreateDocumentCommand with required `storage` (Proton Drive ref); no file/OCR — see [Proton upload workflow](../development_faq.md#upload-workflow) |
 | `GET /life-manager/api/v1/documents/{id}` | Single document (owner only; other users receive 404) |
 | `DELETE /life-manager/api/v1/documents/{id}` | Hard-delete owned document (204); other users / missing → 404. Proton Drive trash is client-side before this call when `storage` exists — see [delete workflow](../development_faq.md#delete-workflow) |
-| `GET /life-manager/api/v1/documents/` | List owned docs. `title` = keyset cursor (`title >` value). `title_contains` = case-insensitive substring on title. |
+| `GET /life-manager/api/v1/documents` | List owned docs. `title` = keyset cursor (`title >` value). `title_contains` = case-insensitive substring on title. |
 | `PUT /life-manager/api/v1/documents/json/{id}` | JSON body: UpdateDocumentCommand; optional `storage` replaces Proton ref; `storage: null` keeps existing |
 | `PUT /life-manager/api/v1/documents/{id}` | Multipart: `json` (UpdateDocumentCommand) + optional `file` (OCR on native) |
 | `POST /life-manager/api/v1/health-members` | JSON: CreateHealthMemberCommand (`display_name` required, trimmed, max 100; optional `birth_date` YYYY-MM-DD, not future; optional `notes` max 2000). Creates `active=true`. JWT. No hard-delete in MVP. |
