@@ -55,7 +55,6 @@ import {
   carFormDraftLabel,
   createdCarDocuments,
   existingLinkId,
-  newCarDocumentField,
   parseCarDto,
   parseOwnedDocumentDto,
   unicodeScalarLength,
@@ -992,12 +991,17 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       setLinkingDocument(true);
       clearError();
       try {
+        // Each PUT replaces both links, so the other role keeps its current link.
+        const links: CarDocumentLinks = {
+          ...carDocumentLinksFromCar(car),
+          [role]: { kind: 'new', draft },
+        };
         const payload: UpdateCarCommand = {
           make: car.make,
           model: car.model,
           year: car.year,
           active: null,
-          ...newCarDocumentField(role, draft),
+          ...carDocumentRequestFields(links),
         };
         const response = await authenticatedFetch(`/cars/${carId}`, {
           method: 'PUT',
@@ -1024,11 +1028,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           upsertCarLocally(updated);
           selectCar(updated);
         }
-        const links: CarDocumentLinks = {
-          insurance: null,
-          registration: null,
-          [role]: { kind: 'new', draft },
-        };
         await Promise.all([load(), recordCreatedDocuments(updated, links)]);
         reselectSavedCar(updated);
         showSuccess(
@@ -1317,10 +1316,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setReactivatingId(car.id);
     clearError();
     try {
+      // Each PUT replaces the Document links, so send the current ones.
       const payload: UpdateCarCommand = {
         make: car.make,
         model: car.model,
         year: car.year,
+        insurance_document_id: car.insurance_document_id,
+        registration_document_id: car.registration_document_id,
         active: true,
       };
       const response = await authenticatedFetch(`/cars/${car.id}`, {

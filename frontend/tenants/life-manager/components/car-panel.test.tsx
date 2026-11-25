@@ -693,7 +693,7 @@ describe('CarPanel', () => {
       expect(screen.getByLabelText('Prefill tags').props.children).toBe(role);
       fireEvent.press(screen.getByLabelText('Submit mocked document create'));
 
-      // Then one PUT carries only the new Document and the required fields
+      // Then one PUT carries the new Document, both link fields, and the required fields
       await waitFor(() => expect(screen.getByLabelText(`Linked ${role} document ${title}`)).toBeTruthy());
       expect(screen.queryByLabelText('Document create form')).toBeNull();
       const writes = writeBodies();
@@ -704,6 +704,8 @@ describe('CarPanel', () => {
         model: 'Corolla',
         year: 2018,
         active: null,
+        insurance_document_id: null,
+        registration_document_id: null,
         [`new_${role}_document`]: {
           title,
           content: 'Scan',
@@ -716,6 +718,81 @@ describe('CarPanel', () => {
       expect(callsTo('/documents/d-created')).toHaveLength(0);
     }
   );
+
+  it('given a saved Car with a registration link when an insurance Document is created then the PUT keeps the registration link', async () => {
+    // Given a saved Car with only a registration link
+    const registration = document({ id: 'd-reg', title: 'Registration card' });
+    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, registration_document_id: 'd-reg' });
+    const after = car({ ...before, insurance_document_id: 'd-created' });
+    mockInitialLoads([before], [registration]);
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c1' && init?.method === 'PUT') {
+        return jsonResponse(after);
+      }
+      if (path.startsWith('/cars')) {
+        return jsonResponse([after]);
+      }
+      return jsonResponse([registration]);
+    });
+
+    // When the user creates an insurance Document from the Car detail
+    fireEvent.press(screen.getByLabelText('Create insurance document'));
+    await waitFor(() => expect(screen.getByLabelText('Document create form')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
+
+    // Then the PUT sends the registration id, because each PUT replaces both links
+    await waitFor(() => expect(writeBodies()).toHaveLength(1));
+    expect(writeBodies()[0].body).toMatchObject({
+      insurance_document_id: null,
+      registration_document_id: 'd-reg',
+      new_insurance_document: { title: '2018 Toyota Corolla insurance' },
+    });
+  });
+
+  it('given an inactive Car with Document links when reactivated then the PUT sends both links', async () => {
+    // Given an inactive Car with both links
+    const inactive = car({
+      id: 'c-in',
+      make: 'Kia',
+      model: 'Soul',
+      year: 2016,
+      active: false,
+      deactivated_at: '2026-02-01T00:00:00Z',
+      insurance_document_id: 'd-ins',
+      registration_document_id: 'd-reg',
+    });
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c-in' && init?.method === 'PUT') {
+        return jsonResponse({ ...inactive, active: true, deactivated_at: null });
+      }
+      if (typeof path === 'string' && path.includes('include_inactive=true')) {
+        return jsonResponse([inactive]);
+      }
+      return jsonResponse([]);
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Include inactive Cars')).toBeTruthy());
+    fireEvent(screen.getByLabelText('Include inactive Cars'), 'valueChange', true);
+    await waitFor(() => expect(screen.getByLabelText('Select inactive Car 2016 Kia Soul')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select inactive Car 2016 Kia Soul'));
+
+    // When the user reactivates the Car
+    fireEvent.press(screen.getByLabelText('Reactivate Car'));
+
+    // Then the PUT keeps both links, because each PUT replaces them
+    await waitFor(() => expect(writeBodies()).toHaveLength(1));
+    expect(writeBodies()[0].body).toEqual({
+      make: 'Kia',
+      model: 'Soul',
+      year: 2016,
+      insurance_document_id: 'd-ins',
+      registration_document_id: 'd-reg',
+      active: true,
+    });
+  });
 
   it('Scenario: Confirm before replace existing insurance link', async () => {
     // Given a saved Car with an insurance link
