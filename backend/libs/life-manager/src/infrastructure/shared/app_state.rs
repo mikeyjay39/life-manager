@@ -13,8 +13,10 @@ use crate::{
     },
     domain::document::document_text_reader::DocumentTextReader,
     infrastructure::{
-        car::car_orm_collection::CarOrmCollection,
+        car::car_documents_orm_collection::CarDocumentsOrmCollection,
+        car::car_maintenance_event_documents_orm_collection::CarMaintenanceEventDocumentsOrmCollection,
         car::car_maintenance_event_orm_collection::CarMaintenanceEventOrmCollection,
+        car::car_orm_collection::CarOrmCollection,
         shared::db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
         health::doctor_visit_orm_collection::DoctorVisitOrmCollection,
         document::document_orm_collection::DocumentOrmCollection,
@@ -118,16 +120,20 @@ impl LifeManagerStateBuilder {
             None => Arc::new(CarUseCases {
                 car_repository: Arc::new(CarOrmCollection::new(pool.clone())),
                 document_repository: document_use_cases.document_repository.clone(),
+                car_documents_writer: Arc::new(CarDocumentsOrmCollection::new(pool.clone())),
             }),
         };
         let car_maintenance_event_use_cases = match deps.car_maintenance_event_use_cases {
             Some(use_cases) => use_cases,
             None => Arc::new(CarMaintenanceEventUseCases {
                 car_maintenance_event_repository: Arc::new(CarMaintenanceEventOrmCollection::new(
-                    pool,
+                    pool.clone(),
                 )),
                 car_repository: car_use_cases.car_repository.clone(),
                 document_repository: document_use_cases.document_repository.clone(),
+                car_maintenance_event_documents_writer: Arc::new(
+                    CarMaintenanceEventDocumentsOrmCollection::new(pool),
+                ),
             }),
         };
         Ok(LifeManagerState {

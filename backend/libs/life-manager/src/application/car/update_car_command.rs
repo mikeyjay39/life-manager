@@ -5,8 +5,13 @@ use uuid::Uuid;
 
 use crate::{
     application::{
-        car::car_repository::{CarRepository, DuplicateCarLicensePlate, DuplicateCarVin},
-        car::create_car_command::{ensure_unique_identity, verify_owned_document_links},
+        car::car_documents_writer::CarDocumentsWriter,
+        car::car_repository::CarRepository,
+        car::create_car_command::{
+            ensure_unique_identity, map_car_write_error, new_documents_to_create,
+            verify_owned_document_links,
+        },
+        car::document_link::DocumentLink,
         document::document_repository::DocumentRepository,
     },
     domain::car::{Car, CarId, CarProfileInput},
@@ -22,12 +27,15 @@ pub struct UpdateCarCommand {
     vin: Option<Option<String>>,
     license_plate: Option<Option<String>>,
     notes: Option<Option<String>>,
-    insurance_document_id: Option<Option<Uuid>>,
-    registration_document_id: Option<Option<Uuid>>,
+    /// Replaces the stored insurance link.
+    insurance_document: DocumentLink,
+    /// Replaces the stored registration link.
+    registration_document: DocumentLink,
     /// When set, reactivate (`true`) or deactivate (`false`). When `None`, leave active state.
     active: Option<bool>,
     car_repository: Arc<dyn CarRepository>,
     document_repository: Arc<dyn DocumentRepository>,
+    car_documents_writer: Arc<dyn CarDocumentsWriter>,
 }
 
 impl UpdateCarCommand {
@@ -42,11 +50,12 @@ impl UpdateCarCommand {
         vin: Option<Option<String>>,
         license_plate: Option<Option<String>>,
         notes: Option<Option<String>>,
-        insurance_document_id: Option<Option<Uuid>>,
-        registration_document_id: Option<Option<Uuid>>,
+        insurance_document: DocumentLink,
+        registration_document: DocumentLink,
         active: Option<bool>,
         car_repository: Arc<dyn CarRepository>,
         document_repository: Arc<dyn DocumentRepository>,
+        car_documents_writer: Arc<dyn CarDocumentsWriter>,
     ) -> Self {
         Self {
             car_id,
@@ -58,11 +67,12 @@ impl UpdateCarCommand {
             vin,
             license_plate,
             notes,
-            insurance_document_id,
-            registration_document_id,
+            insurance_document,
+            registration_document,
             active,
             car_repository,
             document_repository,
+            car_documents_writer,
         }
     }
 
@@ -91,31 +101,11 @@ impl UpdateCarCommand {
             None => car.notes.clone(),
             Some(v) => v.clone(),
         };
-        let insurance_document_id = match self.insurance_document_id {
-            None => car.insurance_document_id,
-            Some(v) => v,
-        };
-        let registration_document_id = match self.registration_document_id {
-            None => car.registration_document_id,
-            Some(v) => v,
-        };
-
-        // Only verify Document ownership when the client sets a new id.
-        // Omit (keep) must not re-check: a later Document hard-delete must not
-        // block unrelated Car field updates. Clear (`null`) needs no check.
-        let insurance_to_verify = match self.insurance_document_id {
-            Some(Some(id)) => Some(id),
-            _ => None,
-        };
-        let registration_to_verify = match self.registration_document_id {
-            Some(Some(id)) => Some(id),
-            _ => None,
-        };
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
-            insurance_to_verify,
-            registration_to_verify,
+            (&self.insurance_document, car.insurance_document_id),
+            (&self.registration_document, car.registration_document_id),
         )
         .await?;
 
@@ -127,8 +117,8 @@ impl UpdateCarCommand {
             vin: vin.as_deref(),
             license_plate: license_plate.as_deref(),
             notes: notes.as_deref(),
-            insurance_document_id,
-            registration_document_id,
+            insurance_document_id: self.insurance_document.linked_id(),
+            registration_document_id: self.registration_document.linked_id(),
         })?;
 
         match self.active {
@@ -139,18 +129,13 @@ impl UpdateCarCommand {
 
         ensure_unique_identity(&self.car_repository, &car, Some(&car.id)).await?;
 
-        match self.car_repository.update(car).await {
-            Ok(saved) => Ok(saved),
-            Err(e) => {
-                if e.downcast_ref::<DuplicateCarVin>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                if e.downcast_ref::<DuplicateCarLicensePlate>().is_some() {
-                    return Err(AppError::Validation(e.to_string()));
-                }
-                tracing::error!("Error updating Car: {}", e);
-                Err(AppError::from(e))
-            }
-        }
+        let new_documents =
+            new_documents_to_create(self.insurance_document, self.registration_document);
+        let updated = if new_documents.is_empty() {
+            self.car_repository.update(car).await
+        } else {
+            self.car_documents_writer.update(car, new_documents).await
+        };
+        updated.map_err(|e| map_car_write_error(e, "updating"))
     }
 }

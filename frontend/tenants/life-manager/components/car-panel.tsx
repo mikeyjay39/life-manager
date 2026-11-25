@@ -1016,10 +1016,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setReactivatingId(car.id);
     clearError();
     try {
+      // Each PUT replaces the Document links, so send the current ones.
       const payload: UpdateCarCommand = {
         make: car.make,
         model: car.model,
         year: car.year,
+        insurance_document_id: car.insurance_document_id,
+        registration_document_id: car.registration_document_id,
         active: true,
       };
       const response = await authenticatedFetch(`/cars/${car.id}`, {
