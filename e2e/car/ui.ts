@@ -1,7 +1,9 @@
 // Car Manager UI helpers shared by the Car e2e specs.
 import { expect, type Page } from '@playwright/test';
 
-import { visibleLabel } from '../helpers/ui';
+import { createEphemeralUser, type EphemeralUser } from '../helpers/auth';
+import { assertEmailProviderIsCapture } from '../helpers/env';
+import { signInToHub, visibleLabel } from '../helpers/ui';
 
 /** Open Car Manager from the hub and wait for the Cars section. */
 export async function openCarManager(page: Page): Promise<void> {
@@ -12,6 +14,18 @@ export async function openCarManager(page: Page): Promise<void> {
   await expect(visibleLabel(page, 'Cars section')).toBeVisible({
     timeout: 30_000,
   });
+}
+
+/**
+ * Sign in a new capture-mail user (no Resend) through the login UI and open
+ * Car Manager.
+ */
+export async function signInToCarManager(page: Page): Promise<EphemeralUser> {
+  assertEmailProviderIsCapture();
+  const user = await createEphemeralUser();
+  await signInToHub(page, user.email, user.password);
+  await openCarManager(page);
+  return user;
 }
 
 export function uniqueStamp(): string {

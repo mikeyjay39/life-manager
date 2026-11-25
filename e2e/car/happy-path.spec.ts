@@ -1,14 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { createEphemeralUser } from '../helpers/auth';
-import { assertEmailProviderIsCapture } from '../helpers/env';
-import {
-  screenshotProof,
-  signInToHub,
-  utcYmd,
-  visibleLabel,
-} from '../helpers/ui';
-import { createAndSelectCar, openCarManager, uniqueStamp } from './ui';
+import { screenshotProof, utcYmd, visibleLabel } from '../helpers/ui';
+import { createAndSelectCar, signInToCarManager, uniqueStamp } from './ui';
 
 /**
  * Car Manager happy path (#257).
@@ -28,8 +21,7 @@ import { createAndSelectCar, openCarManager, uniqueStamp } from './ui';
 test.describe('Car Manager happy path', () => {
   test('create Car and maintenance event via UI', async ({ page }, testInfo) => {
     // Given — capture mail ephemeral user (no Resend)
-    assertEmailProviderIsCapture();
-    const user = await createEphemeralUser();
+    await signInToCarManager(page);
     const stamp = uniqueStamp();
     const make = 'Toyota';
     const model = `E2E-${stamp}`;
@@ -37,9 +29,6 @@ test.describe('Car Manager happy path', () => {
     const carLabel = `${year} ${make} ${model}`;
     const eventDate = utcYmd(0);
     const eventTitle = `e2e-oil-${stamp}`;
-
-    await signInToHub(page, user.email, user.password);
-    await openCarManager(page);
 
     // When — create Car (make/model/year; leave VIN/plate empty)
     await visibleLabel(page, 'Create Car').click();
@@ -79,14 +68,11 @@ test.describe('Car Manager happy path', () => {
 
   test('edit Car fields via UI', async ({ page }, testInfo) => {
     // Given — capture mail ephemeral user and a selected Car
-    assertEmailProviderIsCapture();
-    const user = await createEphemeralUser();
+    await signInToCarManager(page);
     const stamp = uniqueStamp();
     const editedModel = `E2E-edited-${stamp}`;
     const editedYear = '2020';
 
-    await signInToHub(page, user.email, user.password);
-    await openCarManager(page);
     const { make, carLabel: originalLabel } = await createAndSelectCar(page, {
       modelPrefix: 'E2E-edit',
     });
@@ -118,11 +104,8 @@ test.describe('Car Manager happy path', () => {
 
   test('deactivate Car via UI', async ({ page }, testInfo) => {
     // Given — capture mail ephemeral user and a selected Car
-    assertEmailProviderIsCapture();
-    const user = await createEphemeralUser();
+    await signInToCarManager(page);
 
-    await signInToHub(page, user.email, user.password);
-    await openCarManager(page);
     const { carLabel } = await createAndSelectCar(page, {
       modelPrefix: 'E2E-deact',
     });
@@ -155,11 +138,8 @@ test.describe('Car Manager happy path', () => {
 
   test('delete Car via UI', async ({ page }, testInfo) => {
     // Given — capture mail ephemeral user and a selected Car
-    assertEmailProviderIsCapture();
-    const user = await createEphemeralUser();
+    await signInToCarManager(page);
 
-    await signInToHub(page, user.email, user.password);
-    await openCarManager(page);
     const { carLabel } = await createAndSelectCar(page, {
       modelPrefix: 'E2E-del',
     });

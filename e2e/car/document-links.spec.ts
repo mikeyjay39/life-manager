@@ -2,15 +2,13 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { loginForApi, seedOwnedDocument } from '../documents/seed';
 import { attachNoResendNoProtonGuard } from '../documents/ui';
-import { createEphemeralUser, type EphemeralUser } from '../helpers/auth';
-import { apiBaseUrl, assertEmailProviderIsCapture } from '../helpers/env';
+import { apiBaseUrl } from '../helpers/env';
+import { screenshotProof, utcYmd, visibleLabel } from '../helpers/ui';
 import {
-  screenshotProof,
-  signInToHub,
-  utcYmd,
-  visibleLabel,
-} from '../helpers/ui';
-import { createAndSelectCar, openCarManager, uniqueStamp } from './ui';
+  createAndSelectCar,
+  signInToCarManager,
+  uniqueStamp,
+} from './ui';
 
 /**
  * Car Document links happy paths (epic #298).
@@ -83,15 +81,10 @@ async function submitDocumentDraft(
   await form.getByLabel('Submit', { exact: true }).click();
 }
 
-async function signInToCarManager(
-  page: Page
-): Promise<{ user: EphemeralUser; token: string }> {
-  assertEmailProviderIsCapture();
-  const user = await createEphemeralUser();
-  const token = await loginForApi(user.email, user.password);
-  await signInToHub(page, user.email, user.password);
-  await openCarManager(page);
-  return { user, token };
+/** Sign in to Car Manager, and get an API token for seeds and checks. */
+async function signInWithApiToken(page: Page): Promise<string> {
+  const user = await signInToCarManager(page);
+  return loginForApi(user.email, user.password);
 }
 
 test.describe('Car Document links happy paths', () => {
@@ -109,7 +102,7 @@ test.describe('Car Document links happy paths', () => {
     page,
   }, testInfo) => {
     // Given — a signed-in user who owns one Document
-    const { token } = await signInToCarManager(page);
+    const token = await signInWithApiToken(page);
     const seeded = await seedOwnedDocument({
       token,
       title: `e2e-registration-${uniqueStamp()}`,
@@ -162,7 +155,7 @@ test.describe('Car Document links happy paths', () => {
     page,
   }, testInfo) => {
     // Given — a saved Car with no Document links
-    const { token } = await signInToCarManager(page);
+    const token = await signInWithApiToken(page);
     const { carLabel } = await createAndSelectCar(page, {
       modelPrefix: 'E2E-detail',
     });
@@ -185,7 +178,7 @@ test.describe('Car Document links happy paths', () => {
     page,
   }, testInfo) => {
     // Given — a saved Car and an open maintenance event form
-    const { token } = await signInToCarManager(page);
+    const token = await signInWithApiToken(page);
     const { carLabel } = await createAndSelectCar(page, {
       modelPrefix: 'E2E-receipt',
     });
