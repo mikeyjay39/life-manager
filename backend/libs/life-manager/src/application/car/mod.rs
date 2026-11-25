@@ -9,6 +9,7 @@ pub mod create_car_maintenance_event_command;
 pub mod deactivate_car_command;
 pub mod delete_car_command;
 pub mod delete_car_maintenance_event_command;
+pub mod document_link;
 pub mod list_car_maintenance_events_query;
 pub mod list_cars_query;
 pub mod update_car_command;

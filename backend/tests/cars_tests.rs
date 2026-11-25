@@ -242,7 +242,7 @@ async fn given_owned_document_when_link_insurance_then_200() {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: Some(Some(doc.id)),
+                insurance_document_id: Some(doc.id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -284,7 +284,7 @@ async fn given_other_users_document_when_link_insurance_then_400() {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: Some(Some(other_doc.id)),
+                insurance_document_id: Some(other_doc.id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -457,6 +457,170 @@ async fn given_other_users_car_when_update_deactivate_or_delete_then_404() {
     .await;
 }
 
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_new_insurance_and_registration_documents_when_create_car_then_201_and_documents_stored()
+ {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given
+        let auth_header = build_auth_header(&server).await;
+        let url = server.server_url(CARS_URL).expect("url").to_string();
+
+        // When one POST /cars embeds both new Documents
+        let res = reqwest::Client::new()
+            .post(url)
+            .header("Authorization", &auth_header)
+            .json(&CreateCarCommandDto {
+                display_name: None,
+                make: "Toyota".to_string(),
+                model: "Corolla".to_string(),
+                year: 2020,
+                vin: None,
+                license_plate: None,
+                notes: None,
+                insurance_document_id: None,
+                registration_document_id: None,
+                new_insurance_document: Some(new_document_payload("Policy 2027", "insurance")),
+                new_registration_document: Some(new_document_payload("Card 2027", "registration")),
+            })
+            .send()
+            .await
+            .expect("create");
+
+        // Then the Car links both, and SQLite stores both Documents with their tags
+        assert_eq!(res.status(), StatusCode::CREATED);
+        let car = res.json::<CarDto>().await.expect("json");
+        let insurance = get_document(
+            &server,
+            &auth_header,
+            car.insurance_document_id.expect("insurance"),
+        )
+        .await;
+        let registration = get_document(
+            &server,
+            &auth_header,
+            car.registration_document_id.expect("registration"),
+        )
+        .await;
+        assert_eq!(insurance.title, "Policy 2027");
+        assert_eq!(insurance.tags, vec!["insurance".to_string()]);
+        assert_eq!(registration.title, "Card 2027");
+        assert_eq!(registration.tags, vec!["registration".to_string()]);
+        // The title search that the rollback tests use finds stored Documents
+        assert_eq!(
+            documents_with_title(&server, &auth_header, "2027")
+                .await
+                .len(),
+            2
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_owned_car_when_put_with_new_registration_document_then_200_and_document_stored() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given a Car with an insurance link
+        let auth_header = build_auth_header(&server).await;
+        let insurance = create_document(&server, &auth_header, "Existing policy").await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
+        let url = server
+            .server_url(&format!("{}/{}", CARS_URL, created.id))
+            .expect("url")
+            .to_string();
+
+        // When one PUT keeps the insurance link and embeds a new registration Document
+        let res = reqwest::Client::new()
+            .put(url)
+            .header("Authorization", &auth_header)
+            .json(&UpdateCarCommandDto {
+                display_name: None,
+                make: "Toyota".to_string(),
+                model: "Corolla".to_string(),
+                year: 2020,
+                vin: None,
+                license_plate: None,
+                notes: None,
+                insurance_document_id: Some(insurance.id),
+                registration_document_id: None,
+                active: None,
+                new_insurance_document: None,
+                new_registration_document: Some(new_document_payload("Card 2028", "registration")),
+            })
+            .send()
+            .await
+            .expect("update");
+
+        // Then both links are set, and SQLite stores the new Document
+        assert_eq!(res.status(), StatusCode::OK);
+        let car = res.json::<CarDto>().await.expect("json");
+        assert_eq!(car.insurance_document_id, Some(insurance.id));
+        let registration = get_document(
+            &server,
+            &auth_header,
+            car.registration_document_id.expect("registration"),
+        )
+        .await;
+        assert_eq!(registration.title, "Card 2028");
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn given_duplicate_vin_when_create_car_with_new_document_then_400_and_no_document_stored() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        // Given a Car with the VIN
+        let auth_header = build_auth_header(&server).await;
+        create_car(
+            &server,
+            &auth_header,
+            "Toyota",
+            "Corolla",
+            2020,
+            Some(SAMPLE_VIN),
+            None,
+        )
+        .await;
+        let url = server.server_url(CARS_URL).expect("url").to_string();
+
+        // When a second Car with the same VIN embeds a new Document
+        let res = reqwest::Client::new()
+            .post(url)
+            .header("Authorization", &auth_header)
+            .json(&CreateCarCommandDto {
+                display_name: None,
+                make: "Honda".to_string(),
+                model: "Civic".to_string(),
+                year: 2021,
+                vin: Some(SAMPLE_VIN.to_string()),
+                license_plate: None,
+                notes: None,
+                insurance_document_id: None,
+                registration_document_id: None,
+                new_insurance_document: Some(new_document_payload("Orphan policy", "insurance")),
+                new_registration_document: None,
+            })
+            .send()
+            .await
+            .expect("create");
+
+        // Then the write is rejected and no Document is stored
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert!(
+            documents_with_title(&server, &auth_header, "Orphan")
+                .await
+                .is_empty()
+        );
+    })
+    .await;
+}
+
 async fn create_car(
     server: &TestServer,
     auth_header: &str,
@@ -531,5 +695,50 @@ async fn create_document(server: &TestServer, auth_header: &str, title: &str) ->
         .await
         .expect("create document");
     assert!(res.status().is_success());
+    res.json().await.expect("json")
+}
+
+fn new_document_payload(title: &str, tag: &str) -> CreateDocumentCommandDto {
+    CreateDocumentCommandDto {
+        title: title.to_string(),
+        content: "scan".to_string(),
+        tags: vec![tag.to_string()],
+        issued_date: None,
+        expire_date: None,
+        storage: None,
+    }
+}
+
+async fn get_document(server: &TestServer, auth_header: &str, id: Uuid) -> DocumentDto {
+    let url = server
+        .server_url(&format!("{DOCUMENTS_URL}/{id}"))
+        .expect("url")
+        .to_string();
+    let res = reqwest::Client::new()
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("get document");
+    assert_eq!(res.status(), StatusCode::OK);
+    res.json().await.expect("json")
+}
+
+async fn documents_with_title(
+    server: &TestServer,
+    auth_header: &str,
+    title_contains: &str,
+) -> Vec<DocumentDto> {
+    let url = server
+        .server_url(&format!("{DOCUMENTS_URL}?title_contains={title_contains}"))
+        .expect("url")
+        .to_string();
+    let res = reqwest::Client::new()
+        .get(url)
+        .header("Authorization", auth_header)
+        .send()
+        .await
+        .expect("list documents");
+    assert_eq!(res.status(), StatusCode::OK);
     res.json().await.expect("json")
 }

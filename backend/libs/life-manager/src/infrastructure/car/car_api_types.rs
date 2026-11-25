@@ -93,22 +93,12 @@ pub struct UpdateCarCommandDto {
     )]
     #[ts(optional, type = "string | null")]
     pub notes: Option<Option<String>>,
-    /// Omit to keep; `null` to clear; value to set.
-    #[serde(
-        default,
-        deserialize_with = "deserialize_patch_option",
-        skip_serializing_if = "Option::is_none"
-    )]
-    #[ts(optional, type = "string | null")]
-    pub insurance_document_id: Option<Option<Uuid>>,
-    /// Omit to keep; `null` to clear; value to set.
-    #[serde(
-        default,
-        deserialize_with = "deserialize_patch_option",
-        skip_serializing_if = "Option::is_none"
-    )]
-    #[ts(optional, type = "string | null")]
-    pub registration_document_id: Option<Option<Uuid>>,
+    /// Replaces the stored insurance link on each PUT. `null` (or omitted): no link.
+    #[serde(default)]
+    pub insurance_document_id: Option<Uuid>,
+    /// Replaces the stored registration link on each PUT. `null` (or omitted): no link.
+    #[serde(default)]
+    pub registration_document_id: Option<Uuid>,
     /// Creates this Document in the same transaction and links it as the insurance document.
     /// Omit or `null`: no new Document. Not allowed with a set `insurance_document_id`.
     #[serde(default, skip_serializing_if = "Option::is_none")]

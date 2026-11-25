@@ -12,6 +12,7 @@ use crate::{
             MissingCarForMaintenanceEvent,
         },
         car::car_repository::CarRepository,
+        car::document_link::DocumentLink,
         document::document_repository::DocumentRepository,
     },
     domain::{
@@ -19,7 +20,6 @@ use crate::{
         car::car_maintenance_event::{
             CarMaintenanceEvent, CarMaintenanceEventInput, CarMaintenanceEventType,
         },
-        document::Document,
     },
 };
 
@@ -32,8 +32,7 @@ pub struct CreateCarMaintenanceEventCommand {
     cost_cents: Option<i64>,
     title: Option<String>,
     notes: Option<String>,
-    document_id: Option<Uuid>,
-    new_receipt_document: Option<Document>,
+    receipt_document: DocumentLink,
     car_repository: Arc<dyn CarRepository>,
     car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
     document_repository: Arc<dyn DocumentRepository>,
@@ -51,8 +50,7 @@ impl CreateCarMaintenanceEventCommand {
         cost_cents: Option<i64>,
         title: Option<String>,
         notes: Option<String>,
-        document_id: Option<Uuid>,
-        new_receipt_document: Option<Document>,
+        receipt_document: DocumentLink,
         car_repository: Arc<dyn CarRepository>,
         car_maintenance_event_repository: Arc<dyn CarMaintenanceEventRepository>,
         document_repository: Arc<dyn DocumentRepository>,
@@ -67,8 +65,7 @@ impl CreateCarMaintenanceEventCommand {
             cost_cents,
             title,
             notes,
-            document_id,
-            new_receipt_document,
+            receipt_document,
             car_repository,
             car_maintenance_event_repository,
             document_repository,
@@ -77,18 +74,12 @@ impl CreateCarMaintenanceEventCommand {
     }
 
     pub async fn execute(self) -> AppResult<CarMaintenanceEvent> {
-        ensure_no_receipt_conflict(self.document_id, &self.new_receipt_document)?;
-        if let Some(doc_id) = self.document_id
-            && self
-                .document_repository
-                .load_owned_document(&doc_id, &self.user_id)
-                .await
-                .is_none()
-        {
-            return Err(AppError::Validation(
-                "document_id must reference an owned Document".to_string(),
-            ));
-        }
+        verify_owned_receipt(
+            &self.document_repository,
+            &self.user_id,
+            &self.receipt_document,
+        )
+        .await?;
 
         let car = self
             .car_repository
@@ -105,16 +96,18 @@ impl CreateCarMaintenanceEventCommand {
                 cost_cents: self.cost_cents,
                 title: self.title.as_deref(),
                 notes: self.notes.as_deref(),
-                document_id: receipt_document_id(self.document_id, &self.new_receipt_document),
+                document_id: self.receipt_document.linked_id(),
             },
         )?;
 
-        let saved = match self.new_receipt_document {
-            None => self.car_maintenance_event_repository.save(event).await,
-            Some(receipt) => {
+        let saved = match self.receipt_document {
+            DocumentLink::New(receipt) => {
                 self.car_maintenance_event_documents_writer
-                    .create(event, vec![receipt])
+                    .create(event, vec![receipt.into_document()])
                     .await
+            }
+            DocumentLink::None | DocumentLink::Existing(_) => {
+                self.car_maintenance_event_repository.save(event).await
             }
         };
         match saved {
@@ -133,23 +126,24 @@ impl CreateCarMaintenanceEventCommand {
     }
 }
 
-/// Rejects a request that sets both `document_id` and `new_receipt_document`.
-pub(crate) fn ensure_no_receipt_conflict(
-    document_id: Option<Uuid>,
-    new_receipt_document: &Option<Document>,
+/// Rejects a linked receipt id that the user does not own. A new receipt needs
+/// no check: the command creates it for the user.
+pub(crate) async fn verify_owned_receipt(
+    document_repository: &Arc<dyn DocumentRepository>,
+    user_id: &Uuid,
+    receipt_document: &DocumentLink,
 ) -> AppResult<()> {
-    if document_id.is_some() && new_receipt_document.is_some() {
+    let DocumentLink::Existing(existing) = receipt_document else {
+        return Ok(());
+    };
+    if document_repository
+        .load_owned_document(&existing.id(), user_id)
+        .await
+        .is_none()
+    {
         return Err(AppError::Validation(
-            "set either document_id or new_receipt_document, not both".to_string(),
+            "document_id must reference an owned Document".to_string(),
         ));
     }
     Ok(())
-}
-
-/// The new receipt Document id when one is sent, else the linked `document_id`.
-pub(crate) fn receipt_document_id(
-    document_id: Option<Uuid>,
-    new_receipt_document: &Option<Document>,
-) -> Option<Uuid> {
-    new_receipt_document.as_ref().map(|d| d.id).or(document_id)
 }

@@ -5,7 +5,7 @@ use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
 
-use crate::application::car::create_car_command::{CreateCarCommand, NewCarDocuments};
+use crate::application::car::create_car_command::CreateCarCommand;
 use crate::application::car::deactivate_car_command::DeactivateCarCommand;
 use crate::application::car::delete_car_command::DeleteCarCommand;
 use crate::application::car::list_cars_query::ListCarsQuery;
@@ -16,7 +16,18 @@ use crate::infrastructure::car::car_api_types::{
 };
 use crate::infrastructure::car::car_dto::CarDto;
 use crate::infrastructure::car::car_state::CarState;
-use crate::infrastructure::document::mappers::optional_new_document;
+use crate::infrastructure::document::mappers::{
+    DocumentLinkFields, document_link_from_dto,
+};
+
+const INSURANCE_DOCUMENT_FIELDS: DocumentLinkFields = DocumentLinkFields {
+    id: "insurance_document_id",
+    new: "new_insurance_document",
+};
+const REGISTRATION_DOCUMENT_FIELDS: DocumentLinkFields = DocumentLinkFields {
+    id: "registration_document_id",
+    new: "new_registration_document",
+};
 
 /// Creates a Car owned by the authenticated user.
 ///
@@ -30,11 +41,12 @@ use crate::infrastructure::document::mappers::optional_new_document;
 ///   | { make, model, year, ...,              |                           |
 ///   |   new_*_document? }                    |                           |
 ///   |----------------->|                     |                           |
-///   |                  | new_* DTO -> Document (owner = JWT user_id)     |
+///   |                  | role id + new_* -> 400                          |
+///   |                  | each role -> DocumentLink: None / Existing(id) /|
+///   |                  |   New(Document, owner = JWT user_id)            |
 ///   |                  | (bad storage -> 400)|                           |
 ///   |                  |-------------------->|                           |
-///   |                  |                     | role id + new_* -> 400    |
-///   |                  |                     | verify owned Document ids |
+///   |                  |                     | verify owned Existing ids |
 ///   |                  |                     | Car::create (link new ids)|
 ///   |                  |                     | unique VIN / plate check  |
 ///   |                  |                     | no new_*: save ---------->| INSERT cars
@@ -59,10 +71,18 @@ pub async fn create_car(
         payload.model,
         payload.year
     );
-    let new_documents = NewCarDocuments {
-        insurance: optional_new_document(payload.new_insurance_document, user_id)?,
-        registration: optional_new_document(payload.new_registration_document, user_id)?,
-    };
+    let insurance_document = document_link_from_dto(
+        payload.insurance_document_id,
+        payload.new_insurance_document,
+        user_id,
+        &INSURANCE_DOCUMENT_FIELDS,
+    )?;
+    let registration_document = document_link_from_dto(
+        payload.registration_document_id,
+        payload.new_registration_document,
+        user_id,
+        &REGISTRATION_DOCUMENT_FIELDS,
+    )?;
     let car = CreateCarCommand::new(
         user_id,
         payload.display_name,
@@ -72,9 +92,8 @@ pub async fn create_car(
         payload.vin,
         payload.license_plate,
         payload.notes,
-        payload.insurance_document_id,
-        payload.registration_document_id,
-        new_documents,
+        insurance_document,
+        registration_document,
         use_cases.car_repository.clone(),
         use_cases.document_repository.clone(),
         use_cases.car_documents_writer.clone(),
@@ -119,7 +138,8 @@ pub async fn get_car(
         })
 }
 
-/// Updates an owned Car (PATCH-style optional fields).
+/// Updates an owned Car. Optional profile fields are PATCH-style (omit keeps).
+/// The insurance and registration links are replaced on each PUT.
 ///
 /// Optional `new_insurance_document` / `new_registration_document` create the
 /// Documents and link them in the same IMMEDIATE transaction as the Car UPDATE.
@@ -131,12 +151,13 @@ pub async fn get_car(
 ///   | { make, model, year, ...,              |                           |
 ///   |   new_*_document? }                    |                           |
 ///   |----------------->|                     |                           |
-///   |                  | new_* DTO -> Document (owner = JWT user_id)     |
+///   |                  | role id + new_* -> 400                          |
+///   |                  | each role -> DocumentLink, replaces the link:   |
+///   |                  |   None (null or omitted) / Existing / New       |
 ///   |                  | (bad storage -> 400)|                           |
 ///   |                  |-------------------->|                           |
-///   |                  |                     | role id + new_* -> 400    |
 ///   |                  |                     | load_owned Car (else 404) |
-///   |                  |                     | verify newly set doc ids  |
+///   |                  |                     | verify newly linked ids   |
 ///   |                  |                     | update_profile (link new) |
 ///   |                  |                     | unique VIN / plate check  |
 ///   |                  |                     | no new_*: update -------->| UPDATE cars
@@ -156,10 +177,18 @@ pub async fn update_car(
     Path(id): Path<Uuid>,
     Json(payload): Json<UpdateCarCommandDto>,
 ) -> ApiResult<CarDto> {
-    let new_documents = NewCarDocuments {
-        insurance: optional_new_document(payload.new_insurance_document, user_id)?,
-        registration: optional_new_document(payload.new_registration_document, user_id)?,
-    };
+    let insurance_document = document_link_from_dto(
+        payload.insurance_document_id,
+        payload.new_insurance_document,
+        user_id,
+        &INSURANCE_DOCUMENT_FIELDS,
+    )?;
+    let registration_document = document_link_from_dto(
+        payload.registration_document_id,
+        payload.new_registration_document,
+        user_id,
+        &REGISTRATION_DOCUMENT_FIELDS,
+    )?;
     let car = UpdateCarCommand::new(
         CarId(id),
         user_id,
@@ -170,10 +199,9 @@ pub async fn update_car(
         payload.vin,
         payload.license_plate,
         payload.notes,
-        payload.insurance_document_id,
-        payload.registration_document_id,
+        insurance_document,
+        registration_document,
         payload.active,
-        new_documents,
         use_cases.car_repository.clone(),
         use_cases.document_repository.clone(),
         use_cases.car_documents_writer.clone(),
@@ -233,7 +261,11 @@ mod tests {
         CreateDocumentCommandDto, DocumentStorageRefDto,
     };
     use crate::infrastructure::car::car_collection::CarCollection;
-    use crate::infrastructure::car::car_documents_collection::CarDocumentsCollection;
+    use async_trait::async_trait;
+
+    use crate::application::car::car_documents_writer::CarDocumentsWriter;
+    use crate::application::car::car_repository::CarRepository;
+    use crate::domain::car::Car;
     use crate::infrastructure::document::document_collection::DocumentCollection;
 
     const SAMPLE_VIN: &str = "1HGCM82633A004352";
@@ -437,7 +469,7 @@ mod tests {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: Some(Some(doc_id)),
+                insurance_document_id: Some(doc_id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -481,7 +513,7 @@ mod tests {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: Some(Some(doc_id)),
+                insurance_document_id: Some(doc_id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -708,7 +740,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_kept_dangling_document_link_when_update_other_fields_then_200() {
+    async fn given_stored_dangling_document_id_sent_again_when_update_other_fields_then_200() {
         let auth_user = test_auth_user();
         let (use_cases, _, docs) = use_cases_with_collections();
         let doc = Document::new("Insurance", "policy", auth_user.user_id);
@@ -736,7 +768,7 @@ mod tests {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: Some(Some(doc_id)),
+                insurance_document_id: Some(doc_id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -760,7 +792,7 @@ mod tests {
                 vin: None,
                 license_plate: None,
                 notes: None,
-                insurance_document_id: None,
+                insurance_document_id: Some(doc_id),
                 registration_document_id: None,
                 active: None,
                 new_insurance_document: None,
@@ -773,6 +805,39 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(dto.display_name.as_deref(), Some("Daily"));
         assert_eq!(dto.insurance_document_id, Some(doc_id));
+    }
+
+    #[tokio::test]
+    async fn given_linked_car_when_update_omits_document_ids_then_links_cleared() {
+        // Given a Car with both links
+        let auth_user = test_auth_user();
+        let (use_cases, _, docs) = use_cases_with_collections();
+        let insurance = Document::new("Insurance", "policy", auth_user.user_id);
+        let registration = Document::new("Registration", "card", auth_user.user_id);
+        let mut create = create_payload("Toyota", "Corolla", 2020);
+        create.insurance_document_id = Some(insurance.id);
+        create.registration_document_id = Some(registration.id);
+        docs.save_document(insurance).await.expect("save doc");
+        docs.save_document(registration).await.expect("save doc");
+        let created = create_car(auth_user.clone(), State(CarState(use_cases.clone())), Json(create))
+            .await
+            .expect("create")
+            .data;
+
+        // When a PUT omits both ids
+        let dto = update_car(
+            auth_user,
+            State(CarState(use_cases)),
+            Path(created.id),
+            Json(update_payload_no_links()),
+        )
+        .await
+        .expect("update")
+        .data;
+
+        // Then each PUT replaces the links, so both are cleared
+        assert_eq!(dto.insurance_document_id, None);
+        assert_eq!(dto.registration_document_id, None);
     }
 
     #[tokio::test]
@@ -834,7 +899,7 @@ mod tests {
         }
     }
 
-    fn update_payload_keep_all() -> UpdateCarCommandDto {
+    fn update_payload_no_links() -> UpdateCarCommandDto {
         UpdateCarCommandDto {
             display_name: None,
             make: "Toyota".to_string(),
@@ -924,7 +989,7 @@ mod tests {
         .await
         .expect("create")
         .data;
-        let mut payload = update_payload_keep_all();
+        let mut payload = update_payload_no_links();
         payload.new_insurance_document = Some(new_document_payload("Insurance 2027"));
         payload.new_registration_document = Some(new_document_payload("Registration 2027"));
 
@@ -962,8 +1027,8 @@ mod tests {
             .await
             .expect("create")
             .data;
-        let mut payload = update_payload_keep_all();
-        payload.insurance_document_id = Some(None);
+        let mut payload = update_payload_no_links();
+        payload.insurance_document_id = None;
         payload.new_insurance_document = Some(new_document_payload("New insurance"));
 
         // When
@@ -1012,8 +1077,8 @@ mod tests {
         .await
         .expect("create")
         .data;
-        let mut payload = update_payload_keep_all();
-        payload.registration_document_id = Some(Some(Uuid::new_v4()));
+        let mut payload = update_payload_no_links();
+        payload.registration_document_id = Some(Uuid::new_v4());
         payload.new_registration_document = Some(new_document_payload("Registration"));
 
         // When
@@ -1084,5 +1149,57 @@ mod tests {
         .unwrap();
         assert!(dto.new_insurance_document.is_none());
         assert!(dto.new_registration_document.is_none());
+    }
+
+    /// In-memory `CarDocumentsWriter` mock for these tests. It writes the Documents only
+    /// after the Car write succeeds, so a failed Car write leaves no Document.
+    struct CarDocumentsCollection {
+        car_repository: Arc<dyn CarRepository>,
+        document_repository: Arc<dyn DocumentRepository>,
+    }
+
+    impl CarDocumentsCollection {
+        fn new(
+            car_repository: Arc<dyn CarRepository>,
+            document_repository: Arc<dyn DocumentRepository>,
+        ) -> Self {
+            Self {
+                car_repository,
+                document_repository,
+            }
+        }
+
+        async fn save_documents(
+            &self,
+            new_documents: Vec<Document>,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            for document in new_documents {
+                self.document_repository.save_document(document).await?;
+            }
+            Ok(())
+        }
+    }
+
+    #[async_trait]
+    impl CarDocumentsWriter for CarDocumentsCollection {
+        async fn create(
+            &self,
+            car: Car,
+            new_documents: Vec<Document>,
+        ) -> Result<Car, Box<dyn std::error::Error>> {
+            let saved = self.car_repository.save(car).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
+
+        async fn update(
+            &self,
+            car: Car,
+            new_documents: Vec<Document>,
+        ) -> Result<Car, Box<dyn std::error::Error>> {
+            let saved = self.car_repository.update(car).await?;
+            self.save_documents(new_documents).await?;
+            Ok(saved)
+        }
     }
 }

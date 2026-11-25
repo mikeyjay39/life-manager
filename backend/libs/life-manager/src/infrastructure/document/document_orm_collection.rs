@@ -36,7 +36,7 @@ fn title_contains_like_pattern(raw: &str) -> String {
 ///
 /// Callers own the transaction, so a Car or maintenance-event write can add
 /// its own row to the same transaction.
-pub(crate) fn insert_document_with_tags(
+fn insert_document_with_tags(
     conn: &mut SqliteConnection,
     document: &Document,
 ) -> QueryResult<DocumentEntity> {
@@ -65,7 +65,7 @@ pub(crate) fn insert_document_with_tags(
 }
 
 /// Inserts each Document and its tag links on `conn`, in order.
-pub(crate) fn insert_documents_with_tags(
+pub(in crate::infrastructure) fn insert_documents_with_tags(
     conn: &mut SqliteConnection,
     documents: &[Document],
 ) -> QueryResult<()> {

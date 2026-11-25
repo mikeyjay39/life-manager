@@ -19,13 +19,13 @@ license_plate?: string | null,
  */
 notes?: string | null, 
 /**
- * Omit to keep; `null` to clear; value to set.
+ * Replaces the stored insurance link on each PUT. `null` (or omitted): no link.
  */
-insurance_document_id?: string | null, 
+insurance_document_id: string | null, 
 /**
- * Omit to keep; `null` to clear; value to set.
+ * Replaces the stored registration link on each PUT. `null` (or omitted): no link.
  */
-registration_document_id?: string | null, 
+registration_document_id: string | null, 
 /**
  * Creates this Document in the same transaction and links it as the insurance document.
  * Omit or `null`: no new Document. Not allowed with a set `insurance_document_id`.
