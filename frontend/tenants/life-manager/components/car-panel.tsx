@@ -38,7 +38,6 @@ import type {
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
 import DocumentPickerModal from './document-picker-modal';
-import { fetchDocumentById } from './fetch-document';
 import {
   type CreatedDocument,
   mergeCreatedDocuments,
@@ -54,7 +53,7 @@ import {
   carDocumentPrefillTitle,
   carDocumentRequestFields,
   carFormDraftLabel,
-  createdCarDocumentIds,
+  createdCarDocuments,
   existingLinkId,
   newCarDocumentField,
   parseCarDto,
@@ -418,7 +417,7 @@ type ReplaceDocumentConfirm = {
  *     Panel -> API : DELETE /cars/{id}
  * end
  * opt a Car write created Documents
- *   Panel -> API : GET /documents/{id} for each new id
+ *   Panel -> Panel : build each Document from its draft and the response id
  *   Panel -> Panel : merge DTOs created after a GET /documents started
  * end
  * Panel -> Panel : refresh picker
@@ -962,36 +961,16 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     ]
   );
 
-  const refreshCreatedDocuments = useCallback(
+  const recordCreatedDocuments = useCallback(
     async (car: CarDto | null, links: CarDocumentLinks) => {
-      if (!token) {
-        return;
-      }
       if (!car) {
         // The response was not readable, so the new ids are unknown.
         await loadDocuments();
         return;
       }
-      const results = await Promise.allSettled(
-        createdCarDocumentIds(car, links).map((id) =>
-          fetchDocumentById(id, { token, onUnauthorized: handleUnauthorized })
-        )
-      );
-      for (const result of results) {
-        if (result.status === 'fulfilled') {
-          upsertDocumentLocally(result.value);
-          continue;
-        }
-        // The Car write is done; only the title is missing until a refresh.
-        console.error(result.reason);
-        setDocumentsError(
-          result.reason instanceof Error
-            ? result.reason.message
-            : 'Failed to load the new Document'
-        );
-      }
+      createdCarDocuments(car, links).forEach(upsertDocumentLocally);
     },
-    [token, handleUnauthorized, loadDocuments, upsertDocumentLocally]
+    [loadDocuments, upsertDocumentLocally]
   );
 
   /**
@@ -1050,7 +1029,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           registration: null,
           [role]: { kind: 'new', draft },
         };
-        await Promise.all([load(), refreshCreatedDocuments(updated, links)]);
+        await Promise.all([load(), recordCreatedDocuments(updated, links)]);
         reselectSavedCar(updated);
         showSuccess(
           role === 'insurance'
@@ -1071,7 +1050,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       selectCar,
       reselectSavedCar,
       load,
-      refreshCreatedDocuments,
+      recordCreatedDocuments,
     ]
   );
 
@@ -1164,7 +1143,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(created);
         selectCar(created);
       }
-      await Promise.all([load(), refreshCreatedDocuments(created, documentLinks)]);
+      await Promise.all([load(), recordCreatedDocuments(created, documentLinks)]);
       reselectSavedCar(created);
       showSuccess(
         created?.display_name
@@ -1229,7 +1208,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(updated);
         selectCar(updated);
       }
-      await Promise.all([load(), refreshCreatedDocuments(updated, documentLinks)]);
+      await Promise.all([load(), recordCreatedDocuments(updated, documentLinks)]);
       reselectSavedCar(updated);
       showSuccess(
         updated?.display_name

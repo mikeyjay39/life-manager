@@ -4,6 +4,7 @@ import type {
   CreateDocumentCommand,
   DocumentDto,
 } from '@/lib/api/types';
+import { documentFromDraft } from './document-create-form-utils';
 
 /** Count Unicode scalars (matches Rust `chars().count()`). */
 export function unicodeScalarLength(value: string): number {
@@ -167,14 +168,18 @@ export function carDocumentRequestFields(links: CarDocumentLinks): CarDocumentRe
   };
 }
 
-/** Ids of the Documents that a Car write created for the roles that held a new draft. */
-export function createdCarDocumentIds(car: CarDto, links: CarDocumentLinks): string[] {
+/**
+ * The Documents that a Car write created, for the roles that held a new draft.
+ * Each one is built from its draft and the role id in the response.
+ */
+export function createdCarDocuments(car: CarDto, links: CarDocumentLinks): DocumentDto[] {
   return CAR_DOCUMENT_LINK_ROLES.flatMap((role) => {
-    if (links[role]?.kind !== 'new') {
+    const link = links[role];
+    if (link?.kind !== 'new') {
       return [];
     }
     const id =
       role === 'insurance' ? car.insurance_document_id : car.registration_document_id;
-    return id ? [id] : [];
+    return id ? [documentFromDraft(id, link.draft)] : [];
   });
 }

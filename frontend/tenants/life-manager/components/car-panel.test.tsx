@@ -145,21 +145,11 @@ function emptyResponse(status = 204) {
   return new Response(null, { status });
 }
 
-/** GET /documents/{id} from a list of server Documents: the DTO, or 404. */
-function documentByIdResponse(path: string, docs: DocumentDto[]) {
-  const id = decodeURIComponent(path.slice('/documents/'.length));
-  const found = docs.find((doc) => doc.id === id);
-  return found ? jsonResponse(found) : jsonResponse({ error: 'not found' }, 404);
-}
-
-/** Default GET /cars, GET /documents and GET /documents/{id} (order may vary with parallel loads). */
+/** Default GET /cars and GET /documents (order may vary with parallel loads). */
 function mockInitialLoads(cars: CarDto[] = [], docs: DocumentDto[] = []) {
   mockAuthenticatedFetch.mockImplementation(async (path: string) => {
     if (typeof path === 'string' && path.startsWith('/cars')) {
       return jsonResponse(cars);
-    }
-    if (typeof path === 'string' && path.startsWith('/documents/')) {
-      return documentByIdResponse(path, docs);
     }
     if (typeof path === 'string' && path.startsWith('/documents')) {
       return jsonResponse(docs);
@@ -205,9 +195,6 @@ async function givenFailedDocumentPersist(role: 'insurance' | 'registration') {
     }
     if (path.startsWith('/cars')) {
       return jsonResponse([savedCar]);
-    }
-    if (path.startsWith('/documents/')) {
-      return documentByIdResponse(path, savedCar[`${role}_document_id`] ? [created] : []);
     }
     return jsonResponse([]);
   });
@@ -696,9 +683,6 @@ describe('CarPanel', () => {
         if (path.startsWith('/cars')) {
           return jsonResponse([after]);
         }
-        if (path.startsWith('/documents/')) {
-          return documentByIdResponse(path, [created]);
-        }
         return jsonResponse([created]);
       });
 
@@ -729,7 +713,7 @@ describe('CarPanel', () => {
           storage: null,
         },
       });
-      expect(callsTo('/documents/d-created', 'GET')).toHaveLength(1);
+      expect(callsTo('/documents/d-created')).toHaveLength(0);
     }
   );
 
@@ -764,9 +748,6 @@ describe('CarPanel', () => {
       if (path.startsWith('/cars')) {
         return jsonResponse([after]);
       }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [existing, created]);
-      }
       return jsonResponse([existing, created]);
     });
     await waitFor(() => expect(screen.getByLabelText('Document create form')).toBeTruthy());
@@ -781,7 +762,6 @@ describe('CarPanel', () => {
     // Given an edit form with an existing insurance link
     const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, insurance_document_id: 'd1' });
     const existing = document({ id: 'd1', title: 'Old insurance' });
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
     const after = { ...before, insurance_document_id: 'd-created' };
     let serverCar = before;
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
@@ -791,9 +771,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return jsonResponse([serverCar]);
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [existing, created]);
       }
       return jsonResponse([existing]);
     });
@@ -826,7 +803,7 @@ describe('CarPanel', () => {
       new_insurance_document: { title: '2018 Toyota Corolla insurance' },
       active: null,
     });
-    expect(callsTo('/documents/d-created', 'GET')).toHaveLength(1);
+    expect(callsTo('/documents/d-created')).toHaveLength(0);
   });
 
   it.each(['insurance', 'registration'] as const)(
@@ -1072,9 +1049,6 @@ describe('CarPanel', () => {
       if (path.startsWith('/cars')) {
         return jsonResponse([serverCar]);
       }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, serverDocs);
-      }
       return jsonResponse(serverDocs);
     });
     renderPanel();
@@ -1107,7 +1081,6 @@ describe('CarPanel', () => {
     // Given the mount GET failed and a later GET is still in flight
     const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, registration_document_id: 'd1' });
     const existing = document({ id: 'd1', title: 'Existing registration' });
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
     const linked = { ...before, insurance_document_id: 'd-created' };
     mockAuthenticatedFetch.mockImplementation(async (path) =>
       path.startsWith('/cars') ? jsonResponse([before]) : jsonResponse({ error: 'down' }, 500));
@@ -1124,9 +1097,6 @@ describe('CarPanel', () => {
       if (path.startsWith('/cars')) {
         return jsonResponse(carsAfterWrite);
       }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [existing, created]);
-      }
       return new Promise<Response>((resolve) => { resolveOld = resolve; });
     });
     fireEvent.press(screen.getByLabelText('Edit Car'));
@@ -1134,19 +1104,21 @@ describe('CarPanel', () => {
     fireEvent.press(screen.getByLabelText('Submit mocked document create'));
     // When the Car write creates the Document and then the older GET resolves
     fireEvent.press(screen.getByLabelText('Save Car'));
-    await waitFor(() => expect(callsTo('/documents/d-created')).toHaveLength(1));
-    await act(async () => { resolveOld(jsonResponse([existing])); });
-    // Then both links show their titles
     await waitFor(() => {
       expect(screen.getByLabelText('Linked insurance document 2018 Toyota Corolla insurance')).toBeTruthy();
     });
-    expect(screen.getByLabelText('Linked registration document Existing registration')).toBeTruthy();
+    await act(async () => { resolveOld(jsonResponse([existing])); });
+    // Then both links show their titles, with no GET for the new Document
+    await waitFor(() => {
+      expect(screen.getByLabelText('Linked registration document Existing registration')).toBeTruthy();
+    });
+    expect(screen.getByLabelText('Linked insurance document 2018 Toyota Corolla insurance')).toBeTruthy();
+    expect(callsTo('/documents/d-created')).toHaveLength(0);
   });
 
   it('given a created Document when two document GETs fail then its linked title stays', async () => {
     // Given a Car write that created a Document
     const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
     const linked = { ...before, insurance_document_id: 'd-created' };
     let serverCar = before;
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
@@ -1156,9 +1128,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return jsonResponse([serverCar]);
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [created]);
       }
       return jsonResponse([]);
     });
@@ -1191,7 +1160,6 @@ describe('CarPanel', () => {
     // Given a Car write that created a Document
     const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
     const existing = document({ id: 'd1', title: 'Existing policy' });
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
     const linked = { ...before, insurance_document_id: 'd-created' };
     let serverCar = before;
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
@@ -1201,9 +1169,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return jsonResponse([serverCar]);
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [existing, created]);
       }
       return jsonResponse([existing]);
     });
@@ -1229,7 +1194,6 @@ describe('CarPanel', () => {
     const first = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
     const second = car({ id: 'c2', make: 'Honda', model: 'Civic', year: 2020 });
     const linked = { ...first, insurance_document_id: 'd-created' };
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
     mockInitialLoads([first, second], []);
     const onSelectedCarChange = vi.fn();
     render(
@@ -1246,9 +1210,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return new Promise<Response>((resolve) => { resolveCars = resolve; });
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [created]);
       }
       return jsonResponse([]);
     });
@@ -1268,7 +1229,6 @@ describe('CarPanel', () => {
 
   it('given a new insurance draft when the Car is created then one POST creates and links it', async () => {
     // Given a create form with a new insurance draft
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance', tags: ['insurance'] });
     const saved = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, insurance_document_id: 'd-created' });
     let serverCars: CarDto[] = [];
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
@@ -1278,9 +1238,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return jsonResponse(serverCars);
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, [created]);
       }
       return jsonResponse([]);
     });
@@ -1310,13 +1267,12 @@ describe('CarPanel', () => {
       },
     });
     expect(writes[0].body).not.toHaveProperty('new_registration_document');
-    expect(callsTo('/documents/d-created', 'GET')).toHaveLength(1);
+    expect(callsTo('/documents/d-created')).toHaveLength(0);
   });
 
   it('given a failed Car create when saved again then the same draft is sent and no Document is loaded', async () => {
     // Given the first POST fails with a duplicate VIN
     const saved = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018, registration_document_id: 'd-created' });
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla registration' });
     let failCreate = true;
     let serverCars: CarDto[] = [];
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
@@ -1330,9 +1286,6 @@ describe('CarPanel', () => {
       }
       if (path.startsWith('/cars')) {
         return jsonResponse(serverCars);
-      }
-      if (path.startsWith('/documents/')) {
-        return documentByIdResponse(path, serverCars.length ? [created] : []);
       }
       return jsonResponse([]);
     });
@@ -1359,54 +1312,22 @@ describe('CarPanel', () => {
     expect(writes[1].body.new_registration_document).toEqual(writes[0].body.new_registration_document);
   });
 
-  it('given the new Document cannot be loaded after the write when shown then the link stays with its id', async () => {
-    // Given a Car write that succeeds and a GET /documents/{id} that fails
-    const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
-    const linked = { ...before, insurance_document_id: 'd-created' };
-    let serverCar = before;
-    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
-      if (path === '/cars/c1' && init?.method === 'PUT') {
-        serverCar = linked;
-        return jsonResponse(linked);
-      }
-      if (path.startsWith('/cars')) {
-        return jsonResponse([serverCar]);
-      }
-      if (path.startsWith('/documents/')) {
-        return jsonResponse({ error: 'down' }, 500);
-      }
-      return jsonResponse([]);
-    });
-    renderPanel();
-    await waitFor(() => expect(screen.getByLabelText('Select Car 2018 Toyota Corolla')).toBeTruthy());
-    fireEvent.press(screen.getByLabelText('Select Car 2018 Toyota Corolla'));
-    // When the user creates the Document from the saved Car
-    fireEvent.press(screen.getByLabelText('Create insurance document'));
-    fireEvent.press(screen.getByLabelText('Submit mocked document create'));
-    // Then the Car shows the link and the success message
-    await waitFor(() => expect(screen.getByText(/created and linked\./)).toBeTruthy());
-    expect(screen.getByLabelText('Linked insurance document d-created')).toBeTruthy();
-    expect(callsTo('/documents/d-created')).toHaveLength(1);
-  });
-
   it('given an edit save with a new draft when the user selects another Car during the refresh then the selection stays', async () => {
-    // Given an edit save whose GET /documents/{id} is slow
+    // Given an edit save whose refresh GET /cars is slow
     const first = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
     const second = car({ id: 'c2', make: 'Honda', model: 'Civic', year: 2020 });
     const linked = { ...first, insurance_document_id: 'd-created' };
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
-    let resolveDocument!: (response: Response) => void;
-    let serverCars = [first, second];
+    let resolveRefresh!: (response: Response) => void;
+    let written = false;
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
       if (path === '/cars/c1' && init?.method === 'PUT') {
-        serverCars = [linked, second];
+        written = true;
         return jsonResponse(linked);
       }
       if (path.startsWith('/cars')) {
-        return jsonResponse(serverCars);
-      }
-      if (path.startsWith('/documents/')) {
-        return new Promise<Response>((resolve) => { resolveDocument = resolve; });
+        return written
+          ? new Promise<Response>((resolve) => { resolveRefresh = resolve; })
+          : jsonResponse([first, second]);
       }
       return jsonResponse([]);
     });
@@ -1417,11 +1338,11 @@ describe('CarPanel', () => {
     fireEvent.press(screen.getByLabelText('Edit create insurance document'));
     fireEvent.press(screen.getByLabelText('Submit mocked document create'));
     fireEvent.press(screen.getByLabelText('Save Car'));
-    await waitFor(() => expect(resolveDocument).toBeTruthy());
+    await waitFor(() => expect(resolveRefresh).toBeTruthy());
 
     // When the user selects another Car before the refresh ends
     fireEvent.press(screen.getByLabelText('Select Car 2020 Honda Civic'));
-    await act(async () => { resolveDocument(jsonResponse(created)); });
+    await act(async () => { resolveRefresh(jsonResponse([linked, second])); });
 
     // Then the selection stays on that Car
     await waitFor(() => expect(screen.getByText(/updated\./)).toBeTruthy());
@@ -1429,22 +1350,20 @@ describe('CarPanel', () => {
   });
 
   it('given an edit save with a new draft when the user opens a new edit during the refresh then the form stays open', async () => {
-    // Given an edit save whose GET /documents/{id} is slow
+    // Given an edit save whose refresh GET /cars is slow
     const before = car({ id: 'c1', make: 'Toyota', model: 'Corolla', year: 2018 });
     const linked = { ...before, insurance_document_id: 'd-created' };
-    const created = document({ id: 'd-created', title: '2018 Toyota Corolla insurance' });
-    let resolveDocument!: (response: Response) => void;
-    let serverCar = before;
+    let resolveRefresh!: (response: Response) => void;
+    let written = false;
     mockAuthenticatedFetch.mockImplementation(async (path, init) => {
       if (path === '/cars/c1' && init?.method === 'PUT') {
-        serverCar = linked;
+        written = true;
         return jsonResponse(linked);
       }
       if (path.startsWith('/cars')) {
-        return jsonResponse([serverCar]);
-      }
-      if (path.startsWith('/documents/')) {
-        return new Promise<Response>((resolve) => { resolveDocument = resolve; });
+        return written
+          ? new Promise<Response>((resolve) => { resolveRefresh = resolve; })
+          : jsonResponse([before]);
       }
       return jsonResponse([]);
     });
@@ -1455,13 +1374,13 @@ describe('CarPanel', () => {
     fireEvent.press(screen.getByLabelText('Edit create insurance document'));
     fireEvent.press(screen.getByLabelText('Submit mocked document create'));
     fireEvent.press(screen.getByLabelText('Save Car'));
-    await waitFor(() => expect(resolveDocument).toBeTruthy());
+    await waitFor(() => expect(resolveRefresh).toBeTruthy());
 
     // When the user opens a new edit and types before the refresh ends
     await waitFor(() => expect(screen.getByLabelText('Edit Car')).toBeTruthy());
     fireEvent.press(screen.getByLabelText('Edit Car'));
     fireEvent.changeText(screen.getByLabelText('Edit notes'), 'Typed during refresh');
-    await act(async () => { resolveDocument(jsonResponse(created)); });
+    await act(async () => { resolveRefresh(jsonResponse([linked])); });
 
     // Then the new edit form and its text stay
     await waitFor(() => expect(screen.getByText(/updated\./)).toBeTruthy());

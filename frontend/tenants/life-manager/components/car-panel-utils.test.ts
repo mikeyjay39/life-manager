@@ -3,7 +3,7 @@ import {
   carDocumentLinksFromCar,
   carDocumentLinkTitle,
   carDocumentRequestFields,
-  createdCarDocumentIds,
+  createdCarDocuments,
   existingLinkId,
   newCarDocumentField,
 } from './car-panel-utils';
@@ -81,20 +81,21 @@ describe('newCarDocumentField', () => {
   });
 });
 
-describe('createdCarDocumentIds', () => {
-  it('returns the linked ids only for roles that held a new draft', () => {
+describe('createdCarDocuments', () => {
+  it('builds Documents only for roles that held a new draft', () => {
     const car = savedCar({ insurance_document_id: 'd-new', registration_document_id: 'd-old' });
-    expect(
-      createdCarDocumentIds(car, {
-        insurance: { kind: 'new', draft },
-        registration: { kind: 'existing', id: 'd-old' },
-      })
-    ).toEqual(['d-new']);
+
+    const documents = createdCarDocuments(car, {
+      insurance: { kind: 'new', draft },
+      registration: { kind: 'existing', id: 'd-old' },
+    });
+
+    expect(documents.map((d) => [d.id, d.title])).toEqual([['d-new', draft.title]]);
   });
 
   it('skips a draft role that the response does not link', () => {
     expect(
-      createdCarDocumentIds(savedCar(), { insurance: { kind: 'new', draft }, registration: null })
+      createdCarDocuments(savedCar(), { insurance: { kind: 'new', draft }, registration: null })
     ).toEqual([]);
   });
 });
