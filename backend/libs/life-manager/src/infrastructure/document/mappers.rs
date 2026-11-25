@@ -62,24 +62,6 @@ pub fn document_link_from_dto(
     }
 }
 
-/// PATCH form of [`document_link_from_dto`]. An omitted id with no new
-/// Document keeps the stored link (`None`). A `null` id clears it, unless a new
-/// Document is sent: then the new Document replaces the link.
-pub fn patch_document_link_from_dto(
-    document_id: Option<Option<Uuid>>,
-    new_document: Option<CreateDocumentCommandDto>,
-    user_id: Uuid,
-    fields: &DocumentLinkFields,
-) -> AppResult<Option<DocumentLink>> {
-    match (document_id, new_document) {
-        (Some(Some(_)), Some(_)) => Err(both_set_error(fields)),
-        (_, Some(dto)) => new_document_link(dto, user_id).map(Some),
-        (Some(Some(id)), None) => Ok(Some(DocumentLink::Existing(ExistingDocument::new(id)))),
-        (Some(None), None) => Ok(Some(DocumentLink::None)),
-        (None, None) => Ok(None),
-    }
-}
-
 fn new_document_link(dto: CreateDocumentCommandDto, user_id: Uuid) -> AppResult<DocumentLink> {
     let document = new_document_from_create_dto(dto, user_id)?;
     Ok(DocumentLink::New(NewDocument::new(document)))
@@ -153,56 +135,6 @@ mod tests {
     fn given_id_and_new_document_when_map_then_validation() {
         let link = document_link_from_dto(
             Some(Uuid::new_v4()),
-            Some(new_document_payload()),
-            Uuid::new_v4(),
-            &RECEIPT_FIELDS,
-        );
-
-        assert!(is_both_set_error(&link));
-    }
-
-    #[test]
-    fn given_omitted_id_and_no_new_document_when_patch_map_then_keep() {
-        let link = patch_document_link_from_dto(None, None, Uuid::new_v4(), &RECEIPT_FIELDS);
-
-        assert!(matches!(link, Ok(None)));
-    }
-
-    #[test]
-    fn given_null_id_and_no_new_document_when_patch_map_then_clear() {
-        let link = patch_document_link_from_dto(Some(None), None, Uuid::new_v4(), &RECEIPT_FIELDS);
-
-        assert!(matches!(link, Ok(Some(DocumentLink::None))));
-    }
-
-    #[test]
-    fn given_id_when_patch_map_then_existing_with_that_id() {
-        let id = Uuid::new_v4();
-
-        let link =
-            patch_document_link_from_dto(Some(Some(id)), None, Uuid::new_v4(), &RECEIPT_FIELDS);
-
-        assert!(matches!(link, Ok(Some(DocumentLink::Existing(existing))) if existing.id() == id));
-    }
-
-    #[test]
-    fn given_omitted_or_null_id_and_new_document_when_patch_map_then_new() {
-        for document_id in [None, Some(None)] {
-            let link = patch_document_link_from_dto(
-                document_id,
-                Some(new_document_payload()),
-                Uuid::new_v4(),
-                &RECEIPT_FIELDS,
-            );
-
-            assert!(matches!(link, Ok(Some(DocumentLink::New(_)))));
-        }
-    }
-
-    #[test]
-    fn given_id_and_new_document_when_patch_map_then_validation() {
-        let link = patch_document_link_from_dto(
-            Some(Some(Uuid::new_v4())),
             Some(new_document_payload()),
             Uuid::new_v4(),
             &RECEIPT_FIELDS,

@@ -72,8 +72,8 @@ impl CreateCarCommand {
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
-            Some(&self.insurance_document),
-            Some(&self.registration_document),
+            (&self.insurance_document, None),
+            (&self.registration_document, None),
         )
         .await?;
 
@@ -94,10 +94,8 @@ impl CreateCarCommand {
 
         ensure_unique_identity(&self.car_repository, &car, None).await?;
 
-        let new_documents = new_documents_to_create(
-            Some(self.insurance_document),
-            Some(self.registration_document),
-        );
+        let new_documents =
+            new_documents_to_create(self.insurance_document, self.registration_document);
         let saved = if new_documents.is_empty() {
             self.car_repository.save(car).await
         } else {
@@ -122,21 +120,28 @@ pub(crate) fn map_car_write_error(e: Box<dyn std::error::Error>, context: &str) 
     AppError::from(e)
 }
 
-/// Rejects a linked Document id that the user does not own. Keep (`None`),
-/// clear and new Documents need no check.
+/// Rejects a newly linked Document id that the user does not own. Each role
+/// is the link and the id that the Car stores now (`None` on create).
+///
+/// An `Existing` id equal to the stored id is not checked again: a later
+/// Document hard-delete must not block unrelated Car field updates. No link and
+/// new Documents need no check.
 pub(crate) async fn verify_owned_document_links(
     document_repository: &Arc<dyn DocumentRepository>,
     user_id: &Uuid,
-    insurance_document: Option<&DocumentLink>,
-    registration_document: Option<&DocumentLink>,
+    insurance_document: (&DocumentLink, Option<Uuid>),
+    registration_document: (&DocumentLink, Option<Uuid>),
 ) -> AppResult<()> {
-    for (label, link) in [
+    for (label, (link, stored_id)) in [
         ("insurance_document_id", insurance_document),
         ("registration_document_id", registration_document),
     ] {
-        let Some(DocumentLink::Existing(existing)) = link else {
+        let DocumentLink::Existing(existing) = link else {
             continue;
         };
+        if stored_id == Some(existing.id()) {
+            continue;
+        }
         if document_repository
             .load_owned_document(&existing.id(), user_id)
             .await
@@ -152,14 +157,14 @@ pub(crate) async fn verify_owned_document_links(
 
 /// The new Documents to create in the same transaction as the Car write.
 pub(crate) fn new_documents_to_create(
-    insurance_document: Option<DocumentLink>,
-    registration_document: Option<DocumentLink>,
+    insurance_document: DocumentLink,
+    registration_document: DocumentLink,
 ) -> Vec<Document> {
     [insurance_document, registration_document]
         .into_iter()
         .filter_map(|link| match link {
-            Some(DocumentLink::New(new)) => Some(new.into_document()),
-            _ => None,
+            DocumentLink::New(new) => Some(new.into_document()),
+            DocumentLink::None | DocumentLink::Existing(_) => None,
         })
         .collect()
 }

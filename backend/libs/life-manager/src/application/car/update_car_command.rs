@@ -27,10 +27,10 @@ pub struct UpdateCarCommand {
     vin: Option<Option<String>>,
     license_plate: Option<Option<String>>,
     notes: Option<Option<String>>,
-    /// `None` keeps the stored link. `Some` replaces it.
-    insurance_document: Option<DocumentLink>,
-    /// `None` keeps the stored link. `Some` replaces it.
-    registration_document: Option<DocumentLink>,
+    /// Replaces the stored insurance link.
+    insurance_document: DocumentLink,
+    /// Replaces the stored registration link.
+    registration_document: DocumentLink,
     /// When set, reactivate (`true`) or deactivate (`false`). When `None`, leave active state.
     active: Option<bool>,
     car_repository: Arc<dyn CarRepository>,
@@ -50,8 +50,8 @@ impl UpdateCarCommand {
         vin: Option<Option<String>>,
         license_plate: Option<Option<String>>,
         notes: Option<Option<String>>,
-        insurance_document: Option<DocumentLink>,
-        registration_document: Option<DocumentLink>,
+        insurance_document: DocumentLink,
+        registration_document: DocumentLink,
         active: Option<bool>,
         car_repository: Arc<dyn CarRepository>,
         document_repository: Arc<dyn DocumentRepository>,
@@ -101,20 +101,11 @@ impl UpdateCarCommand {
             None => car.notes.clone(),
             Some(v) => v.clone(),
         };
-        let insurance_document_id =
-            resolve_document_link(self.insurance_document.as_ref(), car.insurance_document_id);
-        let registration_document_id = resolve_document_link(
-            self.registration_document.as_ref(),
-            car.registration_document_id,
-        );
-
-        // Only a newly linked id needs an ownership check. Keep must not re-check:
-        // a later Document hard-delete must not block unrelated Car field updates.
         verify_owned_document_links(
             &self.document_repository,
             &self.user_id,
-            self.insurance_document.as_ref(),
-            self.registration_document.as_ref(),
+            (&self.insurance_document, car.insurance_document_id),
+            (&self.registration_document, car.registration_document_id),
         )
         .await?;
 
@@ -126,8 +117,8 @@ impl UpdateCarCommand {
             vin: vin.as_deref(),
             license_plate: license_plate.as_deref(),
             notes: notes.as_deref(),
-            insurance_document_id,
-            registration_document_id,
+            insurance_document_id: self.insurance_document.linked_id(),
+            registration_document_id: self.registration_document.linked_id(),
         })?;
 
         match self.active {
@@ -146,13 +137,5 @@ impl UpdateCarCommand {
             self.car_documents_writer.update(car, new_documents).await
         };
         updated.map_err(|e| map_car_write_error(e, "updating"))
-    }
-}
-
-/// Keep (`None`) leaves the stored id. Otherwise the link gives the new id.
-fn resolve_document_link(link: Option<&DocumentLink>, stored: Option<Uuid>) -> Option<Uuid> {
-    match link {
-        None => stored,
-        Some(link) => link.linked_id(),
     }
 }

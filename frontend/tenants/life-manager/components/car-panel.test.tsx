@@ -499,6 +499,51 @@ describe('CarPanel', () => {
     });
   });
 
+  it('given an inactive Car with Document links when reactivated then the PUT sends both links', async () => {
+    // Given an inactive Car with both links
+    const inactive = car({
+      id: 'c-in',
+      make: 'Kia',
+      model: 'Soul',
+      year: 2016,
+      active: false,
+      deactivated_at: '2026-02-01T00:00:00Z',
+      insurance_document_id: 'd-ins',
+      registration_document_id: 'd-reg',
+    });
+    mockAuthenticatedFetch.mockImplementation(async (path, init) => {
+      if (path === '/cars/c-in' && init?.method === 'PUT') {
+        return jsonResponse({ ...inactive, active: true, deactivated_at: null });
+      }
+      if (typeof path === 'string' && path.includes('include_inactive=true')) {
+        return jsonResponse([inactive]);
+      }
+      return jsonResponse([]);
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByLabelText('Include inactive Cars')).toBeTruthy());
+    fireEvent(screen.getByLabelText('Include inactive Cars'), 'valueChange', true);
+    await waitFor(() => expect(screen.getByLabelText('Select inactive Car 2016 Kia Soul')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Select inactive Car 2016 Kia Soul'));
+
+    // When the user reactivates the Car
+    fireEvent.press(screen.getByLabelText('Reactivate Car'));
+
+    // Then the PUT keeps both links, because each PUT replaces them
+    await waitFor(() => {
+      expect(mockAuthenticatedFetch.mock.calls.some((call) => call[1]?.method === 'PUT')).toBe(true);
+    });
+    const put = mockAuthenticatedFetch.mock.calls.find((call) => call[1]?.method === 'PUT');
+    expect(JSON.parse(String(put?.[1]?.body))).toEqual({
+      make: 'Kia',
+      model: 'Soul',
+      year: 2016,
+      insurance_document_id: 'd-ins',
+      registration_document_id: 'd-reg',
+      active: true,
+    });
+  });
+
   it('given empty make when create submitted then no POST', async () => {
     mockInitialLoads([]);
     renderPanel();
