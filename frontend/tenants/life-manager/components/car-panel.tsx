@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -32,10 +31,51 @@ import { authenticatedFetch } from '@/lib/api/client';
 import type {
   CarDto,
   CreateCarCommand,
+  CreateDocumentCommand,
   DocumentDto,
   UpdateCarCommand,
 } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
+import DocumentCreateForm from '@/tenants/life-manager/components/document-create-form';
+import DocumentPickerModal from './document-picker-modal';
+import {
+  type CreatedDocument,
+  mergeCreatedDocuments,
+  pruneCreatedDocuments,
+} from './document-list-merge';
+
+import {
+  carDisplayLabel,
+  carDocumentLinkFromId,
+  carDocumentLinksFromCar,
+  carDocumentLinkTitle,
+  carDocumentPrefillTags,
+  carDocumentPrefillTitle,
+  carDocumentRequestFields,
+  carFormDraftLabel,
+  createdCarDocuments,
+  existingLinkId,
+  parseCarDto,
+  parseOwnedDocumentDto,
+  unicodeScalarLength,
+  yearMax,
+  type CarDocumentLinkRole,
+  type CarDocumentLinks,
+  type CarDocumentLinkValue,
+  type CarDocumentRequestFields,
+} from './car-panel-utils';
+
+export {
+  carDisplayLabel,
+  carDocumentPrefillTags,
+  carDocumentPrefillTitle,
+  carFormDraftLabel,
+  parseCarDto,
+  parseOwnedDocumentDto,
+  unicodeScalarLength,
+  yearMax,
+  type CarDocumentLinkRole,
+} from './car-panel-utils';
 
 const DISPLAY_NAME_MAX_LEN = 100;
 const NOTES_MAX_LEN = 2000;
@@ -44,64 +84,6 @@ const LICENSE_PLATE_MAX_LEN = 32;
 const VIN_LEN = 17;
 const YEAR_MIN = 1900;
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
-
-/** Count Unicode scalars (matches Rust `chars().count()`). */
-export function unicodeScalarLength(value: string): number {
-  return [...value].length;
-}
-
-export function parseCarDto(item: unknown): CarDto {
-  const c = item as Record<string, unknown>;
-  return {
-    id: String(c.id ?? ''),
-    display_name: c.display_name != null ? String(c.display_name) : null,
-    make: String(c.make ?? ''),
-    model: String(c.model ?? ''),
-    year: Number(c.year ?? 0),
-    vin: c.vin != null ? String(c.vin) : null,
-    license_plate: c.license_plate != null ? String(c.license_plate) : null,
-    notes: c.notes != null ? String(c.notes) : null,
-    insurance_document_id:
-      c.insurance_document_id != null ? String(c.insurance_document_id) : null,
-    registration_document_id:
-      c.registration_document_id != null
-        ? String(c.registration_document_id)
-        : null,
-    active: Boolean(c.active),
-    created_at: String(c.created_at ?? ''),
-    updated_at: String(c.updated_at ?? ''),
-    deactivated_at:
-      c.deactivated_at != null ? String(c.deactivated_at) : null,
-  };
-}
-
-/** Minimal Document parse for owned-document pickers (id + title). */
-export function parseOwnedDocumentDto(item: unknown): DocumentDto {
-  const d = item as Record<string, unknown>;
-  return {
-    id: String(d.id ?? ''),
-    title: String(d.title ?? ''),
-    content: String(d.content ?? ''),
-    tags: Array.isArray(d.tags) ? d.tags.map(String) : [],
-    created_at: String(d.created_at ?? ''),
-    issued_date: d.issued_date != null ? String(d.issued_date) : null,
-    expire_date: d.expire_date != null ? String(d.expire_date) : null,
-    storage: null,
-  };
-}
-
-/** Label for picker chips and headers. */
-export function carDisplayLabel(car: CarDto): string {
-  const name = car.display_name?.trim();
-  if (name) {
-    return name;
-  }
-  return `${car.year} ${car.make} ${car.model}`.trim();
-}
-
-export function yearMax(): number {
-  return new Date().getFullYear() + 1;
-}
 
 type OptionalTextResult =
   | { ok: true; value: string | null }
@@ -183,8 +165,7 @@ type CarFormFields = {
   vin: string;
   licensePlate: string;
   notes: string;
-  insuranceDocumentId: string | null;
-  registrationDocumentId: string | null;
+  documentLinks: CarDocumentLinks;
 };
 
 function emptyCarForm(): CarFormFields {
@@ -196,8 +177,7 @@ function emptyCarForm(): CarFormFields {
     vin: '',
     licensePlate: '',
     notes: '',
-    insuranceDocumentId: null,
-    registrationDocumentId: null,
+    documentLinks: { insurance: null, registration: null },
   };
 }
 
@@ -210,8 +190,7 @@ function formFromCar(car: CarDto): CarFormFields {
     vin: car.vin ?? '',
     licensePlate: car.license_plate ?? '',
     notes: car.notes ?? '',
-    insuranceDocumentId: car.insurance_document_id,
-    registrationDocumentId: car.registration_document_id,
+    documentLinks: carDocumentLinksFromCar(car),
   };
 }
 
@@ -223,9 +202,7 @@ type ValidatedCarFields = {
   vin: string | null;
   license_plate: string | null;
   notes: string | null;
-  insurance_document_id: string | null;
-  registration_document_id: string | null;
-};
+} & CarDocumentRequestFields;
 
 function validateCarForm(fields: CarFormFields):
   | { ok: true; value: ValidatedCarFields }
@@ -284,8 +261,7 @@ function validateCarForm(fields: CarFormFields):
       vin: vin.value,
       license_plate: licensePlate.value,
       notes: notes.value,
-      insurance_document_id: fields.insuranceDocumentId,
-      registration_document_id: fields.registrationDocumentId,
+      ...carDocumentRequestFields(fields.documentLinks),
     },
   };
 }
@@ -297,93 +273,95 @@ type CarPanelProps = {
 type DocumentLinkPickerProps = {
   label: string;
   accessibilityPrefix: string;
-  selectedId: string | null;
-  documents: DocumentDto[];
-  documentsLoading: boolean;
-  documentsError: string | null;
-  onChange: (id: string | null) => void;
-  chipStyle: object;
-  chipSelectedStyle: object;
-  chipTextStyle: object;
-  chipTextSelectedStyle: object;
-  hintStyle: object;
-  errorTextStyle: object;
-  pickerStyle: object;
+  value: CarDocumentLinkValue | null;
+  documentTitleById: ReadonlyMap<string, string>;
+  onChoose: () => void;
+  onRemove: () => void;
+  onCreatePress?: () => void;
+  /** True while the parent Car form submits, so no link action can start. */
+  disabled?: boolean;
+  createAccessibilityLabel?: string;
+  actionRowStyle: object;
+  actionButtonStyle: object;
 };
 
 function DocumentLinkPicker({
   label,
   accessibilityPrefix,
-  selectedId,
-  documents,
-  documentsLoading,
-  documentsError,
-  onChange,
-  chipStyle,
-  chipSelectedStyle,
-  chipTextStyle,
-  chipTextSelectedStyle,
-  hintStyle,
-  errorTextStyle,
-  pickerStyle,
+  value,
+  documentTitleById,
+  onChoose,
+  onRemove,
+  onCreatePress,
+  disabled = false,
+  createAccessibilityLabel,
+  actionRowStyle,
+  actionButtonStyle,
 }: DocumentLinkPickerProps) {
+  const isNew = value?.kind === 'new';
   return (
     <View>
       <FieldLabel label={label} />
-      {documentsLoading ? (
-        <ActivityIndicator accessibilityLabel={`Loading documents for ${label}`} />
-      ) : documentsError ? (
-        <Text
-          style={errorTextStyle}
-          accessibilityRole="alert"
-          accessibilityLabel={`${label} documents error`}>
-          {documentsError}
-        </Text>
-      ) : documents.length === 0 ? (
-        <Text style={hintStyle} accessibilityLabel={`${label} empty documents`}>
-          No documents yet. Link stays empty.
-        </Text>
-      ) : (
-        <View style={pickerStyle} accessibilityLabel={`${label} document picker`}>
-          <Pressable
-            onPress={() => onChange(null)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: selectedId == null }}
-            accessibilityLabel={`Clear ${accessibilityPrefix} document`}
-            style={[chipStyle, selectedId == null && chipSelectedStyle]}>
-            <Text
-              style={[
-                chipTextStyle,
-                selectedId == null && chipTextSelectedStyle,
-              ]}>
-              None
-            </Text>
-          </Pressable>
-          {documents.map((doc) => {
-            const isSelected = doc.id === selectedId;
-            return (
-              <Pressable
-                key={doc.id}
-                onPress={() => onChange(doc.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Select ${accessibilityPrefix} document ${doc.title}`}
-                style={[chipStyle, isSelected && chipSelectedStyle]}>
-                <Text
-                  style={[
-                    chipTextStyle,
-                    isSelected && chipTextSelectedStyle,
-                  ]}>
-                  {doc.title}
-                </Text>
-              </Pressable>
-            );
-          })}
+      {value ? (
+        <ThemedText
+          accessibilityLabel={
+            isNew
+              ? `Selected ${accessibilityPrefix} document, new, created when you save the Car`
+              : `Selected ${accessibilityPrefix} document`
+          }>
+          {isNew
+            ? `${carDocumentLinkTitle(value, documentTitleById)} (new)`
+            : carDocumentLinkTitle(value, documentTitleById)}
+        </ThemedText>
+      ) : null}
+      <View style={actionRowStyle}>
+        <Button
+          label={value ? 'Change' : 'Choose document'}
+          variant="outline"
+          accessibilityLabel={`${value ? 'Change' : 'Choose'} ${accessibilityPrefix} document`}
+          onPress={onChoose}
+          disabled={disabled}
+          style={actionButtonStyle}
+        />
+        {value ? (
+          <Button label="Remove" variant="outline" accessibilityLabel={`Remove ${accessibilityPrefix} document`} onPress={onRemove} disabled={disabled} style={actionButtonStyle} />
+        ) : null}
+      </View>
+      {onCreatePress ? (
+        <View style={actionRowStyle}>
+          <Button
+            variant="outline"
+            label="Create document"
+            onPress={onCreatePress}
+            disabled={disabled}
+            accessibilityLabel={
+              createAccessibilityLabel ?? `Create ${accessibilityPrefix} document`
+            }
+            style={actionButtonStyle}
+          />
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
+
+type DocumentCreateApplyTarget =
+  | { kind: 'persist'; carId: string }
+  | { kind: 'form'; mode: 'create' | 'edit' };
+
+type DocumentCreateSession = {
+  role: CarDocumentLinkRole;
+  apply: DocumentCreateApplyTarget;
+  carLabel: string;
+  formKey: number;
+};
+
+type ReplaceDocumentConfirm = {
+  role: CarDocumentLinkRole;
+  apply: DocumentCreateApplyTarget;
+  carLabel: string;
+  existingTitle: string;
+};
 
 /**
  * Manage Cars on the Car Manager screen.
@@ -392,10 +370,36 @@ function DocumentLinkPicker({
  * User -> Panel : open create / edit / deactivate / reactivate / delete
  * Panel -> API : GET /cars(?include_inactive=true)
  * Panel -> API : GET /documents
- * alt create
- *   Panel -> API : POST /cars
- * else update
- *   Panel -> API : PUT /cars/{id}
+ * alt create Car
+ *   Panel -> API : POST /cars (new_*_document for each new draft)
+ * else update Car
+ *   Panel -> API : PUT /cars/{id} (new_*_document for each new draft)
+ * else create insurance/registration Document (not while the form saves)
+ *   opt existing link or draft
+ *     Panel -> ConfirmDialog : replace?
+ *     User -> ConfirmDialog : confirm | cancel
+ *   Panel -> DocumentCreateForm : modal, draft mode (prefill title+tags)
+ *   DocumentCreateForm -> Panel : CreateDocumentCommand (no POST /documents)
+ *   alt apply persist (saved Car detail)
+ *     Panel -> API : PUT /cars/{id} (only new_<role>_document)
+ *     note : API creates the Document and links it in one transaction
+ *     alt write failed
+ *       Panel -> DocumentCreateForm : reject; form keeps values for retry
+ *     else ok
+ *       Panel -> Panel : refresh Cars; close modal
+ *   else apply form (create/edit) still open
+ *     Panel -> Panel : set field to new draft; Save sends it
+ *   else form closed
+ *     Panel -> Panel : drop draft; show error
+ *   end
+ * else choose existing Document in form
+ *   Panel -> DocumentPickerModal : authorized list, current id
+ *   User -> DocumentPickerModal : search, stage choice
+ *   alt Select document
+ *     DocumentPickerModal -> Panel : set form field only
+ *   else dismiss
+ *     DocumentPickerModal -> Panel : keep old id and form values
+ * end
  * else deactivate
  *   Panel -> ConfirmDialog : show
  *   User -> ConfirmDialog : confirm | cancel
@@ -410,6 +414,10 @@ function DocumentLinkPicker({
  *   User -> ConfirmDialog : confirm | cancel
  *   opt confirm
  *     Panel -> API : DELETE /cars/{id}
+ * end
+ * opt a Car write created Documents
+ *   Panel -> Panel : build each Document from its draft and the response id
+ *   Panel -> Panel : merge DTOs created after a GET /documents started
  * end
  * Panel -> Panel : refresh picker
  * ```
@@ -430,6 +438,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const selectedIdRef = useRef<string | null>(null);
   const loadGenerationRef = useRef(0);
   const docsLoadGenerationRef = useRef(0);
+  const createdDocumentsRef = useRef<CreatedDocument[]>([]);
+  const documentSequenceRef = useRef(0);
   selectedIdRef.current = selectedId;
 
   const [createVisible, setCreateVisible] = useState(false);
@@ -438,6 +448,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [creating, setCreating] = useState(false);
 
   const [editing, setEditing] = useState(false);
+  const editingRef = useRef(false);
+  editingRef.current = editing;
   const [editForm, setEditForm] = useState<CarFormFields>(emptyCarForm);
   const [editError, setEditError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -447,6 +459,18 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   const [deleteTarget, setDeleteTarget] = useState<CarDto | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [reactivatingId, setReactivatingId] = useState<string | null>(null);
+
+  const [documentCreateSession, setDocumentCreateSession] =
+    useState<DocumentCreateSession | null>(null);
+  const [documentPickerTarget, setDocumentPickerTarget] = useState<{
+    mode: 'create' | 'edit'; role: CarDocumentLinkRole;
+  } | null>(null);
+  const [replaceDocumentConfirm, setReplaceDocumentConfirm] =
+    useState<ReplaceDocumentConfirm | null>(null);
+  const [documentCreateSubmitting, setDocumentCreateSubmitting] =
+    useState(false);
+  const [linkingDocument, setLinkingDocument] = useState(false);
+  const documentCreateFormKeyRef = useRef(0);
 
   const pickerChipStyles = useMemo(
     () => createManagerPickerChipStyles(palette),
@@ -493,27 +517,6 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         pickerChipInactive: pickerChipStyles.chipInactive,
         pickerChipText: pickerChipStyles.chipText,
         pickerChipTextSelected: pickerChipStyles.chipTextSelected,
-        // Form field chips stay quieter than entity selection chips.
-        formFieldChip: {
-          borderWidth: 1,
-          borderColor: palette.border,
-          borderRadius: 8,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          backgroundColor: palette.background,
-        },
-        formFieldChipSelected: {
-          borderColor: palette.tint,
-          backgroundColor: palette.surface,
-        },
-        formFieldChipText: {
-          color: palette.text,
-          fontSize: 15,
-        },
-        formFieldChipTextSelected: {
-          color: palette.tint,
-          fontWeight: '600',
-        },
         detailCard: {
           ...selectionSurfaceStyles.selectedSurface,
         },
@@ -606,6 +609,10 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     [cars, selectedId]
   );
 
+  useEffect(() => {
+    setDocumentPickerTarget(null);
+  }, [selectedId, selected?.active, editing, createVisible]);
+
   const activeCars = useMemo(() => cars.filter((c) => c.active), [cars]);
 
   const documentTitleById = useMemo(() => {
@@ -633,6 +640,20 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     [notifySelection]
   );
 
+  /**
+   * Applies a saved Car after its refresh. The user can select another Car
+   * or open a new edit during the refresh; keep that choice and that form.
+   */
+  const reselectSavedCar = useCallback(
+    (car: CarDto | null) => {
+      if (!car?.id || selectedIdRef.current !== car.id || editingRef.current) {
+        return;
+      }
+      selectCar(car);
+    },
+    [selectCar]
+  );
+
   const syncSelectionToList = useCallback(
     (list: CarDto[]) => {
       const prev = selectedIdRef.current;
@@ -657,8 +678,27 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     });
   }, []);
 
+  const upsertDocumentLocally = useCallback((document: DocumentDto) => {
+    // A GET that started before creation can omit this Document, so the
+    // list responses of such GETs merge it back in.
+    if (!createdDocumentsRef.current.some((entry) => entry.document.id === document.id)) {
+      documentSequenceRef.current += 1;
+      createdDocumentsRef.current = [
+        ...createdDocumentsRef.current,
+        { document, createdSequence: documentSequenceRef.current },
+      ];
+    }
+    setDocuments((prev) => {
+      if (prev.some((d) => d.id === document.id)) {
+        return prev;
+      }
+      return [...prev, document];
+    });
+  }, []);
+
   const loadDocuments = useCallback(async () => {
     const generation = ++docsLoadGenerationRef.current;
+    const getStartedSequence = documentSequenceRef.current;
     if (!token) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
@@ -688,7 +728,13 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
       }
-      setDocuments(list);
+      setDocuments(
+        mergeCreatedDocuments(list, createdDocumentsRef.current, getStartedSequence)
+      );
+      createdDocumentsRef.current = pruneCreatedDocuments(
+        createdDocumentsRef.current,
+        getStartedSequence
+      );
     } catch (err: unknown) {
       if (generation !== docsLoadGenerationRef.current) {
         return;
@@ -697,7 +743,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       const msg =
         err instanceof Error ? err.message : 'Failed to load documents';
       setDocumentsError(msg);
-      setDocuments([]);
+      // A failed GET covers no created Document, so keep all of them.
+      setDocuments(createdDocumentsRef.current.map((entry) => entry.document));
     } finally {
       if (generation === docsLoadGenerationRef.current) {
         setDocumentsLoading(false);
@@ -758,6 +805,11 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   }, [load]);
 
   useEffect(() => {
+    // Created DTOs belong to the signed-in user only.
+    createdDocumentsRef.current = [];
+  }, [token]);
+
+  useEffect(() => {
     void loadDocuments();
   }, [loadDocuments]);
 
@@ -767,11 +819,30 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const closeCreateModal = useCallback(() => {
+    if (
+      documentCreateSession != null ||
+      documentPickerTarget != null ||
+      replaceDocumentConfirm != null ||
+      documentCreateSubmitting
+    ) {
+      return;
+    }
     setCreateVisible(false);
     resetCreateForm();
-  }, []);
+  }, [
+    documentCreateSession,
+    documentPickerTarget,
+    replaceDocumentConfirm,
+    documentCreateSubmitting,
+  ]);
 
-  useWebEscapeClose(createVisible, closeCreateModal);
+  useWebEscapeClose(
+    createVisible &&
+      documentCreateSession == null &&
+      documentPickerTarget == null &&
+      replaceDocumentConfirm == null,
+    closeCreateModal
+  );
 
   const openCreateModal = () => {
     resetCreateForm();
@@ -794,8 +865,239 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     setEditError(null);
   };
 
+  const closeDocumentCreateModal = useCallback(() => {
+    if (documentCreateSubmitting) {
+      return;
+    }
+    setDocumentCreateSession(null);
+  }, [documentCreateSubmitting]);
+
+  useWebEscapeClose(documentCreateSession != null, closeDocumentCreateModal);
+
+  const isFormSubmitting = useCallback(
+    (apply: DocumentCreateApplyTarget): boolean => {
+      if (apply.kind !== 'form') {
+        return false;
+      }
+      return apply.mode === 'create' ? creating : saving;
+    },
+    [creating, saving]
+  );
+
+  const isFormOpen = useCallback(
+    (apply: DocumentCreateApplyTarget): boolean => {
+      if (apply.kind !== 'form') {
+        return true;
+      }
+      return apply.mode === 'create' ? createVisible : editing;
+    },
+    [createVisible, editing]
+  );
+
+  const openDocumentCreateSession = useCallback(
+    (role: CarDocumentLinkRole, apply: DocumentCreateApplyTarget, carLabel: string) => {
+      // The Car request closes the form when it completes, so a Document
+      // created after that point would link to a closed form.
+      if (isFormSubmitting(apply)) {
+        return;
+      }
+      documentCreateFormKeyRef.current += 1;
+      setDocumentCreateSession({
+        role,
+        apply,
+        carLabel,
+        formKey: documentCreateFormKeyRef.current,
+      });
+    },
+    [isFormSubmitting]
+  );
+
+  const linkForTarget = useCallback(
+    (
+      role: CarDocumentLinkRole,
+      apply: DocumentCreateApplyTarget
+    ): CarDocumentLinkValue | null => {
+      if (apply.kind === 'persist') {
+        const car = cars.find((c) => c.id === apply.carId);
+        return car ? carDocumentLinksFromCar(car)[role] : null;
+      }
+      const form = apply.mode === 'create' ? createForm : editForm;
+      return form.documentLinks[role];
+    },
+    [cars, createForm, editForm]
+  );
+
+  const openDocumentPicker = (mode: 'create' | 'edit', role: CarDocumentLinkRole) => {
+    if (isFormSubmitting({ kind: 'form', mode })) {
+      return;
+    }
+    setDocumentPickerTarget({ mode, role });
+    void loadDocuments();
+  };
+
+  const requestCreateDocument = useCallback(
+    (role: CarDocumentLinkRole, apply: DocumentCreateApplyTarget, carLabel: string) => {
+      if (isFormSubmitting(apply)) {
+        return;
+      }
+      const existingLink = linkForTarget(role, apply);
+      if (existingLink) {
+        setReplaceDocumentConfirm({
+          role,
+          apply,
+          carLabel,
+          existingTitle: carDocumentLinkTitle(existingLink, documentTitleById),
+        });
+        return;
+      }
+      openDocumentCreateSession(role, apply, carLabel);
+    },
+    [
+      documentTitleById,
+      linkForTarget,
+      isFormSubmitting,
+      openDocumentCreateSession,
+    ]
+  );
+
+  const recordCreatedDocuments = useCallback(
+    async (car: CarDto | null, links: CarDocumentLinks) => {
+      if (!car) {
+        // The response was not readable, so the new ids are unknown.
+        await loadDocuments();
+        return;
+      }
+      createdCarDocuments(car, links).forEach(upsertDocumentLocally);
+    },
+    [loadDocuments, upsertDocumentLocally]
+  );
+
+  /**
+   * Saved-Car detail: one PUT creates the Document and links it in one
+   * transaction. A thrown Error keeps the create form open with its values.
+   */
+  const persistNewDocument = useCallback(
+    async (carId: string, role: CarDocumentLinkRole, draft: CreateDocumentCommand) => {
+      if (!token) {
+        throw new Error('No authentication token available.');
+      }
+      const car = cars.find((c) => c.id === carId);
+      if (!car) {
+        throw new Error('Car not found. Refresh and try again.');
+      }
+      if (!car.active) {
+        throw new Error('Reactivate the Car before you add a Document to it.');
+      }
+      setLinkingDocument(true);
+      clearError();
+      try {
+        // Each PUT replaces both links, so the other role keeps its current link.
+        const links: CarDocumentLinks = {
+          ...carDocumentLinksFromCar(car),
+          [role]: { kind: 'new', draft },
+        };
+        const payload: UpdateCarCommand = {
+          make: car.make,
+          model: car.model,
+          year: car.year,
+          active: null,
+          ...carDocumentRequestFields(links),
+        };
+        const response = await authenticatedFetch(`/cars/${carId}`, {
+          method: 'PUT',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          onUnauthorized: handleUnauthorized,
+        });
+        const bodyText = await response.text();
+        if (!response.ok) {
+          throw new Error(
+            bodyText
+              ? `Request failed (${response.status}): ${bodyText}`
+              : `Request failed with status ${response.status}`
+          );
+        }
+        let updated: CarDto | null = null;
+        try {
+          updated = parseCarDto(JSON.parse(bodyText));
+        } catch {
+          // refresh will sync
+        }
+        if (updated?.id) {
+          upsertCarLocally(updated);
+          selectCar(updated);
+        }
+        await Promise.all([load(), recordCreatedDocuments(updated, links)]);
+        reselectSavedCar(updated);
+        showSuccess(
+          role === 'insurance'
+            ? `Insurance document "${draft.title}" created and linked.`
+            : `Registration document "${draft.title}" created and linked.`
+        );
+      } finally {
+        setLinkingDocument(false);
+      }
+    },
+    [
+      token,
+      cars,
+      handleUnauthorized,
+      clearError,
+      showSuccess,
+      upsertCarLocally,
+      selectCar,
+      reselectSavedCar,
+      load,
+      recordCreatedDocuments,
+    ]
+  );
+
+  const applyDraftToForm = useCallback(
+    (mode: 'create' | 'edit', role: CarDocumentLinkRole, draft: CreateDocumentCommand) => {
+      const setForm = mode === 'create' ? setCreateForm : setEditForm;
+      setForm((prev) => ({
+        ...prev,
+        documentLinks: { ...prev.documentLinks, [role]: { kind: 'new', draft } },
+      }));
+      showSuccess(
+        role === 'insurance'
+          ? `Insurance document "${draft.title}" is ready. Save the Car to create and link it.`
+          : `Registration document "${draft.title}" is ready. Save the Car to create and link it.`
+      );
+    },
+    [showSuccess]
+  );
+
+  const handleDocumentDrafted = useCallback(
+    async (draft: CreateDocumentCommand) => {
+      const session = documentCreateSession;
+      if (!session) {
+        return;
+      }
+      if (session.apply.kind === 'persist') {
+        await persistNewDocument(session.apply.carId, session.role, draft);
+        setDocumentCreateSession(null);
+        return;
+      }
+      setDocumentCreateSession(null);
+      if (!isFormOpen(session.apply)) {
+        showError('The Car form closed, so the new Document was not added.');
+        return;
+      }
+      applyDraftToForm(session.apply.mode, session.role, draft);
+    },
+    [
+      documentCreateSession,
+      isFormOpen,
+      persistNewDocument,
+      applyDraftToForm,
+      showError,
+    ]
+  );
+
   const handleCreate = async () => {
-    if (creating) {
+    if (creating || documentPickerTarget != null) {
       return;
     }
     setCreateError(null);
@@ -810,6 +1112,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     }
 
     const payload: CreateCarCommand = { ...validated.value };
+    const { documentLinks } = createForm;
 
     setCreating(true);
     try {
@@ -839,10 +1142,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(created);
         selectCar(created);
       }
-      await load();
-      if (created?.id) {
-        selectCar(created);
-      }
+      await Promise.all([load(), recordCreatedDocuments(created, documentLinks)]);
+      reselectSavedCar(created);
       showSuccess(
         created?.display_name
           ? `Car "${created.display_name}" created.`
@@ -858,7 +1159,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
   };
 
   const handleSaveEdit = async () => {
-    if (saving) {
+    if (saving || documentPickerTarget != null) {
       return;
     }
     setEditError(null);
@@ -876,6 +1177,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
       ...validated.value,
       active: null,
     };
+    const { documentLinks } = editForm;
 
     setSaving(true);
     try {
@@ -905,10 +1207,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         upsertCarLocally(updated);
         selectCar(updated);
       }
-      await load();
-      if (updated?.id) {
-        selectCar(updated);
-      }
+      await Promise.all([load(), recordCreatedDocuments(updated, documentLinks)]);
+      reselectSavedCar(updated);
       showSuccess(
         updated?.display_name
           ? `Car "${updated.display_name}" updated.`
@@ -1064,6 +1364,8 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
     mode: 'create' | 'edit'
   ) => {
     const prefix = mode === 'create' ? 'Create' : 'Edit';
+    const draftLabel = carFormDraftLabel(form);
+    const submitting = isFormSubmitting({ kind: 'form', mode });
     return (
       <View style={styles.formGap}>
         <FieldLabel label="Make" required style={styles.label} />
@@ -1144,38 +1446,50 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
         <DocumentLinkPicker
           label="Insurance document"
           accessibilityPrefix="insurance"
-          selectedId={form.insuranceDocumentId}
-          documents={documents}
-          documentsLoading={documentsLoading}
-          documentsError={documentsError}
-          onChange={(insuranceDocumentId) =>
-            setForm((prev) => ({ ...prev, insuranceDocumentId }))
+          value={form.documentLinks.insurance}
+          documentTitleById={documentTitleById}
+          onChoose={() => openDocumentPicker(mode, 'insurance')}
+          onRemove={() =>
+            setForm((prev) => ({
+              ...prev,
+              documentLinks: { ...prev.documentLinks, insurance: null },
+            }))
           }
-          chipStyle={styles.formFieldChip}
-          chipSelectedStyle={styles.formFieldChipSelected}
-          chipTextStyle={styles.formFieldChipText}
-          chipTextSelectedStyle={styles.formFieldChipTextSelected}
-          hintStyle={styles.hint}
-          errorTextStyle={styles.errorText}
-          pickerStyle={styles.picker}
+          onCreatePress={() =>
+            requestCreateDocument(
+              'insurance',
+              { kind: 'form', mode },
+              draftLabel
+            )
+          }
+          createAccessibilityLabel={`${prefix} create insurance document`}
+          disabled={submitting}
+          actionRowStyle={styles.actionRow}
+          actionButtonStyle={styles.actionButton}
         />
         <DocumentLinkPicker
           label="Registration document"
           accessibilityPrefix="registration"
-          selectedId={form.registrationDocumentId}
-          documents={documents}
-          documentsLoading={documentsLoading}
-          documentsError={documentsError}
-          onChange={(registrationDocumentId) =>
-            setForm((prev) => ({ ...prev, registrationDocumentId }))
+          value={form.documentLinks.registration}
+          documentTitleById={documentTitleById}
+          onChoose={() => openDocumentPicker(mode, 'registration')}
+          onRemove={() =>
+            setForm((prev) => ({
+              ...prev,
+              documentLinks: { ...prev.documentLinks, registration: null },
+            }))
           }
-          chipStyle={styles.formFieldChip}
-          chipSelectedStyle={styles.formFieldChipSelected}
-          chipTextStyle={styles.formFieldChipText}
-          chipTextSelectedStyle={styles.formFieldChipTextSelected}
-          hintStyle={styles.hint}
-          errorTextStyle={styles.errorText}
-          pickerStyle={styles.picker}
+          onCreatePress={() =>
+            requestCreateDocument(
+              'registration',
+              { kind: 'form', mode },
+              draftLabel
+            )
+          }
+          createAccessibilityLabel={`${prefix} create registration document`}
+          disabled={submitting}
+          actionRowStyle={styles.actionRow}
+          actionButtonStyle={styles.actionButton}
         />
       </View>
     );
@@ -1299,7 +1613,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                 <Button
                   label={saving ? 'Saving…' : 'Save'}
                   onPress={() => void handleSaveEdit()}
-                  disabled={saving}
+                  disabled={saving || documentPickerTarget != null}
                   loading={saving}
                   accessibilityLabel="Save Car"
                   style={styles.actionButton}
@@ -1308,7 +1622,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   variant="outline"
                   label="Cancel"
                   onPress={cancelEdit}
-                  disabled={saving}
+                  disabled={saving || documentPickerTarget != null}
                   accessibilityLabel="Cancel edit Car"
                   style={styles.actionButton}
                 />
@@ -1379,6 +1693,38 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                   {selected.active ? 'Active' : 'Inactive'}
                 </Text>
               </View>
+              {selected.active ? (
+                <View style={styles.actionRow}>
+                  <Button
+                    variant="outline"
+                    label="Create insurance document"
+                    onPress={() =>
+                      requestCreateDocument(
+                        'insurance',
+                        { kind: 'persist', carId: selected.id },
+                        carDisplayLabel(selected)
+                      )
+                    }
+                    disabled={linkingDocument}
+                    accessibilityLabel="Create insurance document"
+                    style={styles.actionButton}
+                  />
+                  <Button
+                    variant="outline"
+                    label="Create registration document"
+                    onPress={() =>
+                      requestCreateDocument(
+                        'registration',
+                        { kind: 'persist', carId: selected.id },
+                        carDisplayLabel(selected)
+                      )
+                    }
+                    disabled={linkingDocument}
+                    accessibilityLabel="Create registration document"
+                    style={styles.actionButton}
+                  />
+                </View>
+              ) : null}
               <View style={styles.actionRow}>
                 {selected.active ? (
                   <>
@@ -1386,6 +1732,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="secondary"
                       label="Edit"
                       onPress={startEdit}
+                      disabled={linkingDocument}
                       accessibilityLabel="Edit Car"
                       style={styles.actionButton}
                     />
@@ -1393,6 +1740,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Deactivate"
                       onPress={() => setDeactivateTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Deactivate Car"
                       style={styles.actionButton}
                     />
@@ -1400,6 +1748,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Delete Car"
                       style={styles.actionButton}
                     />
@@ -1413,7 +1762,9 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                           : 'Reactivate'
                       }
                       onPress={() => void handleReactivate(selected)}
-                      disabled={reactivatingId === selected.id}
+                      disabled={
+                        reactivatingId === selected.id || linkingDocument
+                      }
                       loading={reactivatingId === selected.id}
                       accessibilityLabel="Reactivate Car"
                       style={styles.actionButton}
@@ -1422,6 +1773,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                       variant="outline"
                       label="Delete"
                       onPress={() => setDeleteTarget(selected)}
+                      disabled={linkingDocument}
                       accessibilityLabel="Delete Car"
                       style={styles.actionButton}
                     />
@@ -1459,7 +1811,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
               <Button
                 label={creating ? 'Creating…' : 'Create'}
                 onPress={() => void handleCreate()}
-                disabled={creating}
+                disabled={creating || documentPickerTarget != null}
                 loading={creating}
                 accessibilityLabel="Submit create Car"
                 style={styles.modalActionButton}
@@ -1468,7 +1820,7 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
                 variant="outline"
                 label="Cancel"
                 onPress={closeCreateModal}
-                disabled={creating}
+                disabled={creating || documentPickerTarget != null}
                 accessibilityLabel="Cancel create Car"
                 style={styles.modalActionButton}
               />
@@ -1476,6 +1828,102 @@ export default function CarPanel({ onSelectedCarChange }: CarPanelProps) {
           </View>
         </View>
       </Modal>
+
+      <DocumentPickerModal
+        visible={documentPickerTarget != null}
+        title={`Choose ${documentPickerTarget?.role ?? ''} document`}
+        documents={documents}
+        loading={documentsLoading}
+        error={documentsError}
+        onRetry={() => void loadDocuments()}
+        selectedDocumentId={documentPickerTarget
+          ? existingLinkId(linkForTarget(documentPickerTarget.role, { kind: 'form', mode: documentPickerTarget.mode }))
+          : null}
+        onClose={() => setDocumentPickerTarget(null)}
+        onSelect={(document) => {
+          if (!documentPickerTarget) return;
+          const { mode, role } = documentPickerTarget;
+          if (mode === 'edit' && (!editing || !selected?.active)) return;
+          const setForm = mode === 'create' ? setCreateForm : setEditForm;
+          setForm((form) => ({
+            ...form,
+            documentLinks: {
+              ...form.documentLinks,
+              [role]: carDocumentLinkFromId(document.id),
+            },
+          }));
+          setDocumentPickerTarget(null);
+        }}
+      />
+
+      <Modal
+        visible={documentCreateSession != null}
+        animationType="fade"
+        transparent
+        onRequestClose={closeDocumentCreateModal}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView
+              style={styles.modalScroll}
+              keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>
+                {documentCreateSession?.role === 'registration'
+                  ? 'Create registration document'
+                  : 'Create insurance document'}
+              </Text>
+              {documentCreateSession ? (
+                <DocumentCreateForm
+                  key={documentCreateSession.formKey}
+                  initialTitle={carDocumentPrefillTitle(
+                    documentCreateSession.carLabel,
+                    documentCreateSession.role
+                  )}
+                  initialTags={carDocumentPrefillTags(
+                    documentCreateSession.role
+                  )}
+                  onDraft={handleDocumentDrafted}
+                  onSubmittingChange={setDocumentCreateSubmitting}
+                />
+              ) : null}
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Button
+                variant="outline"
+                label="Cancel"
+                onPress={closeDocumentCreateModal}
+                disabled={documentCreateSubmitting}
+                accessibilityLabel="Cancel create document"
+                style={styles.modalActionButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <ConfirmDialog
+        visible={replaceDocumentConfirm != null}
+        title="Replace linked document?"
+        message={
+          replaceDocumentConfirm
+            ? `Replace "${replaceDocumentConfirm.existingTitle}" with a new ${replaceDocumentConfirm.role} document?`
+            : ''
+        }
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        onCancel={() => setReplaceDocumentConfirm(null)}
+        onConfirm={() => {
+          if (!replaceDocumentConfirm) {
+            return;
+          }
+          const pending = replaceDocumentConfirm;
+          setReplaceDocumentConfirm(null);
+          openDocumentCreateSession(
+            pending.role,
+            pending.apply,
+            pending.carLabel
+          );
+        }}
+      />
 
       <ConfirmDialog
         visible={deactivateTarget != null}

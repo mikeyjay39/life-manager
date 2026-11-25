@@ -17,12 +17,16 @@ import { useWebFormEnterSubmit } from '@/components/ui/web-form-enter-submit';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
 import { apiFetch } from '@/lib/api/client';
-import type { CreateDocumentCommand, DocumentDto } from '@/lib/api/types';
+import type {
+  CreateDocumentCommand,
+  DocumentDto,
+  DocumentStorageRefDto,
+} from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import {
+  buildCreateDocumentCommand,
   parseCreatedDocumentResponse,
-  parseOptionalDateInput,
-  parseTags,
+  storageRefFromProtonUpload,
 } from './document-create-form-utils';
 
 async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
@@ -42,35 +46,87 @@ async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
   });
 }
 
-type DocumentCreateFormProps = {
-  /** Fires after a successful create with the created DocumentDto (id + title). */
-  onDocumentCreated?: (document: DocumentDto) => void;
+type DocumentCreateFormBaseProps = {
   /** Lets the parent block Cancel while a create request is in flight. */
   onSubmittingChange?: (submitting: boolean) => void;
+  /** Editable starting title (for example Car label + role). */
+  initialTitle?: string;
+  /** Editable starting tags string (comma-separated). */
+  initialTags?: string;
 };
 
+type DocumentCreateFormModeProps =
+  | {
+      /** Create mode: fires after POST /documents with the created DocumentDto. */
+      onDocumentCreated?: (document: DocumentDto) => void;
+      onDraft?: never;
+    }
+  | {
+      /**
+       * Draft mode: the form does not POST /documents. It gives the payload to
+       * the parent, which sends it inside its own write. The form stays busy
+       * until the returned promise settles. Reject with an Error to keep the
+       * form open: it shows the message, keeps its values, and the next Submit
+       * reuses the uploaded Proton file.
+       */
+      onDraft: (draft: CreateDocumentCommand) => void | Promise<void>;
+      onDocumentCreated?: never;
+    };
+
+type DocumentCreateFormProps = DocumentCreateFormBaseProps & DocumentCreateFormModeProps;
+
+type UploadedProtonFile = {
+  asset: DocumentPickerAsset;
+  storage: DocumentStorageRefDto;
+};
+
+const DRAFT_FILE_HINT = 'To attach a file, connect Proton Drive on web.';
+
+async function readResponseOrThrow(response: Response): Promise<string> {
+  const bodyText = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      bodyText
+        ? `Request failed (${response.status}): ${bodyText}`
+        : `Request failed with status ${response.status}`
+    );
+  }
+  return bodyText;
+}
+
 /**
- * Inline create-document fields for ManagerFormVsResults.
+ * Inline create-document fields for ManagerFormVsResults and Car Manager modals.
  * Parent owns Add / Cancel expand state; this form owns Submit.
  *
  * ```
  * [*] --> clear submitError
  *     --> validate fields
  *         | invalid --> showSubmitError (inline banner) --> [*]
- *         | valid --> POST (multipart or Proton JSON)
- *             | fail --> showSubmitError; keep form open --> [*]
- *             | ok, body invalid --> showSubmitError; no parent callback --> [*]
- *             | ok, body valid --> clear error; onDocumentCreated(DocumentDto) --> [*]
- *             | unmounted mid-request --> skip setState and parent callback --> [*]
+ *         | valid, web + Proton + file --> upload to Proton (reuse an earlier upload of the same file)
+ *         | valid --> mode?
+ *             | draft --> onDraft(CreateDocumentCommand); no POST /documents
+ *                 | rejects --> showSubmitError; keep values and upload --> [*]
+ *                 | resolves --> reset form --> [*]
+ *             | create --> POST (Proton JSON or multipart)
+ *                 | fail --> showSubmitError; keep form open --> [*]
+ *                 | ok, body invalid --> showSubmitError; no parent callback --> [*]
+ *                 | ok, body valid --> clear error; onDocumentCreated(DocumentDto) --> [*]
+ *     | unmounted mid-request --> skip setState and parent callback --> [*]
  * ```
+ *
+ * Draft mode has no device-file multipart upload and no OCR, so it offers a
+ * file only on web with a Proton session.
  */
 export default function DocumentCreateForm({
   onDocumentCreated,
+  onDraft,
   onSubmittingChange,
+  initialTitle = '',
+  initialTags = '',
 }: DocumentCreateFormProps) {
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagsInput, setTagsInput] = useState(initialTags);
   const [issuedDateInput, setIssuedDateInput] = useState('');
   const [expireDateInput, setExpireDateInput] = useState('');
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);
@@ -81,6 +137,9 @@ export default function DocumentCreateForm({
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
   const mountedRef = useRef(true);
+  const uploadedProtonFileRef = useRef<UploadedProtonFile | null>(null);
+  const isDraftMode = onDraft != null;
+  const canAttachFile = !isDraftMode || (isWeb && protonSession != null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -180,6 +239,7 @@ export default function DocumentCreateForm({
     setIssuedDateInput('');
     setExpireDateInput('');
     setPickedFile(null);
+    uploadedProtonFileRef.current = null;
     setSubmitError(null);
   };
 
@@ -216,6 +276,84 @@ export default function DocumentCreateForm({
     onDocumentCreated?.(created);
   };
 
+  const uploadPickedFileToProton = async (
+    asset: DocumentPickerAsset
+  ): Promise<DocumentStorageRefDto> => {
+    const uploaded = uploadedProtonFileRef.current;
+    if (uploaded?.asset === asset) {
+      return uploaded.storage;
+    }
+    const proton = await import('@/lib/proton-drive/load-proton.web');
+    const file = await assetToFile(asset);
+    const upload = await proton.uploadToLifeManagerFolder(file, undefined, asset.name);
+    const storage = storageRefFromProtonUpload(upload);
+    uploadedProtonFileRef.current = { asset, storage };
+    return storage;
+  };
+
+  const submitDraft = async (
+    command: CreateDocumentCommand,
+    sendDraft: (draft: CreateDocumentCommand) => void | Promise<void>
+  ) => {
+    const storage =
+      isWeb && pickedFile && protonSession
+        ? await uploadPickedFileToProton(pickedFile)
+        : null;
+    await sendDraft({ ...command, storage });
+    if (!mountedRef.current) {
+      return;
+    }
+    resetForm();
+  };
+
+  const submitProtonCreate = async (
+    command: CreateDocumentCommand,
+    authToken: string,
+    asset: DocumentPickerAsset
+  ) => {
+    const storage = await uploadPickedFileToProton(asset);
+    const response = await apiFetch('/documents/json', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...command, storage }),
+      onUnauthorized: handleUnauthorized,
+    });
+    finishCreateSuccess(await readResponseOrThrow(response));
+  };
+
+  const submitMultipartCreate = async (
+    command: CreateDocumentCommand,
+    authToken: string
+  ) => {
+    const formData = new FormData();
+    formData.append('json', JSON.stringify(command));
+
+    if (pickedFile) {
+      if (pickedFile.file) {
+        formData.append('file', pickedFile.file);
+      } else {
+        formData.append('file', {
+          uri: pickedFile.uri,
+          name: pickedFile.name,
+          type: pickedFile.mimeType ?? 'application/octet-stream',
+        } as any);
+      }
+    }
+
+    const response = await apiFetch('/documents', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: formData,
+      onUnauthorized: handleUnauthorized,
+    });
+    finishCreateSuccess(await readResponseOrThrow(response));
+  };
+
   const handleSubmit = async () => {
     if (loading) {
       return;
@@ -226,8 +364,16 @@ export default function DocumentCreateForm({
       showSubmitError('No authentication token available.');
       return;
     }
-    if (!title.trim() || !content.trim()) {
-      showSubmitError('Please enter a title and content.');
+
+    const built = buildCreateDocumentCommand({
+      title,
+      content,
+      tagsInput,
+      issuedDateInput,
+      expireDateInput,
+    });
+    if (!built.ok) {
+      showSubmitError(built.message);
       return;
     }
 
@@ -236,106 +382,15 @@ export default function DocumentCreateForm({
       return;
     }
 
-    const tags = parseTags(tagsInput);
-
-    const issuedDate = parseOptionalDateInput(issuedDateInput);
-    if (!issuedDate.ok) {
-      showSubmitError('Issue date must be in YYYY-MM-DD format.');
-      return;
-    }
-
-    const expireDate = parseOptionalDateInput(expireDateInput);
-    if (!expireDate.ok) {
-      showSubmitError('Expire date must be in YYYY-MM-DD format.');
-      return;
-    }
-
     setLoading(true);
     try {
-      if (isWeb && pickedFile && protonSession) {
-        const proton = await import('@/lib/proton-drive/load-proton.web');
-        const file = await assetToFile(pickedFile);
-        const storage = await proton.uploadToLifeManagerFolder(file, undefined, pickedFile.name);
-        const payload: CreateDocumentCommand = {
-          title: title.trim(),
-          content: content.trim(),
-          tags,
-          issued_date: issuedDate.value,
-          expire_date: expireDate.value,
-          storage: {
-            provider: storage.provider,
-            share_id: storage.shareId,
-            node_id: storage.nodeId,
-            filename: storage.filename,
-            mime_type: storage.mimeType,
-          },
-        };
-
-        const response = await apiFetch('/documents/json', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          onUnauthorized: handleUnauthorized,
-        });
-
-        const bodyText = await response.text();
-        if (!response.ok) {
-          throw new Error(
-            bodyText
-              ? `Request failed (${response.status}): ${bodyText}`
-              : `Request failed with status ${response.status}`
-          );
-        }
-
-        finishCreateSuccess(bodyText);
-        return;
+      if (onDraft) {
+        await submitDraft(built.value, onDraft);
+      } else if (isWeb && pickedFile && protonSession) {
+        await submitProtonCreate(built.value, token, pickedFile);
+      } else {
+        await submitMultipartCreate(built.value, token);
       }
-
-      const payload: CreateDocumentCommand = {
-        title: title.trim(),
-        content: content.trim(),
-        tags,
-        issued_date: issuedDate.value,
-        expire_date: expireDate.value,
-        storage: null,
-      };
-
-      const jsonString = JSON.stringify(payload);
-      const formData = new FormData();
-      formData.append('json', jsonString);
-
-      if (pickedFile) {
-        if (pickedFile.file) {
-          formData.append('file', pickedFile.file);
-        } else {
-          formData.append('file', {
-            uri: pickedFile.uri,
-            name: pickedFile.name,
-            type: pickedFile.mimeType ?? 'application/octet-stream',
-          } as any);
-        }
-      }
-
-      const response = await apiFetch('/documents', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-        onUnauthorized: handleUnauthorized,
-      });
-
-      const bodyText = await response.text();
-      if (!response.ok) {
-        throw new Error(
-          bodyText ? `Request failed (${response.status}): ${bodyText}` : `Request failed with status ${response.status}`
-        );
-      }
-
-      finishCreateSuccess(bodyText);
     } catch (err: unknown) {
       console.error(err);
       if (!mountedRef.current) {
@@ -349,6 +404,12 @@ export default function DocumentCreateForm({
       }
     }
   };
+
+  const fileHint = isDraftMode && !canAttachFile
+    ? DRAFT_FILE_HINT
+    : isWeb && protonSupported && !protonSession
+      ? 'Connect Proton Drive above to attach files on web.'
+      : null;
 
   const formRef = useRef<View>(null);
   useWebFormEnterSubmit(!loading, () => {
@@ -409,37 +470,37 @@ export default function DocumentCreateForm({
       />
 
       <Text style={styles.label}>File (optional)</Text>
-      {isWeb && protonSupported && !protonSession ? (
-        <Text style={styles.hint}>Connect Proton Drive above to attach files on web.</Text>
+      {fileHint ? <Text style={styles.hint}>{fileHint}</Text> : null}
+      {canAttachFile ? (
+        <View style={styles.fileRow}>
+          <Button
+            variant="secondary"
+            label="Choose file"
+            onPress={() => void pickFile()}
+            disabled={loading || (isWeb && protonSupported && !protonSession)}
+            accessibilityLabel="Choose file"
+            style={styles.secondaryButton}
+            labelStyle={styles.secondaryButtonText}
+          />
+          {pickedFile ? (
+            <>
+              <Text style={styles.fileName} numberOfLines={1}>
+                {pickedFile.name}
+              </Text>
+              <TouchableOpacity
+                onPress={clearFile}
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Clear selected file"
+              >
+                <Text style={styles.clearLink}>Clear</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.hint}>No file selected</Text>
+          )}
+        </View>
       ) : null}
-      <View style={styles.fileRow}>
-        <Button
-          variant="secondary"
-          label="Choose file"
-          onPress={() => void pickFile()}
-          disabled={loading || (isWeb && protonSupported && !protonSession)}
-          accessibilityLabel="Choose file"
-          style={styles.secondaryButton}
-          labelStyle={styles.secondaryButtonText}
-        />
-        {pickedFile ? (
-          <>
-            <Text style={styles.fileName} numberOfLines={1}>
-              {pickedFile.name}
-            </Text>
-            <TouchableOpacity
-              onPress={clearFile}
-              disabled={loading}
-              accessibilityRole="button"
-              accessibilityLabel="Clear selected file"
-            >
-              <Text style={styles.clearLink}>Clear</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <Text style={styles.hint}>No file selected</Text>
-        )}
-      </View>
 
       {submitError ? (
         <View style={styles.errorBanner}>
