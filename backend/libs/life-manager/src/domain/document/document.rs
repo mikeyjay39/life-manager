@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use chrono::NaiveDateTime;
 use chrono::Utc;
 use serde::Deserialize;
@@ -7,9 +5,6 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::domain::document::document_storage_ref::DocumentStorageRef;
-use crate::domain::document::document_summarizer::DocumentSummarizer;
-use crate::domain::document::document_summarizer::DocumentSummaryResult;
-use crate::domain::document::document_text_reader::DocumentTextReader;
 use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -104,48 +99,6 @@ impl Document {
         )
     }
 
-    /**
-     * Creates a Document from file bytes by reading the text and summarizing it.
-     */
-    pub async fn from_file(
-        uploaded_document_input: UploadedDocumentInput,
-        reader: &Arc<dyn DocumentTextReader>,
-        summarizer: &Arc<dyn DocumentSummarizer>,
-    ) -> Option<Document> {
-        tracing::info!("Document::from_file");
-        let text = match reader.read_image(&uploaded_document_input).await {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::error!("Error reading document text: {}", e);
-                return None;
-            }
-        };
-
-        tracing::info!("Document text read successfully, text: {}", text);
-
-        let summary_result = match (summarizer.summarize(&text)).await {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!("Error summarizing document text: {}", e);
-                return None;
-            }
-        };
-
-        let DocumentSummaryResult { summary, title } = summary_result;
-        let document = Document {
-            id: Uuid::new_v4(),
-            title,
-            content: summary,
-            tags: normalize_tag_names(&uploaded_document_input.tags),
-            user_id: uploaded_document_input.user_id,
-            created_at: Utc::now().naive_utc(),
-            issued_date: uploaded_document_input.issued_date,
-            expire_date: uploaded_document_input.expire_date,
-            storage: uploaded_document_input.storage,
-        };
-        Some(document)
-    }
-
     // Prints the document details
     pub fn print_details(&self) {
         tracing::info!("Document ID: {}", self.id);
@@ -159,21 +112,6 @@ impl Document {
 
     pub fn set_content(&mut self, content: String) {
         self.content = content;
-    }
-
-    /// Copies title/content/tags/dates/storage from `updated` while preserving identity fields.
-    pub fn with_preserved_identity_from(existing: &Self, updated: Self) -> Self {
-        Self {
-            id: existing.id,
-            user_id: existing.user_id,
-            created_at: existing.created_at,
-            title: updated.title,
-            content: updated.content,
-            tags: updated.tags,
-            issued_date: updated.issued_date,
-            expire_date: updated.expire_date,
-            storage: updated.storage,
-        }
     }
 
     /// Applies metadata fields from an update payload without changing identity or storage.
@@ -204,9 +142,6 @@ impl Document {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::document::document_summarizer::DocumentSummarizer;
-    use crate::domain::document::document_text_reader::DocumentTextReader;
-    use async_trait::async_trait;
 
     #[test]
     fn test_document_creation() {
@@ -356,221 +291,5 @@ mod tests {
         assert_eq!(deserialized.created_at, doc.created_at);
         assert_eq!(deserialized.issued_date, doc.issued_date);
         assert_eq!(deserialized.expire_date, doc.expire_date);
-    }
-
-    // Mock implementations for testing from_file
-
-    #[derive(Debug)]
-    struct MockError(String);
-
-    impl std::fmt::Display for MockError {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", self.0)
-        }
-    }
-
-    impl std::error::Error for MockError {}
-
-    struct MockTextReader {
-        should_succeed: bool,
-        text: String,
-        error_message: String,
-    }
-
-    impl MockTextReader {
-        fn success(text: String) -> Self {
-            Self {
-                should_succeed: true,
-                text,
-                error_message: String::new(),
-            }
-        }
-
-        fn error(message: String) -> Self {
-            Self {
-                should_succeed: false,
-                text: String::new(),
-                error_message: message,
-            }
-        }
-    }
-
-    #[async_trait]
-    impl DocumentTextReader for MockTextReader {
-        async fn read_image(
-            &self,
-            _uploaded_document_input: &UploadedDocumentInput,
-        ) -> Result<String, Box<dyn std::error::Error>> {
-            if self.should_succeed {
-                Ok(self.text.clone())
-            } else {
-                Err(Box::new(MockError(self.error_message.clone())))
-            }
-        }
-    }
-
-    struct MockSummarizer {
-        should_succeed: bool,
-        summary: String,
-        title: String,
-        error_message: String,
-    }
-
-    impl MockSummarizer {
-        fn success(summary: String, title: String) -> Self {
-            Self {
-                should_succeed: true,
-                summary,
-                title,
-                error_message: String::new(),
-            }
-        }
-
-        fn error(message: String) -> Self {
-            Self {
-                should_succeed: false,
-                summary: String::new(),
-                title: String::new(),
-                error_message: message,
-            }
-        }
-    }
-
-    #[async_trait]
-    impl DocumentSummarizer for MockSummarizer {
-        async fn summarize(
-            &self,
-            _text: &str,
-        ) -> Result<DocumentSummaryResult, Box<dyn std::error::Error>> {
-            if self.should_succeed {
-                Ok(DocumentSummaryResult {
-                    summary: self.summary.clone(),
-                    title: self.title.clone(),
-                })
-            } else {
-                Err(Box::new(MockError(self.error_message.clone())))
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn test_from_file_success() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
-
-        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(
-            "Extracted text from document".to_string(),
-        ));
-
-        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
-            "This is a summary".to_string(),
-            "Generated Title".to_string(),
-        ));
-
-        let doc = Document::from_file(input, &reader, &summarizer)
-            .await
-            .expect("Should create document");
-
-        assert!(!doc.id.is_nil());
-        assert_eq!(doc.title, "Generated Title");
-        assert_eq!(doc.content, "This is a summary");
-        assert_eq!(doc.user_id, user_id);
-        assert!(doc.tags.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_from_file_reader_error() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
-
-        let reader: Arc<dyn DocumentTextReader> =
-            Arc::new(MockTextReader::error("Failed to read document".to_string()));
-
-        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
-            "Summary".to_string(),
-            "Title".to_string(),
-        ));
-
-        let result = Document::from_file(input, &reader, &summarizer).await;
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_from_file_summarizer_error() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("test.pdf", vec![1, 2, 3], user_id);
-
-        let reader: Arc<dyn DocumentTextReader> =
-            Arc::new(MockTextReader::success("Extracted text".to_string()));
-
-        let summarizer: Arc<dyn DocumentSummarizer> =
-            Arc::new(MockSummarizer::error("Failed to summarize".to_string()));
-
-        let result = Document::from_file(input, &reader, &summarizer).await;
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_from_file_with_empty_text() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("empty.pdf", vec![], user_id);
-
-        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(String::new()));
-
-        let summarizer: Arc<dyn DocumentSummarizer> =
-            Arc::new(MockSummarizer::success(String::new(), String::new()));
-
-        let doc = Document::from_file(input, &reader, &summarizer)
-            .await
-            .expect("Should create document even with empty strings");
-
-        assert_eq!(doc.title, "");
-        assert_eq!(doc.content, "");
-    }
-
-    #[tokio::test]
-    async fn test_from_file_with_very_long_text() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("large.pdf", vec![1; 10000], user_id);
-
-        let long_text = "A".repeat(1_000_000);
-        let long_summary = "B".repeat(500_000);
-        let long_title = "C".repeat(10_000);
-
-        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(long_text));
-
-        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
-            long_summary.clone(),
-            long_title.clone(),
-        ));
-
-        let doc = Document::from_file(input, &reader, &summarizer)
-            .await
-            .expect("Should handle very long text");
-
-        assert_eq!(doc.title.len(), 10_000);
-        assert_eq!(doc.content.len(), 500_000);
-    }
-
-    #[tokio::test]
-    async fn test_from_file_with_unicode() {
-        let user_id = Uuid::new_v4();
-        let input = UploadedDocumentInput::for_test_file("unicode.pdf", vec![1, 2, 3], user_id);
-
-        let reader: Arc<dyn DocumentTextReader> = Arc::new(MockTextReader::success(
-            "Text with émojis 🚀 and 中文字符".to_string(),
-        ));
-
-        let summarizer: Arc<dyn DocumentSummarizer> = Arc::new(MockSummarizer::success(
-            "Summary with émojis 😀".to_string(),
-            "Título con ñ".to_string(),
-        ));
-
-        let doc = Document::from_file(input, &reader, &summarizer)
-            .await
-            .expect("Should handle unicode");
-
-        assert_eq!(doc.title, "Título con ñ");
-        assert_eq!(doc.content, "Summary with émojis 😀");
     }
 }

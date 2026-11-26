@@ -15,109 +15,12 @@ use serial_test::serial;
 use tracing_test::traced_test;
 
 use crate::common::setup::{
-    build_auth_header, build_bearer_token_with_tenant, run_test_with_all_containers,
-    run_test_with_test_profile,
+    build_auth_header, build_bearer_token_with_tenant, run_test_with_test_profile,
 };
 use reqwest::ClientBuilder;
 use reqwest::StatusCode;
-use std::time::Duration;
 
 const DOCUMENTS_URL: &str = "/life-manager/api/v1/documents";
-
-#[tokio::test]
-#[serial]
-#[traced_test]
-#[ignore]
-async fn create_and_get_document_docker_compose() {
-    run_test_with_all_containers(|server: TestServer| async move {
-        let auth_header = build_auth_header(&server).await;
-
-        // Make REST API call to create a document
-        let payload = CreateDocumentCommandDto {
-            title: String::from("Integration Test Document"),
-            content: String::from("This is a test content."),
-            tags: vec![],
-            issued_date: None,
-            expire_date: None,
-            storage: None,
-        };
-
-        let json_string = serde_json::to_string(&payload).unwrap();
-        let file_name = "tests/resources/hello_world.pdf";
-        let file_bytes = fs::read(file_name)
-            .unwrap_or_else(|_| panic!("Could not read bytes from file: {}", file_name));
-
-        let form = Form::new()
-            .part(
-                "json",
-                Part::text(json_string.to_string())
-                    .mime_str("application/json")
-                    .expect("Could not set mime type to json"),
-            )
-            .part(
-                "file",
-                Part::bytes(file_bytes)
-                    .file_name("hello_world.pdf")
-                    .mime_str("application/pdf")
-                    .expect("Could not set mime type to pdf"),
-            );
-
-        let url_result = server
-            .server_url(DOCUMENTS_URL)
-            .expect("Failed to get server URL");
-        let url = url_result.as_str();
-        tracing::info!("URL: {}", url);
-
-        let client = ClientBuilder::new()
-            .timeout(Duration::from_secs(30)) // Total request timeout
-            .build()
-            .expect("Failed to build HTTP client");
-        let res = match client
-            .post(url)
-            .multipart(form)
-            .header("Authorization", &auth_header)
-            .send()
-            .await
-        {
-            Ok(response) => response,
-            Err(e) => panic!("Failed to send request: {}", e),
-        };
-        tracing::info!("Response: {:?}", res);
-        assert!(
-            res.status().is_success(),
-            "Response status was not successful: {}",
-            res.error_for_status().unwrap_err()
-        );
-        let saved_document_resp: DocumentDto = res.json().await.unwrap();
-
-        // Verify the document was created in the database
-        let get_request_url_result = server
-            .server_url(&format!("{}/{}", DOCUMENTS_URL, &saved_document_resp.id))
-            .expect("Failed to get server URL");
-        let get_request_url = get_request_url_result.as_str();
-        tracing::info!("Get Request URL: {}", get_request_url);
-
-        let get_response = reqwest::Client::new()
-            .get(get_request_url)
-            .header("Authorization", &auth_header)
-            .send()
-            .await
-            .expect("Failed to send request");
-        tracing::info!("Get Response: {:?}", get_response);
-        assert!(get_response.status().is_success());
-        let document: DocumentDto = get_response.json().await.unwrap();
-        assert_ne!(document.title.len(), 0); // TODO: Make this match our input title
-        assert!(
-            document.content.to_lowercase().contains("hello"),
-            "{}",
-            format!(
-                "Document content does not contain expected text. Content: {}",
-                document.content.as_str()
-            )
-        );
-    })
-    .await;
-}
 
 #[tokio::test]
 #[serial]
@@ -130,9 +33,9 @@ async fn create_and_get_document() {
         let payload = CreateDocumentCommandDto {
             title: String::from("Integration Test Document"),
             content: String::from("This is a test content."),
-            tags: vec![],
-            issued_date: None,
-            expire_date: None,
+            tags: vec!["insurance".to_string()],
+            issued_date: Some(midnight(2024, 6, 1)),
+            expire_date: Some(midnight(2026, 6, 1)),
             storage: None,
         };
 
@@ -199,15 +102,11 @@ async fn create_and_get_document() {
         tracing::info!("Get Response: {:?}", get_response);
         assert!(get_response.status().is_success());
         let document: DocumentDto = get_response.json().await.unwrap();
-        assert_ne!(document.title.len(), 0); // TODO: Make this match our input title
-        assert!(
-            document.content.to_lowercase().contains("hello"),
-            "{}",
-            format!(
-                "Document content does not contain expected text. Content: {}",
-                document.content.as_str()
-            )
-        );
+        assert_eq!(document.title, "Integration Test Document");
+        assert_eq!(document.content, "This is a test content.");
+        assert_eq!(document.tags, payload.tags);
+        assert_eq!(document.issued_date, payload.issued_date);
+        assert_eq!(document.expire_date, payload.expire_date);
     })
     .await;
 }
@@ -803,6 +702,107 @@ async fn create_and_update_document_json() {
         assert_eq!(fetched.tags, vec!["new".to_string()]);
     })
     .await;
+}
+
+#[tokio::test]
+#[serial]
+#[traced_test]
+async fn update_document_multipart_with_file_saves_submitted_fields() {
+    run_test_with_test_profile(|server: TestServer| async move {
+        let auth_header = build_auth_header(&server).await;
+        let client = reqwest::Client::new();
+
+        let create_payload = CreateDocumentCommandDto {
+            title: String::from("Before Multipart Update"),
+            content: String::from("Original content."),
+            tags: vec!["old".to_string()],
+            issued_date: None,
+            expire_date: None,
+            storage: None,
+        };
+        let create_url = server
+            .server_url(DOCUMENTS_URL)
+            .expect("Failed to get server URL")
+            .to_string();
+        let create_res = client
+            .post(&create_url)
+            .multipart(json_and_png_form(&create_payload))
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send create request");
+        assert_eq!(create_res.status(), StatusCode::CREATED);
+        let created = create_res.json::<DocumentDto>().await.unwrap();
+
+        let update_payload = UpdateDocumentCommandDto {
+            title: String::from("After Multipart Update"),
+            content: String::from("Submitted content."),
+            tags: vec!["receipt".to_string()],
+            issued_date: Some(midnight(2025, 1, 15)),
+            expire_date: Some(midnight(2027, 1, 15)),
+            storage: None,
+        };
+        let update_url = server
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, created.id))
+            .expect("Failed to get server URL")
+            .to_string();
+        let update_res = client
+            .put(update_url)
+            .multipart(json_and_png_form(&update_payload))
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send update request");
+        assert_eq!(update_res.status(), StatusCode::OK);
+
+        let get_url = server
+            .server_url(&format!("{}/{}", DOCUMENTS_URL, created.id))
+            .expect("Failed to get server URL")
+            .to_string();
+        let get_res = client
+            .get(get_url)
+            .header("Authorization", &auth_header)
+            .send()
+            .await
+            .expect("Failed to send get request");
+        assert!(get_res.status().is_success());
+        let fetched = get_res.json::<DocumentDto>().await.unwrap();
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.created_at, created.created_at);
+        assert_eq!(fetched.title, update_payload.title);
+        assert_eq!(fetched.content, update_payload.content);
+        assert_eq!(fetched.tags, update_payload.tags);
+        assert_eq!(fetched.issued_date, update_payload.issued_date);
+        assert_eq!(fetched.expire_date, update_payload.expire_date);
+    })
+    .await;
+}
+
+fn json_and_png_form<T: serde::Serialize>(payload: &T) -> Form {
+    let file_name = "tests/resources/hello_world.png";
+    let file_bytes = fs::read(file_name)
+        .unwrap_or_else(|_| panic!("Could not read bytes from file: {}", file_name));
+    Form::new()
+        .part(
+            "json",
+            Part::text(serde_json::to_string(payload).unwrap())
+                .mime_str("application/json")
+                .expect("Could not set mime type to json"),
+        )
+        .part(
+            "file",
+            Part::bytes(file_bytes)
+                .file_name("hello_world.png")
+                .mime_str("image/png")
+                .expect("Could not set mime type to png"),
+        )
+}
+
+fn midnight(year: i32, month: u32, day: u32) -> chrono::NaiveDateTime {
+    NaiveDate::from_ymd_opt(year, month, day)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
 }
 
 #[tokio::test]

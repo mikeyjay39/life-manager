@@ -5,19 +5,13 @@ use uuid::Uuid;
 
 use crate::{
     application::document::document_repository::DocumentRepository,
-    domain::{
-        document::Document, document::document_summarizer::DocumentSummarizer,
-        document::document_text_reader::DocumentTextReader,
-        document::uploaded_document_input::UploadedDocumentInput,
-    },
+    domain::{document::Document, document::uploaded_document_input::UploadedDocumentInput},
 };
 
 pub struct UpdateDocumentCommand {
     document_id: Uuid,
     uploaded_document_input: UploadedDocumentInput,
     document_repository: Arc<dyn DocumentRepository>,
-    reader: Arc<dyn DocumentTextReader>,
-    summarizer: Arc<dyn DocumentSummarizer>,
 }
 
 impl UpdateDocumentCommand {
@@ -25,23 +19,17 @@ impl UpdateDocumentCommand {
         document_id: Uuid,
         uploaded_document_input: UploadedDocumentInput,
         document_repository: Arc<dyn DocumentRepository>,
-        reader: Arc<dyn DocumentTextReader>,
-        summarizer: Arc<dyn DocumentSummarizer>,
     ) -> Self {
         Self {
             document_id,
             uploaded_document_input,
             document_repository,
-            reader,
-            summarizer,
         }
     }
 
+    /// Applies the submitted metadata to the owned Document. Uploaded file bytes are ignored.
     pub async fn execute(self) -> AppResult<Document> {
-        tracing::info!(
-            "Received multipart update for document ID: {}",
-            self.document_id
-        );
+        tracing::info!("Received update for document ID: {}", self.document_id);
         let Some(existing) = self
             .document_repository
             .load_owned_document(&self.document_id, &self.uploaded_document_input.user_id)
@@ -50,41 +38,18 @@ impl UpdateDocumentCommand {
             return Err(AppError::NotFound);
         };
 
-        let document_opt: Option<Document> = if !self.uploaded_document_input.file_data.is_empty() {
-            Document::from_file(
-                self.uploaded_document_input.clone(),
-                &self.reader,
-                &self.summarizer,
-            )
-            .await
-            .map(|ocr_doc| Document::with_preserved_identity_from(&existing, ocr_doc))
-        } else {
-            let mut document: Document = existing.clone();
-            document.apply_metadata_update(
-                &self.uploaded_document_input.title,
-                self.uploaded_document_input
-                    .content
-                    .as_deref()
-                    .unwrap_or(""),
-                self.uploaded_document_input.tags,
-                self.uploaded_document_input.issued_date,
-                self.uploaded_document_input.expire_date,
-            );
-            if let Some(storage) = self.uploaded_document_input.storage.clone() {
-                document.storage = Some(storage);
-            }
-            Some(document)
-        };
-
-        let document = match document_opt {
-            Some(doc) => doc,
-            None => {
-                let err_msg = "Failed to create document from file data";
-                tracing::error!(err_msg);
-                return Err(AppError::internal_err_from_msg(err_msg));
-            }
-        };
-
+        let input = self.uploaded_document_input;
+        let mut document = existing;
+        document.apply_metadata_update(
+            &input.title,
+            input.content.as_deref().unwrap_or(""),
+            input.tags,
+            input.issued_date,
+            input.expire_date,
+        );
+        if let Some(storage) = input.storage {
+            document.storage = Some(storage);
+        }
         document.print_details();
 
         match self.document_repository.update_document(document).await {

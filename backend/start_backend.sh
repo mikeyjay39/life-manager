@@ -7,16 +7,11 @@ env_basename() {
 
 # ---- Check arguments ----
 BUILD_IMAGE=0
-WITH_TESSERACT=0
 PROFILE=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --build-image)
       BUILD_IMAGE=1
-      shift
-      ;;
-    --with-tesseract)
-      WITH_TESSERACT=1
       shift
       ;;
     dev|docker-dev|test|prod)
@@ -29,14 +24,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "Error: unknown argument '$1'"
-      echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+      echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image]"
       exit 1
       ;;
   esac
 done
 
 if [ -z "$PROFILE" ]; then
-  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image]"
   exit 1
 fi
 
@@ -45,7 +40,7 @@ fi
 # ---- Validate profile ----
 if [[ "$PROFILE" != "dev" && "$PROFILE" != "docker-dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
   echo "Error: invalid profile '$PROFILE'"
-  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: start_backend.sh <test | dev | docker-dev | prod> [--build-image]"
   exit 1
 fi
 
@@ -54,7 +49,7 @@ if [[ "$PROFILE" == "docker-dev" ]]; then
   BUILD_IMAGE=1
 fi
 
-echo "DEBUG: PROFILE='$PROFILE' WITH_TESSERACT='$WITH_TESSERACT' BUILD_IMAGE='$BUILD_IMAGE'"
+echo "DEBUG: PROFILE='$PROFILE' BUILD_IMAGE='$BUILD_IMAGE'"
 
 BACKEND_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$BACKEND_DIR/.." && pwd)"
@@ -75,10 +70,6 @@ export $(grep -v '^#' "$ENV_PATH" | xargs -d '\n')
 if [[ "$PROFILE" == "dev" ]]; then
   # shellcheck source=../scripts/load-dev-ports.sh
   . "$REPO_ROOT/scripts/load-dev-ports.sh"
-fi
-
-if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-  export TESSERACT_ENABLED=true
 fi
 
 echo "Loaded environment variables from $ENV_PATH"
@@ -116,21 +107,13 @@ fi
 if [[ "$PROFILE" == "prod" && "$BUILD_IMAGE" -eq 1 ]]; then
   echo "Building Docker images for production..."
   "$BACKEND_DIR/scripts/write_rev.sh"
-  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod --profile tesseract build --no-cache life-manager gateway frontend
-  else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod build --no-cache life-manager gateway frontend
-  fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile prod build --no-cache life-manager gateway frontend
 fi
 
 # --- Build docker-dev images (always — source is baked in, not bind-mounted)
 if [[ "$PROFILE" == "docker-dev" ]]; then
   echo "Building Docker images for docker-dev..."
-  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract build life_manager_dev frontend_dev
-  else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev build life_manager_dev frontend_dev
-  fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev build life_manager_dev frontend_dev
 fi
 
 # ---- Docker Compose from repo root (compose file lives at root) ----
@@ -141,21 +124,11 @@ if [[ "$PROFILE" == "test" ]]; then
 elif [[ "$PROFILE" == "dev" ]]; then
   echo "Skipping docker compose for profile dev (backend on host; Expo via start_frontend.sh)."
 elif [[ "$PROFILE" == "docker-dev" ]]; then
-  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev --profile tesseract up
-  else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev up
-  fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev down
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile docker-dev up
 else
-  if [[ "$WITH_TESSERACT" -eq 1 ]]; then
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" --profile tesseract up
-  else
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" down
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" up
-  fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" down
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_PATH" --profile "$PROFILE" up
 fi
 
 echo "Backend started with profile '$PROFILE'"

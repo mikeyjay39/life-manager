@@ -1,6 +1,5 @@
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
-use anyhow::Context;
 use auth::{AuthState, AuthStateBuilder};
 use deadpool_diesel::sqlite::Pool;
 
@@ -12,7 +11,6 @@ use crate::{
         health::health_member_use_cases::HealthMemberUseCases,
         health::health_reading_use_cases::HealthReadingUseCases,
     },
-    domain::document::document_text_reader::DocumentTextReader,
     infrastructure::{
         car::car_documents_orm_collection::CarDocumentsOrmCollection,
         car::car_maintenance_event_documents_orm_collection::CarMaintenanceEventDocumentsOrmCollection,
@@ -23,10 +21,6 @@ use crate::{
         health::health_member_orm_collection::HealthMemberOrmCollection,
         health::health_reading_orm_collection::HealthReadingOrmCollection,
         shared::db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
-        shared::noop_document_text_reader::NoOpDocumentTextReader,
-        shared::ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
-        shared::reqwest_http_client::ReqwestHttpClient,
-        shared::tesseract_adapter::TesseractAdapter,
     },
 };
 
@@ -90,7 +84,7 @@ impl LifeManagerStateBuilder {
         };
         let document_use_cases = match deps.document_use_cases {
             Some(use_cases) => use_cases,
-            None => Arc::new(default_document_use_cases(pool.clone())?),
+            None => Arc::new(default_document_use_cases(pool.clone())),
         };
         let health_member_use_cases = match deps.health_member_use_cases {
             Some(use_cases) => use_cases,
@@ -151,33 +145,11 @@ impl Default for LifeManagerStateBuilder {
     }
 }
 
-fn tesseract_enabled_from_env() -> bool {
-    env::var("TESSERACT_ENABLED")
-        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"))
-        .unwrap_or(false)
-}
-
-fn default_document_use_cases(pool: Arc<Pool>) -> anyhow::Result<DocumentUseCases> {
+fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
     tracing::info!("Creating default DocumentUseCases...");
-    let reader: Arc<dyn DocumentTextReader> = if tesseract_enabled_from_env() {
-        let tesseract_url = env::var("TESSERACT_URL")
-            .context("TESSERACT_URL must be set when TESSERACT_ENABLED is true")?;
-        Arc::new(TesseractAdapter::new(
-            tesseract_url,
-            Arc::new(ReqwestHttpClient::new()),
-        ))
-    } else {
-        Arc::new(NoOpDocumentTextReader::new())
-    };
-    Ok(DocumentUseCases {
-        document_repository: (Arc::new(DocumentOrmCollection::new(pool))),
-        reader,
-        summarizer: Arc::new(OllamaDocumentSummarizerAdapter::new(
-            env::var("OLLAMA_URL")
-                .ok()
-                .and_then(|url_str| url_str.parse().ok()),
-        )),
-    })
+    DocumentUseCases {
+        document_repository: Arc::new(DocumentOrmCollection::new(pool)),
+    }
 }
 
 async fn init_db(pool: Pool) -> anyhow::Result<Pool> {
