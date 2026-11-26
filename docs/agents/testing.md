@@ -59,10 +59,15 @@ git diff --exit-code -- frontend/lib/api/generated/
 cd backend && cargo test --test '*'
 ```
 
-**Optional Rust checks** (installed in CI; not always run in workflow):
+**Rust formatting** (CI job `backend-unit-tests` runs this check before the tests):
 
 ```bash
 cargo fmt --all --manifest-path backend/Cargo.toml -- --check
+```
+
+**Optional Rust check** (installed in CI; CI does not run it):
+
+```bash
 cargo clippy --workspace --manifest-path backend/Cargo.toml --all-targets -- -D warnings
 ```
 
