@@ -1,10 +1,10 @@
 use axum::{Router, routing::post};
 
 use crate::infrastructure::{
-    shared::app_state::LifeManagerState,
     health::health_reading_handler::{
         create_health_reading, delete_health_reading, list_health_readings, update_health_reading,
     },
+    shared::app_state::LifeManagerState,
 };
 
 pub fn health_reading_router() -> Router<LifeManagerState> {

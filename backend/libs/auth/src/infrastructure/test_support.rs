@@ -48,19 +48,19 @@ pub async fn insert_auth_user(
         .get()
         .await
         .context("Failed to get database connection from pool")?;
-    conn.interact(move |conn| diesel::insert_into(auth_users::table).values(&new_user).execute(conn))
-        .await
-        .map_err(|err| anyhow::anyhow!("Failed to insert auth user: {err:?}"))?
-        .context("Database error inserting auth user")?;
+    conn.interact(move |conn| {
+        diesel::insert_into(auth_users::table)
+            .values(&new_user)
+            .execute(conn)
+    })
+    .await
+    .map_err(|err| anyhow::anyhow!("Failed to insert auth user: {err:?}"))?
+    .context("Database error inserting auth user")?;
 
     Ok(user_id)
 }
 
-pub async fn set_user_active(
-    pool: &Arc<Pool>,
-    username: &str,
-    active: bool,
-) -> anyhow::Result<()> {
+pub async fn set_user_active(pool: &Arc<Pool>, username: &str, active: bool) -> anyhow::Result<()> {
     let username = username.to_string();
     let conn = pool
         .get()

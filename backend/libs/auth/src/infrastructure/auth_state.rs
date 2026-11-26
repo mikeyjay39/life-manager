@@ -12,8 +12,11 @@ use crate::{
     domain::principal_signup_service::PrincipalSignupService,
     domain::verify_email_service::PrincipalVerifyEmailService,
     infrastructure::{
-        argon_password_hasher::ArgonPasswordHasher, auth_user_seeder::ensure_default_admin_user,
-        db::run_migrations, email_config::EmailConfig, email_sender_factory::build_email_sender,
+        argon_password_hasher::ArgonPasswordHasher,
+        auth_user_seeder::ensure_default_admin_user,
+        db::run_migrations,
+        email_config::EmailConfig,
+        email_sender_factory::build_email_sender,
         email_token_orm_collection::EmailTokenOrmCollection,
         principal_orm_collection::PrincipalOrmCollection,
         sha256_token_hasher::{OsRngOpaqueTokenGenerator, Sha256TokenHasher},

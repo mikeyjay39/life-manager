@@ -334,7 +334,8 @@ mod tests {
     fn given_only_ids_and_date_when_create_then_validation_error() {
         let member = given_active_member();
         let today = Utc::now().date_naive();
-        let err = HealthReading::create(&member, today, HealthReadingVitals::default()).unwrap_err();
+        let err =
+            HealthReading::create(&member, today, HealthReadingVitals::default()).unwrap_err();
         assert!(matches!(
             err,
             AppError::Validation(msg) if msg.contains("at least one metric or notes")
@@ -469,8 +470,7 @@ mod tests {
         let mut member = given_active_member();
         member.deactivate();
         let today = Utc::now().date_naive();
-        let err =
-            HealthReading::create(&member, today, given_vitals_height_weight()).unwrap_err();
+        let err = HealthReading::create(&member, today, given_vitals_height_weight()).unwrap_err();
         assert!(matches!(
             err,
             AppError::Validation(msg) if msg.contains("inactive")

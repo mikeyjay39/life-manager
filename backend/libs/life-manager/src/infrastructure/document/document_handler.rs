@@ -1,6 +1,8 @@
 use crate::application::document::create_document_command::CreateDocumentCommand;
 use crate::application::document::delete_document_command::DeleteDocumentCommand;
-use crate::application::document::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
+use crate::application::document::get_documents_query::{
+    GetDocumentsQuery, GetDocumentsTitleCursorQuery,
+};
 use crate::application::document::update_document_command::UpdateDocumentCommand;
 use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::document::document_api_types::{
@@ -271,11 +273,14 @@ async fn parse_document_multipart<T: DeserializeOwned>(
                 if let Some(name) = field.file_name() {
                     file_name = name.to_string();
                 }
-                file_data = field.bytes().await.map_err(|err| {
-                    tracing::warn!("Failed to read multipart file field: {err}");
-                    AppError::Validation("Could not read the uploaded file.".to_string())
-                })?
-                .to_vec();
+                file_data = field
+                    .bytes()
+                    .await
+                    .map_err(|err| {
+                        tracing::warn!("Failed to read multipart file field: {err}");
+                        AppError::Validation("Could not read the uploaded file.".to_string())
+                    })?
+                    .to_vec();
                 tracing::info!("Received file for update: {}", file_name);
             }
             _ => {}
@@ -339,8 +344,7 @@ pub async fn get_documents_by_title(
         title_contains
     );
     let repo = document_use_cases.document_repository.clone();
-    let query =
-        GetDocumentsTitleCursorQuery::new(repo, user_id, title, title_contains, PAGE_LIMIT);
+    let query = GetDocumentsTitleCursorQuery::new(repo, user_id, title, title_contains, PAGE_LIMIT);
     let documents = query.execute().await;
     let document_dtos: Vec<DocumentDto> =
         documents.iter().map(DocumentDto::from_document).collect();

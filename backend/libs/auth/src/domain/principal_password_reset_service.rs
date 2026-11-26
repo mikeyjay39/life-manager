@@ -78,7 +78,11 @@ impl PasswordResetService for PrincipalPasswordResetService {
     ) -> Result<PasswordResetRequestResponse, String> {
         let email = parse_email(&req.email)?;
 
-        let Some(principal) = self.principal_repository.get_principal(email.as_str()).await else {
+        let Some(principal) = self
+            .principal_repository
+            .get_principal(email.as_str())
+            .await
+        else {
             return Ok(PasswordResetRequestResponse {
                 message: GENERIC_REQUEST_MESSAGE.to_string(),
             });
@@ -319,10 +323,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete_user_by_id(
-            &self,
-            _user_id: Uuid,
-        ) -> Result<(), PrincipalWriteError> {
+        async fn delete_user_by_id(&self, _user_id: Uuid) -> Result<(), PrincipalWriteError> {
             Ok(())
         }
     }
@@ -377,7 +378,10 @@ mod tests {
 
     #[async_trait]
     impl EmailTokenRepository for StubTokenRepo {
-        async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+        async fn issue_replacing_unused(
+            &self,
+            token: NewEmailToken,
+        ) -> Result<(), EmailTokenError> {
             let mut rows = self.rows.lock().unwrap();
             for row in rows.iter_mut() {
                 if row.user_id == token.user_id

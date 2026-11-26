@@ -60,7 +60,9 @@ impl SignupService for PrincipalSignupService {
         validate_password(&signup_req.password)?;
 
         let Some(base_url) = self.app_public_base_url.as_ref() else {
-            tracing::error!("APP_PUBLIC_BASE_URL is not configured; cannot send verification email");
+            tracing::error!(
+                "APP_PUBLIC_BASE_URL is not configured; cannot send verification email"
+            );
             return Err(SignupError::EmailSendFailed(
                 EMAIL_SEND_FAILED_MESSAGE.to_string(),
             ));
@@ -329,7 +331,11 @@ mod tests {
     fn given_service(
         duplicate: bool,
         fail_send: bool,
-    ) -> (PrincipalSignupService, Arc<StubRepository>, Arc<RecordingSender>) {
+    ) -> (
+        PrincipalSignupService,
+        Arc<StubRepository>,
+        Arc<RecordingSender>,
+    ) {
         let principal_repository = Arc::new(StubRepository {
             duplicate,
             last_username: Mutex::new(None),
@@ -370,7 +376,10 @@ mod tests {
 
         // Then
         assert!(response.message.contains("Check your email"));
-        assert_eq!(principals.last_active.lock().unwrap().as_ref(), Some(&false));
+        assert_eq!(
+            principals.last_active.lock().unwrap().as_ref(),
+            Some(&false)
+        );
         let sent = sender.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
         assert_eq!(sent[0].to.as_str(), "user@example.com");

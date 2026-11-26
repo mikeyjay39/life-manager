@@ -40,11 +40,9 @@ impl IntoResponse for AppError {
                 )
             }
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized", self.to_string()),
-            AppError::ServiceUnavailable(msg) => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "service_unavailable",
-                msg,
-            ),
+            AppError::ServiceUnavailable(msg) => {
+                (StatusCode::SERVICE_UNAVAILABLE, "service_unavailable", msg)
+            }
         };
         let body = ErrorResponse {
             error: error_type.to_string(),
@@ -146,8 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn given_service_unavailable_when_into_response_then_returns_503_json() {
-        let response =
-            AppError::ServiceUnavailable("try again later".to_string()).into_response();
+        let response = AppError::ServiceUnavailable("try again later".to_string()).into_response();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 
         let json = response_json(response).await;

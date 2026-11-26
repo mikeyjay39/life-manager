@@ -155,7 +155,10 @@ mod tests {
 
     #[async_trait]
     impl EmailTokenRepository for StubRepo {
-        async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+        async fn issue_replacing_unused(
+            &self,
+            token: NewEmailToken,
+        ) -> Result<(), EmailTokenError> {
             self.issue_calls
                 .lock()
                 .unwrap()
@@ -268,12 +271,8 @@ mod tests {
             .expect("issue");
 
         // When
-        let first = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
-        let second = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
+        let first = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
+        let second = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
 
         // Then
         assert!(first.is_ok());
@@ -317,9 +316,7 @@ mod tests {
             .expect("issue");
 
         // When
-        let result = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
+        let result = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
 
         // Then
         assert_eq!(result, Err(EmailTokenError::InvalidOrUsed));

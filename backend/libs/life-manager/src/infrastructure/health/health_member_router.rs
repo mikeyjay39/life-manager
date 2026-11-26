@@ -4,11 +4,11 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    shared::app_state::LifeManagerState,
     health::health_member_handler::{
         create_health_member, deactivate_health_member, get_health_member, list_health_members,
         update_health_member,
     },
+    shared::app_state::LifeManagerState,
 };
 
 pub fn health_member_router() -> Router<LifeManagerState> {

@@ -1,6 +1,6 @@
 use auth::AuthUser;
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
@@ -16,9 +16,7 @@ use crate::infrastructure::car::car_api_types::{
 };
 use crate::infrastructure::car::car_dto::CarDto;
 use crate::infrastructure::car::car_state::CarState;
-use crate::infrastructure::document::mappers::{
-    DocumentLinkFields, document_link_from_dto,
-};
+use crate::infrastructure::document::mappers::{DocumentLinkFields, document_link_from_dto};
 
 const INSURANCE_DOCUMENT_FIELDS: DocumentLinkFields = DocumentLinkFields {
     id: "insurance_document_id",
@@ -244,11 +242,11 @@ pub async fn delete_car(
 mod tests {
     use std::sync::Arc;
 
+    use axum::Json;
     use axum::body::to_bytes;
     use axum::extract::{Path, Query, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
-    use axum::Json;
     use serde_json::from_slice;
     use uuid::Uuid;
 
@@ -277,17 +275,17 @@ mod tests {
         }
     }
 
-    fn use_cases_with_collections()
-    -> (Arc<CarUseCases>, Arc<CarCollection>, Arc<DocumentCollection>) {
+    fn use_cases_with_collections() -> (
+        Arc<CarUseCases>,
+        Arc<CarCollection>,
+        Arc<DocumentCollection>,
+    ) {
         let cars = Arc::new(CarCollection::new());
         let docs = Arc::new(DocumentCollection::new());
         let use_cases = Arc::new(CarUseCases {
             car_repository: cars.clone(),
             document_repository: docs.clone(),
-            car_documents_writer: Arc::new(CarDocumentsCollection::new(
-                cars.clone(),
-                docs.clone(),
-            )),
+            car_documents_writer: Arc::new(CarDocumentsCollection::new(cars.clone(), docs.clone())),
         });
         (use_cases, cars, docs)
     }
@@ -402,12 +400,7 @@ mod tests {
 
         let mut second = create_payload("Honda", "Civic", 2021);
         second.vin = Some(SAMPLE_VIN.to_string());
-        let result = create_car(
-            auth_user,
-            State(CarState(use_cases)),
-            Json(second),
-        )
-        .await;
+        let result = create_car(auth_user, State(CarState(use_cases)), Json(second)).await;
         assert!(matches!(
             result,
             Err(backend_utils::AppError::Validation(_))
@@ -429,13 +422,9 @@ mod tests {
         .await
         .expect("user a");
 
-        let response = create_car(
-            user_b,
-            State(CarState(use_cases)),
-            Json(payload),
-        )
-        .await
-        .into_response();
+        let response = create_car(user_b, State(CarState(use_cases)), Json(payload))
+            .await
+            .into_response();
         let (status, _): (StatusCode, CarDto) = response_json(response).await;
         assert_eq!(status, StatusCode::CREATED);
     }
@@ -551,13 +540,9 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert!(!dto.active);
 
-        let get_response = get_car(
-            auth_user,
-            State(CarState(use_cases)),
-            Path(created.id),
-        )
-        .await
-        .into_response();
+        let get_response = get_car(auth_user, State(CarState(use_cases)), Path(created.id))
+            .await
+            .into_response();
         let (get_status, get_dto): (StatusCode, CarDto) = response_json(get_response).await;
         assert_eq!(get_status, StatusCode::OK);
         assert!(!get_dto.active);
@@ -586,10 +571,7 @@ mod tests {
         assert_eq!(delete_response.status(), StatusCode::NO_CONTENT);
 
         let get_result = get_car(auth_user, State(CarState(use_cases)), Path(created.id)).await;
-        assert!(matches!(
-            get_result,
-            Err(backend_utils::AppError::NotFound)
-        ));
+        assert!(matches!(get_result, Err(backend_utils::AppError::NotFound)));
     }
 
     #[tokio::test]
@@ -819,10 +801,14 @@ mod tests {
         create.registration_document_id = Some(registration.id);
         docs.save_document(insurance).await.expect("save doc");
         docs.save_document(registration).await.expect("save doc");
-        let created = create_car(auth_user.clone(), State(CarState(use_cases.clone())), Json(create))
-            .await
-            .expect("create")
-            .data;
+        let created = create_car(
+            auth_user.clone(),
+            State(CarState(use_cases.clone())),
+            Json(create),
+        )
+        .await
+        .expect("create")
+        .data;
 
         // When a PUT omits both ids
         let dto = update_car(
@@ -927,7 +913,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_new_insurance_and_registration_documents_when_create_car_then_201_and_both_linked() {
+    async fn given_new_insurance_and_registration_documents_when_create_car_then_201_and_both_linked()
+     {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, _, docs) = use_cases_with_collections();
@@ -1014,7 +1001,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_linked_insurance_when_update_with_null_id_and_new_document_then_new_document_linked() {
+    async fn given_linked_insurance_when_update_with_null_id_and_new_document_then_new_document_linked()
+     {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, _, docs) = use_cases_with_collections();
@@ -1023,19 +1011,28 @@ mod tests {
         docs.save_document(old).await.expect("save doc");
         let mut create = create_payload("Toyota", "Corolla", 2020);
         create.insurance_document_id = Some(old_id);
-        let created = create_car(auth_user.clone(), State(CarState(use_cases.clone())), Json(create))
-            .await
-            .expect("create")
-            .data;
+        let created = create_car(
+            auth_user.clone(),
+            State(CarState(use_cases.clone())),
+            Json(create),
+        )
+        .await
+        .expect("create")
+        .data;
         let mut payload = update_payload_no_links();
         payload.insurance_document_id = None;
         payload.new_insurance_document = Some(new_document_payload("New insurance"));
 
         // When
-        let dto = update_car(auth_user, State(CarState(use_cases)), Path(created.id), Json(payload))
-            .await
-            .expect("update")
-            .data;
+        let dto = update_car(
+            auth_user,
+            State(CarState(use_cases)),
+            Path(created.id),
+            Json(payload),
+        )
+        .await
+        .expect("update")
+        .data;
 
         // Then
         let linked = dto.insurance_document_id.expect("linked");
@@ -1044,7 +1041,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_id_and_new_document_for_same_role_when_create_car_then_validation_and_nothing_stored() {
+    async fn given_id_and_new_document_for_same_role_when_create_car_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, cars, docs) = use_cases_with_collections();
@@ -1059,13 +1057,17 @@ mod tests {
         let result = create_car(auth_user, State(CarState(use_cases)), Json(payload)).await;
 
         // Then
-        assert!(matches!(result, Err(backend_utils::AppError::Validation(_))));
+        assert!(matches!(
+            result,
+            Err(backend_utils::AppError::Validation(_))
+        ));
         assert!(cars.cars.lock().await.is_empty());
         assert_eq!(docs.documents.lock().await.len(), 1);
     }
 
     #[tokio::test]
-    async fn given_id_and_new_document_for_same_role_when_update_car_then_validation_and_nothing_stored() {
+    async fn given_id_and_new_document_for_same_role_when_update_car_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, _, docs) = use_cases_with_collections();
@@ -1091,12 +1093,16 @@ mod tests {
         .await;
 
         // Then
-        assert!(matches!(result, Err(backend_utils::AppError::Validation(_))));
+        assert!(matches!(
+            result,
+            Err(backend_utils::AppError::Validation(_))
+        ));
         assert!(docs.documents.lock().await.is_empty());
     }
 
     #[tokio::test]
-    async fn given_invalid_storage_in_new_document_when_create_car_then_validation_and_nothing_stored() {
+    async fn given_invalid_storage_in_new_document_when_create_car_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, cars, docs) = use_cases_with_collections();
@@ -1111,21 +1117,29 @@ mod tests {
         let result = create_car(auth_user, State(CarState(use_cases)), Json(payload)).await;
 
         // Then
-        assert!(matches!(result, Err(backend_utils::AppError::Validation(_))));
+        assert!(matches!(
+            result,
+            Err(backend_utils::AppError::Validation(_))
+        ));
         assert!(cars.cars.lock().await.is_empty());
         assert!(docs.documents.lock().await.is_empty());
     }
 
     #[tokio::test]
-    async fn given_duplicate_vin_when_create_car_with_new_document_then_validation_and_no_document() {
+    async fn given_duplicate_vin_when_create_car_with_new_document_then_validation_and_no_document()
+    {
         // Given
         let auth_user = test_auth_user();
         let (use_cases, _, docs) = use_cases_with_collections();
         let mut first = create_payload("Toyota", "Corolla", 2020);
         first.vin = Some(SAMPLE_VIN.to_string());
-        create_car(auth_user.clone(), State(CarState(use_cases.clone())), Json(first))
-            .await
-            .expect("first");
+        create_car(
+            auth_user.clone(),
+            State(CarState(use_cases.clone())),
+            Json(first),
+        )
+        .await
+        .expect("first");
         let mut second = create_payload("Honda", "Civic", 2021);
         second.vin = Some(SAMPLE_VIN.to_string());
         second.new_insurance_document = Some(new_document_payload("Insurance"));
@@ -1134,7 +1148,10 @@ mod tests {
         let result = create_car(auth_user, State(CarState(use_cases)), Json(second)).await;
 
         // Then
-        assert!(matches!(result, Err(backend_utils::AppError::Validation(_))));
+        assert!(matches!(
+            result,
+            Err(backend_utils::AppError::Validation(_))
+        ));
         assert!(docs.documents.lock().await.is_empty());
     }
 

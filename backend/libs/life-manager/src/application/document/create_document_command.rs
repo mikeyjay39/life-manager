@@ -6,7 +6,8 @@ use crate::{
     application::document::document_repository::DocumentRepository,
     domain::{
         document::Document, document::document_summarizer::DocumentSummarizer,
-        document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
+        document::document_text_reader::DocumentTextReader,
+        document::uploaded_document_input::UploadedDocumentInput,
     },
 };
 

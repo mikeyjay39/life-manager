@@ -7,7 +7,9 @@ use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, RunQueryDsl, Select
 use uuid::Uuid;
 
 use crate::{
-    domain::principal::{CreateUserError, Principal, PrincipalRepository, PrincipalWriteError, UpdatePasswordError},
+    domain::principal::{
+        CreateUserError, Principal, PrincipalRepository, PrincipalWriteError, UpdatePasswordError,
+    },
     infrastructure::auth_user_entity::{AuthUserEntity, NewAuthUserEntity},
     schema::auth_users,
 };
@@ -233,7 +235,7 @@ impl PrincipalRepository for PrincipalOrmCollection {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Once};
+    use std::sync::Once;
 
     use crate::{
         domain::principal::PrincipalRepository,
@@ -259,9 +261,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         ensure_default_admin_user(&pool, "life-manager")
             .await
             .expect("seed admin");
@@ -283,9 +283,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         ensure_default_admin_user(&pool, "life-manager")
             .await
             .expect("seed admin");
@@ -303,9 +301,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         insert_auth_user(&pool, "inactive", "password", "life-manager", false)
             .await
             .expect("insert user");
@@ -323,9 +319,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         ensure_default_admin_user(&pool, "life-manager")
             .await
             .expect("seed admin");
@@ -346,9 +340,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         let repository = PrincipalOrmCollection::new(pool.clone());
 
         // When
@@ -381,9 +373,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         insert_auth_user(&pool, "dup@example.com", "password", "life-manager", false)
             .await
             .expect("insert user");
@@ -391,16 +381,14 @@ mod tests {
 
         // When
         let result = repository
-            .create_user(
-                "dup@example.com",
-                "other-hash",
-                "life-manager",
-                false,
-            )
+            .create_user("dup@example.com", "other-hash", "life-manager", false)
             .await;
 
         // Then
-        assert_eq!(result, Err(crate::domain::principal::CreateUserError::DuplicateUsername));
+        assert_eq!(
+            result,
+            Err(crate::domain::principal::CreateUserError::DuplicateUsername)
+        );
     }
 
     #[tokio::test]
@@ -408,16 +396,16 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
-        let user_id = insert_auth_user(&pool, "pw@example.com", "oldpassword", "life-manager", true)
-            .await
-            .expect("insert user");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
+        let user_id =
+            insert_auth_user(&pool, "pw@example.com", "oldpassword", "life-manager", true)
+                .await
+                .expect("insert user");
         let repository = PrincipalOrmCollection::new(pool.clone());
-        let before = crate::infrastructure::test_support::get_password_hash(&pool, "pw@example.com")
-            .await
-            .expect("hash before");
+        let before =
+            crate::infrastructure::test_support::get_password_hash(&pool, "pw@example.com")
+                .await
+                .expect("hash before");
 
         // When
         repository

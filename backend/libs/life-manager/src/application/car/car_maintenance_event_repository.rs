@@ -4,7 +4,9 @@ use uuid::Uuid;
 
 use crate::domain::{
     car::CarId,
-    car::car_maintenance_event::{CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventType},
+    car::car_maintenance_event::{
+        CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventType,
+    },
 };
 
 /// Write rejected because the Car row is gone.

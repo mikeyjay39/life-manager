@@ -1,9 +1,7 @@
 use diesel::prelude::*;
 use uuid::Uuid;
 
-use crate::domain::{
-    email_token::EmailTokenRecord, email_token_purpose::EmailTokenPurpose,
-};
+use crate::domain::{email_token::EmailTokenRecord, email_token_purpose::EmailTokenPurpose};
 
 #[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = crate::schema::auth_email_tokens)]

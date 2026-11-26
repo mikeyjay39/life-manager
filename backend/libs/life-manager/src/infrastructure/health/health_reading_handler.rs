@@ -1,6 +1,6 @@
 use auth::AuthUser;
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use backend_utils::AppError;
 use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
@@ -89,12 +89,7 @@ pub async fn list_health_readings(
     )
     .execute()
     .await?;
-    AppResponse::ok(
-        readings
-            .iter()
-            .map(HealthReadingDto::from_domain)
-            .collect(),
-    )
+    AppResponse::ok(readings.iter().map(HealthReadingDto::from_domain).collect())
 }
 
 /// Updates mutable metric fields on an owned HealthReading.
@@ -181,11 +176,11 @@ pub async fn delete_health_reading(
 mod tests {
     use std::sync::Arc;
 
+    use axum::Json;
     use axum::body::to_bytes;
     use axum::extract::{Path, Query, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
-    use axum::Json;
     use chrono::{NaiveDate, Utc};
     use serde_json::from_slice;
     use uuid::Uuid;
@@ -255,7 +250,10 @@ mod tests {
         created.id
     }
 
-    fn metric_payload(health_member_id: Uuid, recorded_on: NaiveDate) -> CreateHealthReadingCommandDto {
+    fn metric_payload(
+        health_member_id: Uuid,
+        recorded_on: NaiveDate,
+    ) -> CreateHealthReadingCommandDto {
         CreateHealthReadingCommandDto {
             health_member_id,
             recorded_on,
@@ -268,7 +266,10 @@ mod tests {
         }
     }
 
-    fn update_payload(recorded_on: NaiveDate, weight_kg: Option<f64>) -> UpdateHealthReadingCommandDto {
+    fn update_payload(
+        recorded_on: NaiveDate,
+        weight_kg: Option<f64>,
+    ) -> UpdateHealthReadingCommandDto {
         UpdateHealthReadingCommandDto {
             recorded_on,
             height_cm: Some(180.0),
@@ -335,8 +336,7 @@ mod tests {
     async fn given_inactive_member_when_create_reading_then_400_and_nothing_stored() {
         let auth_user = test_auth_user();
         let (use_cases, members, readings) = use_cases_with_collections();
-        let mut member =
-            HealthMember::create(auth_user.user_id, "Alex", None, None).unwrap();
+        let mut member = HealthMember::create(auth_user.user_id, "Alex", None, None).unwrap();
         member.deactivate();
         let member_id = member.id.0;
         members.save(member).await.expect("save");

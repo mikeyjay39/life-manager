@@ -6,8 +6,9 @@ use deadpool_diesel::sqlite::Pool;
 
 use crate::{
     application::{
-        car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases, car::car_use_cases::CarUseCases,
-        health::doctor_visit_use_cases::DoctorVisitUseCases, document::document_use_cases::DocumentUseCases,
+        car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases,
+        car::car_use_cases::CarUseCases, document::document_use_cases::DocumentUseCases,
+        health::doctor_visit_use_cases::DoctorVisitUseCases,
         health::health_member_use_cases::HealthMemberUseCases,
         health::health_reading_use_cases::HealthReadingUseCases,
     },
@@ -17,11 +18,11 @@ use crate::{
         car::car_maintenance_event_documents_orm_collection::CarMaintenanceEventDocumentsOrmCollection,
         car::car_maintenance_event_orm_collection::CarMaintenanceEventOrmCollection,
         car::car_orm_collection::CarOrmCollection,
-        shared::db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
-        health::doctor_visit_orm_collection::DoctorVisitOrmCollection,
         document::document_orm_collection::DocumentOrmCollection,
-        health::health_reading_orm_collection::HealthReadingOrmCollection,
+        health::doctor_visit_orm_collection::DoctorVisitOrmCollection,
         health::health_member_orm_collection::HealthMemberOrmCollection,
+        health::health_reading_orm_collection::HealthReadingOrmCollection,
+        shared::db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
         shared::noop_document_text_reader::NoOpDocumentTextReader,
         shared::ollama_document_summarizer_adapter::OllamaDocumentSummarizerAdapter,
         shared::reqwest_http_client::ReqwestHttpClient,
@@ -101,18 +102,14 @@ impl LifeManagerStateBuilder {
             Some(use_cases) => use_cases,
             None => Arc::new(HealthReadingUseCases {
                 health_reading_repository: Arc::new(HealthReadingOrmCollection::new(pool.clone())),
-                health_member_repository: health_member_use_cases
-                    .health_member_repository
-                    .clone(),
+                health_member_repository: health_member_use_cases.health_member_repository.clone(),
             }),
         };
         let doctor_visit_use_cases = match deps.doctor_visit_use_cases {
             Some(use_cases) => use_cases,
             None => Arc::new(DoctorVisitUseCases {
                 doctor_visit_repository: Arc::new(DoctorVisitOrmCollection::new(pool.clone())),
-                health_member_repository: health_member_use_cases
-                    .health_member_repository
-                    .clone(),
+                health_member_repository: health_member_use_cases.health_member_repository.clone(),
             }),
         };
         let car_use_cases = match deps.car_use_cases {

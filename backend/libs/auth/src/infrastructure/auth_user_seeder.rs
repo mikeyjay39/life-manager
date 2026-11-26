@@ -55,10 +55,14 @@ pub async fn ensure_default_admin_user(pool: &Arc<Pool>, tenant: &str) -> anyhow
         created_at: Utc::now().naive_utc(),
     };
 
-    conn.interact(move |conn| diesel::insert_into(auth_users::table).values(&new_user).execute(conn))
-        .await
-        .map_err(|err| anyhow::anyhow!("Failed to seed default admin user: {err:?}"))?
-        .context("Failed to insert default admin user")?;
+    conn.interact(move |conn| {
+        diesel::insert_into(auth_users::table)
+            .values(&new_user)
+            .execute(conn)
+    })
+    .await
+    .map_err(|err| anyhow::anyhow!("Failed to seed default admin user: {err:?}"))?
+    .context("Failed to insert default admin user")?;
     Ok(())
 }
 
@@ -114,9 +118,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
 
         // When
         ensure_default_admin_user(&pool, "life-manager")
@@ -136,9 +138,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         ensure_default_admin_user(&pool, "life-manager")
             .await
             .expect("seed admin");

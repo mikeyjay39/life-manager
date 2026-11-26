@@ -63,8 +63,7 @@ impl LoginService for SuperuserOnlyLoginService {
 mod tests {
 
     use crate::{
-        domain::login_request::LoginRequest,
-        infrastructure::auth_user_seeder::admin_user_uuid,
+        domain::login_request::LoginRequest, infrastructure::auth_user_seeder::admin_user_uuid,
     };
 
     use super::*;

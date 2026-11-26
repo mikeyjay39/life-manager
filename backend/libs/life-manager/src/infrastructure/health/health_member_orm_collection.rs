@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use deadpool_diesel::sqlite::Pool;
-use diesel::{ExpressionMethods, OptionalExtension, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper};
+use diesel::{
+    ExpressionMethods, OptionalExtension, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -80,17 +82,17 @@ impl HealthMemberRepository for HealthMemberOrmCollection {
                     query = query.filter(health_members::active.eq(true));
                 }
                 query
-                    .order((
-                        health_members::display_name.asc(),
-                        health_members::id.asc(),
-                    ))
+                    .order((health_members::display_name.asc(), health_members::id.asc()))
                     .select(HealthMemberEntity::as_select())
                     .get_results(conn)
             })
             .await;
 
         match result {
-            Ok(Ok(entities)) => entities.into_iter().filter_map(|e| e.into_domain()).collect(),
+            Ok(Ok(entities)) => entities
+                .into_iter()
+                .filter_map(|e| e.into_domain())
+                .collect(),
             Ok(Err(e)) => {
                 tracing::error!("Database error listing HealthMembers: {}", e);
                 vec![]

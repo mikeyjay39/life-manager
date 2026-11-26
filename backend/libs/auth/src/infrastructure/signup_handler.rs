@@ -143,10 +143,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete_user_by_id(
-            &self,
-            _user_id: uuid::Uuid,
-        ) -> Result<(), PrincipalWriteError> {
+        async fn delete_user_by_id(&self, _user_id: uuid::Uuid) -> Result<(), PrincipalWriteError> {
             Ok(())
         }
     }

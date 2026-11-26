@@ -4,7 +4,9 @@ use backend_utils::{AppError, AppResult};
 use uuid::Uuid;
 
 use crate::{
-    application::health::health_reading_repository::{HealthReadingRepository, MissingHealthReading},
+    application::health::health_reading_repository::{
+        HealthReadingRepository, MissingHealthReading,
+    },
     domain::health::health_reading::HealthReadingId,
 };
 

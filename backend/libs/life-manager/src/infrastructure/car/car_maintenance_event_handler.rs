@@ -104,9 +104,9 @@ pub async fn list_car_maintenance_events(
     State(CarMaintenanceEventState(use_cases)): State<CarMaintenanceEventState>,
     Query(params): Query<GetCarMaintenanceEventsQueryParams>,
 ) -> ApiResult<Vec<CarMaintenanceEventDto>> {
-    let car_id = params.car_id.ok_or_else(|| {
-        AppError::Validation("car_id query parameter is required".to_string())
-    })?;
+    let car_id = params
+        .car_id
+        .ok_or_else(|| AppError::Validation("car_id query parameter is required".to_string()))?;
     let event_type = params.parse_event_type()?;
     let events = ListCarMaintenanceEventsQuery::new(
         user_id,
@@ -738,7 +738,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_document_id_and_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+    async fn given_document_id_and_new_receipt_when_create_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -762,7 +763,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_document_id_and_new_receipt_when_update_event_then_validation_and_nothing_stored() {
+    async fn given_document_id_and_new_receipt_when_update_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -793,7 +795,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_invalid_storage_in_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+    async fn given_invalid_storage_in_new_receipt_when_create_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -820,7 +823,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_inactive_car_when_create_event_with_new_receipt_then_validation_and_no_document() {
+    async fn given_inactive_car_when_create_event_with_new_receipt_then_validation_and_no_document()
+    {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();

@@ -3,9 +3,7 @@ use auth::auth_router;
 use axum::Router;
 use server_host::{AppBootstrap, TenantMount};
 
-use crate::infrastructure::{
-    app_state::{TestTenantDeps, TestTenantState, TestTenantStateBuilder},
-};
+use crate::infrastructure::app_state::{TestTenantDeps, TestTenantState, TestTenantStateBuilder};
 
 pub struct TestTenant;
 

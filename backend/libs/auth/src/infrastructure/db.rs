@@ -5,10 +5,7 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/");
 
 pub async fn run_migrations(pool: &Pool) -> anyhow::Result<()> {
-    let conn = pool
-        .get()
-        .await
-        .context("Failed to get DB connection")?;
+    let conn = pool.get().await.context("Failed to get DB connection")?;
     conn.interact(|conn_inner| conn_inner.run_pending_migrations(MIGRATIONS).map(|_| ()))
         .await
         .map_err(|err| anyhow::anyhow!("Failed to run auth migrations interact: {err:?}"))?

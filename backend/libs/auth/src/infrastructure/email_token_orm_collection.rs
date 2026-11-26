@@ -164,10 +164,8 @@ impl EmailTokenRepository for EmailTokenOrmCollection {
         })?;
 
         conn.interact(move |conn| {
-            diesel::delete(
-                auth_email_tokens::table.filter(auth_email_tokens::user_id.eq(user_id)),
-            )
-            .execute(conn)
+            diesel::delete(auth_email_tokens::table.filter(auth_email_tokens::user_id.eq(user_id)))
+                .execute(conn)
         })
         .await
         .map_err(|e| {
@@ -191,10 +189,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        domain::{
-            email_token_service::EmailTokenService,
-            opaque_token_hasher::OpaqueTokenHasher,
-        },
+        domain::{email_token_service::EmailTokenService, opaque_token_hasher::OpaqueTokenHasher},
         infrastructure::{
             db::{fresh_test_pool, run_migrations},
             sha256_token_hasher::{OsRngOpaqueTokenGenerator, Sha256TokenHasher},
@@ -204,12 +199,16 @@ mod tests {
 
     async fn given_service() -> (EmailTokenService, Uuid, Arc<EmailTokenOrmCollection>) {
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
-        let user_id = insert_auth_user(&pool, "token-user@example.com", "password", "life-manager", true)
-            .await
-            .expect("insert user");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
+        let user_id = insert_auth_user(
+            &pool,
+            "token-user@example.com",
+            "password",
+            "life-manager",
+            true,
+        )
+        .await
+        .expect("insert user");
         let repo = Arc::new(EmailTokenOrmCollection::new(pool));
         let service = EmailTokenService {
             repository: repo.clone(),
@@ -257,12 +256,8 @@ mod tests {
             .expect("issue");
 
         // When
-        let first = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
-        let second = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
+        let first = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
+        let second = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
 
         // Then
         assert!(first.is_ok());
@@ -279,9 +274,7 @@ mod tests {
             .expect("issue");
 
         // When
-        let result = service
-            .consume(&raw, EmailTokenPurpose::SignupVerify)
-            .await;
+        let result = service.consume(&raw, EmailTokenPurpose::SignupVerify).await;
 
         // Then
         assert_eq!(result, Err(EmailTokenError::InvalidOrUsed));

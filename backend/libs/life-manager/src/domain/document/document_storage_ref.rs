@@ -97,8 +97,7 @@ mod tests {
     #[test]
     fn given_valid_proton_drive_ref_when_checking_validity_then_returns_true() {
         let (share_id, node_id, filename, mime_type) = valid_proton_fields();
-        let storage =
-            DocumentStorageRef::proton_drive(share_id, node_id, filename, mime_type);
+        let storage = DocumentStorageRef::proton_drive(share_id, node_id, filename, mime_type);
 
         assert!(storage.is_valid_proton_drive());
     }
@@ -121,12 +120,22 @@ mod tests {
         let (share_id, node_id, filename, _) = valid_proton_fields();
 
         assert!(
-            !DocumentStorageRef::proton_drive("".to_string(), node_id.clone(), filename.clone(), None)
-                .is_valid_proton_drive()
+            !DocumentStorageRef::proton_drive(
+                "".to_string(),
+                node_id.clone(),
+                filename.clone(),
+                None
+            )
+            .is_valid_proton_drive()
         );
         assert!(
-            !DocumentStorageRef::proton_drive(share_id.clone(), "  ".to_string(), filename.clone(), None)
-                .is_valid_proton_drive()
+            !DocumentStorageRef::proton_drive(
+                share_id.clone(),
+                "  ".to_string(),
+                filename.clone(),
+                None
+            )
+            .is_valid_proton_drive()
         );
         assert!(
             !DocumentStorageRef::proton_drive(share_id, node_id, "".to_string(), None)

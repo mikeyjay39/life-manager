@@ -1,10 +1,10 @@
 pub mod argon_password_hasher;
 pub mod auth_state;
-pub mod auth_user_seeder;
 pub mod auth_user;
 pub mod auth_user_entity;
-pub mod db;
+pub mod auth_user_seeder;
 pub mod capture_file_email_sender;
+pub mod db;
 pub mod email_config;
 pub mod email_sender_factory;
 pub mod email_token_entity;

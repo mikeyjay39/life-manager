@@ -8,8 +8,8 @@ const DEFAULT_DATABASE_URL: &str = "file:./data/test-tenant.db";
 
 pub fn create_connection_pool() -> anyhow::Result<Pool> {
     dotenv().ok();
-    let database_url = env::var("TEST_TENANT_DATABASE_URL")
-        .unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
+    let database_url =
+        env::var("TEST_TENANT_DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
     tracing::info!(
         "Creating test-tenant connection pool to database at {}",
         database_url
