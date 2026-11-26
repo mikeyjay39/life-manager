@@ -201,6 +201,33 @@ sqlite3 ./data/dev-test.db \
 
 See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code) and theme hooks.
 
+## Change document extraction limits (owner only)
+
+The backend reads the document extraction limits from the single row in `document_extraction_limits` (`id = 1`). It reads the row on each request. A change applies on the next request, with no rebuild or restart. The migration seeds these values: 20 units each user each day, 10485760 bytes (10 MB), and 5 PDF pages.
+
+| Column | Meaning |
+|--------|---------|
+| `daily_limit_per_user` | Extraction units that one user can use on one UTC date. `0` is a kill switch: it blocks all extraction. |
+| `max_file_bytes` | Largest file that extraction accepts, in bytes. Must be more than 0. |
+| `max_pdf_pages` | Largest number of PDF pages that extraction accepts. Must be more than 0. |
+| `updated_at` | Time of the last change. Set it when you change a value. |
+
+Per-user usage is in `document_extraction_usage` (`user_id`, `usage_date` as `YYYY-MM-DD` UTC, `count`). A new UTC date starts a new count. When you lower the limit below a count, `remaining_today` is 0 for that user.
+
+Only the owner changes the limits. Agents must not run this SQL. Use the database of the profile that you change (example: dev DB from `.dev.env`):
+
+```bash
+sqlite3 ./data/dev-test.db \
+  "UPDATE document_extraction_limits SET daily_limit_per_user = 30, updated_at = CURRENT_TIMESTAMP WHERE id = 1;"
+```
+
+If the row is missing, `GET /documents/extract/limits` returns 503 "Extraction is not configured" and the backend writes an error log line. To restore the seed values, insert the row again:
+
+```bash
+sqlite3 ./data/dev-test.db \
+  "INSERT INTO document_extraction_limits (id, daily_limit_per_user, max_file_bytes, max_pdf_pages, updated_at) VALUES (1, 20, 10485760, 5, CURRENT_TIMESTAMP);"
+```
+
 ## Proton Drive (experimental, web only)
 
 life-manager can upload document files **directly to Proton Drive** from the **Expo web** build (desktop or mobile browser). The native Expo app still uses the backend multipart upload path without Proton.

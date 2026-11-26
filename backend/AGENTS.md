@@ -107,6 +107,8 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 - Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` (life-manager) and `TEST_TENANT_DATABASE_URL` (test-tenant pilot) from `.<profile>.env` at the repo root
 - Agents: edit `libs/life-manager/migrations/*.sql` and `libs/auth/migrations/*.sql` only — never `diesel migration run` or hand-edit `libs/life-manager/src/schema.rs` or `libs/auth/src/schema.rs`
 - User applies migrations per [../README.md](../README.md)
+- `document_extraction_limits` and `document_extraction_usage` have no `schema.rs` entry. Their adapter (`infrastructure/document/document_extraction_orm_collection.rs`) uses `diesel::sql_query` with `QueryableByName` rows. The daily reserve is one atomic `INSERT … ON CONFLICT DO UPDATE … WHERE count < limit RETURNING count` statement.
+- `create_connection_pool_from_url` sets `PRAGMA foreign_keys = ON` and `PRAGMA busy_timeout = 5000` on each pooled connection. Concurrent writers wait for the lock instead of failing with `SQLITE_BUSY`.
 
 ## Tests
 
