@@ -11,8 +11,8 @@ const SUMMARY_CHAR_MAX_LENGTH: usize = 200;
 const TITLE_WORD_LIMIT: usize = 10;
 
 /**
-* An adapter that uses the Ollama client to summarize documents.
-*/
+ * An adapter that uses the Ollama client to summarize documents.
+ */
 #[derive(Clone)]
 pub struct OllamaDocumentSummarizerAdapter {
     ollama_client: Ollama,

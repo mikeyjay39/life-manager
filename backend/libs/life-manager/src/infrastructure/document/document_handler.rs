@@ -294,9 +294,9 @@ async fn parse_document_multipart<T: DeserializeOwned>(
 }
 
 /**
-* NOTE: This is a testing function that doesn't guarantee order and is not suited for pagination.
-*
-*/
+ * NOTE: This is a testing function that doesn't guarantee order and is not suited for pagination.
+ *
+ */
 pub async fn get_documents(
     AuthUser {
         user_id,

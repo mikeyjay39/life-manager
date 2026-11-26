@@ -13,10 +13,10 @@ use crate::{
 };
 
 /**
-* A login service that only allows a superuser to log in.
-*
-* WARNING: This is for demonstration and testing purposes only. Do not use in production!
-*/
+ * A login service that only allows a superuser to log in.
+ *
+ * WARNING: This is for demonstration and testing purposes only. Do not use in production!
+ */
 pub struct SuperuserOnlyLoginService {
     admin_username: String,
     admin_password: String,
