@@ -117,6 +117,16 @@ cd backend && cargo run
 
 Uses `APP_PORT` from your environment (see `.dev.env` at the repo root for profile defaults, or `backend/.env` for bare `cargo run`).
 
+### Document extraction (Gemini)
+
+`POST /life-manager/api/v1/documents/extract` reads Document form fields through Gemini (see [docs/agents/api.md](docs/agents/api.md)). The backend reads these variables at startup:
+
+| Variable | Default | Use |
+|----------|---------|-----|
+| `GEMINI_API_KEY` | not set | API key. When it is not set or blank, extraction is off and the endpoint returns 503. Keep it in the git-crypt env files only. The backend never logs it. |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model id. |
+| `GEMINI_API_BASE_URL` | `https://generativelanguage.googleapis.com` | API base URL. Tests and e2e set it to a stub server. |
+
 ## Example API calls
 
 ```bash

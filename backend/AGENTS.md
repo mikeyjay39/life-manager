@@ -83,6 +83,15 @@ Domain, application, and infrastructure feature modules live under flat aggregat
 - Car API: auth `user_id` on `Car`; events reference `CarId`. Optional Document links are UUID refs only (owned Documents). Hard-delete of a Car cascades events.
 - Cross-aggregate writes: when one request must write two aggregates atomically (for example a Car and its new Documents), add a write-only **use-case port** in `application/<aggregate>/` (`CarDocumentsWriter`, `CarMaintenanceEventDocumentsWriter`) with a Diesel adapter that runs one transaction. Do not make one repository write another aggregate. Share connection-level SQL functions (`insert_document_with_tags`, `insert_car`, `update_car`, `insert_maintenance_event`, `update_maintenance_event`) between the repository and the adapter. SQLite adapter tests use `infrastructure/shared/sqlite_test_support.rs`.
 
+## Document extraction (ports)
+
+- Domain ports in `domain/document/`: `DocumentExtractor` (`document_extractor.rs`) and `PdfReader` (`pdf_reader.rs`). Test fakes (`FakeDocumentExtractor`, `FakePdfReader`) are at the end of each port file.
+- Use case: `application/document/extract_document_fields_command.rs` (validate → prepare source → reserve unit → extract → normalize). `ExtractionMediaType::detect` uses magic numbers.
+- Adapters in `infrastructure/shared/`: `GeminiDocumentExtractorAdapter` + `GeminiConfig` (`gemini_document_extractor_adapter.rs`) and `LopdfPdfReader` (`pdf_reader_adapter.rs`). PDF work runs in `spawn_blocking`.
+- `HttpClient::post_json` (`http_client.rs`) is the outbound HTTP port. Request headers can hold API keys: do not log them.
+- Env: `GEMINI_API_KEY` (unset → `document_extractor: None` → 503), `GEMINI_MODEL`, `GEMINI_API_BASE_URL`. Integration tests point the base URL at a wiremock server (`tests/document_extract_tests.rs`).
+- Logs: one line for each request with user_id, media type, size, page count, path, latency, and status. Never log the extracted text, the file bytes, or the key.
+
 ## TypeScript DTO codegen (ts-rs)
 
 Rust is the source of truth for **HTTP contract types** (request/response DTOs). Annotate those structs with `#[derive(TS)]` and `#[ts(export, export_to = "...")]`, then export via `export_typescript_bindings` tests.
