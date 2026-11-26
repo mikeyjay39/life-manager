@@ -62,7 +62,7 @@ cd backend && cargo test --test '*'
 **Optional Rust checks** (installed in CI; not always run in workflow):
 
 ```bash
-cargo fmt --manifest-path backend/Cargo.toml -- --check
+cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 cargo clippy --workspace --manifest-path backend/Cargo.toml --all-targets -- -D warnings
 ```
 
