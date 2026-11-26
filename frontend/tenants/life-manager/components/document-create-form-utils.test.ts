@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCreateDocumentCommand,
   documentFromDraft,
+  extractionBannerMessage,
   formatIsoDateForInput,
+  mergeExtractedFields,
   parseCreatedDocumentResponse,
+  parseExtractedFields,
+  parseExtractionLimits,
   parseOptionalDateInput,
   parseTags,
+  readApiErrorMessage,
   storageRefFromProtonUpload,
+  type DocumentFormInput,
 } from './document-create-form-utils';
+import type { ExtractedDocumentFieldsDto } from '@/lib/api/types';
 
 describe('parseOptionalDateInput', () => {
   it('returns null for empty or whitespace input', () => {
@@ -197,5 +204,185 @@ describe('documentFromDraft', () => {
     });
 
     expect(document.storage).toBeNull();
+  });
+});
+
+const emptyForm: DocumentFormInput = {
+  title: '',
+  content: '',
+  tagsInput: '',
+  issuedDateInput: '',
+  expireDateInput: '',
+};
+
+const fullExtraction: ExtractedDocumentFieldsDto = {
+  title: 'Home insurance',
+  content: 'Policy text',
+  tags: ['insurance', 'home'],
+  issued_date: '2025-01-01',
+  expire_date: '2026-01-01',
+};
+
+describe('mergeExtractedFields', () => {
+  it('given a typed title when all fields are extracted then keeps the title and fills 4 fields', () => {
+    // Given a form with only the title typed
+    const current = { ...emptyForm, title: 'My policy' };
+    // When the extraction returns all fields
+    const result = mergeExtractedFields(current, fullExtraction, '');
+    // Then the title stays and the other 4 fields fill
+    expect(result.filledCount).toBe(4);
+    expect(result.next).toEqual({
+      title: 'My policy',
+      content: 'Policy text',
+      tagsInput: 'insurance, home',
+      issuedDateInput: '2025-01-01',
+      expireDateInput: '2026-01-01',
+    });
+  });
+
+  it('given an empty form when all fields are extracted then fills 5 fields', () => {
+    const result = mergeExtractedFields(emptyForm, fullExtraction, '');
+    expect(result.filledCount).toBe(5);
+    expect(result.next.title).toBe('Home insurance');
+  });
+
+  it('given nothing is extracted then fills no field', () => {
+    const result = mergeExtractedFields(
+      emptyForm,
+      { title: null, content: null, tags: [], issued_date: null, expire_date: null },
+      ''
+    );
+    expect(result.filledCount).toBe(0);
+    expect(result.next).toEqual(emptyForm);
+  });
+
+  it('given whitespace-only extracted values then does not fill them', () => {
+    const result = mergeExtractedFields(
+      emptyForm,
+      { title: '  ', content: '\n', tags: [' ', ''], issued_date: ' ', expire_date: null },
+      ''
+    );
+    expect(result.filledCount).toBe(0);
+    expect(result.next).toEqual(emptyForm);
+  });
+
+  it('given whitespace-only current values then treats them as empty', () => {
+    const result = mergeExtractedFields(
+      { ...emptyForm, title: '   ' },
+      { ...fullExtraction, content: null, tags: [], issued_date: null, expire_date: null },
+      ''
+    );
+    expect(result.filledCount).toBe(1);
+    expect(result.next.title).toBe('Home insurance');
+  });
+
+  it('given tags equal to the initial tags then fills the union of both', () => {
+    // Given the Car prefill tag is still unchanged
+    const current = { ...emptyForm, tagsInput: 'insurance' };
+    // When the extraction returns tags
+    const result = mergeExtractedFields(
+      current,
+      { ...fullExtraction, tags: ['Insurance', 'car'] },
+      'insurance'
+    );
+    // Then the prefill tag stays first and duplicates go away
+    expect(result.next.tagsInput).toBe('insurance, car');
+    expect(result.filledCount).toBe(5);
+  });
+
+  it('given tags edited by the user then keeps them', () => {
+    const current = { ...emptyForm, tagsInput: 'mine' };
+    const result = mergeExtractedFields(current, fullExtraction, 'insurance');
+    expect(result.next.tagsInput).toBe('mine');
+    expect(result.filledCount).toBe(4);
+  });
+
+  it('given duplicate extracted tags then de-duplicates them case-insensitively', () => {
+    const result = mergeExtractedFields(
+      emptyForm,
+      { ...fullExtraction, tags: ['Tax', ' tax ', 'TAX', '2024'] },
+      ''
+    );
+    expect(result.next.tagsInput).toBe('Tax, 2024');
+  });
+
+  it('given initial tags that already hold every extracted tag then counts no tag change', () => {
+    const current = { ...emptyForm, tagsInput: 'insurance' };
+    const result = mergeExtractedFields(
+      current,
+      { title: null, content: null, tags: ['INSURANCE'], issued_date: null, expire_date: null },
+      'insurance'
+    );
+    expect(result.next.tagsInput).toBe('insurance');
+    expect(result.filledCount).toBe(0);
+  });
+});
+
+describe('extractionBannerMessage', () => {
+  it('uses the plural for more than one field', () => {
+    expect(extractionBannerMessage('scan.jpg', 4)).toBe(
+      'Filled 4 fields from scan.jpg. Review before you submit.'
+    );
+  });
+
+  it('uses the singular for one field', () => {
+    expect(extractionBannerMessage('scan.jpg', 1)).toBe(
+      'Filled 1 field from scan.jpg. Review before you submit.'
+    );
+  });
+
+  it('says no fields were found for zero', () => {
+    expect(extractionBannerMessage('scan.jpg', 0)).toBe('No fields found in scan.jpg.');
+  });
+});
+
+describe('readApiErrorMessage', () => {
+  it('returns the backend message from a JSON body', () => {
+    expect(readApiErrorMessage(JSON.stringify({ message: 'File is too large' }), 413)).toBe(
+      'File is too large'
+    );
+  });
+
+  it('falls back to the status when the body has no message', () => {
+    expect(readApiErrorMessage('not json', 503)).toBe('Extraction failed (status 503).');
+    expect(readApiErrorMessage(JSON.stringify({ message: '  ' }), 429)).toBe(
+      'Extraction failed (status 429).'
+    );
+    expect(readApiErrorMessage('', 500)).toBe('Extraction failed (status 500).');
+  });
+});
+
+describe('parseExtractionLimits', () => {
+  it('returns the limits from a valid body', () => {
+    const limits = {
+      daily_limit_per_user: 20,
+      remaining_today: 3,
+      max_file_bytes: 10485760,
+      max_pdf_pages: 5,
+    };
+    expect(parseExtractionLimits(JSON.stringify(limits))).toEqual(limits);
+  });
+
+  it('returns null for invalid JSON or missing numbers', () => {
+    expect(parseExtractionLimits('nope')).toBeNull();
+    expect(parseExtractionLimits(JSON.stringify({ remaining_today: 1 }))).toBeNull();
+  });
+});
+
+describe('parseExtractedFields', () => {
+  it('returns the fields from a valid body', () => {
+    expect(parseExtractedFields(JSON.stringify(fullExtraction))).toEqual(fullExtraction);
+  });
+
+  it('maps missing or non-string values to null and drops non-string tags', () => {
+    expect(
+      parseExtractedFields(JSON.stringify({ title: 5, tags: ['a', 3], issued_date: null }))
+    ).toEqual({ title: null, content: null, tags: ['a'], issued_date: null, expire_date: null });
+  });
+
+  it('returns null for invalid JSON or a non-object body', () => {
+    expect(parseExtractedFields('nope')).toBeNull();
+    expect(parseExtractedFields('[]')).toBeNull();
+    expect(parseExtractedFields('null')).toBeNull();
   });
 });

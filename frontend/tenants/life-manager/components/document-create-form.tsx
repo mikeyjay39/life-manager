@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   TextInput,
@@ -12,7 +12,10 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { FieldLabel } from '@/components/ui/field-label';
-import { ManagerFeedbackBanner } from '@/components/ui/manager-feedback';
+import {
+  ManagerFeedbackBanner,
+  type ManagerFeedbackState,
+} from '@/components/ui/manager-feedback';
 import { useWebFormEnterSubmit } from '@/components/ui/web-form-enter-submit';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProtonConnect } from '@/contexts/ProtonConnectContext';
@@ -21,13 +24,58 @@ import type {
   CreateDocumentCommand,
   DocumentDto,
   DocumentStorageRefDto,
+  ExtractedDocumentFieldsDto,
+  ExtractionLimitsDto,
 } from '@/lib/api/types';
 import { useColorPalette } from '@/lib/tenant/TenantThemeContext';
 import {
   buildCreateDocumentCommand,
+  extractionBannerMessage,
+  mergeExtractedFields,
   parseCreatedDocumentResponse,
+  parseExtractedFields,
+  parseExtractionLimits,
+  readApiErrorMessage,
   storageRefFromProtonUpload,
+  type DocumentFormInput,
 } from './document-create-form-utils';
+
+const EXTRACT_FILE_TYPES = ['image/*', 'application/pdf'];
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+
+function appendPickedFile(formData: FormData, asset: DocumentPickerAsset) {
+  if (asset.file) {
+    formData.append('file', asset.file);
+    return;
+  }
+  formData.append('file', {
+    uri: asset.uri,
+    name: asset.name,
+    type: asset.mimeType ?? 'application/octet-stream',
+  } as any);
+}
+
+function fileTooLargeMessage(
+  asset: DocumentPickerAsset,
+  limits: ExtractionLimitsDto | null
+): string | null {
+  const size = asset.size ?? asset.file?.size;
+  if (!limits || size == null || size <= limits.max_file_bytes) {
+    return null;
+  }
+  const maxMegabytes = Number((limits.max_file_bytes / BYTES_PER_MEGABYTE).toFixed(1));
+  return `${asset.name} is larger than ${maxMegabytes} MB.`;
+}
+
+function extractionLimitsHint(limits: ExtractionLimitsDto | null): string | null {
+  if (!limits) {
+    return null;
+  }
+  if (limits.remaining_today === 0) {
+    return 'No extractions left today';
+  }
+  return `${limits.remaining_today} of ${limits.daily_limit_per_user} extractions left today`;
+}
 
 async function assetToFile(asset: DocumentPickerAsset): Promise<File> {
   const filename = asset.name?.trim() || 'upload';
@@ -98,6 +146,7 @@ async function readResponseOrThrow(response: Response): Promise<string> {
  * Inline create-document fields for ManagerFormVsResults and Car Manager modals.
  * Parent owns Add / Cancel expand state; this form owns Submit.
  *
+ * Submit:
  * ```
  * [*] --> clear submitError
  *     --> validate fields
@@ -114,7 +163,19 @@ async function readResponseOrThrow(response: Response): Promise<string> {
  *     | unmounted mid-request --> skip setState and parent callback --> [*]
  * ```
  *
- * Draft mode has no device-file multipart upload and no OCR, so it offers a
+ * Extract From File (create and draft mode; GET /documents/extract/limits on mount):
+ * ```
+ * [*] --> Extract From File (busy guard; disabled when remaining_today = 0)
+ *     --> pick image or PDF | cancel --> [*]
+ *     --> size > max_file_bytes --> error banner --> [*]
+ *     --> POST /documents/extract (Submit disabled; fields editable)
+ *         | unmounted --> ignore --> [*]
+ *         | error --> error banner; keep values --> refresh limits --> [*]
+ *         | 200 --> mergeExtractedFields (empty fields only) --> banner --> refresh limits --> [*]
+ * ```
+ * The extract file is not the attached file: `pickedFile` does not change.
+ *
+ * Draft mode has no device-file multipart upload, so it offers an attached
  * file only on web with a Proton session.
  */
 export default function DocumentCreateForm({
@@ -132,14 +193,32 @@ export default function DocumentCreateForm({
   const [pickedFile, setPickedFile] = useState<DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractionLimits, setExtractionLimits] = useState<ExtractionLimitsDto | null>(null);
+  const [extractFeedback, setExtractFeedback] = useState<ManagerFeedbackState>(null);
   const { token, handleUnauthorized } = useAuth();
   const { session: protonSession, isSupported: protonSupported } = useProtonConnect();
   const palette = useColorPalette();
   const isWeb = Platform.OS === 'web';
   const mountedRef = useRef(true);
   const uploadedProtonFileRef = useRef<UploadedProtonFile | null>(null);
+  const extractingRef = useRef(false);
+  const formValuesRef = useRef<DocumentFormInput>({
+    title,
+    content,
+    tagsInput,
+    issuedDateInput,
+    expireDateInput,
+  });
   const isDraftMode = onDraft != null;
   const canAttachFile = !isDraftMode || (isWeb && protonSession != null);
+  const noExtractionsLeft = extractionLimits?.remaining_today === 0;
+
+  // The extract merge runs after an await, so it reads the latest values here
+  // and keeps edits that the user made while the request ran.
+  useEffect(() => {
+    formValuesRef.current = { title, content, tagsInput, issuedDateInput, expireDateInput };
+  }, [title, content, tagsInput, issuedDateInput, expireDateInput]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -151,6 +230,37 @@ export default function DocumentCreateForm({
   useEffect(() => {
     onSubmittingChange?.(loading);
   }, [loading, onSubmittingChange]);
+
+  const loadExtractionLimits = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+    try {
+      const response = await apiFetch('/documents/extract/limits', {
+        headers: { Authorization: `Bearer ${token}` },
+        onUnauthorized: handleUnauthorized,
+      });
+      const bodyText = await response.text();
+      if (!mountedRef.current) {
+        return;
+      }
+      const limits = response.ok ? parseExtractionLimits(bodyText) : null;
+      if (!limits) {
+        console.warn(`Extraction limits unavailable (status ${response.status}).`);
+      }
+      setExtractionLimits(limits);
+    } catch (err: unknown) {
+      // The backend still enforces the limits, so the button stays enabled.
+      console.warn('Extraction limits request failed.', err);
+      if (mountedRef.current) {
+        setExtractionLimits(null);
+      }
+    }
+  }, [token, handleUnauthorized]);
+
+  useEffect(() => {
+    void loadExtractionLimits();
+  }, [loadExtractionLimits]);
 
   useEffect(() => {
     return () => {
@@ -181,6 +291,15 @@ export default function DocumentCreateForm({
         },
         inputMultiline: {
           minHeight: 100,
+        },
+        extractRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+        },
+        extractFeedback: {
+          marginBottom: 8,
         },
         fileRow: {
           flexDirection: 'row',
@@ -241,6 +360,7 @@ export default function DocumentCreateForm({
     setPickedFile(null);
     uploadedProtonFileRef.current = null;
     setSubmitError(null);
+    setExtractFeedback(null);
   };
 
   const showSubmitError = (message: string) => {
@@ -332,15 +452,7 @@ export default function DocumentCreateForm({
     formData.append('json', JSON.stringify(command));
 
     if (pickedFile) {
-      if (pickedFile.file) {
-        formData.append('file', pickedFile.file);
-      } else {
-        formData.append('file', {
-          uri: pickedFile.uri,
-          name: pickedFile.name,
-          type: pickedFile.mimeType ?? 'application/octet-stream',
-        } as any);
-      }
+      appendPickedFile(formData, pickedFile);
     }
 
     const response = await apiFetch('/documents', {
@@ -354,8 +466,108 @@ export default function DocumentCreateForm({
     finishCreateSuccess(await readResponseOrThrow(response));
   };
 
+  const pickExtractFile = async (): Promise<DocumentPickerAsset | null> => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: EXTRACT_FILE_TYPES,
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (result.canceled || !result.assets?.length) {
+      return null;
+    }
+    return result.assets[0];
+  };
+
+  const applyExtractedFields = (
+    fields: ExtractedDocumentFieldsDto,
+    fileName: string
+  ) => {
+    const current = formValuesRef.current;
+    const { next, filledCount } = mergeExtractedFields(current, fields, initialTags);
+    setTitle(next.title);
+    setContent(next.content);
+    setTagsInput(next.tagsInput);
+    setIssuedDateInput(next.issuedDateInput);
+    setExpireDateInput(next.expireDateInput);
+    formValuesRef.current = next;
+    setExtractFeedback({
+      tone: 'success',
+      message: extractionBannerMessage(fileName, filledCount),
+    });
+  };
+
+  const sendExtractRequest = async (asset: DocumentPickerAsset, authToken: string) => {
+    const formData = new FormData();
+    appendPickedFile(formData, asset);
+    const response = await apiFetch('/documents/extract', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+      body: formData,
+      onUnauthorized: handleUnauthorized,
+    });
+    const bodyText = await response.text();
+    if (!mountedRef.current) {
+      return;
+    }
+    if (!response.ok) {
+      setExtractFeedback({ tone: 'error', message: readApiErrorMessage(bodyText, response.status) });
+      return;
+    }
+    const fields = parseExtractedFields(bodyText);
+    if (!fields) {
+      setExtractFeedback({ tone: 'error', message: 'The extraction response could not be read.' });
+      return;
+    }
+    applyExtractedFields(fields, asset.name);
+  };
+
+  const runExtraction = async (authToken: string) => {
+    const asset = await pickExtractFile();
+    if (!asset || !mountedRef.current) {
+      return;
+    }
+    const tooLarge = fileTooLargeMessage(asset, extractionLimits);
+    if (tooLarge) {
+      setExtractFeedback({ tone: 'error', message: tooLarge });
+      return;
+    }
+    setExtracting(true);
+    try {
+      await sendExtractRequest(asset, authToken);
+    } catch (err: unknown) {
+      console.error(err);
+      if (mountedRef.current) {
+        const message = err instanceof Error ? err.message : 'Something went wrong';
+        setExtractFeedback({ tone: 'error', message });
+      }
+    } finally {
+      if (mountedRef.current) {
+        setExtracting(false);
+        void loadExtractionLimits();
+      }
+    }
+  };
+
+  const handleExtract = async () => {
+    // The ref blocks a second click before the `extracting` state renders.
+    if (extractingRef.current || loading) {
+      return;
+    }
+    extractingRef.current = true;
+    setExtractFeedback(null);
+    try {
+      if (!token) {
+        setExtractFeedback({ tone: 'error', message: 'No authentication token available.' });
+        return;
+      }
+      await runExtraction(token);
+    } finally {
+      extractingRef.current = false;
+    }
+  };
+
   const handleSubmit = async () => {
-    if (loading) {
+    if (loading || extracting) {
       return;
     }
     setSubmitError(null);
@@ -412,7 +624,9 @@ export default function DocumentCreateForm({
       : null;
 
   const formRef = useRef<View>(null);
-  useWebFormEnterSubmit(!loading, () => {
+  const extractHint = extractionLimitsHint(extractionLimits);
+
+  useWebFormEnterSubmit(!loading && !extracting, () => {
     void handleSubmit();
   }, formRef);
 
@@ -422,6 +636,30 @@ export default function DocumentCreateForm({
       style={styles.container}
       accessibilityLabel="Document create form"
     >
+      <View style={styles.extractRow}>
+        <Button
+          variant="secondary"
+          label={extracting ? 'Extracting…' : 'Extract From File'}
+          onPress={() => void handleExtract()}
+          disabled={extracting || loading || noExtractionsLeft}
+          loading={extracting}
+          accessibilityLabel="Extract From File"
+          style={styles.secondaryButton}
+          labelStyle={styles.secondaryButtonText}
+        />
+        {extractHint ? <Text style={styles.hint}>{extractHint}</Text> : null}
+      </View>
+      {extractFeedback ? (
+        <View style={styles.extractFeedback}>
+          <ManagerFeedbackBanner
+            tone={extractFeedback.tone}
+            message={extractFeedback.message}
+            onDismiss={() => setExtractFeedback(null)}
+            testID={`extract-feedback-${extractFeedback.tone}`}
+          />
+        </View>
+      ) : null}
+
       <FieldLabel label="Title" required style={styles.label} />
       <TextInput
         style={styles.input}
@@ -516,7 +754,7 @@ export default function DocumentCreateForm({
         <Button
           label={loading ? 'Submitting…' : 'Submit'}
           onPress={() => void handleSubmit()}
-          disabled={loading}
+          disabled={loading || extracting}
           loading={loading}
           accessibilityLabel={loading ? 'Submitting document' : 'Submit'}
           style={styles.submitButton}

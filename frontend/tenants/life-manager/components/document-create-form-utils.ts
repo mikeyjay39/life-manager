@@ -2,6 +2,8 @@ import type {
   CreateDocumentCommand,
   DocumentDto,
   DocumentStorageRefDto,
+  ExtractedDocumentFieldsDto,
+  ExtractionLimitsDto,
 } from '@/lib/api/types';
 import type { ProtonStorageUploadResult } from '@/lib/proton-drive/types';
 
@@ -203,5 +205,155 @@ export function storageRefFromProtonUpload(
     node_id: upload.nodeId,
     filename: upload.filename,
     mime_type: upload.mimeType,
+  };
+}
+
+export type MergeExtractedFieldsResult = {
+  next: DocumentFormInput;
+  filledCount: number;
+};
+
+type TextFieldKey = 'title' | 'content' | 'issuedDateInput' | 'expireDateInput';
+
+function nonEmptyTrimmed(value: string | null): string | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
+}
+
+/** Joins tags in order and drops later case-insensitive duplicates. */
+function unionTags(tags: string[]): string {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const tag of tags) {
+    const key = tag.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(tag);
+    }
+  }
+  return unique.join(', ');
+}
+
+/**
+ * Tags fill only while the user has not changed them. The extracted tags are
+ * added after the current tags, so a Car prefill tag (for example `insurance`)
+ * stays on the Document.
+ */
+function mergeTags(
+  currentTagsInput: string,
+  extractedTags: string[],
+  initialTags: string
+): string | null {
+  const untouched =
+    currentTagsInput.trim() === '' || currentTagsInput === initialTags;
+  const usableTags = extractedTags.map((t) => t.trim()).filter((t) => t !== '');
+  if (!untouched || usableTags.length === 0) {
+    return null;
+  }
+  const merged = unionTags([...parseTags(currentTagsInput), ...usableTags]);
+  return merged === currentTagsInput ? null : merged;
+}
+
+/**
+ * Puts extracted values into the empty form fields only. A value that the
+ * user typed always wins, so an extraction never overwrites their work.
+ */
+export function mergeExtractedFields(
+  current: DocumentFormInput,
+  extracted: ExtractedDocumentFieldsDto,
+  initialTags: string
+): MergeExtractedFieldsResult {
+  const extractedText: Record<TextFieldKey, string | null> = {
+    title: extracted.title,
+    content: extracted.content,
+    issuedDateInput: extracted.issued_date,
+    expireDateInput: extracted.expire_date,
+  };
+  const next: DocumentFormInput = { ...current };
+  let filledCount = 0;
+
+  for (const key of Object.keys(extractedText) as TextFieldKey[]) {
+    const value = nonEmptyTrimmed(extractedText[key]);
+    if (current[key].trim() === '' && value !== null) {
+      next[key] = value;
+      filledCount += 1;
+    }
+  }
+
+  const tags = mergeTags(current.tagsInput, extracted.tags, initialTags);
+  if (tags !== null) {
+    next.tagsInput = tags;
+    filledCount += 1;
+  }
+
+  return { next, filledCount };
+}
+
+/** Success banner text after an extraction. */
+export function extractionBannerMessage(fileName: string, filledCount: number): string {
+  if (filledCount === 0) {
+    return `No fields found in ${fileName}.`;
+  }
+  const noun = filledCount === 1 ? 'field' : 'fields';
+  return `Filled ${filledCount} ${noun} from ${fileName}. Review before you submit.`;
+}
+
+function parseJsonObject(bodyText: string): Record<string, unknown> | null {
+  try {
+    const raw = JSON.parse(bodyText) as unknown;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return null;
+    }
+    return raw as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** Reads the backend `{ message }` error body, else a status fallback. */
+export function readApiErrorMessage(bodyText: string, status: number): string {
+  const message = parseJsonObject(bodyText)?.message;
+  if (typeof message === 'string' && message.trim() !== '') {
+    return message;
+  }
+  return `Extraction failed (status ${status}).`;
+}
+
+/** Parses GET /documents/extract/limits. Null when a number is missing. */
+export function parseExtractionLimits(bodyText: string): ExtractionLimitsDto | null {
+  const raw = parseJsonObject(bodyText);
+  if (!raw) {
+    return null;
+  }
+  const { daily_limit_per_user, remaining_today, max_file_bytes, max_pdf_pages } = raw;
+  if (
+    typeof daily_limit_per_user !== 'number' ||
+    typeof remaining_today !== 'number' ||
+    typeof max_file_bytes !== 'number' ||
+    typeof max_pdf_pages !== 'number'
+  ) {
+    return null;
+  }
+  return { daily_limit_per_user, remaining_today, max_file_bytes, max_pdf_pages };
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+/** Parses a POST /documents/extract body. Null when it is not a JSON object. */
+export function parseExtractedFields(bodyText: string): ExtractedDocumentFieldsDto | null {
+  const raw = parseJsonObject(bodyText);
+  if (!raw) {
+    return null;
+  }
+  return {
+    title: stringOrNull(raw.title),
+    content: stringOrNull(raw.content),
+    tags: Array.isArray(raw.tags)
+      ? raw.tags.filter((tag): tag is string => typeof tag === 'string')
+      : [],
+    issued_date: stringOrNull(raw.issued_date),
+    expire_date: stringOrNull(raw.expire_date),
   };
 }

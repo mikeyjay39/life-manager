@@ -109,6 +109,13 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockAuthenticatedFetch = vi.mocked(authenticatedFetch);
 const mockApiFetch = vi.mocked(apiFetch);
 
+/** POST /documents calls; the form also reads the extraction limits on mount. */
+function documentCreateCalls() {
+  return mockApiFetch.mock.calls.filter(([path]) =>
+    ['/documents', '/documents/json'].includes(path)
+  );
+}
+
 const receiptDoc = {
   id: 'd-receipt-1',
   title: 'Old receipt',
@@ -733,7 +740,7 @@ describe('CarMaintenancePanel', () => {
     });
     expect(screen.queryByLabelText('Create receipt document form')).toBeNull();
     expect(eventWriteBodies()).toHaveLength(0);
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(documentCreateCalls()).toHaveLength(0);
 
     // When the event is saved
     fireEvent.press(screen.getByLabelText('Save maintenance event'));
@@ -754,7 +761,7 @@ describe('CarMaintenancePanel', () => {
       }),
     ]);
     expect(createdDocumentFetches()).toBe(0);
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(documentCreateCalls()).toHaveLength(0);
   });
 
   it('given a receipt draft when the event write fails then the draft stays and the next Save sends it again', async () => {
@@ -779,7 +786,7 @@ describe('CarMaintenancePanel', () => {
     await waitFor(() => expect(screen.getByLabelText('Receipt: Daily receipt')).toBeTruthy());
     const [failed, retried] = eventWriteBodies();
     expect(retried.new_receipt_document).toEqual(failed.new_receipt_document);
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(documentCreateCalls()).toHaveLength(0);
   });
 
   it('given a receipt draft when Remove is pressed then Save sends no receipt', async () => {
@@ -903,7 +910,7 @@ describe('CarMaintenancePanel', () => {
           (init as RequestInit | undefined)?.method === 'PUT'
       )
     ).toBe(true);
-    expect(mockApiFetch).not.toHaveBeenCalled();
+    expect(documentCreateCalls()).toHaveLength(0);
   });
 
   it('given an edited event with a receipt when the document load is pending or fails then the field says so and can retry', async () => {
