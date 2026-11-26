@@ -236,30 +236,26 @@ mod tests {
     use axum::Json;
     use axum::extract::{Path, Query, State};
     use chrono::{NaiveDate, Utc};
-    use tokio::sync::Mutex;
     use uuid::Uuid;
 
     use super::*;
+    use crate::application::car::car_maintenance_event_repository::tests::CarMaintenanceEventCollection;
     use crate::application::car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases;
     use crate::application::car::car_repository::CarRepository;
-    use crate::domain::car::{Car, CarId, CarProfileInput};
-    use crate::infrastructure::car::car_handler::tests::CarCollection;
+    use crate::application::car::car_repository::tests::CarCollection;
+    use crate::domain::car::{Car, CarProfileInput};
     use async_trait::async_trait;
 
     use crate::application::car::car_maintenance_event_documents_writer::CarMaintenanceEventDocumentsWriter;
-    use crate::application::car::car_maintenance_event_repository::{
-        CarMaintenanceEventRepository, MissingCarMaintenanceEvent,
-    };
+    use crate::application::car::car_maintenance_event_repository::CarMaintenanceEventRepository;
     use crate::application::document::document_repository::DocumentRepository;
-    use crate::domain::car::car_maintenance_event::{
-        CarMaintenanceEvent, CarMaintenanceEventId, CarMaintenanceEventType,
-    };
+    use crate::application::document::document_repository::tests::DocumentCollection;
+    use crate::domain::car::car_maintenance_event::CarMaintenanceEvent;
     use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::infrastructure::document::document_api_types::{
         CreateDocumentCommandDto, DocumentStorageRefDto,
     };
-    use crate::infrastructure::document::document_handler::tests::DocumentCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {
@@ -896,113 +892,6 @@ mod tests {
             let saved = self.car_maintenance_event_repository.update(event).await?;
             self.save_documents(new_documents).await?;
             Ok(saved)
-        }
-    }
-
-    /// In-memory `CarMaintenanceEventRepository` for handler tests.
-    struct CarMaintenanceEventCollection {
-        events: Mutex<Vec<CarMaintenanceEvent>>,
-    }
-
-    impl CarMaintenanceEventCollection {
-        fn new() -> Self {
-            Self {
-                events: Mutex::new(Vec::new()),
-            }
-        }
-    }
-
-    impl Default for CarMaintenanceEventCollection {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    #[async_trait]
-    impl CarMaintenanceEventRepository for CarMaintenanceEventCollection {
-        async fn get_by_id(&self, id: &CarMaintenanceEventId) -> Option<CarMaintenanceEvent> {
-            self.events
-                .lock()
-                .await
-                .iter()
-                .find(|e| e.id == *id)
-                .cloned()
-        }
-
-        async fn list_by_car(
-            &self,
-            car_id: &CarId,
-            user_id: &Uuid,
-            from: Option<NaiveDate>,
-            to: Option<NaiveDate>,
-            event_type: Option<CarMaintenanceEventType>,
-        ) -> Vec<CarMaintenanceEvent> {
-            let mut events: Vec<CarMaintenanceEvent> = self
-                .events
-                .lock()
-                .await
-                .iter()
-                .filter(|e| e.car_id == *car_id && e.user_id == *user_id)
-                .filter(|e| from.is_none_or(|f| e.occurred_on >= f))
-                .filter(|e| to.is_none_or(|t| e.occurred_on <= t))
-                .filter(|e| event_type.is_none_or(|ty| e.event_type == ty))
-                .cloned()
-                .collect();
-            events.sort_by(|a, b| {
-                b.occurred_on
-                    .cmp(&a.occurred_on)
-                    .then_with(|| b.created_at.cmp(&a.created_at))
-                    .then_with(|| b.id.0.cmp(&a.id.0))
-            });
-            events
-        }
-
-        async fn save(
-            &self,
-            event: CarMaintenanceEvent,
-        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
-            self.events.lock().await.push(event.clone());
-            Ok(event)
-        }
-
-        async fn update(
-            &self,
-            event: CarMaintenanceEvent,
-        ) -> Result<CarMaintenanceEvent, Box<dyn std::error::Error>> {
-            let mut events = self.events.lock().await;
-            let index = events
-                .iter()
-                .position(|e| e.id == event.id)
-                .ok_or(MissingCarMaintenanceEvent)?;
-            events[index] = event.clone();
-            Ok(event)
-        }
-
-        async fn delete(
-            &self,
-            id: &CarMaintenanceEventId,
-            user_id: &Uuid,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            let mut events = self.events.lock().await;
-            let index = events
-                .iter()
-                .position(|e| e.id == *id && e.user_id == *user_id)
-                .ok_or(MissingCarMaintenanceEvent)?;
-            events.remove(index);
-            Ok(())
-        }
-
-        async fn load_owned(
-            &self,
-            id: &CarMaintenanceEventId,
-            user_id: &Uuid,
-        ) -> Option<CarMaintenanceEvent> {
-            self.events
-                .lock()
-                .await
-                .iter()
-                .find(|e| e.id == *id && e.user_id == *user_id)
-                .cloned()
         }
     }
 }
