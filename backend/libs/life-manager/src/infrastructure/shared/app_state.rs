@@ -3,6 +3,7 @@ use std::sync::Arc;
 use auth::{AuthState, AuthStateBuilder};
 use deadpool_diesel::sqlite::Pool;
 
+use crate::domain::document::document_extractor::DocumentExtractor;
 use crate::{
     application::{
         car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases,
@@ -22,6 +23,9 @@ use crate::{
         health::health_member_orm_collection::HealthMemberOrmCollection,
         health::health_reading_orm_collection::HealthReadingOrmCollection,
         shared::db::{create_connection_pool, create_connection_pool_from_url, run_migrations},
+        shared::gemini_document_extractor_adapter::{GeminiConfig, GeminiDocumentExtractorAdapter},
+        shared::pdf_reader_adapter::LopdfPdfReader,
+        shared::reqwest_http_client::ReqwestHttpClient,
     },
 };
 
@@ -153,7 +157,22 @@ fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
         document_repository: Arc::new(DocumentOrmCollection::new(pool)),
         extraction_limits_reader: extraction.clone(),
         extraction_usage: extraction,
+        document_extractor: default_document_extractor(),
+        pdf_reader: Arc::new(LopdfPdfReader),
     }
+}
+
+/// Logs whether extraction is on and the model id. Never logs the API key.
+fn default_document_extractor() -> Option<Arc<dyn DocumentExtractor>> {
+    let Some(config) = GeminiConfig::from_env() else {
+        tracing::warn!("Document extraction is disabled: GEMINI_API_KEY is not set");
+        return None;
+    };
+    tracing::info!("Document extraction is enabled with model {}", config.model);
+    Some(Arc::new(GeminiDocumentExtractorAdapter::new(
+        config,
+        Arc::new(ReqwestHttpClient::new()),
+    )))
 }
 
 async fn init_db(pool: Pool) -> anyhow::Result<Pool> {

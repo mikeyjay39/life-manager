@@ -2,8 +2,7 @@
 
 mod common;
 
-use std::io::Write;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, OnceLock};
 
 use axum_test::TestServer;
 use deadpool_diesel::sqlite::Pool;
@@ -13,6 +12,7 @@ use reqwest::StatusCode;
 use serial_test::serial;
 use tracing_test::traced_test;
 
+use crate::common::captured_logs::CapturedLogs;
 use crate::common::setup::{
     build_auth_header, run_test_with_test_profile, run_test_with_test_profile_and_db_setup,
 };
@@ -103,41 +103,11 @@ async fn given_running_server_when_limits_row_updated_then_next_get_returns_new_
     .await;
 }
 
-/// Shared buffer for log lines from every crate. `traced_test` keeps only
-/// the test crate's logs, and the 503 log line comes from `life_manager`.
-#[derive(Clone, Default)]
-struct CapturedLogs(Arc<Mutex<Vec<u8>>>);
-
-impl CapturedLogs {
-    fn contains(&self, text: &str) -> bool {
-        String::from_utf8_lossy(&self.0.lock().unwrap()).contains(text)
-    }
-}
-
-impl Write for CapturedLogs {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
-// `#[tokio::test]` uses a current-thread runtime. The test server task runs on
-// this thread, so the thread-local subscriber also captures the handler logs.
 #[tokio::test]
 #[serial]
 async fn given_limits_row_deleted_when_get_limits_then_503_not_configured() {
     let logs = CapturedLogs::default();
-    let writer_logs = logs.clone();
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::ERROR)
-        .with_ansi(false)
-        .with_writer(move || writer_logs.clone())
-        .finish();
-    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+    let _subscriber_guard = logs.capture(tracing::Level::ERROR);
 
     run_test_with_test_profile_and_db_setup(
         |pool| async move {
