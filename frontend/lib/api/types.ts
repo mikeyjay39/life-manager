@@ -24,6 +24,8 @@ export type {
   VerifyEmailResponse,
 } from './generated';
 
+export type { ExtractionLimitsDto } from './generated/life-manager/ExtractionLimitsDto';
+
 export type { CreateHealthReadingCommand } from './generated/life-manager/CreateHealthReadingCommand';
 export type { GetHealthReadingsQueryParams } from './generated/life-manager/GetHealthReadingsQueryParams';
 export type { HealthReadingDto } from './generated/life-manager/HealthReadingDto';

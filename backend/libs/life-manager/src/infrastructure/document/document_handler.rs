@@ -362,6 +362,8 @@ mod tests {
     use crate::application::document::document_use_cases::DocumentUseCases;
     use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
+    use crate::domain::document::extraction_limits::tests::{FixedExtractionLimits, SEEDED_LIMITS};
+    use crate::domain::document::extraction_usage::tests::InMemoryExtractionUsage;
 
     use crate::infrastructure::document::document_api_types::DocumentStorageRefDto;
 
@@ -446,6 +448,8 @@ mod tests {
 
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
 
         // Serialize the JSON payload
@@ -520,6 +524,8 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
 
         let response = create_document_json(
@@ -558,6 +564,8 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
 
         let response = create_document_json(
@@ -596,6 +604,8 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
 
         let response = create_document_json(
@@ -620,6 +630,8 @@ mod tests {
         // Given
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
         let multipart = multipart_from_parts(None, true).await;
 
@@ -655,6 +667,8 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(MockFailingDocumentRepository {}),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
         let multipart =
             multipart_from_parts(Some(&serde_json::to_string(&payload).unwrap()), false).await;
@@ -1219,6 +1233,8 @@ mod tests {
 
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(repo),
+            extraction_limits_reader: Arc::new(FixedExtractionLimits(Some(SEEDED_LIMITS))),
+            extraction_usage: Arc::new(InMemoryExtractionUsage::new()),
         });
 
         GivenUserAndDocuments {
