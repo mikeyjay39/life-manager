@@ -158,7 +158,7 @@ Full request/response notes: [agents/api.md](agents/api.md). The v1 API prefix i
 
 ## Production deployment
 
-Compose **prod** profile runs three main app services, an **`alloy`** log shipper, and an optional OCR sidecar.
+Compose **prod** profile runs three main app services and an **`alloy`** log shipper.
 
 ```mermaid
 flowchart TB
@@ -167,7 +167,6 @@ flowchart TB
   frontend["frontend (static Expo web)\n:FRONTEND_PORT"]
   api["life-manager (Rust API)\n:APP_PORT"]
   db[("SQLite\nbackend/data")]
-  ocr["tesseract (optional OCR)"]
   alloy["alloy (log shipper)"]
   grafanaCloud["Grafana Cloud Loki"]
 
@@ -175,7 +174,6 @@ flowchart TB
   gateway -->|"/"| frontend
   gateway -->|"/life-manager/api, /test-tenant/api, /api"| api
   api --> db
-  api -.->|"TESSERACT_ENABLED"| ocr
   gateway -->|"stdout"| alloy
   frontend -->|"stdout"| alloy
   api -->|"stdout"| alloy

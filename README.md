@@ -23,7 +23,7 @@ Scripts live in [`dev-container/`](dev-container/). They resolve their own direc
 From the repository root (not inside the dev container if you rely on host Docker):
 
 ```bash
-./build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]
+./build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image]
 ```
 
 This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in parallel (except **docker-dev**, which runs only the backend script and serves the frontend from Docker). Each script receives the same profile. Compose and the backend load variables from `.<profile>.env` at the repo root (for example `.prod.env`). The **docker-dev** profile uses the same **`.dev.env`** file as **dev**.
@@ -42,18 +42,6 @@ This starts `backend/start_backend.sh` and `frontend/start_frontend.sh` in paral
 | **`APP_PORT`** (default **3000**) | Backend HTTP: host process in **dev**, published by **`life_manager_dev`** in **docker-dev**, published by container **`life-manager`** in **prod**. |
 | **`NGINX_PORT`** (default **80**) | Host port for **`gateway`** in **prod** (`/` → frontend, `/life-manager/api` → v1 API, `/api` → health/version). Often the main browser URL. |
 | **`FRONTEND_PORT`** (default **8080**) | Host port for the **`frontend`** container in **prod** (direct access; prefer **`gateway`** for one origin). Same variable maps **`frontend_dev`** (Expo in Docker) in **docker-dev**. Host Expo in **dev**. |
-| **`TESSERACT_PORT`** (default **8884** in sample env files) | Published when the optional **`tesseract`** Compose service is running. |
-| **`TESSERACT_ENABLED`** (default **`false`** in sample env files) | When **`false`**, the backend uses **`NoOpDocumentTextReader`** (embedded PDF text only; no HTTP OCR). When **`true`**, **`TESSERACT_URL`** must point at the sidecar. **`start_backend.sh --with-tesseract`** forces **`TESSERACT_ENABLED=true`** and adds Compose **`--profile tesseract`**. |
-
-### Optional Tesseract (OCR sidecar)
-
-Sample env files default **`TESSERACT_ENABLED=false`**, so **`docker compose`** does not need to run the **`tesseract`** service for normal dev/test/prod. To enable OCR (images or scanned PDFs), run Compose with the extra profile and point the API at the container, for example:
-
-```bash
-docker compose -f docker-compose.yml --env-file .prod.env --profile prod --profile tesseract up -d
-```
-
-Pass **`backend/start_backend.sh dev --with-tesseract`** (or **prod** / **docker-dev**) to start the stack **and** the sidecar in one step.
 
 ### Grafana Cloud logs (prod and docker-dev)
 
