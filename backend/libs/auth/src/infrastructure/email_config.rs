@@ -13,7 +13,9 @@ use zeroize::Zeroizing;
 pub enum EmailProvider {
     Log,
     /// Writes full message bodies (including verify/reset links) to disk for e2e.
-    Capture { capture_dir: PathBuf },
+    Capture {
+        capture_dir: PathBuf,
+    },
     Resend {
         api_key: Zeroizing<String>,
         email_from: String,
@@ -60,9 +62,10 @@ impl EmailConfig {
             ProviderKind::Capture => EmailProvider::Capture {
                 capture_dir: require_capture_dir()?,
             },
-            ProviderKind::Resend => {
-                try_resend_provider(optional_non_empty_env("RESEND_API_KEY")?, optional_non_empty_env("EMAIL_FROM")?)?
-            }
+            ProviderKind::Resend => try_resend_provider(
+                optional_non_empty_env("RESEND_API_KEY")?,
+                optional_non_empty_env("EMAIL_FROM")?,
+            )?,
         };
 
         let app_public_base_url = optional_non_empty_env("APP_PUBLIC_BASE_URL")?;
@@ -87,9 +90,9 @@ fn parse_provider_kind(raw: &str) -> anyhow::Result<ProviderKind> {
         // `file` is an accepted alias for capture (issue #259 naming).
         "capture" | "file" => Ok(ProviderKind::Capture),
         "resend" => Ok(ProviderKind::Resend),
-        other => bail!(
-            "EMAIL_PROVIDER must be 'log', 'capture', 'file', or 'resend', got '{other}'"
-        ),
+        other => {
+            bail!("EMAIL_PROVIDER must be 'log', 'capture', 'file', or 'resend', got '{other}'")
+        }
     }
 }
 
@@ -120,9 +123,9 @@ fn try_resend_provider(
     api_key: Option<String>,
     email_from: Option<String>,
 ) -> anyhow::Result<EmailProvider> {
-    let api_key = api_key
-        .filter(|v| !v.trim().is_empty())
-        .ok_or_else(|| anyhow::anyhow!("RESEND_API_KEY must be set when EMAIL_PROVIDER is resend"))?;
+    let api_key = api_key.filter(|v| !v.trim().is_empty()).ok_or_else(|| {
+        anyhow::anyhow!("RESEND_API_KEY must be set when EMAIL_PROVIDER is resend")
+    })?;
     let email_from = email_from
         .filter(|v| !v.trim().is_empty())
         .ok_or_else(|| anyhow::anyhow!("EMAIL_FROM must be set when EMAIL_PROVIDER is resend"))?;
@@ -147,11 +150,8 @@ mod tests {
     #[test]
     fn given_resend_without_api_key_when_building_provider_then_names_missing_config() {
         // Given / When
-        let err = try_resend_provider(
-            None,
-            Some("Life Manager <noreply@example.com>".to_string()),
-        )
-        .expect_err("missing key must fail");
+        let err = try_resend_provider(None, Some("Life Manager <noreply@example.com>".to_string()))
+            .expect_err("missing key must fail");
         // Then
         let message = format!("{err:#}");
         assert!(

@@ -8,8 +8,8 @@ pub struct HttpResponse {
 }
 
 /**
-* Port for making HTTP requests.
-*/
+ * Port for making HTTP requests.
+ */
 #[async_trait]
 pub trait HttpClient: Send + Sync {
     async fn post_multipart(

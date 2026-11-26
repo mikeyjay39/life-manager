@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use crate::{
     application::document::document_repository::DocumentRepository,
-    domain::{document::document_summarizer::DocumentSummarizer, document::document_text_reader::DocumentTextReader},
+    domain::{
+        document::document_summarizer::DocumentSummarizer,
+        document::document_text_reader::DocumentTextReader,
+    },
 };
 
 #[derive(Clone)]

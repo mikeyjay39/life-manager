@@ -190,11 +190,11 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+    use crate::application::health::doctor_visit_repository::tests::DoctorVisitCollection;
     use crate::application::health::doctor_visit_use_cases::DoctorVisitUseCases;
     use crate::application::health::health_member_repository::HealthMemberRepository;
+    use crate::application::health::health_member_repository::tests::HealthMemberCollection;
     use crate::domain::health::health_member::HealthMember;
-    use crate::infrastructure::health::doctor_visit_collection::DoctorVisitCollection;
-    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {

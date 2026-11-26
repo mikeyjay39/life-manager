@@ -53,10 +53,8 @@ pub fn replace_document_tags(
     document_id: &str,
     tag_names: &[String],
 ) -> Result<(), diesel::result::Error> {
-    diesel::delete(
-        document_tags::table.filter(document_tags::document_id.eq(document_id)),
-    )
-    .execute(conn)?;
+    diesel::delete(document_tags::table.filter(document_tags::document_id.eq(document_id)))
+        .execute(conn)?;
     persist_document_tags(conn, document_id, tag_names)
 }
 

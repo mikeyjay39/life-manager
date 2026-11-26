@@ -42,8 +42,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        AuthStateBuilder,
-        domain::verify_email_request::VerifyEmailRequest,
+        AuthStateBuilder, domain::verify_email_request::VerifyEmailRequest,
         infrastructure::db::test_pool,
     };
 

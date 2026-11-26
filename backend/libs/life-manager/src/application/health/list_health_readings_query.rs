@@ -56,12 +56,7 @@ impl ListHealthReadingsQuery {
 
         Ok(self
             .health_reading_repository
-            .list_by_member(
-                &self.health_member_id,
-                &self.user_id,
-                self.from,
-                self.to,
-            )
+            .list_by_member(&self.health_member_id, &self.user_id, self.from, self.to)
             .await)
     }
 }

@@ -4,7 +4,8 @@ use async_trait::async_trait;
 
 use crate::{
     domain::{
-        document::document_text_reader::DocumentTextReader, document::uploaded_document_input::UploadedDocumentInput,
+        document::document_text_reader::DocumentTextReader,
+        document::uploaded_document_input::UploadedDocumentInput,
     },
     infrastructure::shared::document_text_extraction::{get_text_from_pdf, needs_ocr},
 };

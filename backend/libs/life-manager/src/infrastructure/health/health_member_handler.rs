@@ -1,6 +1,6 @@
 use auth::AuthUser;
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use backend_utils::AppResponse;
 use backend_utils::app_result::ApiResult;
 use uuid::Uuid;
@@ -71,12 +71,7 @@ pub async fn list_health_members(
     )
     .execute()
     .await;
-    AppResponse::ok(
-        members
-            .iter()
-            .map(HealthMemberDto::from_domain)
-            .collect(),
-    )
+    AppResponse::ok(members.iter().map(HealthMemberDto::from_domain).collect())
 }
 
 pub async fn get_health_member(
@@ -141,18 +136,18 @@ pub async fn deactivate_health_member(
 mod tests {
     use std::sync::Arc;
 
+    use axum::Json;
     use axum::body::to_bytes;
     use axum::extract::{Path, Query, State};
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
-    use axum::Json;
     use chrono::Utc;
     use serde_json::from_slice;
     use uuid::Uuid;
 
     use super::*;
+    use crate::application::health::health_member_repository::tests::HealthMemberCollection;
     use crate::application::health::health_member_use_cases::HealthMemberUseCases;
-    use crate::infrastructure::health::health_member_collection::HealthMemberCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {
@@ -274,8 +269,7 @@ mod tests {
         )
         .await
         .into_response();
-        let (status, dto): (StatusCode, HealthMemberDto) =
-            response_json(deactivate_response).await;
+        let (status, dto): (StatusCode, HealthMemberDto) = response_json(deactivate_response).await;
         assert_eq!(status, StatusCode::OK);
         assert!(!dto.active);
 
@@ -427,12 +421,9 @@ mod tests {
             Err(backend_utils::AppError::NotFound)
         ));
 
-        let deactivate_result = deactivate_health_member(
-            other,
-            State(HealthMemberState(use_cases)),
-            Path(created.id),
-        )
-        .await;
+        let deactivate_result =
+            deactivate_health_member(other, State(HealthMemberState(use_cases)), Path(created.id))
+                .await;
         assert!(matches!(
             deactivate_result,
             Err(backend_utils::AppError::NotFound)

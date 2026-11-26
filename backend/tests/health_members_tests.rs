@@ -238,7 +238,11 @@ async fn given_other_users_member_when_update_or_deactivate_then_404() {
     .await;
 }
 
-async fn create_member(server: &TestServer, auth_header: &str, display_name: &str) -> HealthMemberDto {
+async fn create_member(
+    server: &TestServer,
+    auth_header: &str,
+    display_name: &str,
+) -> HealthMemberDto {
     let url = server
         .server_url(HEALTH_MEMBERS_URL)
         .expect("url")

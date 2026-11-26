@@ -80,9 +80,7 @@ impl CarMaintenanceEventType {
             "service" => Ok(Self::Service),
             "repair" => Ok(Self::Repair),
             "other" => Ok(Self::Other),
-            _ => Err(AppError::Validation(format!(
-                "unknown event_type: {raw}"
-            ))),
+            _ => Err(AppError::Validation(format!("unknown event_type: {raw}"))),
         }
     }
 }
@@ -208,9 +206,7 @@ impl CarMaintenanceEvent {
         Ok(())
     }
 
-    fn normalize_input(
-        input: CarMaintenanceEventInput<'_>,
-    ) -> Result<NormalizedEvent, AppError> {
+    fn normalize_input(input: CarMaintenanceEventInput<'_>) -> Result<NormalizedEvent, AppError> {
         Self::validate_occurred_on(input.occurred_on)?;
         let odometer_miles = Self::validate_odometer(input.odometer_miles)?;
         let cost_cents = Self::validate_cost(input.cost_cents)?;
@@ -256,11 +252,7 @@ impl CarMaintenanceEvent {
         odometer_miles: Option<i32>,
         cost_cents: Option<i64>,
     ) -> Result<(), AppError> {
-        if title.is_some()
-            || notes.is_some()
-            || odometer_miles.is_some()
-            || cost_cents.is_some()
-        {
+        if title.is_some() || notes.is_some() || odometer_miles.is_some() || cost_cents.is_some() {
             Ok(())
         } else {
             Err(AppError::Validation(
@@ -293,9 +285,9 @@ impl CarMaintenanceEvent {
     fn validate_cost(cost_cents: Option<i64>) -> Result<Option<i64>, AppError> {
         match cost_cents {
             None => Ok(None),
-            Some(cents) if cents < 0 => Err(AppError::Validation(
-                "cost_cents must be >= 0".to_string(),
-            )),
+            Some(cents) if cents < 0 => {
+                Err(AppError::Validation("cost_cents must be >= 0".to_string()))
+            }
             Some(cents) => Ok(Some(cents)),
         }
     }

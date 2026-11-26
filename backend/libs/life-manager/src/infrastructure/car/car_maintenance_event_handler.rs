@@ -104,9 +104,9 @@ pub async fn list_car_maintenance_events(
     State(CarMaintenanceEventState(use_cases)): State<CarMaintenanceEventState>,
     Query(params): Query<GetCarMaintenanceEventsQueryParams>,
 ) -> ApiResult<Vec<CarMaintenanceEventDto>> {
-    let car_id = params.car_id.ok_or_else(|| {
-        AppError::Validation("car_id query parameter is required".to_string())
-    })?;
+    let car_id = params
+        .car_id
+        .ok_or_else(|| AppError::Validation("car_id query parameter is required".to_string()))?;
     let event_type = params.parse_event_type()?;
     let events = ListCarMaintenanceEventsQuery::new(
         user_id,
@@ -239,23 +239,23 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+    use crate::application::car::car_maintenance_event_repository::tests::CarMaintenanceEventCollection;
     use crate::application::car::car_maintenance_event_use_cases::CarMaintenanceEventUseCases;
     use crate::application::car::car_repository::CarRepository;
+    use crate::application::car::car_repository::tests::CarCollection;
     use crate::domain::car::{Car, CarProfileInput};
-    use crate::infrastructure::car::car_collection::CarCollection;
-    use crate::infrastructure::car::car_maintenance_event_collection::CarMaintenanceEventCollection;
     use async_trait::async_trait;
 
     use crate::application::car::car_maintenance_event_documents_writer::CarMaintenanceEventDocumentsWriter;
     use crate::application::car::car_maintenance_event_repository::CarMaintenanceEventRepository;
     use crate::application::document::document_repository::DocumentRepository;
+    use crate::application::document::document_repository::tests::DocumentCollection;
     use crate::domain::car::car_maintenance_event::CarMaintenanceEvent;
     use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::infrastructure::document::document_api_types::{
         CreateDocumentCommandDto, DocumentStorageRefDto,
     };
-    use crate::infrastructure::document::document_collection::DocumentCollection;
 
     fn test_auth_user() -> AuthUser {
         AuthUser {
@@ -738,7 +738,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_document_id_and_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+    async fn given_document_id_and_new_receipt_when_create_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -762,7 +763,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_document_id_and_new_receipt_when_update_event_then_validation_and_nothing_stored() {
+    async fn given_document_id_and_new_receipt_when_update_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -793,7 +795,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_invalid_storage_in_new_receipt_when_create_event_then_validation_and_nothing_stored() {
+    async fn given_invalid_storage_in_new_receipt_when_create_event_then_validation_and_nothing_stored()
+     {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();
@@ -820,7 +823,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_inactive_car_when_create_event_with_new_receipt_then_validation_and_no_document() {
+    async fn given_inactive_car_when_create_event_with_new_receipt_then_validation_and_no_document()
+    {
         // Given
         let auth_user = test_auth_user();
         let fx = fixture();

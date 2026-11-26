@@ -78,7 +78,11 @@ impl PasswordResetService for PrincipalPasswordResetService {
     ) -> Result<PasswordResetRequestResponse, String> {
         let email = parse_email(&req.email)?;
 
-        let Some(principal) = self.principal_repository.get_principal(email.as_str()).await else {
+        let Some(principal) = self
+            .principal_repository
+            .get_principal(email.as_str())
+            .await
+        else {
             return Ok(PasswordResetRequestResponse {
                 message: GENERIC_REQUEST_MESSAGE.to_string(),
             });
@@ -274,9 +278,7 @@ mod tests {
     impl PrincipalRepository for StubRepo {
         async fn get_principal(&self, username: &str) -> Option<Box<dyn Principal>> {
             let guard = self.active.lock().unwrap();
-            let Some(principal) = guard.as_ref() else {
-                return None;
-            };
+            let principal = guard.as_ref()?;
             // Username is email for signup users; stub ignores name match beyond presence.
             let _ = username;
             Some(Box::new(StubPrincipal {
@@ -321,10 +323,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete_user_by_id(
-            &self,
-            _user_id: Uuid,
-        ) -> Result<(), PrincipalWriteError> {
+        async fn delete_user_by_id(&self, _user_id: Uuid) -> Result<(), PrincipalWriteError> {
             Ok(())
         }
     }
@@ -379,7 +378,10 @@ mod tests {
 
     #[async_trait]
     impl EmailTokenRepository for StubTokenRepo {
-        async fn issue_replacing_unused(&self, token: NewEmailToken) -> Result<(), EmailTokenError> {
+        async fn issue_replacing_unused(
+            &self,
+            token: NewEmailToken,
+        ) -> Result<(), EmailTokenError> {
             let mut rows = self.rows.lock().unwrap();
             for row in rows.iter_mut() {
                 if row.user_id == token.user_id
@@ -551,10 +553,12 @@ mod tests {
 
         // Then
         assert_eq!(response.message, CONFIRM_SUCCESS_MESSAGE);
-        let updates = repo.updated_hashes.lock().unwrap();
-        assert_eq!(updates.len(), 1);
-        assert_eq!(updates[0].0, user_id);
-        assert_eq!(updates[0].1, "hash:newpassword1");
+        {
+            let updates = repo.updated_hashes.lock().unwrap();
+            assert_eq!(updates.len(), 1);
+            assert_eq!(updates[0].0, user_id);
+            assert_eq!(updates[0].1, "hash:newpassword1");
+        }
 
         let reuse = service
             .confirm_reset(&PasswordResetConfirmRequest {

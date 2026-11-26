@@ -92,11 +92,13 @@ pub(super) fn insert_maintenance_event(
         .values(&NewCarMaintenanceEventEntity::from(event))
         .returning(CarMaintenanceEventEntity::as_returning())
         .get_result(conn)?;
-    entity.into_domain().ok_or(MaintenanceEventWriteError::Diesel(
-        diesel::result::Error::DeserializationError(
-            "Failed to map saved CarMaintenanceEvent".into(),
-        ),
-    ))
+    entity
+        .into_domain()
+        .ok_or(MaintenanceEventWriteError::Diesel(
+            diesel::result::Error::DeserializationError(
+                "Failed to map saved CarMaintenanceEvent".into(),
+            ),
+        ))
 }
 
 /// Updates one owned event row on `conn`. No active-car check: history
@@ -143,20 +145,26 @@ impl CarMaintenanceEventRepository for CarMaintenanceEventOrmCollection {
 
         let id_str = id.to_string();
         let result = conn
-            .interact(move |conn| -> QueryResult<Option<CarMaintenanceEventEntity>> {
-                car_maintenance_events::table
-                    .filter(car_maintenance_events::id.eq(id_str))
-                    .select(CarMaintenanceEventEntity::as_select())
-                    .first(conn)
-                    .optional()
-            })
+            .interact(
+                move |conn| -> QueryResult<Option<CarMaintenanceEventEntity>> {
+                    car_maintenance_events::table
+                        .filter(car_maintenance_events::id.eq(id_str))
+                        .select(CarMaintenanceEventEntity::as_select())
+                        .first(conn)
+                        .optional()
+                },
+            )
             .await;
 
         match result {
             Ok(Ok(Some(entity))) => entity.into_domain(),
             Ok(Ok(None)) => None,
             Ok(Err(e)) => {
-                tracing::error!("Database error retrieving CarMaintenanceEvent {}: {}", id, e);
+                tracing::error!(
+                    "Database error retrieving CarMaintenanceEvent {}: {}",
+                    id,
+                    e
+                );
                 None
             }
             Err(e) => {

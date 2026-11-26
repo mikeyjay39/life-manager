@@ -4,11 +4,11 @@ use axum::{
 };
 
 use crate::infrastructure::{
-    shared::app_state::LifeManagerState,
     car::car_maintenance_event_handler::{
         create_car_maintenance_event, delete_car_maintenance_event, get_car_maintenance_event,
         list_car_maintenance_events, update_car_maintenance_event,
     },
+    shared::app_state::LifeManagerState,
 };
 
 pub fn car_maintenance_event_router() -> Router<LifeManagerState> {

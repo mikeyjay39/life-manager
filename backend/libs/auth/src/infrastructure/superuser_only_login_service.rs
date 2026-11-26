@@ -13,10 +13,10 @@ use crate::{
 };
 
 /**
-* A login service that only allows a superuser to log in.
-*
-* WARNING: This is for demonstration and testing purposes only. Do not use in production!
-*/
+ * A login service that only allows a superuser to log in.
+ *
+ * WARNING: This is for demonstration and testing purposes only. Do not use in production!
+ */
 pub struct SuperuserOnlyLoginService {
     admin_username: String,
     admin_password: String,
@@ -63,8 +63,7 @@ impl LoginService for SuperuserOnlyLoginService {
 mod tests {
 
     use crate::{
-        domain::login_request::LoginRequest,
-        infrastructure::auth_user_seeder::admin_user_uuid,
+        domain::login_request::LoginRequest, infrastructure::auth_user_seeder::admin_user_uuid,
     };
 
     use super::*;

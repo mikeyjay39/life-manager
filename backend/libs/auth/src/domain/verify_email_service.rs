@@ -63,9 +63,9 @@ impl VerifyEmailService for PrincipalVerifyEmailService {
             .find_valid(token, EmailTokenPurpose::SignupVerify)
             .await
             .map_err(|err| match err {
-                EmailTokenError::Expired => VerifyEmailError::Validation(
-                    "This verification link has expired.".to_string(),
-                ),
+                EmailTokenError::Expired => {
+                    VerifyEmailError::Validation("This verification link has expired.".to_string())
+                }
                 EmailTokenError::InvalidOrUsed => VerifyEmailError::Validation(
                     "This verification link is invalid or already used.".to_string(),
                 ),

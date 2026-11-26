@@ -5,8 +5,8 @@ use crate::domain::document::document_storage_ref::DocumentStorageRef;
 
 #[derive(Clone, Debug)]
 /**
-* Structure representing an uploaded document input.
-*/
+ * Structure representing an uploaded document input.
+ */
 pub struct UploadedDocumentInput {
     /** Name of the uploaded file. */
     pub file_name: Option<String>,

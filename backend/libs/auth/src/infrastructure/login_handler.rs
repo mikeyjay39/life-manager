@@ -141,9 +141,7 @@ mod tests {
         init_test_env();
         // Given
         let pool = fresh_test_pool();
-        run_migrations(pool.as_ref())
-            .await
-            .expect("run migrations");
+        run_migrations(pool.as_ref()).await.expect("run migrations");
         insert_auth_user(&pool, "other-user", "password", "other-tenant", true)
             .await
             .expect("insert user");

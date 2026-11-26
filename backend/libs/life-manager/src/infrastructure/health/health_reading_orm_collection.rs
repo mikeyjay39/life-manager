@@ -123,7 +123,10 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
             .await;
 
         match result {
-            Ok(Ok(entities)) => entities.into_iter().filter_map(|e| e.into_domain()).collect(),
+            Ok(Ok(entities)) => entities
+                .into_iter()
+                .filter_map(|e| e.into_domain())
+                .collect(),
             Ok(Err(e)) => {
                 tracing::error!("Database error listing HealthReadings: {}", e);
                 vec![]
@@ -143,7 +146,10 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
         let conn = match self.pool.get().await {
             Ok(conn) => conn,
             Err(e) => {
-                tracing::error!("Could not get db connection for find_by_member_and_date: {}", e);
+                tracing::error!(
+                    "Could not get db connection for find_by_member_and_date: {}",
+                    e
+                );
                 return None;
             }
         };
@@ -216,18 +222,12 @@ impl HealthReadingRepository for HealthReadingOrmCollection {
             Ok(Ok(entity)) => entity
                 .into_domain()
                 .ok_or_else(|| "Failed to map saved HealthReading".into()),
-            Ok(Err(SaveTxError::MemberMissing)) => {
-                Err(Box::new(MissingHealthMemberForReading))
-            }
-            Ok(Err(SaveTxError::InactiveMember)) => {
-                Err(Box::new(InactiveHealthMemberForReading))
-            }
-            Ok(Err(SaveTxError::Diesel(
-                diesel::result::Error::DatabaseError(
-                    diesel::result::DatabaseErrorKind::UniqueViolation,
-                    _,
-                ),
-            ))) => Err(Box::new(DuplicateHealthReadingDate)),
+            Ok(Err(SaveTxError::MemberMissing)) => Err(Box::new(MissingHealthMemberForReading)),
+            Ok(Err(SaveTxError::InactiveMember)) => Err(Box::new(InactiveHealthMemberForReading)),
+            Ok(Err(SaveTxError::Diesel(diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::UniqueViolation,
+                _,
+            )))) => Err(Box::new(DuplicateHealthReadingDate)),
             Ok(Err(SaveTxError::Diesel(e))) => {
                 tracing::error!("Error saving HealthReading {}: {}", reading_id, e);
                 Err(Box::new(e))

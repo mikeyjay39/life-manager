@@ -84,10 +84,7 @@ mod tests {
             std::env::set_var("ADMIN_USERNAME", "admin");
             std::env::set_var("ADMIN_PASSWORD", "password");
             std::env::set_var("EMAIL_PROVIDER", "log");
-            std::env::set_var(
-                "APP_PUBLIC_BASE_URL",
-                "https://life-manager.jeszenka.com",
-            );
+            std::env::set_var("APP_PUBLIC_BASE_URL", "https://life-manager.jeszenka.com");
         });
     }
 

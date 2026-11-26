@@ -107,7 +107,7 @@ BASE="http://127.0.0.1:${APP_PORT}/life-manager/api/v1"
 curl -sS -H "Authorization: Bearer TOKEN" "$BASE/auth/protected"
 
 # List documents by title
-curl -sS -H "Authorization: Bearer TOKEN" "$BASE/documents/?title=MYTEST"
+curl -sS -H "Authorization: Bearer TOKEN" "$BASE/documents?title=MYTEST"
 
 # Get document
 curl -sS -H "Authorization: Bearer TOKEN" \
@@ -117,7 +117,7 @@ curl -sS -H "Authorization: Bearer TOKEN" \
 curl -sS -X POST -H "Authorization: Bearer TOKEN" \
   -F 'json={"title":"MYTEST","content":"example"}' \
   -F 'file=@README.md' \
-  "$BASE/documents/"
+  "$BASE/documents"
 
 # Delete
 curl -sS -X DELETE -H "Authorization: Bearer TOKEN" \

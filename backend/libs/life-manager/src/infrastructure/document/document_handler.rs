@@ -1,6 +1,8 @@
 use crate::application::document::create_document_command::CreateDocumentCommand;
 use crate::application::document::delete_document_command::DeleteDocumentCommand;
-use crate::application::document::get_documents_query::{GetDocumentsQuery, GetDocumentsTitleCursorQuery};
+use crate::application::document::get_documents_query::{
+    GetDocumentsQuery, GetDocumentsTitleCursorQuery,
+};
 use crate::application::document::update_document_command::UpdateDocumentCommand;
 use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 use crate::infrastructure::document::document_api_types::{
@@ -271,11 +273,14 @@ async fn parse_document_multipart<T: DeserializeOwned>(
                 if let Some(name) = field.file_name() {
                     file_name = name.to_string();
                 }
-                file_data = field.bytes().await.map_err(|err| {
-                    tracing::warn!("Failed to read multipart file field: {err}");
-                    AppError::Validation("Could not read the uploaded file.".to_string())
-                })?
-                .to_vec();
+                file_data = field
+                    .bytes()
+                    .await
+                    .map_err(|err| {
+                        tracing::warn!("Failed to read multipart file field: {err}");
+                        AppError::Validation("Could not read the uploaded file.".to_string())
+                    })?
+                    .to_vec();
                 tracing::info!("Received file for update: {}", file_name);
             }
             _ => {}
@@ -289,9 +294,9 @@ async fn parse_document_multipart<T: DeserializeOwned>(
 }
 
 /**
-* NOTE: This is a testing function that doesn't guarantee order and is not suited for pagination.
-*
-*/
+ * NOTE: This is a testing function that doesn't guarantee order and is not suited for pagination.
+ *
+ */
 pub async fn get_documents(
     AuthUser {
         user_id,
@@ -339,8 +344,7 @@ pub async fn get_documents_by_title(
         title_contains
     );
     let repo = document_use_cases.document_repository.clone();
-    let query =
-        GetDocumentsTitleCursorQuery::new(repo, user_id, title, title_contains, PAGE_LIMIT);
+    let query = GetDocumentsTitleCursorQuery::new(repo, user_id, title, title_contains, PAGE_LIMIT);
     let documents = query.execute().await;
     let document_dtos: Vec<DocumentDto> =
         documents.iter().map(DocumentDto::from_document).collect();
@@ -353,12 +357,12 @@ mod tests {
     use std::sync::Arc;
 
     use crate::application::document::document_repository::DocumentRepository;
+    use crate::application::document::document_repository::tests::DocumentCollection;
     use crate::application::document::document_use_cases::DocumentUseCases;
     use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
     use crate::domain::document::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
     use crate::domain::document::document_text_reader::DocumentTextReader;
-    use crate::infrastructure::document::document_collection::DocumentCollection;
 
     use crate::infrastructure::document::document_api_types::DocumentStorageRefDto;
 

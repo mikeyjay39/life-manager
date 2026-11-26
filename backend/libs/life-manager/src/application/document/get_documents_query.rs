@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{application::document::document_repository::DocumentRepository, domain::document::Document};
+use crate::{
+    application::document::document_repository::DocumentRepository, domain::document::Document,
+};
 
 pub struct GetDocumentsQuery {
     doc_repo: Arc<dyn DocumentRepository>,

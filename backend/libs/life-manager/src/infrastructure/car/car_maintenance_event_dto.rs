@@ -47,8 +47,8 @@ impl CarMaintenanceEventDto {
 mod tests {
     use super::*;
     use crate::domain::{
-        car::{Car, CarProfileInput},
         car::car_maintenance_event::{CarMaintenanceEventInput, CarMaintenanceEventType},
+        car::{Car, CarProfileInput},
     };
     use chrono::Utc;
 

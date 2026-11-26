@@ -78,11 +78,9 @@ pub(super) fn insert_car(conn: &mut SqliteConnection, car: &Car) -> Result<Car, 
         .values(&NewCarEntity::from(car))
         .returning(CarEntity::as_returning())
         .get_result(conn)?;
-    entity
-        .into_domain()
-        .ok_or(CarWriteError::Diesel(diesel::result::Error::DeserializationError(
-            "Failed to map saved Car".into(),
-        )))
+    entity.into_domain().ok_or(CarWriteError::Diesel(
+        diesel::result::Error::DeserializationError("Failed to map saved Car".into()),
+    ))
 }
 
 /// Updates one Car row on `conn`. Zero rows (removed after load) is `MissingCar`.
@@ -163,7 +161,10 @@ impl CarRepository for CarOrmCollection {
             .await;
 
         match result {
-            Ok(Ok(entities)) => entities.into_iter().filter_map(|e| e.into_domain()).collect(),
+            Ok(Ok(entities)) => entities
+                .into_iter()
+                .filter_map(|e| e.into_domain())
+                .collect(),
             Ok(Err(e)) => {
                 tracing::error!("Database error listing Cars: {}", e);
                 vec![]

@@ -3,9 +3,7 @@
 mod common;
 
 use axum_test::TestServer;
-use life_manager::infrastructure::car::car_api_types::{
-    CreateCarCommandDto, UpdateCarCommandDto,
-};
+use life_manager::infrastructure::car::car_api_types::{CreateCarCommandDto, UpdateCarCommandDto};
 use life_manager::infrastructure::car::car_dto::CarDto;
 use life_manager::infrastructure::document::document_api_types::CreateDocumentCommandDto;
 use life_manager::infrastructure::document::document_dto::DocumentDto;
@@ -28,8 +26,8 @@ const SAMPLE_VIN: &str = "1HGCM82633A004352";
 async fn given_valid_jwt_when_create_car_then_201_active_owned() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let created = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
         assert!(created.active);
         assert!(created.deactivated_at.is_none());
 
@@ -54,8 +52,8 @@ async fn given_valid_jwt_when_create_car_then_201_active_owned() {
 async fn given_owned_car_when_put_vin_and_plate_then_200_updated() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let created = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
 
         let url = server
             .server_url(&format!("{}/{}", CARS_URL, created.id))
@@ -224,8 +222,7 @@ async fn given_owned_document_when_link_insurance_then_200() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
         let doc = create_document(&server, &auth_header, "Insurance").await;
-        let car = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let car = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
 
         let url = server
             .server_url(&format!("{}/{}", CARS_URL, car.id))
@@ -266,8 +263,7 @@ async fn given_other_users_document_when_link_insurance_then_400() {
         let auth_header = build_auth_header(&server).await;
         let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
         let other_doc = create_document(&server, &other_header, "Other Insurance").await;
-        let car = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let car = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
 
         let url = server
             .server_url(&format!("{}/{}", CARS_URL, car.id))
@@ -304,8 +300,8 @@ async fn given_other_users_document_when_link_insurance_then_400() {
 async fn given_active_car_when_deactivate_then_inactive_row_remains_get_works() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let created = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
 
         let deactivate_url = server
             .server_url(&format!("{}/{}/deactivate", CARS_URL, created.id))
@@ -345,8 +341,8 @@ async fn given_active_car_when_deactivate_then_inactive_row_remains_get_works() 
 async fn given_owned_car_when_hard_delete_then_204_and_get_404() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let created = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
 
         let delete_url = server
             .server_url(&format!("{}/{}", CARS_URL, created.id))
@@ -377,8 +373,7 @@ async fn given_owned_car_when_hard_delete_then_204_and_get_404() {
 async fn given_active_and_inactive_when_list_default_then_only_active() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let active = create_car(&server, &auth_header, "Toyota", "Active", 2020, None, None)
-            .await;
+        let active = create_car(&server, &auth_header, "Toyota", "Active", 2020, None, None).await;
         let inactive =
             create_car(&server, &auth_header, "Honda", "Inactive", 2021, None, None).await;
         deactivate_car(&server, &auth_header, inactive.id).await;
@@ -404,8 +399,8 @@ async fn given_active_and_inactive_when_list_default_then_only_active() {
 async fn given_other_users_car_when_update_deactivate_or_delete_then_404() {
     run_test_with_test_profile(|server: TestServer| async move {
         let auth_header = build_auth_header(&server).await;
-        let created = create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None)
-            .await;
+        let created =
+            create_car(&server, &auth_header, "Toyota", "Corolla", 2020, None, None).await;
         let other_header = build_bearer_token_with_tenant(Uuid::new_v4(), "life-manager");
 
         let update_url = server
