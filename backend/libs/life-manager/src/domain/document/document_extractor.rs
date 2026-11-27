@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use serde::Deserialize;
 
-use crate::domain::document::extraction_media_type::ExtractionMediaType;
+use crate::domain::document::media_type::ExtractionMediaType;
 
 /// What the extractor reads: the embedded text of a PDF, or the file itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
