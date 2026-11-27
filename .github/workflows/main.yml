@@ -240,6 +240,8 @@ jobs:
         working-directory: e2e
 
       - name: Start docker-dev stack for e2e
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: bash e2e/scripts/up.sh
 
       - name: Wait for API health and frontend URL
