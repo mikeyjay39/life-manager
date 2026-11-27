@@ -135,6 +135,8 @@ flowchart LR
 | `/life-manager/api/v1/auth/login` | `auth` crate — login |
 | `/life-manager/api/v1/documents` | `life-manager` — list / create documents |
 | `/life-manager/api/v1/documents/{id}` | `life-manager` — get document by UUID |
+| `/life-manager/api/v1/documents/extract` | `life-manager` — read Document fields from a file through Gemini |
+| `/life-manager/api/v1/documents/extract/limits` | `life-manager` — extraction limits and units left today |
 | `/life-manager/api/v1/health-members` | `life-manager` — list / create HealthMembers |
 | `/life-manager/api/v1/health-members/{id}` | `life-manager` — get / update HealthMember |
 | `/life-manager/api/v1/health-members/{id}/deactivate` | `life-manager` — soft-deactivate |
@@ -169,16 +171,20 @@ flowchart TB
   db[("SQLite\nbackend/data")]
   alloy["alloy (log shipper)"]
   grafanaCloud["Grafana Cloud Loki"]
+  gemini["Google Gemini API (external)"]
 
   browser --> gateway
   gateway -->|"/"| frontend
   gateway -->|"/life-manager/api, /test-tenant/api, /api"| api
   api --> db
+  api -->|"HTTPS, document extract only"| gemini
   gateway -->|"stdout"| alloy
   frontend -->|"stdout"| alloy
   api -->|"stdout"| alloy
   alloy -->|"HTTPS push"| grafanaCloud
 ```
+
+The backend calls the Google Gemini API only for `POST /documents/extract`. The file or PDF text leaves the Proton boundary. See [development_faq.md — Extract From File workflow](development_faq.md#extract-from-file-workflow).
 
 Log UI is hosted by Grafana Cloud (14-day retention on free tier), not proxied through the gateway. Set **`GRAFANA_LOKI_URL`**, **`GRAFANA_LOKI_USERNAME`**, **`GRAFANA_CLOUD_API_KEY`**, and **`GRAFANA_LOKI_ENVIRONMENT`** in **`.prod.env`** (and **`.dev.env`** for local **docker-dev** testing). See [`README.md`](../README.md#grafana-cloud-logs-prod-and-docker-dev).
 
