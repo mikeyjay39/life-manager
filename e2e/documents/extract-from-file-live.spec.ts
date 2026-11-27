@@ -25,6 +25,9 @@ import { attachNoResendNoProtonGuard, openDocumentManager } from './ui';
  * Browser -> assert banner + fields -> Submit
  * Harness -> API : GET /documents/{id} : dates + title
  * Harness -> SQLite (read-only) : SELECT usage count = 1
+ * alt host DB file missing (docker-from-dev-container)
+ *   Harness -> docker exec life_manager_dev : copy DB, SELECT on copy
+ * end
  * ```
  */
 

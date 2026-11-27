@@ -1,12 +1,11 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { e2eEnvFilePath, execInLifeManagerDev } from './docker';
 import {
   emailCaptureDirContainer,
   emailCaptureDirHost,
   loadE2eEnvFile,
-  repoRoot,
 } from './env';
 
 export type CapturedMail = {
@@ -61,37 +60,17 @@ function listCapturedMailsFromHost(dir: string): CapturedMail[] {
  * Needed when host bind mounts diverge (docker-from-dev-container).
  */
 function listCapturedMailsFromDocker(containerDir: string): CapturedMail[] {
-  const envPath = process.env.E2E_ENV_FILE || path.join(repoRoot(), '.e2e.env');
-  const composeFile = path.join(repoRoot(), 'docker-compose.yml');
-  if (!fs.existsSync(envPath)) {
+  if (!fs.existsSync(e2eEnvFilePath())) {
     return [];
   }
 
   let listing = '';
   try {
-    listing = execFileSync(
-      'docker',
-      [
-        'compose',
-        '-f',
-        composeFile,
-        '--env-file',
-        envPath,
-        '--profile',
-        'docker-dev',
-        'exec',
-        '-T',
-        'life_manager_dev',
-        'sh',
-        '-c',
-        `ls -1 "${containerDir}"/*.eml 2>/dev/null || true`,
-      ],
-      {
-        env: { ...process.env },
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
+    listing = execInLifeManagerDev([
+      'sh',
+      '-c',
+      `ls -1 "${containerDir}"/*.eml 2>/dev/null || true`,
+    ]).toString('utf8');
   } catch {
     return [];
   }
@@ -104,28 +83,7 @@ function listCapturedMailsFromDocker(containerDir: string): CapturedMail[] {
   const out: CapturedMail[] = [];
   for (const filePath of files) {
     try {
-      const text = execFileSync(
-        'docker',
-        [
-          'compose',
-          '-f',
-          composeFile,
-          '--env-file',
-          envPath,
-          '--profile',
-          'docker-dev',
-          'exec',
-          '-T',
-          'life_manager_dev',
-          'cat',
-          filePath,
-        ],
-        {
-          env: { ...process.env },
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'pipe'],
-        }
-      );
+      const text = execInLifeManagerDev(['cat', filePath]).toString('utf8');
       // Prefer filename millis prefix when present; else Date.now order.
       const base = path.basename(filePath);
       const millis = Number.parseInt(base.split('-')[0] || '', 10);

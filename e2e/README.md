@@ -95,6 +95,12 @@ free-tier quota. A "Gemini quota" failure (HTTP 429) means that the quota is
 used up. Do not run the test again until the quota resets. In CI, the key
 comes from the GitHub Actions secret `GEMINI_API_KEY`.
 
+The test reads the usage count with a read-only SELECT (`helpers/db.ts`).
+It reads `E2E_DB_PATH` on the host first. When that file is missing (the
+Docker daemon resolves the `backend/data` bind mount on its own side), it
+copies the DB out of `life_manager_dev` with `docker compose exec` and
+queries the copy. The mail helpers use the same fallback (`helpers/docker.ts`).
+
 ## Parallel runs
 
 `scripts/generate-env.sh` sets a unique `COMPOSE_PROJECT_NAME`, ports, and
