@@ -2059,6 +2059,7 @@ dependencies = [
  "backend-utils",
  "chrono",
  "deadpool-diesel",
+ "diesel",
  "diesel_migrations",
  "dotenv",
  "image",

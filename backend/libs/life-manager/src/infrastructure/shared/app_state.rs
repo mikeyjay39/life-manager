@@ -16,6 +16,7 @@ use crate::{
         car::car_maintenance_event_documents_orm_collection::CarMaintenanceEventDocumentsOrmCollection,
         car::car_maintenance_event_orm_collection::CarMaintenanceEventOrmCollection,
         car::car_orm_collection::CarOrmCollection,
+        document::document_extraction_orm_collection::DocumentExtractionOrmCollection,
         document::document_orm_collection::DocumentOrmCollection,
         health::doctor_visit_orm_collection::DoctorVisitOrmCollection,
         health::health_member_orm_collection::HealthMemberOrmCollection,
@@ -147,8 +148,11 @@ impl Default for LifeManagerStateBuilder {
 
 fn default_document_use_cases(pool: Arc<Pool>) -> DocumentUseCases {
     tracing::info!("Creating default DocumentUseCases...");
+    let extraction = Arc::new(DocumentExtractionOrmCollection::new(pool.clone()));
     DocumentUseCases {
         document_repository: Arc::new(DocumentOrmCollection::new(pool)),
+        extraction_limits_reader: extraction.clone(),
+        extraction_usage: extraction,
     }
 }
 

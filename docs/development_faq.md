@@ -181,7 +181,7 @@ Agents do not create Resend accounts or change DNS. A human does these steps bef
 3. **Verify DNS in Resend** after propagation. **Status (2026-11-10):** Resend marks `life-manager.jeszenka.com` as verified. Re-check in Resend if you change DNS later.
 4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack). Human already set encrypted env for this delivery.
 5. Set `APP_PUBLIC_BASE_URL=https://life-manager.jeszenka.com` for prod so verify and reset links hit the public app.
-6. After pull, apply both migration sets when you use the Diesel CLI (agents do not). From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
+6. After pull, apply both migration sets when you use the Diesel CLI. Agents regenerate `schema.rs` only from a throwaway DB; the human applies migrations to real databases. From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
 
 ### Ops escape hatch (SQLite activation)
 
@@ -200,6 +200,33 @@ sqlite3 ./data/dev-test.db \
 **Tenant theme overrides:** add or edit the optional `theme` block in `tenants/<id>/meta.ts` (e.g. `light: { tint: '#336699' }`). Reload the web app or restart Expo to pick up meta changes. Combine with `?tenant=<id>` when testing multiple tenants on localhost.
 
 See `frontend/AGENTS.md` for layout conventions (`tenants/<id>/` vs shared code) and theme hooks.
+
+## Change document extraction limits (owner only)
+
+The backend reads the document extraction limits from the single row in `document_extraction_limits` (`id = 1`). It reads the row on each request. A change applies on the next request, with no rebuild or restart. The migration seeds these values: 20 units each user each day, 10485760 bytes (10 MB), and 5 PDF pages.
+
+| Column | Meaning |
+|--------|---------|
+| `daily_limit_per_user` | Extraction units that one user can use on one UTC date. `0` is a kill switch: it blocks all extraction. |
+| `max_file_bytes` | Largest file that extraction accepts, in bytes. Must be more than 0. |
+| `max_pdf_pages` | Largest number of PDF pages that extraction accepts. Must be more than 0. |
+| `updated_at` | Time of the last change. Set it when you change a value. |
+
+Per-user usage is in `document_extraction_usage` (`user_id`, `usage_date` as `YYYY-MM-DD` UTC, `count`). A new UTC date starts a new count. When you lower the limit below a count, `remaining_today` is 0 for that user.
+
+Only the owner changes the limits. Agents must not run this SQL. Use the database of the profile that you change (example: dev DB from `.dev.env`):
+
+```bash
+sqlite3 ./data/dev-test.db \
+  "UPDATE document_extraction_limits SET daily_limit_per_user = 30, updated_at = CURRENT_TIMESTAMP WHERE id = 1;"
+```
+
+If the row is missing, `GET /documents/extract/limits` returns 503 "Extraction is not configured" and the backend writes an error log line. To restore the seed values, insert the row again:
+
+```bash
+sqlite3 ./data/dev-test.db \
+  "INSERT INTO document_extraction_limits (id, daily_limit_per_user, max_file_bytes, max_pdf_pages, updated_at) VALUES (1, 20, 10485760, 5, CURRENT_TIMESTAMP);"
+```
 
 ## Proton Drive (experimental, web only)
 

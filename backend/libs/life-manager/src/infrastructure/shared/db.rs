@@ -30,6 +30,13 @@ pub fn create_connection_pool_from_url(database_url: &str) -> anyhow::Result<Poo
                 .map_err(|err| {
                     HookError::message(format!("failed to enable sqlite foreign_keys: {err}"))
                 })?;
+            // Concurrent writers wait for the lock instead of failing with
+            // SQLITE_BUSY. The atomic extraction reserve needs this.
+            sql_query("PRAGMA busy_timeout = 5000")
+                .execute(&mut *guard)
+                .map_err(|err| {
+                    HookError::message(format!("failed to set sqlite busy_timeout: {err}"))
+                })?;
             Ok(())
         }))
         .max_size(16)
