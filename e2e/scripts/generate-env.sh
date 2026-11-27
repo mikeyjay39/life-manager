@@ -33,6 +33,13 @@ e2e_rand() {
 ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-$(e2e_rand)}"
 JWT_SECRET="${E2E_JWT_SECRET:-$(e2e_rand)}"
 
+# The Gemini key comes from the environment only (CI: Actions secret
+# GEMINI_API_KEY). Empty means extraction is off (backend 503): the live
+# extract spec skips locally and fails in CI. Never echo the key.
+# The default model id is the one recorded on #318.
+GEMINI_API_KEY="${GEMINI_API_KEY:-}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.5-flash-lite}"
+
 # Optional Grafana keys stay empty so Alloy is not required for e2e.
 cat >"$OUT" <<EOF
 ADMIN_USERNAME=admin
@@ -54,6 +61,8 @@ EMAIL_CAPTURE_DIR_HOST=${EMAIL_CAPTURE_DIR_HOST}
 FRONTEND_URL=http://localhost:${FRONTEND_PORT}
 API_BASE_URL=http://localhost:${APP_PORT}
 E2E_DB_PATH=${REPO_ROOT}/backend/data/e2e.db
+GEMINI_API_KEY=${GEMINI_API_KEY}
+GEMINI_MODEL=${GEMINI_MODEL}
 EOF
 
 # Export for callers that source this script after generate.
@@ -72,3 +81,8 @@ export EMAIL_CAPTURE_DIR_HOST
 
 echo "Wrote $OUT (project=${PROJECT} APP_PORT=${APP_PORT} FRONTEND_PORT=${FRONTEND_PORT})"
 echo "EMAIL_PROVIDER=capture EMAIL_CAPTURE_DIR=${EMAIL_CAPTURE_DIR} (Resend disabled)"
+if [[ -n "$GEMINI_API_KEY" ]]; then
+  echo "GEMINI_API_KEY set: yes (GEMINI_MODEL=${GEMINI_MODEL})"
+else
+  echo "GEMINI_API_KEY set: no (GEMINI_MODEL=${GEMINI_MODEL})"
+fi

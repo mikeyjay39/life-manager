@@ -54,6 +54,16 @@ export function e2eDbPath(): string {
   return process.env.E2E_DB_PATH || path.join(REPO_ROOT, 'backend/data/e2e.db');
 }
 
+/**
+ * Container path of the e2e DB. The backend runs in `/app` and reads
+ * `DATABASE_URL=file:./data/e2e.db` from `.e2e.env`.
+ */
+export function e2eDbPathContainer(): string {
+  loadE2eEnvFile();
+  const databaseUrl = process.env.DATABASE_URL || 'file:./data/e2e.db';
+  return path.posix.resolve('/app', databaseUrl.replace(/^file:/, ''));
+}
+
 /** Container path written by CaptureFileEmailSender (`EMAIL_CAPTURE_DIR`). */
 export function emailCaptureDirContainer(): string {
   loadE2eEnvFile();

@@ -72,10 +72,34 @@ Prefer these over copy-paste locals in new scenarios.
 | Documents | `documents/documents-happy-path.spec.ts` | Open + edit seeded doc (#255) |
 | Car | `car/happy-path.spec.ts` | Create, maintenance, edit, deactivate, delete (#257) |
 | Car Document links | `car/document-links.spec.ts` | Create-from-Car insurance, registration and receipt; pick an existing Document (epic #298). Shared Car helpers: `car/ui.ts` |
+| Documents live extract | `documents/extract-from-file-live.spec.ts` | Real Gemini API, one request each run (#330). Needs `GEMINI_API_KEY`; skipped locally without it, fails in CI without it. Fixture: [`fixtures/README.md`](fixtures/README.md) |
 
 Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
 
 Agent overview: [docs/agents/testing.md](../docs/agents/testing.md). Live branch UI proof still uses [`.cursor/skills/manual-test/`](../.cursor/skills/manual-test/); prefer this suite for shared manager coverage.
+
+## Run the live extract test locally
+
+`documents/extract-from-file-live.spec.ts` is the only spec that calls
+`POST /documents/extract`. Do not add the call to other specs. It sends one
+real Gemini request for each run, and it has `retries: 0`.
+
+```bash
+export GEMINI_API_KEY=<your dev key>   # generate-env.sh writes it to .e2e.env
+./run-e2e.sh documents/extract-from-file-live.spec.ts
+```
+
+With manual steps, export the key before `bash scripts/up.sh`. `GEMINI_MODEL`
+defaults to `gemini-3.5-flash-lite`. Each run uses one request of the daily
+free-tier quota. A "Gemini quota" failure (HTTP 429) means that the quota is
+used up. Do not run the test again until the quota resets. In CI, the key
+comes from the GitHub Actions secret `GEMINI_API_KEY`.
+
+The test reads the usage count with a read-only SELECT (`helpers/db.ts`).
+It reads `E2E_DB_PATH` on the host first. When that file is missing (the
+Docker daemon resolves the `backend/data` bind mount on its own side), it
+copies the DB out of `life_manager_dev` with `docker compose exec` and
+queries the copy. The mail helpers use the same fallback (`helpers/docker.ts`).
 
 ## Parallel runs
 

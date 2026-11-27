@@ -127,6 +127,9 @@ fn build_request_body(source: &ExtractionSource) -> Value {
             "parts": [{ "text": EXTRACTION_PROMPT }, source_part(source)],
         }],
         "generationConfig": {
+            // A fixed temperature makes the output more stable for users and
+            // for the live e2e check (#330).
+            "temperature": 0,
             "responseMimeType": "application/json",
             "responseSchema": response_schema(),
         },
@@ -308,6 +311,7 @@ mod tests {
         assert_eq!(request.timeout, Duration::from_secs(30));
         let config = &request.body["generationConfig"];
         assert_eq!(config["responseMimeType"], "application/json");
+        assert_eq!(config["temperature"], json!(0));
         let properties = config["responseSchema"]["properties"]
             .as_object()
             .expect("schema properties");
