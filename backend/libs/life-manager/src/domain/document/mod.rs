@@ -2,8 +2,6 @@
 #[allow(clippy::module_inception)]
 mod document;
 pub mod document_storage_ref;
-pub mod extraction_limits;
-pub mod extraction_usage;
 pub mod uploaded_document_input;
 
 pub use document::*;

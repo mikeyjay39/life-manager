@@ -4,8 +4,8 @@ use backend_utils::{AppError, app_result::AppResult};
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::domain::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
-use crate::domain::document::extraction_usage::ExtractionUsage;
+use crate::application::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
+use crate::application::document::extraction_usage::ExtractionUsage;
 
 const NOT_CONFIGURED_MESSAGE: &str = "Extraction is not configured";
 
@@ -81,8 +81,10 @@ impl GetExtractionLimitsQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::document::extraction_limits::tests::{FixedExtractionLimits, SEEDED_LIMITS};
-    use crate::domain::document::extraction_usage::tests::InMemoryExtractionUsage;
+    use crate::application::document::extraction_limits::tests::{
+        FixedExtractionLimits, SEEDED_LIMITS,
+    };
+    use crate::application::document::extraction_usage::tests::InMemoryExtractionUsage;
 
     use super::*;
 

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::application::document::document_repository::DocumentRepository;
-use crate::domain::document::extraction_limits::ExtractionLimitsReader;
-use crate::domain::document::extraction_usage::ExtractionUsage;
+use crate::application::document::extraction_limits::ExtractionLimitsReader;
+use crate::application::document::extraction_usage::ExtractionUsage;
 
 #[derive(Clone)]
 pub struct DocumentUseCases {
