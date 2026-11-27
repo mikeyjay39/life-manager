@@ -749,6 +749,20 @@ describe('DocumentCreateForm extract from file', () => {
     });
   }
 
+  /** Each limits GET returns the next remaining_today; the last value repeats. */
+  function limitsSequence(...remaining: number[]): RouteHandler {
+    let call = 0;
+    return () => {
+      const value = remaining[Math.min(call, remaining.length - 1)];
+      call += 1;
+      return jsonResponse({
+        ...defaultLimits,
+        daily_limit_per_user: 20,
+        remaining_today: value,
+      });
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue(defaultAuth());
@@ -1004,6 +1018,52 @@ describe('DocumentCreateForm extract from file', () => {
     await waitFor(() => {
       expect(callsTo('/documents/extract/limits')).toHaveLength(2);
     });
+  });
+
+  it('given 20 of 20 left when an extraction succeeds then the hint shows 19 of 20 extractions left today', async () => {
+    // Given the backend counts one extraction: 20 left, then 19
+    mockApiRoutes({
+      limits: limitsSequence(20, 19),
+      extract: () => jsonResponse(fullExtraction),
+    });
+    renderDocumentCreateForm();
+    await waitFor(() => {
+      expect(screen.getByText('20 of 20 extractions left today')).toBeTruthy();
+    });
+    pickerReturns(jpegAsset());
+    // When the user extracts
+    pressExtract();
+    // Then the banner shows and the hint updates in the same mounted form
+    await waitFor(() => {
+      expect(screen.getByText(/Filled 5 fields from scan.jpg/)).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('19 of 20 extractions left today')).toBeTruthy();
+    });
+    expect(screen.queryByText('20 of 20 extractions left today')).toBeNull();
+  });
+
+  it('given the backend counted the request when the extraction fails then the hint shows the count from the backend', async () => {
+    // Given a counted 502 failure: 20 left, then 19
+    mockApiRoutes({
+      limits: limitsSequence(20, 19),
+      extract: () => jsonResponse({ message: 'Extraction failed.' }, 502),
+    });
+    renderDocumentCreateForm();
+    await waitFor(() => {
+      expect(screen.getByText('20 of 20 extractions left today')).toBeTruthy();
+    });
+    pickerReturns(jpegAsset());
+    // When the user extracts and the backend fails
+    pressExtract();
+    // Then the error banner shows and the hint shows the backend count
+    await waitFor(() => {
+      expect(screen.getByTestId('extract-feedback-error')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('19 of 20 extractions left today')).toBeTruthy();
+    });
+    expect(screen.queryByText('20 of 20 extractions left today')).toBeNull();
   });
 
   it('given web with a Proton session then the button shows', () => {
