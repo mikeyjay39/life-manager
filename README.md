@@ -123,7 +123,7 @@ Uses `APP_PORT` from your environment (see `.dev.env` at the repo root for profi
 
 | Variable | Default | Use |
 |----------|---------|-----|
-| `GEMINI_API_KEY` | not set | API key. When it is not set or blank, extraction is off and the endpoint returns 503. Keep it in the git-crypt env files only. The backend never logs it. |
+| `GEMINI_API_KEY` | not set | API key. When it is not set or blank, extraction is off and the endpoint returns 503. Keep it in the git-crypt env files only. The docker-dev e2e stack reads it from the environment (CI: Actions secret `GEMINI_API_KEY`). The backend never logs it. |
 | `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model id. |
 | `GEMINI_API_BASE_URL` | `https://generativelanguage.googleapis.com` | API base URL. Integration tests set it to a wiremock server. |
 
