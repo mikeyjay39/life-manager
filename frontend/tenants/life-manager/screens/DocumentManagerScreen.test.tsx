@@ -123,7 +123,8 @@ describe('DocumentManagerScreen', () => {
     mockAuthenticatedFetch.mockResolvedValue(
       new Response(JSON.stringify([]), { status: 200 })
     );
-    mockApiFetch.mockResolvedValue(
+    // A new Response per call: the create form also reads the extraction limits.
+    mockApiFetch.mockImplementation(async () =>
       new Response(
         JSON.stringify({
           id: '550e8400-e29b-41d4-a716-446655440000',
