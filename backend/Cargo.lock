@@ -1894,6 +1894,7 @@ dependencies = [
  "auth",
  "axum",
  "backend-utils",
+ "base64 0.22.1",
  "chrono",
  "deadpool-diesel",
  "diesel",
@@ -1902,6 +1903,7 @@ dependencies = [
  "image",
  "lazy_static",
  "libsqlite3-sys",
+ "lopdf",
  "pdf-extract",
  "reqwest",
  "serde",
@@ -1957,6 +1959,7 @@ version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5c8ecfc6c72051981c0459f75ccc585e7ff67c70829560cda8e647882a9abff"
 dependencies = [
+ "chrono",
  "encoding_rs",
  "flate2",
  "indexmap 2.11.4",
@@ -1965,6 +1968,7 @@ dependencies = [
  "md-5",
  "nom 7.1.3",
  "rangemap",
+ "rayon",
  "time",
  "weezl",
 ]
@@ -2057,6 +2061,7 @@ dependencies = [
  "axum-server",
  "axum-test",
  "backend-utils",
+ "base64 0.22.1",
  "chrono",
  "deadpool-diesel",
  "diesel",
@@ -2066,6 +2071,7 @@ dependencies = [
  "imageproc",
  "jsonwebtoken",
  "life-manager",
+ "lopdf",
  "once_cell",
  "reqwest",
  "serde",

@@ -12,6 +12,7 @@ async-trait = { workspace = true }
 auth = { path = "../auth" }
 axum = { workspace = true }
 backend-utils = { path = "../common/backend-utils" }
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel = { version = "2.2.0", features = ["sqlite", "chrono", "uuid", "returning_clauses_for_sqlite_3_35"] }
@@ -20,16 +21,17 @@ dotenvy = "0.15.0"
 image = "0.25.5"
 lazy_static = "1.4"
 libsqlite3-sys = { version = "0.35", features = ["bundled"] }
+lopdf = "0.34"
 pdf-extract = "0.7.0"
 reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls"] }
 serde = { workspace = true }
 serde_json = "1.0.68"
 server-host = { path = "../common/server-host" }
-tempfile = "3"
 tokio = { version = "1.47.1", features = ["full"] }
 tracing = { workspace = true }
 ts-rs = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+tempfile = "3"
 tracing-test = "0.2"

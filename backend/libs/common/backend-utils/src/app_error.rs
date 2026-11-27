@@ -18,6 +18,14 @@ pub enum AppError {
     Unauthorized,
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
+    #[error("Payload too large: {0}")]
+    PayloadTooLarge(String),
+    #[error("Too many requests: {0}")]
+    TooManyRequests(String),
+    #[error("Bad gateway: {0}")]
+    BadGateway(String),
+    #[error("Gateway timeout: {0}")]
+    GatewayTimeout(String),
 }
 
 #[derive(Serialize)]
@@ -43,6 +51,14 @@ impl IntoResponse for AppError {
             AppError::ServiceUnavailable(msg) => {
                 (StatusCode::SERVICE_UNAVAILABLE, "service_unavailable", msg)
             }
+            AppError::PayloadTooLarge(msg) => {
+                (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large", msg)
+            }
+            AppError::TooManyRequests(msg) => {
+                (StatusCode::TOO_MANY_REQUESTS, "too_many_requests", msg)
+            }
+            AppError::BadGateway(msg) => (StatusCode::BAD_GATEWAY, "bad_gateway", msg),
+            AppError::GatewayTimeout(msg) => (StatusCode::GATEWAY_TIMEOUT, "gateway_timeout", msg),
         };
         let body = ErrorResponse {
             error: error_type.to_string(),
@@ -150,5 +166,45 @@ mod tests {
         let json = response_json(response).await;
         assert_eq!(json["error"], "service_unavailable");
         assert_eq!(json["message"], "try again later");
+    }
+
+    #[tokio::test]
+    async fn given_payload_too_large_when_into_response_then_returns_413_json() {
+        let response = AppError::PayloadTooLarge("details".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+        let json = response_json(response).await;
+        assert_eq!(json["error"], "payload_too_large");
+        assert_eq!(json["message"], "details");
+    }
+
+    #[tokio::test]
+    async fn given_too_many_requests_when_into_response_then_returns_429_json() {
+        let response = AppError::TooManyRequests("details".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let json = response_json(response).await;
+        assert_eq!(json["error"], "too_many_requests");
+        assert_eq!(json["message"], "details");
+    }
+
+    #[tokio::test]
+    async fn given_bad_gateway_when_into_response_then_returns_502_json() {
+        let response = AppError::BadGateway("details".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+
+        let json = response_json(response).await;
+        assert_eq!(json["error"], "bad_gateway");
+        assert_eq!(json["message"], "details");
+    }
+
+    #[tokio::test]
+    async fn given_gateway_timeout_when_into_response_then_returns_504_json() {
+        let response = AppError::GatewayTimeout("details".to_string()).into_response();
+        assert_eq!(response.status(), StatusCode::GATEWAY_TIMEOUT);
+
+        let json = response_json(response).await;
+        assert_eq!(json["error"], "gateway_timeout");
+        assert_eq!(json["message"], "details");
     }
 }

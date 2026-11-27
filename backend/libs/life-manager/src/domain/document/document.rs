@@ -21,7 +21,7 @@ pub struct Document {
 }
 
 /// Trims whitespace, lowercases, skips empty strings, and dedupes (first-seen order).
-fn normalize_tag_names(tags: &[String]) -> Vec<String> {
+pub fn normalize_tag_names(tags: &[String]) -> Vec<String> {
     let mut normalized = Vec::new();
     for tag in tags {
         let name = tag.trim().to_lowercase();

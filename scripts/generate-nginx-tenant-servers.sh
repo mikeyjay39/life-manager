@@ -183,6 +183,9 @@ server {
 
     location ${mount_path}/api {
         limit_req zone=api burst=20 nodelay;
+        # Document extract uploads (POST .../documents/extract). This is a transport
+        # ceiling only; the real file limit is max_file_bytes in the database.
+        client_max_body_size 25m;
         proxy_pass http://life-manager:\${APP_PORT};
         proxy_http_version 1.1;
         proxy_set_header Host \$host;

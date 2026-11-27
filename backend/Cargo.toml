@@ -55,6 +55,7 @@ uuid = { workspace = true }
 [dev-dependencies]
 auth = { path = "libs/auth", features = ["test-support"] }
 axum-test = "18.1.0"
+base64 = "0.22"
 chrono = "0.4"
 deadpool-diesel = { version = "0.6", features = ["sqlite"] }
 diesel = { version = "2.2.0", features = ["sqlite"] }
@@ -63,6 +64,7 @@ dotenv = "0.15.0"
 image = "0.25.5"
 imageproc = "0.25.0"
 jsonwebtoken = { workspace = true }
+lopdf = "0.34"
 life-manager = { path = "libs/life-manager" }
 test-tenant = { path = "libs/test-tenant" }
 once_cell = "1"
