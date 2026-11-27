@@ -13,15 +13,15 @@ backend/
     common/
       server-host/        # AppBootstrap, TenantMount trait (composition only)
     auth/                 # JWT login, auth_router
-      src/schema.rs       # Generated — do not hand-edit
-      migrations/         # Author SQL here; user runs diesel migration run
+      src/schema.rs       # Generated: regenerate from a throwaway DB (see Diesel / SQLite); never hand-edit
+      migrations/         # Author SQL here; agents apply it only to a throwaway DB
     life-manager/
       src/life_manager_tenant.rs  # LifeManagerTenant (TenantMount impl)
       src/domain/           # By aggregate: car/, document/, health/
       src/application/      # By aggregate: car/, document/, health/
       src/infrastructure/ # By aggregate: car/, document/, health/ + shared/
-      src/schema.rs       # Generated — do not hand-edit
-      migrations/         # Author SQL here; user runs diesel migration run
+      src/schema.rs       # Generated: regenerate from a throwaway DB (see Diesel / SQLite); never hand-edit
+      migrations/         # Author SQL here; agents apply it only to a throwaway DB
     test-tenant/
       src/test_tenant.rs  # TestTenant (TenantMount impl, auth-only pilot)
       src/infrastructure/ # TestTenantState, own DB pool (TEST_TENANT_DATABASE_URL)
@@ -114,9 +114,19 @@ CI runs the same export tests and fails if `frontend/lib/api/generated/` is stal
 ## Diesel / SQLite
 
 - Bundled SQLite (`libsqlite3-sys`); `DATABASE_URL` (life-manager) and `TEST_TENANT_DATABASE_URL` (test-tenant pilot) from `.<profile>.env` at the repo root
-- Agents: edit `libs/life-manager/migrations/*.sql` and `libs/auth/migrations/*.sql` only — never `diesel migration run` or hand-edit `libs/life-manager/src/schema.rs` or `libs/auth/src/schema.rs`
+- Agents: author `libs/life-manager/migrations/*.sql` and `libs/auth/migrations/*.sql`. Never hand-edit `libs/*/src/schema.rs`. Regenerate it with `diesel migration run` on a throwaway SQLite file only. Never use `data/*.db` or a `DATABASE_URL` from an env file. The `[print_schema]` section of each `diesel.toml` writes `schema.rs`. Run the auth line only when an auth migration changed:
+
+  ```bash
+  tmp=$(mktemp -d)
+  diesel migration run --database-url "$tmp/schema.db" --config-file diesel.toml
+  (cd libs/auth && diesel migration run --database-url "$tmp/auth.db" --config-file diesel.toml)
+  rm -f "$tmp"/*.db
+  rmdir "$tmp"
+  ```
+
 - User applies migrations per [../README.md](../README.md)
-- `document_extraction_limits` and `document_extraction_usage` have no `schema.rs` entry. Their adapter (`infrastructure/document/document_extraction_orm_collection.rs`) uses `diesel::sql_query` with `QueryableByName` rows. The daily reserve is one atomic `INSERT … ON CONFLICT DO UPDATE … WHERE count < limit RETURNING count` statement.
+- A migration that rebuilds a table (SQLite cannot change a column type in place) uses `metadata.toml` with `run_in_transaction = false`, and runs `PRAGMA foreign_keys = OFF` before its own `BEGIN` and `PRAGMA foreign_keys = ON` after its `COMMIT`. The server runs migrations on a connection with foreign keys on, so `DROP TABLE` of a parent would delete its `ON DELETE CASCADE` children. Example: [`2026-11-27-000000_align_column_types_with_schema`](libs/life-manager/migrations/2026-11-27-000000_align_column_types_with_schema/), with its row-preservation test in `libs/life-manager/tests/align_column_types_migration_tests.rs`.
+- The daily extraction reserve (`infrastructure/document/document_extraction_orm_collection.rs`) is one atomic upsert in the Diesel DSL: `insert_into(..).values(..).on_conflict(..).do_update().set(..).filter(count.lt(limit)).returning(count)`. The upsert `filter` needs `diesel::query_dsl::methods::FilterDsl` in scope.
 - `create_connection_pool_from_url` sets `PRAGMA foreign_keys = ON` and `PRAGMA busy_timeout = 5000` on each pooled connection. Concurrent writers wait for the lock instead of failing with `SQLITE_BUSY`.
 
 ## Tests

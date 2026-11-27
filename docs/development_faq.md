@@ -181,7 +181,7 @@ Agents do not create Resend accounts or change DNS. A human does these steps bef
 3. **Verify DNS in Resend** after propagation. **Status (2026-11-10):** Resend marks `life-manager.jeszenka.com` as verified. Re-check in Resend if you change DNS later.
 4. Set `EMAIL_FROM` (address on that domain), `RESEND_API_KEY`, and `EMAIL_PROVIDER=resend` in git-crypt `.prod.env` (and `.dev.env` when you want real sends from a local stack). Human already set encrypted env for this delivery.
 5. Set `APP_PUBLIC_BASE_URL=https://life-manager.jeszenka.com` for prod so verify and reset links hit the public app.
-6. After pull, apply both migration sets when you use the Diesel CLI (agents do not). From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
+6. After pull, apply both migration sets when you use the Diesel CLI. Agents regenerate `schema.rs` only from a throwaway DB; the human applies migrations to real databases. From `backend/`: `diesel migration run`, then `cd libs/auth && diesel migration run --config-file diesel.toml`. See [README.md](../README.md). The server also applies both sets on startup for each tenant pool, so a restart after deploy is enough for Resend readiness when you do not run Diesel by hand.
 
 ### Ops escape hatch (SQLite activation)
 
