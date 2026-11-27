@@ -3,7 +3,7 @@
 mod document;
 pub mod document_extractor;
 pub mod document_storage_ref;
-pub mod extraction_media_type;
+pub mod media_type;
 pub mod pdf_reader;
 pub mod uploaded_document_input;
 
