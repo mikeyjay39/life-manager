@@ -1,0 +1,3 @@
+# PRAGMA foreign_keys has no effect inside a transaction. up.sql and
+# down.sql run their own BEGIN/COMMIT with foreign keys off.
+run_in_transaction = false

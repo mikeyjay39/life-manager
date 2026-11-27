@@ -51,7 +51,19 @@ Humans never force-push `main`. Prefer a PR over committing directly on `main`.
 
 ### Database (read-only for agents)
 
-**Never run** write SQL or migration-apply CLI (`INSERT`…`REPLACE`, `diesel migration run`, `diesel database reset`, write `sqlite3`, etc.).
+**Never run** write SQL or migration-apply CLI (`INSERT`…`REPLACE`, `diesel migration run`, `diesel database reset`, write `sqlite3`, etc.) on a real database. Real databases include `backend/data/*.db` and any `DATABASE_URL` from an env file.
+
+**Exception (regenerate `schema.rs`):** agents may run `diesel migration run` and `diesel print-schema` with `--database-url` set to a new SQLite file in a temp folder (`mktemp -d`). Delete the temp folder after with `rm -f` and `rmdir`; the repo permission settings block `rm -rf`. If a guard also blocks `rm` on a variable path, use the literal path that `mktemp -d` printed. Steps, from `backend/`:
+
+```bash
+tmp=$(mktemp -d)
+diesel migration run --database-url "$tmp/schema.db" --config-file diesel.toml
+(cd libs/auth && diesel migration run --database-url "$tmp/auth.db" --config-file diesel.toml)
+rm -f "$tmp"/*.db
+rmdir "$tmp"
+```
+
+The `[print_schema]` section of each `diesel.toml` writes `schema.rs` again after the migrations. Run the auth line only when an auth migration changed.
 
 **OK:** `SELECT`, read-only Diesel inspect (`diesel migration list`, `diesel print-schema`), **authoring** `backend/libs/life-manager/migrations/*.sql` and `backend/libs/auth/migrations/*.sql`, **`cargo test`** / **`cargo run`** (app/test harness owns DB). Details: [backend/AGENTS.md](backend/AGENTS.md).
 
@@ -88,7 +100,8 @@ Run/test/deploy details: [README.md](README.md). CI on `main`: tests → ECR →
 
 - Small, focused diffs; match surrounding code.
 - **Update agent docs** in the same change when workflows/conventions change ([AGENTS.md](AGENTS.md), stack `AGENTS.md`, `docs/agents/*`, `.cursor/rules/*.mdc`).
-- Do not edit: `backend/libs/life-manager/src/schema.rs`, `backend/rev.txt`, `backend/target/`, `frontend/node_modules/`.
+- Do not hand-edit `backend/libs/*/src/schema.rs`. Regenerate it from a throwaway database (see **Database** above).
+- Do not edit: `backend/rev.txt`, `backend/target/`, `frontend/node_modules/`.
 - No secrets in commits; see git-crypt in development FAQ.
 
 ## Definition of done

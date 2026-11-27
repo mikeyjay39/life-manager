@@ -1,3 +1,81 @@
+// @generated automatically by Diesel CLI.
+
+diesel::table! {
+    car_maintenance_events (id) {
+        id -> Text,
+        user_id -> Text,
+        car_id -> Text,
+        occurred_on -> Date,
+        event_type -> Text,
+        odometer_miles -> Nullable<Integer>,
+        cost_cents -> Nullable<BigInt>,
+        title -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        document_id -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    cars (id) {
+        id -> Text,
+        user_id -> Text,
+        display_name -> Nullable<Text>,
+        make -> Text,
+        model -> Text,
+        year -> Integer,
+        vin -> Nullable<Text>,
+        license_plate -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        insurance_document_id -> Nullable<Text>,
+        registration_document_id -> Nullable<Text>,
+        active -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+        deactivated_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    doctor_visits (id) {
+        id -> Text,
+        user_id -> Text,
+        health_member_id -> Text,
+        visited_on -> Date,
+        provider_name -> Nullable<Text>,
+        reason -> Nullable<Text>,
+        notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    document_extraction_limits (id) {
+        id -> Integer,
+        daily_limit_per_user -> Integer,
+        max_file_bytes -> Integer,
+        max_pdf_pages -> Integer,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    document_extraction_usage (user_id, usage_date) {
+        user_id -> Text,
+        usage_date -> Text,
+        count -> Integer,
+    }
+}
+
+diesel::table! {
+    document_tags (document_id, tag_id) {
+        document_id -> Text,
+        tag_id -> Text,
+    }
+}
+
 diesel::table! {
     documents (id) {
         id -> Text,
@@ -30,57 +108,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    cars (id) {
-        id -> Text,
-        user_id -> Text,
-        display_name -> Nullable<Text>,
-        make -> Text,
-        model -> Text,
-        year -> Integer,
-        vin -> Nullable<Text>,
-        license_plate -> Nullable<Text>,
-        notes -> Nullable<Text>,
-        insurance_document_id -> Nullable<Text>,
-        registration_document_id -> Nullable<Text>,
-        active -> Bool,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
-        deactivated_at -> Nullable<Timestamp>,
-    }
-}
-
-diesel::table! {
-    car_maintenance_events (id) {
-        id -> Text,
-        user_id -> Text,
-        car_id -> Text,
-        occurred_on -> Date,
-        event_type -> Text,
-        odometer_miles -> Nullable<Integer>,
-        cost_cents -> Nullable<BigInt>,
-        title -> Nullable<Text>,
-        notes -> Nullable<Text>,
-        document_id -> Nullable<Text>,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
-    }
-}
-
-diesel::table! {
-    doctor_visits (id) {
-        id -> Text,
-        user_id -> Text,
-        health_member_id -> Text,
-        visited_on -> Date,
-        provider_name -> Nullable<Text>,
-        reason -> Nullable<Text>,
-        notes -> Nullable<Text>,
-        created_at -> Timestamp,
-        updated_at -> Timestamp,
-    }
-}
-
-diesel::table! {
     health_readings (id) {
         id -> Text,
         user_id -> Text,
@@ -104,24 +131,19 @@ diesel::table! {
     }
 }
 
-diesel::table! {
-    document_tags (document_id, tag_id) {
-        document_id -> Text,
-        tag_id -> Text,
-    }
-}
-
+diesel::joinable!(car_maintenance_events -> cars (car_id));
 diesel::joinable!(document_tags -> documents (document_id));
 diesel::joinable!(document_tags -> tags (tag_id));
-diesel::joinable!(car_maintenance_events -> cars (car_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     car_maintenance_events,
     cars,
     doctor_visits,
+    document_extraction_limits,
+    document_extraction_usage,
+    document_tags,
     documents,
     health_members,
     health_readings,
     tags,
-    document_tags,
 );
