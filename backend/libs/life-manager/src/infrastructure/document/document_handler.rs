@@ -33,12 +33,17 @@ struct ParsedUpdateDocumentMultipart<T> {
     file_name: String,
 }
 
-/// Creates a new document by processing multipart form data.
-/// +---------+     +-----------+     +--------+     +------------------+
-/// |         |     |           |     |        |     | SQLite           |
-/// | Handler |---->| Tesseract |---->| Ollama |---->| documents        |
-/// |         |     |           |     |        |     | tags/document_tags|
-/// +---------+     +-----------+     +--------+     +------------------+
+/// Creates a new document from multipart form data.
+/// The optional `file` part is read and ignored; the Document stores the submitted fields.
+///
+/// ```text
+/// Client -> create_document : POST multipart (json + optional file)
+/// create_document -> parse_document_multipart : json, file bytes (ignored)
+/// create_document -> CreateDocumentCommand : execute
+/// CreateDocumentCommand -> DocumentRepository : save_document
+/// DocumentRepository -> SQLite : documents, tags, document_tags
+/// create_document --> Client : 201 DocumentDto
+/// ```
 pub async fn create_document(
     AuthUser {
         user_id,
@@ -60,8 +65,6 @@ pub async fn create_document(
         let document = CreateDocumentCommand::new(
             uploaded_document_input,
             document_use_cases.document_repository.clone(),
-            document_use_cases.reader.clone(),
-            document_use_cases.summarizer.clone(),
         )
         .execute()
         .await?;
@@ -182,8 +185,6 @@ pub async fn update_document_json(
             },
         ),
         repo,
-        document_use_cases.reader.clone(),
-        document_use_cases.summarizer.clone(),
     );
 
     AppResponse::ok(DocumentDto::from_document(
@@ -191,12 +192,19 @@ pub async fn update_document_json(
     ))
 }
 
-/// Updates an existing document by processing multipart form data (optional file re-upload with OCR).
-/// +---------+     +-----------+     +--------+     +------------------+
-/// |         |     |           |     |        |     | SQLite           |
-/// | Handler |---->| Tesseract |---->| Ollama |---->| documents        |
-/// |         |     |           |     |        |     | tags/document_tags|
-/// +---------+     +-----------+     +--------+     +------------------+
+/// Updates an existing document from multipart form data.
+/// The optional `file` part is accepted and ignored; id, user_id and created_at do not change.
+///
+/// ```text
+/// Client -> update_document : PUT multipart (json + optional file)
+/// update_document -> parse_document_multipart : json, file bytes (ignored)
+/// update_document -> UpdateDocumentCommand : execute
+/// UpdateDocumentCommand -> DocumentRepository : load_owned_document
+/// UpdateDocumentCommand -> Document : apply_metadata_update
+/// UpdateDocumentCommand -> DocumentRepository : update_document
+/// DocumentRepository -> SQLite : documents, tags, document_tags
+/// update_document --> Client : 200 DocumentDto
+/// ```
 pub async fn update_document(
     AuthUser {
         user_id,
@@ -235,15 +243,9 @@ pub async fn update_document(
             },
         );
 
-        let document = UpdateDocumentCommand::new(
-            id,
-            uploaded_document_input,
-            repo,
-            document_use_cases.reader.clone(),
-            document_use_cases.summarizer.clone(),
-        )
-        .execute()
-        .await?;
+        let document = UpdateDocumentCommand::new(id, uploaded_document_input, repo)
+            .execute()
+            .await?;
         AppResponse::ok(DocumentDto::from_document(&document))
     } else {
         let err_msg = "No valid JSON data found in the multipart form";
@@ -353,7 +355,6 @@ pub async fn get_documents_by_title(
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use std::sync::Arc;
 
     use crate::application::document::document_repository::DocumentRepository;
@@ -361,8 +362,6 @@ mod tests {
     use crate::application::document::document_use_cases::DocumentUseCases;
     use crate::domain::document::Document;
     use crate::domain::document::document_storage_ref::STORAGE_PROVIDER_PROTON_DRIVE;
-    use crate::domain::document::document_summarizer::{DocumentSummarizer, DocumentSummaryResult};
-    use crate::domain::document::document_text_reader::DocumentTextReader;
 
     use crate::infrastructure::document::document_api_types::DocumentStorageRefDto;
 
@@ -374,41 +373,6 @@ mod tests {
     use serde::de::DeserializeOwned;
     use serde_json::from_slice;
     use uuid::Uuid;
-
-    struct MockDocumentTextReader;
-
-    #[async_trait]
-    impl DocumentTextReader for MockDocumentTextReader {
-        async fn read_image(
-            &self,
-            _uploaded_document_input: &UploadedDocumentInput,
-        ) -> Result<String, Box<dyn Error>> {
-            Ok(String::from("This is test content."))
-        }
-    }
-
-    struct MockDocumentSummarizer;
-    #[async_trait]
-    impl DocumentSummarizer for MockDocumentSummarizer {
-        async fn summarize(&self, text: &str) -> Result<DocumentSummaryResult, Box<dyn Error>> {
-            Ok(DocumentSummaryResult {
-                summary: text.to_string(),
-                title: String::from("Test Document"),
-            })
-        }
-    }
-
-    struct MockFailingDocumentTextReader;
-
-    #[async_trait]
-    impl DocumentTextReader for MockFailingDocumentTextReader {
-        async fn read_image(
-            &self,
-            _uploaded_document_input: &UploadedDocumentInput,
-        ) -> Result<String, Box<dyn Error>> {
-            Err(Box::new(std::io::Error::other("read failed")))
-        }
-    }
 
     struct MockFailingDocumentRepository;
 
@@ -482,8 +446,6 @@ mod tests {
 
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
         // Serialize the JSON payload
@@ -558,8 +520,6 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
         let response = create_document_json(
@@ -598,8 +558,6 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
         let response = create_document_json(
@@ -638,8 +596,6 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
         let response = create_document_json(
@@ -664,8 +620,6 @@ mod tests {
         // Given
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
         let multipart = multipart_from_parts(None, true).await;
 
@@ -689,44 +643,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_from_file_failure_when_creating_document_then_returns_internal_error() {
-        // Given
-        let payload = CreateDocumentCommandDto {
-            title: String::from("Test Document"),
-            content: String::from("This is test content."),
-            tags: vec![],
-            issued_date: None,
-            expire_date: None,
-            storage: None,
-        };
-        let document_use_cases = Arc::new(DocumentUseCases {
-            document_repository: Arc::new(DocumentCollection::new()),
-            reader: Arc::new(MockFailingDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
-        });
-        let multipart =
-            multipart_from_parts(Some(&serde_json::to_string(&payload).unwrap()), true).await;
-
-        // When
-        let response = create_document(
-            test_auth_user(),
-            State(DocumentState(document_use_cases)),
-            multipart,
-        )
-        .await
-        .into_response();
-
-        // Then
-        assert_api_error_response(
-            response,
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "internal_error",
-            "An internal error occurred",
-        )
-        .await;
-    }
-
-    #[tokio::test]
     async fn given_save_failure_when_creating_document_then_returns_internal_error() {
         // Given
         let payload = CreateDocumentCommandDto {
@@ -739,8 +655,6 @@ mod tests {
         };
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(MockFailingDocumentRepository {}),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
         let multipart =
             multipart_from_parts(Some(&serde_json::to_string(&payload).unwrap()), false).await;
@@ -1078,6 +992,66 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn given_owned_document_when_multipart_update_with_file_then_saves_submitted_fields() {
+        // Given
+        let GivenUserAndDocuments {
+            auth_user,
+            document_use_cases,
+            document1_id,
+            ..
+        } = given_user_and_documents().await;
+        let existing = document_use_cases
+            .document_repository
+            .load_owned_document(&document1_id, &auth_user.user_id)
+            .await
+            .expect("seeded document must exist");
+        let payload = UpdateDocumentCommandDto {
+            title: String::from("Submitted Title"),
+            content: String::from("Submitted content."),
+            tags: vec!["receipt".to_string(), "tax".to_string()],
+            issued_date: None,
+            expire_date: None,
+            storage: None,
+        };
+        let multipart =
+            multipart_from_parts(Some(&serde_json::to_string(&payload).unwrap()), true).await;
+
+        // When
+        let response = update_document(
+            auth_user.clone(),
+            State(DocumentState(document_use_cases.clone())),
+            Path(document1_id),
+            multipart,
+        )
+        .await
+        .into_response();
+
+        // Then
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("Failed to read body");
+        let response_document: DocumentDto =
+            from_slice(&bytes).expect("Failed to deserialize body");
+        assert_eq!(response_document.id, existing.id);
+        assert_eq!(response_document.created_at, existing.created_at);
+        assert_eq!(response_document.title, "Submitted Title");
+        assert_eq!(response_document.content, "Submitted content.");
+        assert_eq!(
+            response_document.tags,
+            vec!["receipt".to_string(), "tax".to_string()]
+        );
+        let saved = document_use_cases
+            .document_repository
+            .load_owned_document(&document1_id, &auth_user.user_id)
+            .await
+            .expect("updated document must exist");
+        assert_eq!(saved.user_id, existing.user_id);
+        assert_eq!(saved.title, "Submitted Title");
+        assert_eq!(saved.content(), "Submitted content.");
+    }
+
+    #[tokio::test]
     async fn test_get_documents_by_title_empty() {
         let GivenUserAndDocuments {
             auth_user,
@@ -1245,8 +1219,6 @@ mod tests {
 
         let document_use_cases = Arc::new(DocumentUseCases {
             document_repository: Arc::new(repo),
-            reader: Arc::new(MockDocumentTextReader {}),
-            summarizer: Arc::new(MockDocumentSummarizer {}),
         });
 
         GivenUserAndDocuments {

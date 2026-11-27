@@ -1,16 +1,14 @@
-//! Shared PDF text extraction and OCR-needed detection for [`DocumentTextReader`] implementations.
+//! Embedded text extraction from uploaded PDF files.
 
-use std::{collections::HashSet, error::Error, io::Write};
+use std::{error::Error, io::Write};
 
-use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 
 use crate::domain::document::uploaded_document_input::UploadedDocumentInput;
 
-static OCR_EXTENSIONS: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| HashSet::from(["png", "jpg", "jpeg", "tiff", "bmp", "gif"]));
-
-/// Attempts to extract embedded text from a PDF without OCR. Returns [`None`] if no text is found.
+/// Attempts to extract embedded text from a PDF. Returns [`None`] if no text is found.
+///
+/// Logs only the file name and the text length: document text can contain personal data.
 pub fn get_text_from_pdf(
     uploaded_document_input: &UploadedDocumentInput,
 ) -> Result<Option<String>, Box<dyn Error>> {
@@ -19,27 +17,17 @@ pub fn get_text_from_pdf(
     tmp.flush()?;
 
     let text = pdf_extract::extract_text(tmp.path())?;
+    let file_name = uploaded_document_input.file_name.as_deref().unwrap_or("");
 
     if text.trim().is_empty() {
-        tracing::info!(
-            "No text extracted from PDF. {}",
-            uploaded_document_input.file_name.as_deref().unwrap_or("")
-        );
+        tracing::info!("No text extracted from PDF: {}", file_name);
         Ok(None)
     } else {
         tracing::info!(
-            "Extracted text from PDF: {}\n, {}",
-            uploaded_document_input.file_name.as_deref().unwrap_or(""),
-            text
+            "Extracted text from PDF: {}, length: {}",
+            file_name,
+            text.len()
         );
         Ok(Some(text))
-    }
-}
-
-/// Whether the upload likely needs remote OCR based on its file extension.
-pub fn needs_ocr(uploaded_document_input: &UploadedDocumentInput) -> bool {
-    match uploaded_document_input.extension.as_deref() {
-        Some(extension) => OCR_EXTENSIONS.contains(extension),
-        None => false,
     }
 }

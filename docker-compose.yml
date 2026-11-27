@@ -24,21 +24,6 @@
 name: life-manager
 
 services:
-  # ollama:
-  #   image: ollama/ollama:latest
-  #   container_name: ollama
-  #   ports:
-  #     - "${OLLAMA_PORT}:${OLLAMA_PORT}"
-  #   volumes:
-  #     - ollama:/root/.ollama
-  #     - ./backend/ollama-entrypoint.sh:/entrypoint.sh
-  #   entrypoint: ["/entrypoint.sh"]
-  #   environment:
-  #     - OLLAMA_HOST=0.0.0.0
-  #     - "OLLAMA_PORT=${OLLAMA_PORT}"
-  #   restart: unless-stopped
-  #   profiles: ["dev", "prod"]
-
   life-manager:
     image: ${LIFE_MANAGER_BACKEND_IMAGE}
     build:
@@ -159,20 +144,7 @@ services:
     mem_limit: 128m
     restart: on-failure
 
-  # OCR sidecar — not started with dev/test/prod alone; use e.g.
-  # docker compose --profile prod --profile tesseract up -d
-  tesseract:
-    image: ${TESSERACT_SERVER_IMAGE:-hertzg/tesseract-server:latest}
-    container_name: tesseract
-    ports:
-      - "${TESSERACT_PORT}:${TESSERACT_PORT}"
-    environment:
-      - TESSERACT_LANGUAGE=eng
-    restart: unless-stopped
-    profiles: ["tesseract"]
-
 volumes:
-  ollama:
   alloy_data:
   frontend_dev_node_modules:
   life_manager_dev_target:

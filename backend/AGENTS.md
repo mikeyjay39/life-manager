@@ -55,7 +55,7 @@ Applies within **`libs/life-manager/src/`**:
 | `application` | `domain`, `application` |
 | `infrastructure` | any layer |
 
-New features: `domain` / `application` first, then `infrastructure/<aggregate>/` (see `infrastructure/document/`). Platform adapters (DB pool, OCR, HTTP client, `app_state`) live under `infrastructure/shared/`.
+New features: `domain` / `application` first, then `infrastructure/<aggregate>/` (see `infrastructure/document/`). Platform adapters (DB pool, HTTP client, `app_state`) live under `infrastructure/shared/`.
 
 In-memory `<Aggregate>Collection` repositories (for example `CarCollection`, `DocumentCollection`) are test fakes of the repository port. Define each one in a `#[cfg(test)] pub(crate) mod tests` at the end of its port file, `application/<aggregate>/<aggregate>_repository.rs`. Tests in any layer import it from there, for example `crate::application::car::car_repository::tests::CarCollection`. Do not put them in their own module files or in product code. Product code uses the `*OrmCollection` adapters.
 

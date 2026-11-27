@@ -80,7 +80,7 @@ cargo clippy --workspace --manifest-path backend/Cargo.toml --all-targets -- -D 
 
 ## Ignored tests
 
-Some tests use `#[ignore]` (e.g. docker-compose integration in `documents_tests.rs`, Ollama adapter tests). Normal `cargo test --test '*'` **does not run** them unless `--ignored`. Do not assume they passed.
+Some tests can use `#[ignore]`. Normal `cargo test --test '*'` **does not run** them unless `--ignored`. Do not assume they passed.
 
 ## BDD / Gherkin style
 

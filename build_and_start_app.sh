@@ -7,16 +7,11 @@ env_basename() {
 }
 
 BUILD_IMAGE=0
-WITH_TESSERACT=0
 PROFILE=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --build-image)
       BUILD_IMAGE=1
-      shift
-      ;;
-    --with-tesseract)
-      WITH_TESSERACT=1
       shift
       ;;
     dev|docker-dev|test|prod)
@@ -29,14 +24,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "Error: unknown argument '$1'"
-      echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+      echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image]"
       exit 1
       ;;
   esac
 done
 
 if [ -z "$PROFILE" ]; then
-  echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image]"
   exit 1
 fi
 
@@ -45,7 +40,7 @@ fi
 # ---- Validate profile ----
 if [[ "$PROFILE" != "dev" && "$PROFILE" != "docker-dev" && "$PROFILE" != "test" && "$PROFILE" != "prod" ]]; then
   echo "Error: invalid profile '$PROFILE'"
-  echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image] [--with-tesseract]"
+  echo "Usage: build_and_start_app.sh <test | dev | docker-dev | prod> [--build-image]"
   exit 1
 fi
 
@@ -57,9 +52,6 @@ fi
 BACKEND_EXTRA=()
 if [ "$BUILD_IMAGE" -eq 1 ]; then
   BACKEND_EXTRA+=(--build-image)
-fi
-if [ "$WITH_TESSERACT" -eq 1 ]; then
-  BACKEND_EXTRA+=(--with-tesseract)
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
