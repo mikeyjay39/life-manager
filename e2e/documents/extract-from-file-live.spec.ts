@@ -19,10 +19,13 @@ import { attachNoResendNoProtonGuard, openDocumentManager } from './ui';
  * ```
  * Harness -> createEphemeralUser (signup + capture verify)
  * Browser -> /login -> hub -> Documents -> Add document
+ * Browser -> API : GET /documents/extract/limits -> hint 20 of 20
  * Browser -> Extract From File (one click) -> file chooser : fixture PNG
  * Browser -> API : POST /documents/extract (one request)
  * API -> Gemini : generateContent (one request)
- * Browser -> assert banner + fields -> Submit
+ * Browser -> assert banner + fields
+ * Browser -> API : GET /documents/extract/limits -> hint 19 of 20
+ * Browser -> Submit
  * Harness -> API : GET /documents/{id} : dates + title
  * Harness -> SQLite (read-only) : SELECT usage count = 1
  * alt host DB file missing (docker-from-dev-container)
@@ -41,6 +44,9 @@ const EXPECTED = {
   expireDate: '2027-12-31',
   keyword: 'insurance',
   maxSummaryChars: 200,
+  // The migration seeds daily_limit_per_user 20, and the new user has no usage.
+  hintBefore: '20 of 20 extractions left today',
+  hintAfter: '19 of 20 extractions left today',
 } as const;
 
 const FIXTURE_PATH = path.join(__dirname, '..', 'fixtures', EXPECTED.fileName);
@@ -129,6 +135,13 @@ async function expectExtractedFields(page: Page): Promise<void> {
   expect(tags.toLowerCase()).toContain(EXPECTED.keyword);
 }
 
+/** The form reloads the limits after the extract; wait for that GET, not a fixed sleep. */
+async function expectExtractionsHint(page: Page, text: string): Promise<void> {
+  await expect(
+    page.getByText(text, { exact: true }).locator('visible=true').first()
+  ).toBeVisible({ timeout: 15_000 });
+}
+
 async function submitAndReadDocumentId(page: Page): Promise<string> {
   const createResponse = page.waitForResponse(
     (response) => isPost(response, CREATE_DOCUMENT_PATH_SUFFIX),
@@ -193,6 +206,7 @@ test.describe('Documents live Extract From File', () => {
           .locator('visible=true')
           .first()
       ).toBeVisible({ timeout: 30_000 });
+      await expectExtractionsHint(page, EXPECTED.hintBefore);
 
       // When
       await extractFixture(page);
@@ -205,6 +219,8 @@ test.describe('Documents live Extract From File', () => {
           .first()
       ).toBeVisible({ timeout: 60_000 });
       await expectExtractedFields(page);
+      await expectExtractionsHint(page, EXPECTED.hintAfter);
+      await screenshotProof(page, testInfo, 'documents-extract-live-hint.png');
 
       const id = await submitAndReadDocumentId(page);
       const saved = await fetchDocument(token, id);

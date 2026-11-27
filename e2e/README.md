@@ -72,7 +72,7 @@ Prefer these over copy-paste locals in new scenarios.
 | Documents | `documents/documents-happy-path.spec.ts` | Open + edit seeded doc (#255) |
 | Car | `car/happy-path.spec.ts` | Create, maintenance, edit, deactivate, delete (#257) |
 | Car Document links | `car/document-links.spec.ts` | Create-from-Car insurance, registration and receipt; pick an existing Document (epic #298). Shared Car helpers: `car/ui.ts` |
-| Documents live extract | `documents/extract-from-file-live.spec.ts` | Real Gemini API, one request each run (#330). Needs `GEMINI_API_KEY`; skipped locally without it, fails in CI without it. Fixture: [`fixtures/README.md`](fixtures/README.md) |
+| Documents live extract | `documents/extract-from-file-live.spec.ts` | Real Gemini API, one request each run (#330). Needs `GEMINI_API_KEY`; skipped locally without it, fails in CI without it. It also checks the extractions-left hint (20 → 19) with no extra Gemini request (#333). Fixture: [`fixtures/README.md`](fixtures/README.md) |
 
 Playwright `testMatch` includes `tests/**`, `health/**`, `documents/**`, and `car/**`.
 
