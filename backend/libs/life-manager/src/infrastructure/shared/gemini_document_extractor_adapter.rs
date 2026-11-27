@@ -199,7 +199,7 @@ fn parse_response(response: &HttpResponse) -> Result<RawDocumentFields, Document
 mod tests {
     use std::sync::Mutex;
 
-    use crate::domain::document::extraction_media_type::ExtractionMediaType;
+    use crate::domain::document::media_type::ExtractionMediaType;
 
     use super::*;
 

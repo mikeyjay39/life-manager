@@ -116,11 +116,13 @@ mod tests {
 
     use crate::application::document::document_repository::tests::DocumentCollection;
     use crate::application::document::document_use_cases::DocumentUseCases;
+    use crate::application::document::extraction_limits::ExtractionLimits;
+    use crate::application::document::extraction_limits::tests::{
+        FixedExtractionLimits, SEEDED_LIMITS,
+    };
+    use crate::application::document::extraction_usage::tests::InMemoryExtractionUsage;
     use crate::domain::document::document_extractor::RawDocumentFields;
     use crate::domain::document::document_extractor::tests::FakeDocumentExtractor;
-    use crate::domain::document::extraction_limits::ExtractionLimits;
-    use crate::domain::document::extraction_limits::tests::{FixedExtractionLimits, SEEDED_LIMITS};
-    use crate::domain::document::extraction_usage::tests::InMemoryExtractionUsage;
     use crate::domain::document::pdf_reader::tests::FakePdfReader;
 
     use super::*;
