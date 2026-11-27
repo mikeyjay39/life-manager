@@ -125,7 +125,9 @@ Uses `APP_PORT` from your environment (see `.dev.env` at the repo root for profi
 |----------|---------|-----|
 | `GEMINI_API_KEY` | not set | API key. When it is not set or blank, extraction is off and the endpoint returns 503. Keep it in the git-crypt env files only. The backend never logs it. |
 | `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Gemini model id. |
-| `GEMINI_API_BASE_URL` | `https://generativelanguage.googleapis.com` | API base URL. Tests and e2e set it to a stub server. |
+| `GEMINI_API_BASE_URL` | `https://generativelanguage.googleapis.com` | API base URL. Integration tests set it to a wiremock server. |
+
+The prod key is in the git-crypt `.prod.env` file. The owner manages it. The extract file leaves the Proton boundary and goes to Google. See [Extract From File workflow](docs/development_faq.md#extract-from-file-workflow).
 
 ## Example API calls
 

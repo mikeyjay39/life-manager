@@ -91,6 +91,8 @@ Domain, application, and infrastructure feature modules live under flat aggregat
 - `HttpClient::post_json` (`http_client.rs`) is the outbound HTTP port. Request headers can hold API keys: do not log them.
 - Env: `GEMINI_API_KEY` (unset → `document_extractor: None` → 503), `GEMINI_MODEL`, `GEMINI_API_BASE_URL`. Integration tests point the base URL at a wiremock server (`tests/document_extract_tests.rs`).
 - Logs: one line for each request with user_id, media type, size, page count, path, latency, and status. Never log the extracted text, the file bytes, or the key.
+- Limits live in the database, not in env or code: `document_extraction_limits` (one row, read on each request). Per-user daily usage is in `document_extraction_usage`. Only the owner changes the limits ([../docs/development_faq.md](../docs/development_faq.md#change-document-extraction-limits-owner-only)).
+- Workflow sequence and the Proton privacy note: [../docs/development_faq.md](../docs/development_faq.md#extract-from-file-workflow).
 
 ## TypeScript DTO codegen (ts-rs)
 

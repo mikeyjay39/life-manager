@@ -228,6 +228,51 @@ sqlite3 ./data/dev-test.db \
   "INSERT INTO document_extraction_limits (id, daily_limit_per_user, max_file_bytes, max_pdf_pages, updated_at) VALUES (1, 20, 10485760, 5, CURRENT_TIMESTAMP);"
 ```
 
+## Extract From File workflow
+
+The **Extract From File** button on `DocumentCreateForm` reads an image or PDF and fills the empty form fields. It works in create mode and draft mode, on web and native, with or without Proton. The extract file is not the attached file, and the backend does not store it. The user checks the fields and then submits the form with the normal create flow.
+
+### Sequence
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Form as DocumentCreateForm
+  participant Backend as life-manager API
+  participant DB as SQLite
+  participant Gemini as Google Gemini API
+
+  Form->>Backend: GET /documents/extract/limits (on mount)
+  Backend->>DB: read limits row + today's usage
+  Backend-->>Form: ExtractionLimitsDto
+  User->>Form: Extract From File (image or PDF)
+  Form->>Form: check max_file_bytes, remaining_today
+  Form->>Backend: POST /documents/extract (multipart file)
+  Backend->>Backend: validate type and size
+  Backend->>Backend: prepare source (PDF text, or PDF cut to max_pdf_pages)
+  Backend->>DB: reserve one daily unit (429 when none left)
+  Note over Backend,Gemini: File bytes or PDF text leave the Proton boundary
+  Backend->>Gemini: generateContent (HTTPS)
+  Gemini-->>Backend: JSON fields
+  Backend->>Backend: normalize fields
+  Backend-->>Form: ExtractedDocumentFieldsDto
+  Form->>Form: mergeExtractedFields (fill empty fields only)
+  Form->>Backend: GET /documents/extract/limits (refresh)
+  User->>Form: Submit
+  Form->>Backend: normal create flow (POST /documents or /documents/json)
+```
+
+### Privacy (Proton boundary)
+
+- The extract file (or the text of a PDF) leaves the Proton boundary. The backend sends it to Google Gemini.
+- On the Gemini free tier, Google can use the content to train its models. Do not extract a file that you do not want Google to see.
+- The backend does not store the extract file or the extracted text. It does not log them.
+- The attached file of the Document still follows the [Proton upload workflow](#upload-workflow) on web.
+
+### Limits
+
+The daily units, the file size limit, and the PDF page limit are in the database. Only the owner changes them. See [Change document extraction limits (owner only)](#change-document-extraction-limits-owner-only). API statuses: [agents/api.md](agents/api.md).
+
 ## Proton Drive (experimental, web only)
 
 life-manager can upload document files **directly to Proton Drive** from the **Expo web** build (desktop or mobile browser). The native Expo app still uses the backend multipart upload path without Proton.
