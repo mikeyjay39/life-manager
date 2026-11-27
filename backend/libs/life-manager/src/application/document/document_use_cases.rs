@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::application::document::document_repository::DocumentRepository;
+use crate::application::document::extraction_limits::ExtractionLimitsReader;
+use crate::application::document::extraction_usage::ExtractionUsage;
 use crate::domain::document::document_extractor::DocumentExtractor;
-use crate::domain::document::extraction_limits::ExtractionLimitsReader;
-use crate::domain::document::extraction_usage::ExtractionUsage;
 use crate::domain::document::pdf_reader::PdfReader;
 
 #[derive(Clone)]

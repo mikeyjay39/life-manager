@@ -5,14 +5,14 @@ use backend_utils::{AppError, app_result::AppResult};
 use chrono::NaiveDate;
 use uuid::Uuid;
 
+use crate::application::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
+use crate::application::document::extraction_usage::{ExtractionUsage, ReserveOutcome};
 use crate::application::document::get_extraction_limits_query::load_configured_limits;
 use crate::domain::document::document_extractor::{
     DocumentExtractionError, DocumentExtractor, ExtractedDocumentFields, ExtractionSource,
     RawDocumentFields,
 };
-use crate::domain::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
-use crate::domain::document::extraction_media_type::ExtractionMediaType;
-use crate::domain::document::extraction_usage::{ExtractionUsage, ReserveOutcome};
+use crate::domain::document::media_type::ExtractionMediaType;
 use crate::domain::document::normalize_tag_names;
 use crate::domain::document::pdf_reader::{PdfReader, PdfUnreadable};
 
@@ -332,9 +332,11 @@ fn outcome_label(result: &AppResult<ExtractedDocumentFields>) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use crate::application::document::extraction_limits::tests::{
+        FixedExtractionLimits, SEEDED_LIMITS,
+    };
+    use crate::application::document::extraction_usage::tests::InMemoryExtractionUsage;
     use crate::domain::document::document_extractor::tests::FakeDocumentExtractor;
-    use crate::domain::document::extraction_limits::tests::{FixedExtractionLimits, SEEDED_LIMITS};
-    use crate::domain::document::extraction_usage::tests::InMemoryExtractionUsage;
     use crate::domain::document::pdf_reader::tests::FakePdfReader;
 
     use super::*;

@@ -12,8 +12,8 @@ use diesel::{
 };
 use uuid::Uuid;
 
-use crate::domain::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
-use crate::domain::document::extraction_usage::{ExtractionUsage, ReserveOutcome};
+use crate::application::document::extraction_limits::{ExtractionLimits, ExtractionLimitsReader};
+use crate::application::document::extraction_usage::{ExtractionUsage, ReserveOutcome};
 use crate::schema::{document_extraction_limits, document_extraction_usage};
 
 /// The single owner-set row has this id (`CHECK (id = 1)`).
