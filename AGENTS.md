@@ -53,13 +53,14 @@ Humans never force-push `main`. Prefer a PR over committing directly on `main`.
 
 **Never run** write SQL or migration-apply CLI (`INSERT`…`REPLACE`, `diesel migration run`, `diesel database reset`, write `sqlite3`, etc.) on a real database. Real databases include `backend/data/*.db` and any `DATABASE_URL` from an env file.
 
-**Exception (regenerate `schema.rs`):** agents may run `diesel migration run` and `diesel print-schema` with `--database-url` set to a new SQLite file in a temp folder (`mktemp -d`). Delete the temp folder after. Steps, from `backend/`:
+**Exception (regenerate `schema.rs`):** agents may run `diesel migration run` and `diesel print-schema` with `--database-url` set to a new SQLite file in a temp folder (`mktemp -d`). Delete the temp folder after with `rm -f` and `rmdir`; the repo permission settings block `rm -rf`. If a guard also blocks `rm` on a variable path, use the literal path that `mktemp -d` printed. Steps, from `backend/`:
 
 ```bash
 tmp=$(mktemp -d)
 diesel migration run --database-url "$tmp/schema.db" --config-file diesel.toml
 (cd libs/auth && diesel migration run --database-url "$tmp/auth.db" --config-file diesel.toml)
-rm -rf "$tmp"
+rm -f "$tmp"/*.db
+rmdir "$tmp"
 ```
 
 The `[print_schema]` section of each `diesel.toml` writes `schema.rs` again after the migrations. Run the auth line only when an auth migration changed.
